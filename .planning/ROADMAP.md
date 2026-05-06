@@ -134,7 +134,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
-| 2. Core Math | 0/7 | Planned | - |
+| 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 0/? | Not started | - |
 | 4. TUI & Input | 0/? | Not started | - |
 | 5. Persistence & UX | 0/? | Not started | - |
