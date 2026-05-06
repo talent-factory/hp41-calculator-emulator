@@ -8,7 +8,7 @@ pub mod stack_ops;
 pub mod math;
 // Phase 2 modules — uncommented when their files are created:
 pub mod registers;
-// pub mod alpha;
+pub mod alpha;
 
 use arithmetic::{op_add, op_sub, op_mul, op_div};
 use stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
@@ -18,6 +18,7 @@ use math::{
     op_set_deg, op_set_rad, op_set_grad,
 };
 use registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
+use alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq)]
@@ -171,8 +172,8 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::RclReg(r)              => op_rcl(state, r),
         Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),
         Op::Clreg                  => op_clreg(state),
-        Op::AlphaToggle    => Err(HpError::InvalidOp),
-        Op::AlphaAppend(_) => Err(HpError::InvalidOp),
-        Op::AlphaClear     => Err(HpError::InvalidOp),
+        Op::AlphaToggle       => op_alpha_toggle(state),
+        Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
+        Op::AlphaClear        => op_alpha_clear(state),
     }
 }
