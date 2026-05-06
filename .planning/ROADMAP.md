@@ -59,9 +59,9 @@ Plans:
 - [x] 02-02-PLAN.md — HpNum math methods (14 methods: recip/sqrt/sq/ln/log10/exp/exp10/powd + trig with f64 bridge)
 - [x] 02-03-PLAN.md — Wave 0 test scaffolds (math_tests, trig_tests, format_tests, register_tests, alpha_tests, extend lift_tests)
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 02-04-PLAN.md — ops/math.rs with all 17 math/trig/angle ops + dispatch wiring
-- [ ] 02-05-PLAN.md — ops/registers.rs (STO/RCL/STO-arith/CLREG) + format.rs (FIX/SCI/ENG) + dispatch wiring
-- [ ] 02-06-PLAN.md — ops/alpha.rs (AlphaToggle/AlphaAppend/AlphaClear) + dispatch wiring
+- [x] 02-04-PLAN.md — ops/math.rs with all 17 math/trig/angle ops + dispatch wiring
+- [x] 02-05-PLAN.md — ops/registers.rs (STO/RCL/STO-arith/CLREG) + format.rs (FIX/SCI/ENG) + dispatch wiring
+- [x] 02-06-PLAN.md — ops/alpha.rs (AlphaToggle/AlphaAppend/AlphaClear) + dispatch wiring
 **Wave 4** *(blocked on Wave 3)* — human checkpoint
 - [ ] 02-07-PLAN.md — entry_buf flush in dispatch() + entry_buf_tests + just ci green gate
 
