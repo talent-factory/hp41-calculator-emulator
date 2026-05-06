@@ -492,7 +492,7 @@ fn enter_then_add() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Rust 2021 vs 2024 edition for hp41-core**
    - What we know: Rust 1.89 stable supports edition 2024; `resolver = "3"` is used with 2024 edition
