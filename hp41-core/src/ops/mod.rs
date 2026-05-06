@@ -2,6 +2,8 @@ use crate::error::HpError;
 use crate::num::HpNum;
 use crate::state::{CalcState, DisplayMode};
 use crate::stack::{apply_lift_effect, LiftEffect};
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 pub mod arithmetic;
 pub mod stack_ops;
@@ -114,11 +116,35 @@ pub enum Op {
     AlphaClear,
 }
 
+/// Flush the number entry buffer to the stack.
+///
+/// If entry_buf is non-empty, parse it as a Decimal and push onto the stack
+/// via enter_number (respecting lift_enabled). Then set lift_enabled = true.
+///
+/// This MUST be called at the start of every dispatch() invocation so that
+/// pending digit entry is committed before any operation consumes the stack.
+///
+/// Returns Err(HpError::InvalidOp) only if entry_buf contains unparseable content
+/// (defensive guard; well-formed CLI input produces valid Decimal strings).
+pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
+    if state.entry_buf.is_empty() {
+        return Ok(());
+    }
+    let s = state.entry_buf.clone();
+    state.entry_buf.clear();
+    let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
+    let n = HpNum::rounded(d);
+    crate::stack::enter_number(state, n);
+    crate::stack::apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
+}
+
 /// Dispatch an operation to its implementation function.
 ///
 /// This is the single entry point for all calculator operations in hp41-core.
 /// Callers (hp41-cli, tests) call dispatch(state, op) and handle the Result.
 pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
+    flush_entry_buf(state)?; // commit any pending digit entry before executing op
     match op {
         // ── Phase 1 ops ──────────────────────────────────────────────────
         Op::Add        => op_add(state),

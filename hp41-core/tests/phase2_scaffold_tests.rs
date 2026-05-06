@@ -12,7 +12,7 @@
 use hp41_core::{CalcState, HpNum};
 use hp41_core::state::{AngleMode, DisplayMode};
 use hp41_core::stack::unary_result;
-use hp41_core::ops::{Op, StoArithKind, dispatch};
+use hp41_core::ops::{Op, StoArithKind};
 
 // ── AngleMode enum ────────────────────────────────────────────────────────────
 
