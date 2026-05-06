@@ -304,43 +304,6 @@ fn test_op_enum_has_alpha_variants() {
     assert_ne!(Op::AlphaAppend('A'), Op::AlphaAppend('B'));
 }
 
-// ── dispatch() stub arms return InvalidOp ────────────────────────────────────
-
-#[test]
-fn test_dispatch_recip_returns_invalid_op_stub() {
-    use hp41_core::HpError;
-    let mut state = CalcState::new();
-    state.stack.x = HpNum::from(4);
-    let result = dispatch(&mut state, Op::Recip);
-    assert_eq!(result, Err(HpError::InvalidOp), "Recip stub must return InvalidOp");
-}
-
-#[test]
-fn test_dispatch_sqrt_returns_invalid_op_stub() {
-    use hp41_core::HpError;
-    let mut state = CalcState::new();
-    state.stack.x = HpNum::from(4);
-    let result = dispatch(&mut state, Op::Sqrt);
-    assert_eq!(result, Err(HpError::InvalidOp), "Sqrt stub must return InvalidOp");
-}
-
-#[test]
-fn test_dispatch_sin_returns_invalid_op_stub() {
-    use hp41_core::HpError;
-    let mut state = CalcState::new();
-    state.stack.x = HpNum::from(30);
-    let result = dispatch(&mut state, Op::Sin);
-    assert_eq!(result, Err(HpError::InvalidOp), "Sin stub must return InvalidOp");
-}
-
-#[test]
-fn test_dispatch_stoarith_returns_invalid_op_stub() {
-    use hp41_core::HpError;
-    let mut state = CalcState::new();
-    let result = dispatch(&mut state, Op::StoArith { reg: 5, kind: StoArithKind::Add });
-    assert_eq!(result, Err(HpError::InvalidOp));
-}
-
 // ── Phase 1 regression: existing tests still compile and pass ─────────────────
 
 #[test]
