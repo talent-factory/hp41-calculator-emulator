@@ -63,7 +63,7 @@ Plans:
 - [x] 02-05-PLAN.md — ops/registers.rs (STO/RCL/STO-arith/CLREG) + format.rs (FIX/SCI/ENG) + dispatch wiring
 - [x] 02-06-PLAN.md — ops/alpha.rs (AlphaToggle/AlphaAppend/AlphaClear) + dispatch wiring
 **Wave 4** *(blocked on Wave 3)* — human checkpoint
-- [ ] 02-07-PLAN.md — entry_buf flush in dispatch() + entry_buf_tests + just ci green gate
+- [x] 02-07-PLAN.md — entry_buf flush in dispatch() + entry_buf_tests + just ci green gate
 
 **Cross-cutting constraints:**
 - All new Op variants must declare LiftEffect (Enable/Disable/Neutral) per Phase 1 convention
