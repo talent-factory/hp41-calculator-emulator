@@ -43,7 +43,7 @@ fn format_fix(d: Decimal, digits: usize) -> String {
     // FIX overflow check: if |integer part| >= 10^(10 - digits), fall back to SCI 9.
     // This matches HP-41 hardware: can't display more than 10 significant digits in FIX.
     let abs_d = d.abs();
-    let overflow_exp = if digits <= 10 { 10 - digits } else { 0 };
+    let overflow_exp = 10_usize.saturating_sub(digits);
     let overflow_threshold = decimal_pow10(overflow_exp as i32);
 
     if abs_d >= overflow_threshold {

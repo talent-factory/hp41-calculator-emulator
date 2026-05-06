@@ -692,7 +692,8 @@ mod num_trig_math_tests {
         // Structural: the comment "f64 round-trip" must be present in num.rs
         // This is verified by grep in acceptance_criteria — this test is a placeholder
         // that always passes to document the requirement.
-        assert!(true, "f64 round-trip bridge documented in num.rs via grep");
+        // Structural: the comment "f64 round-trip" is present in num.rs — verified by acceptance_criteria grep.
+        // No runtime assertion needed here.
     }
 }
 
