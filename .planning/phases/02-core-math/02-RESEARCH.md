@@ -788,22 +788,19 @@ Phase 2 is a local calculator library with no network access, authentication, or
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED for Phase 2 scope)
 
-1. **Accuracy of rust_decimal sin/cos/tan at HP-41-boundary values**
+1. **Accuracy of rust_decimal sin/cos/tan at HP-41-boundary values** — ACCEPTED RISK
    - What we know: rust_decimal uses Maclaurin series with early-exit tolerance ~0.0000002; HP-41 has 10 sig digit display
-   - What's unclear: whether the Taylor series precision matches HP-41 at extreme angles (near π/2 for tan, very large angles requiring multiple reduction steps)
-   - Recommendation: Add insta snapshot tests for SIN(89°), SIN(89.9999°), TAN(89°) against known HP-41 hardware values; if they fail at digit 10, the f64 bridge approach may need to be used for all trig, not just inverse trig
+   - Resolution: Proceeding with rust_decimal checked_sin/cos/tan. Phase 2 adds insta snapshot tests (Plan 02-03) for SIN(89°), TAN(89°). If snapshots show precision gaps at digit 10, Phase 7 QUAL-06 (98% agreement, 500-case suite) is the correction gate. The f64 bridge is already used for asin/acos/atan — extending to forward trig is a straightforward Plan 02-02/02-04 edit if snapshots fail.
 
-2. **FIX overflow exact threshold**
+2. **FIX overflow exact threshold** — ACCEPTED RISK
    - What we know: HP-41 switches from FIX to SCI when number cannot be displayed in fixed format
-   - What's unclear: the exact condition — is it when the integer part exceeds the display width, or when significant digits would be lost? What is the exact 12-character display width constraint?
-   - Recommendation: Test with V41 emulator (open source): `FIX 4`, enter `9999999999` (10-digit integer) — does it show `9999999999.0000` or switch to SCI?
+   - Resolution: Plan 02-05 implements FIX overflow using `abs >= 10^(10 - digits)` threshold (standard HP behavior). The exact boundary will be confirmed in Phase 7 via the 500-case numerical test suite. Manual verification test in VALIDATION.md covers the boundary case. Not blocking Phase 2 plans.
 
-3. **CHS behavior during entry_buf with EEX**
-   - What we know: CHS toggles the mantissa sign when not in EEX mode, and the exponent sign when in EEX mode
-   - What's unclear: After pressing `3`, `EEX`, `5`, the buf is `"3E5"`. Pressing `CHS` — does it change the mantissa to `-3E5` or the exponent to `3E-5`? The HP-41 uses EEX to indicate "cursor is on exponent".
-   - Recommendation: A `has_eex: bool` sub-flag in CalcState or a separate `eex_entered: bool` is needed to track this state. The string alone is insufficient. [ASSUMED: buf = `"3E5"`, CHS → `"3E-5"` (exponent sign change) if EEX was the last mode-changing key pressed]
+3. **CHS behavior during entry_buf with EEX** — OUT OF SCOPE FOR PHASE 2
+   - What we know: CHS toggles mantissa sign vs. exponent sign depending on EEX mode state
+   - Resolution: Phase 2 does NOT implement digit-by-digit keyboard entry within hp41-core. The entry_buf (Plan 02-07) is populated by the caller (Phase 4 CLI/TUI). Phase 4 owns keyboard state machine including EEX mode tracking. A `eex_entered: bool` field should be added to CalcState in Phase 4, not Phase 2. No action required for Phase 2 plans.
 
 ---
 
