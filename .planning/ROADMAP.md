@@ -50,7 +50,16 @@ Plans:
   3. User can cycle FIX 4 → SCI 2 → ENG 3 and the same number renders in the correct notation each time
   4. User can STO a value into R00–R99, recall it with RCL, and perform STO+/−/×/÷ against a register — all matching HP-41 hardware behavior
   5. User can activate ALPHA mode, type a 24-character string, and confirm it is stored in the ALPHA register
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — CalcState expansion (AngleMode/DisplayMode enums, 6 new fields) + unary_result() + Op skeleton stubs
+- [ ] 02-02-PLAN.md — HpNum math methods (14 methods: recip/sqrt/sq/ln/log10/exp/exp10/powd + trig with f64 bridge)
+- [ ] 02-03-PLAN.md — Wave 0 test scaffolds (math_tests, trig_tests, format_tests, register_tests, alpha_tests, extend lift_tests)
+- [ ] 02-04-PLAN.md — ops/math.rs with all 17 math/trig/angle ops + dispatch wiring
+- [ ] 02-05-PLAN.md — ops/registers.rs (STO/RCL/STO-arith/CLREG) + format.rs (FIX/SCI/ENG) + dispatch wiring
+- [ ] 02-06-PLAN.md — ops/alpha.rs (AlphaToggle/AlphaAppend/AlphaClear) + dispatch wiring
+- [ ] 02-07-PLAN.md — entry_buf flush in dispatch() + entry_buf_tests + just ci green gate
 
 ### Phase 3: Programming Engine
 **Goal**: Users can record, store, and execute keystroke programs with labels, branches, subroutine calls, conditional tests, and loop control — with ISG/DSE counter-field behavior identical to HP-41 hardware.
@@ -117,7 +126,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
-| 2. Core Math | 0/? | Not started | - |
+| 2. Core Math | 0/7 | Planned | - |
 | 3. Programming Engine | 0/? | Not started | - |
 | 4. TUI & Input | 0/? | Not started | - |
 | 5. Persistence & UX | 0/? | Not started | - |
@@ -154,4 +163,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-06 after Phase 1 planning*
+*Last updated: 2026-05-06 after Phase 2 planning*
