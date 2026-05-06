@@ -25,19 +25,55 @@
 
 use crate::num::HpNum;
 
+/// Trigonometric angle mode — controls input/output units for SIN/COS/TAN/ASIN/ACOS/ATAN.
+/// Default: Deg (HP-41 hardware cold-start default).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AngleMode {
+    Deg,
+    Rad,
+    Grad,
+}
+
+/// Number display mode — controls how HpNum values are formatted for display.
+/// u8 field = digit count (0–9).
+/// Default: Fix(4) (HP-41 hardware cold-start default).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DisplayMode {
+    Fix(u8),
+    Sci(u8),
+    Eng(u8),
+}
+
 /// The complete, mutable state of the HP-41 calculator.
 ///
 /// All operations take `&mut CalcState`. No global mutable state anywhere.
 #[derive(Debug, Clone)]
 pub struct CalcState {
     pub stack: Stack,
-    // Phase 2 additions: regs: [HpNum; 100], alpha: String, flags: CalcFlags
+    /// Storage registers R00–R99 (0-indexed). All zero on startup.
+    pub regs: [HpNum; 100],
+    /// ALPHA register — up to 24 characters.
+    pub alpha_reg: String,
+    /// true = keyboard routes chars to alpha_reg instead of entry_buf.
+    pub alpha_mode: bool,
+    /// Trig angle mode (DEG/RAD/GRAD). Default: DEG.
+    pub angle_mode: AngleMode,
+    /// Number display mode (FIX/SCI/ENG n). Default: FIX 4.
+    pub display_mode: DisplayMode,
+    /// Pending digit string for number entry. Empty when not in digit-entry state.
+    pub entry_buf: String,
 }
 
 impl CalcState {
     pub fn new() -> Self {
         CalcState {
             stack: Stack::new(),
+            regs: std::array::from_fn(|_| HpNum::zero()),
+            alpha_reg: String::new(),
+            alpha_mode: false,
+            angle_mode: AngleMode::Deg,
+            display_mode: DisplayMode::Fix(4),
+            entry_buf: String::new(),
         }
     }
 }

@@ -11,7 +11,7 @@ pub mod ops;
 // Convenience re-exports for consumers
 pub use error::HpError;
 pub use num::HpNum;
-pub use state::{CalcState, Stack};
+pub use state::{CalcState, Stack, AngleMode, DisplayMode};
 pub use stack::LiftEffect;
 
 #[cfg(test)]
