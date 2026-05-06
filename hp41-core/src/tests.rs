@@ -340,6 +340,212 @@ mod arithmetic_tests {
     }
 }
 
+// ── Phase 2 Plan 02: HpNum math methods ──────────────────────────────────────
+// RED phase — tests for all 8 scalar math methods (Task 1) and 6 trig methods (Task 2).
+// These fail until the methods are implemented in num.rs.
+
+#[cfg(test)]
+mod num_scalar_math_tests {
+    use crate::num::HpNum;
+    use crate::error::HpError;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    // ── checked_recip ─────────────────────────────────────────────────────
+    #[test]
+    fn checked_recip_of_four_is_zero_point_25() {
+        let n = HpNum::from(4i32);
+        let r = n.checked_recip().unwrap();
+        let expected = Decimal::from_str("0.25").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    #[test]
+    fn checked_recip_of_zero_returns_divide_by_zero() {
+        let n = HpNum::zero();
+        assert_eq!(n.checked_recip(), Err(HpError::DivideByZero));
+    }
+
+    #[test]
+    fn checked_recip_result_is_rounded_to_10_sig_digits() {
+        // 1/3 = 0.3333333333 (10 sig digits)
+        let n = HpNum::from(3i32);
+        let r = n.checked_recip().unwrap();
+        let expected = Decimal::from_str("0.3333333333").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    // ── checked_sqrt ──────────────────────────────────────────────────────
+    #[test]
+    fn checked_sqrt_of_four_is_two() {
+        let n = HpNum::from(4i32);
+        let r = n.checked_sqrt().unwrap();
+        assert_eq!(r.inner(), Decimal::from(2));
+    }
+
+    #[test]
+    fn checked_sqrt_of_two_is_1_414213562() {
+        // √2 = 1.414213562 (10 sig digits)
+        let n = HpNum::from(2i32);
+        let r = n.checked_sqrt().unwrap();
+        let expected = Decimal::from_str("1.414213562").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    #[test]
+    fn checked_sqrt_of_negative_returns_domain() {
+        let n = HpNum::from(-1i32);
+        assert_eq!(n.checked_sqrt(), Err(HpError::Domain));
+    }
+
+    #[test]
+    fn checked_sqrt_of_zero_is_zero() {
+        let n = HpNum::zero();
+        let r = n.checked_sqrt().unwrap();
+        assert!(r.is_zero());
+    }
+
+    // ── checked_sq ────────────────────────────────────────────────────────
+    #[test]
+    fn checked_sq_of_three_is_nine() {
+        let n = HpNum::from(3i32);
+        let r = n.checked_sq().unwrap();
+        assert_eq!(r.inner(), Decimal::from(9));
+    }
+
+    #[test]
+    fn checked_sq_of_negative_is_positive() {
+        let n = HpNum::from(-5i32);
+        let r = n.checked_sq().unwrap();
+        assert_eq!(r.inner(), Decimal::from(25));
+    }
+
+    // ── checked_ln ────────────────────────────────────────────────────────
+    #[test]
+    fn checked_ln_of_one_is_zero() {
+        let n = HpNum::from(1i32);
+        let r = n.checked_ln().unwrap();
+        assert!(r.is_zero());
+    }
+
+    #[test]
+    fn checked_ln_of_two_is_0_6931471806() {
+        // LN(2) = 0.6931471806 (10 sig digits)
+        let n = HpNum::from(2i32);
+        let r = n.checked_ln().unwrap();
+        let expected = Decimal::from_str("0.6931471806").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    #[test]
+    fn checked_ln_of_zero_returns_domain() {
+        let n = HpNum::zero();
+        assert_eq!(n.checked_ln(), Err(HpError::Domain));
+    }
+
+    #[test]
+    fn checked_ln_of_negative_returns_domain() {
+        let n = HpNum::from(-1i32);
+        assert_eq!(n.checked_ln(), Err(HpError::Domain));
+    }
+
+    // ── checked_log10 ─────────────────────────────────────────────────────
+    #[test]
+    fn checked_log10_of_100_is_two() {
+        let n = HpNum::from(100i32);
+        let r = n.checked_log10().unwrap();
+        assert_eq!(r.inner(), Decimal::from(2));
+    }
+
+    #[test]
+    fn checked_log10_of_zero_returns_domain() {
+        let n = HpNum::zero();
+        assert_eq!(n.checked_log10(), Err(HpError::Domain));
+    }
+
+    #[test]
+    fn checked_log10_of_negative_returns_domain() {
+        let n = HpNum::from(-5i32);
+        assert_eq!(n.checked_log10(), Err(HpError::Domain));
+    }
+
+    // ── checked_exp ───────────────────────────────────────────────────────
+    #[test]
+    fn checked_exp_of_zero_is_one() {
+        let n = HpNum::zero();
+        let r = n.checked_exp().unwrap();
+        assert_eq!(r.inner(), Decimal::from(1));
+    }
+
+    #[test]
+    fn checked_exp_of_one_is_e() {
+        // e^1 = 2.718281828 (10 sig digits)
+        let n = HpNum::from(1i32);
+        let r = n.checked_exp().unwrap();
+        let expected = Decimal::from_str("2.718281828").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    // ── checked_exp10 ─────────────────────────────────────────────────────
+    #[test]
+    fn checked_exp10_of_zero_is_one() {
+        let n = HpNum::zero();
+        let r = n.checked_exp10().unwrap();
+        assert_eq!(r.inner(), Decimal::from(1));
+    }
+
+    #[test]
+    fn checked_exp10_of_two_is_100() {
+        let n = HpNum::from(2i32);
+        let r = n.checked_exp10().unwrap();
+        assert_eq!(r.inner(), Decimal::from(100));
+    }
+
+    #[test]
+    fn checked_exp10_of_three_is_1000() {
+        let n = HpNum::from(3i32);
+        let r = n.checked_exp10().unwrap();
+        assert_eq!(r.inner(), Decimal::from(1000));
+    }
+
+    // ── checked_powd ──────────────────────────────────────────────────────
+    #[test]
+    fn checked_powd_two_to_ten_is_1024() {
+        // 2^10 = 1024
+        let base = HpNum::from(2i32);
+        let exp = HpNum::from(10i32);
+        let r = base.checked_powd(&exp).unwrap();
+        assert_eq!(r.inner(), Decimal::from(1024));
+    }
+
+    #[test]
+    fn checked_powd_two_to_half_is_sqrt2() {
+        // 2^0.5 = 1.414213562
+        let base = HpNum::from(2i32);
+        let exp = HpNum::from(Decimal::from_str("0.5").unwrap());
+        let r = base.checked_powd(&exp).unwrap();
+        let expected = Decimal::from_str("1.414213562").unwrap();
+        assert_eq!(r.inner(), expected);
+    }
+
+    #[test]
+    fn checked_powd_negative_base_fractional_exp_returns_domain() {
+        // (-2)^0.5 = complex → Domain
+        let base = HpNum::from(-2i32);
+        let exp = HpNum::from(Decimal::from_str("0.5").unwrap());
+        assert_eq!(base.checked_powd(&exp), Err(HpError::Domain));
+    }
+
+    #[test]
+    fn checked_powd_negative_base_integer_exp_is_ok() {
+        // (-2)^3 = -8 — integer exponent is valid (result is real)
+        let base = HpNum::from(-2i32);
+        let exp = HpNum::from(3i32);
+        let r = base.checked_powd(&exp).unwrap();
+        assert_eq!(r.inner(), Decimal::from(-8));
+    }
+}
+
 #[cfg(test)]
 mod dispatch_tests {
     use crate::num::HpNum;
