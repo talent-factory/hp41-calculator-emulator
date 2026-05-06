@@ -12,21 +12,21 @@ A three-layer architecture enforced by Cargo workspace membership:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   hp41-cli (binary)                  │
-│  TUI rendering · key mapping · auto-save · help      │
-│  Depends on: hp41-core                               │
+│                   hp41-cli (binary)                 │
+│  TUI rendering · key mapping · auto-save · help     │
+│  Depends on: hp41-core                              │
 └────────────────────────┬────────────────────────────┘
                          │ calls core API only
                          ▼
 ┌─────────────────────────────────────────────────────┐
-│                 hp41-core (library)                  │
-│  Calculator state · arithmetic · programming engine  │
-│  No UI deps. No std I/O. Serializable.               │
+│                 hp41-core (library)                 │
+│  Calculator state · arithmetic · programming engine │
+│  No UI deps. No std I/O. Serializable.              │
 └─────────────────────────────────────────────────────┘
                 (future)
 ┌─────────────────────────────────────────────────────┐
-│                hp41-gui (Tauri, v2.0)                │
-│  Also depends on hp41-core only                      │
+│                hp41-gui (Tauri, v2.0)               │
+│  Also depends on hp41-core only                     │
 └─────────────────────────────────────────────────────┘
 ```
 
