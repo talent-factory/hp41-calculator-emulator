@@ -6,7 +6,7 @@ pub mod arithmetic;
 pub mod stack_ops;
 pub mod math;
 // Phase 2 modules — uncommented when their files are created:
-// pub mod registers;
+pub mod registers;
 // pub mod alpha;
 
 use arithmetic::{op_add, op_sub, op_mul, op_div};
@@ -16,6 +16,7 @@ use math::{
     op_sin, op_cos, op_tan, op_asin, op_acos, op_atan,
     op_set_deg, op_set_rad, op_set_grad,
 };
+use registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq)]
@@ -153,10 +154,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::FmtFix(_)      => Err(HpError::InvalidOp),
         Op::FmtSci(_)      => Err(HpError::InvalidOp),
         Op::FmtEng(_)      => Err(HpError::InvalidOp),
-        Op::StoReg(_)      => Err(HpError::InvalidOp),
-        Op::RclReg(_)      => Err(HpError::InvalidOp),
-        Op::StoArith { .. } => Err(HpError::InvalidOp),
-        Op::Clreg          => Err(HpError::InvalidOp),
+        Op::StoReg(r)              => op_sto(state, r),
+        Op::RclReg(r)              => op_rcl(state, r),
+        Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),
+        Op::Clreg                  => op_clreg(state),
         Op::AlphaToggle    => Err(HpError::InvalidOp),
         Op::AlphaAppend(_) => Err(HpError::InvalidOp),
         Op::AlphaClear     => Err(HpError::InvalidOp),
