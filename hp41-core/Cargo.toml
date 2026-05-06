@@ -1,0 +1,12 @@
+[package]
+name = "hp41-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rust_decimal = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.11"
+insta = { version = "1.47", features = ["yaml"] }

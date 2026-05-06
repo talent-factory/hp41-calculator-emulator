@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["hp41-core", "hp41-cli"]
+
+[workspace.dependencies]
+rust_decimal = "1.41"
+thiserror = "2.0"

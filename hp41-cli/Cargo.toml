@@ -1,0 +1,11 @@
+[package]
+name = "hp41-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "hp41"
+path = "src/main.rs"
+
+[dependencies]
+hp41-core = { path = "../hp41-core" }
