@@ -7,8 +7,8 @@
 
 ### Stack Model
 
-- [ ] **CORE-01**: User has a 4-level RPN stack (X/Y/Z/T) and LASTX register that behaves identically to HP-41 hardware
-- [ ] **CORE-02**: All ~130 operations implement correct stack-lift semantics (Enable / Disable / Neutral) per HP-41 specification
+- [x] **CORE-01**: User has a 4-level RPN stack (X/Y/Z/T) and LASTX register that behaves identically to HP-41 hardware
+- [x] **CORE-02**: All ~130 operations implement correct stack-lift semantics (Enable / Disable / Neutral) per HP-41 specification
 
 ### Math & Formatting
 
@@ -99,8 +99,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Pending |
-| CORE-02 | Phase 1 | Pending |
+| CORE-01 | Phase 1 | Complete |
+| CORE-02 | Phase 1 | Complete |
 | MATH-01 | Phase 2 | Pending |
 | MATH-02 | Phase 2 | Pending |
 | MATH-03 | Phase 2 | Pending |

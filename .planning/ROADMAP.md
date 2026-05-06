@@ -116,7 +116,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 4/4 | Complete   | 2026-05-06 |
+| 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 0/? | Not started | - |
 | 3. Programming Engine | 0/? | Not started | - |
 | 4. TUI & Input | 0/? | Not started | - |
