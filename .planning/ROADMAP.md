@@ -54,7 +54,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 02-01-PLAN.md — CalcState expansion (AngleMode/DisplayMode enums, 6 new fields) + unary_result() + Op skeleton stubs
+- [x] 02-01-PLAN.md — CalcState expansion (AngleMode/DisplayMode enums, 6 new fields) + unary_result() + Op skeleton stubs
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 02-02-PLAN.md — HpNum math methods (14 methods: recip/sqrt/sq/ln/log10/exp/exp10/powd + trig with f64 bridge)
 - [ ] 02-03-PLAN.md — Wave 0 test scaffolds (math_tests, trig_tests, format_tests, register_tests, alpha_tests, extend lift_tests)
