@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - Cargo workspace, CalcState, stack with HP-41-accurate stack-lift semantics, BCD/f64 decision
+- [x] **Phase 1: Foundation** - Cargo workspace, CalcState, stack with HP-41-accurate stack-lift semantics, BCD/f64 decision (completed 2026-05-06)
 - [ ] **Phase 2: Core Math** - Arithmetic, trig, number formatting, storage registers, ALPHA mode
 - [ ] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE
 - [ ] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping
@@ -32,7 +32,13 @@
   3. `cargo check -p hp41-core` passes with zero UI or CLI dependencies
   4. The numeric representation decision (BCD struct or `rust_decimal` wrapping f64 with 10-digit rounding) is committed to code and documented in an ADR comment in `state.rs`
   5. `just --list` shows all standard recipes (build, test, lint, run, ci) and `just ci` passes on macOS
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 01-PLAN-01.md — Cargo workspace scaffold + Justfile + cargo-llvm-cov install
+- [ ] 01-PLAN-02.md — HpError, HpNum, CalcState/Stack types + LiftEffect helpers + ADR comment
+- [ ] 01-PLAN-03.md — Op enum, dispatch, arithmetic ops (add/sub/mul/div), stack ops (enter/clx/chs/rdn/xy_swap/lastx)
+- [ ] 01-PLAN-04.md — CORE-01 unit tests, CORE-02 lift-effect tests, proptest suite, `just ci` gate
 
 ### Phase 2: Core Math
 **Goal**: Users can perform the complete HP-41 arithmetic, trigonometric, and formatting operation set, store and recall values in R00–R99 registers, and enter alphanumeric strings in ALPHA mode — all with HP-41-accurate 10-digit results.
@@ -110,7 +116,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/? | Not started | - |
+| 1. Foundation | 4/4 | Complete   | 2026-05-06 |
 | 2. Core Math | 0/? | Not started | - |
 | 3. Programming Engine | 0/? | Not started | - |
 | 4. TUI & Input | 0/? | Not started | - |
@@ -148,4 +154,4 @@
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-06 after initial creation*
+*Last updated: 2026-05-06 after Phase 1 planning*
