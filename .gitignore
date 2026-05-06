@@ -1,0 +1,41 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+
+# Coverage (cargo-llvm-cov, tarpaulin)
+lcov.info
+tarpaulin-report.html
+*.profraw
+*.profdata
+/coverage/
+
+# Insta snapshot testing — pending review files
+**/*.pending-snap
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.idea/
+# .vscode/ — omitted intentionally; commit shared settings if the team uses them
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Tauri (hp41-gui — future)
+/dist/
+node_modules/
+src-tauri/target/
+*.dmg
+*.deb
+*.rpm
+*.msi
+*.AppImage
+*.exe
+
+# Claude Code local agent data
+.claude/

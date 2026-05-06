@@ -99,12 +99,18 @@ Phase 7: Hardening           [ ] Not started
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260506-a1g | Add .gitignore for Rust/Cargo workspace | 2026-05-06 | — | [260506-a1g-add-gitignore](.planning/quick/260506-a1g-add-gitignore/) |
+
 ---
 
 ## Session Continuity
 
 **Last active:** 2026-05-06
-**Last action:** Roadmap created; STATE.md initialized
+**Last action:** Quick task 260506-a1g — added .gitignore for Rust/Cargo workspace
 **Next action:** Run `/gsd-plan-phase 1` to plan Phase 1: Foundation
 
 ---
