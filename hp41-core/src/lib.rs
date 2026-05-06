@@ -7,6 +7,7 @@ pub mod num;
 pub mod state;
 pub mod stack;
 pub mod ops;
+pub mod format;
 
 // Convenience re-exports for consumers
 pub use error::HpError;
