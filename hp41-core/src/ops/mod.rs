@@ -1,6 +1,7 @@
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::state::CalcState;
+use crate::state::{CalcState, DisplayMode};
+use crate::stack::{apply_lift_effect, LiftEffect};
 
 pub mod arithmetic;
 pub mod stack_ops;
@@ -151,9 +152,21 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::SetDeg     => op_set_deg(state),
         Op::SetRad     => op_set_rad(state),
         Op::SetGrad    => op_set_grad(state),
-        Op::FmtFix(_)      => Err(HpError::InvalidOp),
-        Op::FmtSci(_)      => Err(HpError::InvalidOp),
-        Op::FmtEng(_)      => Err(HpError::InvalidOp),
+        Op::FmtFix(n) => {
+            state.display_mode = DisplayMode::Fix(n);
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::FmtSci(n) => {
+            state.display_mode = DisplayMode::Sci(n);
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::FmtEng(n) => {
+            state.display_mode = DisplayMode::Eng(n);
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         Op::StoReg(r)              => op_sto(state, r),
         Op::RclReg(r)              => op_rcl(state, r),
         Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),

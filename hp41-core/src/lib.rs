@@ -14,6 +14,7 @@ pub use error::HpError;
 pub use num::HpNum;
 pub use state::{CalcState, Stack, AngleMode, DisplayMode};
 pub use stack::LiftEffect;
+pub use format::{format_hpnum, format_alpha};
 
 #[cfg(test)]
 mod tests;
