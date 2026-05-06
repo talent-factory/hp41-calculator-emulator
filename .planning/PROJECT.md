@@ -12,7 +12,8 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 ### Validated
 
-(None yet — ship to validate)
+- FR-01: RPN 4-level stack (X/Y/Z/T) and LASTX register — Validated in Phase 1: Foundation (2026-05-06)
+- FR-02: Correct stack-lift semantics — Validated in Phase 1: Foundation (2026-05-06)
 
 ### Active
 
@@ -110,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-06 after initialization*
+*Last updated: 2026-05-06 after Phase 1: Foundation complete*
