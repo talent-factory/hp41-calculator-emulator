@@ -9,6 +9,10 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 
 **Core invariant:** `hp41-core` must never depend on `hp41-cli` or `hp41-gui`. Enforced at compile time.
 
+## Git Workflow
+
+**Commits:** Always use `/git-workflow:commit --with-skills` — never commit directly via `git commit`.
+
 ## GSD Workflow
 
 Planning artifacts live in `.planning/`. Current state: roadmap created, Phase 1 ready to start.
