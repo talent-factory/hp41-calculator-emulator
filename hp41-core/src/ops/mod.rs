@@ -4,13 +4,18 @@ use crate::state::CalcState;
 
 pub mod arithmetic;
 pub mod stack_ops;
+pub mod math;
 // Phase 2 modules — uncommented when their files are created:
-// pub mod math;
 // pub mod registers;
 // pub mod alpha;
 
 use arithmetic::{op_add, op_sub, op_mul, op_div};
 use stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
+use math::{
+    op_recip, op_sqrt, op_sq, op_ypow, op_ln, op_log, op_exp, op_tenpow,
+    op_sin, op_cos, op_tan, op_asin, op_acos, op_atan,
+    op_set_deg, op_set_rad, op_set_grad,
+};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq)]
@@ -127,24 +132,24 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             crate::stack::enter_number(state, v);
             Ok(())
         }
-        // ── Phase 2 stubs — replaced in Plans 03, 05, 06 ────────────────
-        Op::Recip          => Err(HpError::InvalidOp),
-        Op::Sqrt           => Err(HpError::InvalidOp),
-        Op::Sq             => Err(HpError::InvalidOp),
-        Op::YPow           => Err(HpError::InvalidOp),
-        Op::Ln             => Err(HpError::InvalidOp),
-        Op::Log            => Err(HpError::InvalidOp),
-        Op::Exp            => Err(HpError::InvalidOp),
-        Op::TenPow         => Err(HpError::InvalidOp),
-        Op::Sin            => Err(HpError::InvalidOp),
-        Op::Cos            => Err(HpError::InvalidOp),
-        Op::Tan            => Err(HpError::InvalidOp),
-        Op::Asin           => Err(HpError::InvalidOp),
-        Op::Acos           => Err(HpError::InvalidOp),
-        Op::Atan           => Err(HpError::InvalidOp),
-        Op::SetDeg         => Err(HpError::InvalidOp),
-        Op::SetRad         => Err(HpError::InvalidOp),
-        Op::SetGrad        => Err(HpError::InvalidOp),
+        // ── Phase 2 math/trig/angle ops (Plan 04) ───────────────────────
+        Op::Recip      => op_recip(state),
+        Op::Sqrt       => op_sqrt(state),
+        Op::Sq         => op_sq(state),
+        Op::YPow       => op_ypow(state),
+        Op::Ln         => op_ln(state),
+        Op::Log        => op_log(state),
+        Op::Exp        => op_exp(state),
+        Op::TenPow     => op_tenpow(state),
+        Op::Sin        => op_sin(state),
+        Op::Cos        => op_cos(state),
+        Op::Tan        => op_tan(state),
+        Op::Asin       => op_asin(state),
+        Op::Acos       => op_acos(state),
+        Op::Atan       => op_atan(state),
+        Op::SetDeg     => op_set_deg(state),
+        Op::SetRad     => op_set_rad(state),
+        Op::SetGrad    => op_set_grad(state),
         Op::FmtFix(_)      => Err(HpError::InvalidOp),
         Op::FmtSci(_)      => Err(HpError::InvalidOp),
         Op::FmtEng(_)      => Err(HpError::InvalidOp),
