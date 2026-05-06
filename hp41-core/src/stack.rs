@@ -39,6 +39,22 @@ pub fn enter_number(state: &mut CalcState, value: HpNum) {
     // lift_enabled is NOT changed here — the calling operation sets it after entry
 }
 
+/// Record the result of a unary (single-operand) operation.
+///
+/// Saves current X to LASTX BEFORE overwriting X — same as binary_result.
+/// Unlike binary_result, Y, Z, and T are NOT modified (unary = no stack drop).
+/// Always enables lift after a unary result.
+///
+/// LiftEffect: Enable (implicit — unary_result always sets lift_enabled = true)
+pub fn unary_result(state: &mut CalcState, result: HpNum) {
+    // Capture X into LASTX BEFORE writing result — critical ordering
+    state.stack.lastx = state.stack.x.clone();
+    // Place result in X; Y, Z, T remain unchanged
+    state.stack.x = result;
+    // Unary results always enable lift (same behavior as binary)
+    state.stack.lift_enabled = true;
+}
+
 /// Record the result of a binary (two-operand) operation.
 ///
 /// Saves current X to LASTX BEFORE overwriting X.

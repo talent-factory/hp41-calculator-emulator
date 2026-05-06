@@ -76,3 +76,9 @@ impl std::fmt::Display for HpNum {
         write!(f, "{}", self.0)
     }
 }
+
+impl Default for HpNum {
+    fn default() -> Self {
+        HpNum::zero()
+    }
+}
