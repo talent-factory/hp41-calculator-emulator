@@ -97,41 +97,39 @@
 
 ## Traceability
 
-*Populated during roadmap creation.*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | — | Pending |
-| CORE-02 | — | Pending |
-| MATH-01 | — | Pending |
-| MATH-02 | — | Pending |
-| MATH-03 | — | Pending |
-| REGS-01 | — | Pending |
-| ALPH-01 | — | Pending |
-| PROG-01 | — | Pending |
-| PROG-02 | — | Pending |
-| DISP-01 | — | Pending |
-| DISP-02 | — | Pending |
-| INPUT-01 | — | Pending |
-| PERS-01 | — | Pending |
-| PERS-02 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| SCI-01 | — | Pending |
-| SCI-02 | — | Pending |
-| QUAL-01 | — | Pending |
-| QUAL-02 | — | Pending |
-| QUAL-03 | — | Pending |
-| QUAL-04 | — | Pending |
-| QUAL-05 | — | Pending |
-| QUAL-06 | — | Pending |
+| CORE-01 | Phase 1 | Pending |
+| CORE-02 | Phase 1 | Pending |
+| MATH-01 | Phase 2 | Pending |
+| MATH-02 | Phase 2 | Pending |
+| MATH-03 | Phase 2 | Pending |
+| REGS-01 | Phase 2 | Pending |
+| ALPH-01 | Phase 2 | Pending |
+| PROG-01 | Phase 3 | Pending |
+| PROG-02 | Phase 3 | Pending |
+| DISP-01 | Phase 4 | Pending |
+| DISP-02 | Phase 4 | Pending |
+| INPUT-01 | Phase 4 | Pending |
+| PERS-01 | Phase 5 | Pending |
+| PERS-02 | Phase 5 | Pending |
+| UX-01 | Phase 5 | Pending |
+| UX-02 | Phase 5 | Pending |
+| UX-03 | Phase 5 | Pending |
+| SCI-01 | Phase 6 | Pending |
+| SCI-02 | Phase 6 | Pending |
+| QUAL-01 | Phase 7 | Pending |
+| QUAL-02 | Phase 7 | Pending |
+| QUAL-03 | Phase 7 | Pending |
+| QUAL-04 | Phase 7 | Pending |
+| QUAL-05 | Phase 7 | Pending |
+| QUAL-06 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️ (pending roadmap)
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-06*
-*Last updated: 2026-05-06 after initial definition*
+*Last updated: 2026-05-06 after roadmap creation*
