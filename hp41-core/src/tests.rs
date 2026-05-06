@@ -253,3 +253,281 @@ mod stack_ops_tests {
         assert!(state.stack.lift_enabled);
     }
 }
+
+#[cfg(test)]
+mod arithmetic_tests {
+    use crate::num::HpNum;
+    use crate::state::CalcState;
+    use crate::ops::arithmetic::{op_add, op_sub, op_mul, op_div};
+    use crate::error::HpError;
+    use rust_decimal::Decimal;
+
+    fn state_with_xy(x: i32, y: i32) -> CalcState {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(x);
+        state.stack.y = HpNum::from(y);
+        state
+    }
+
+    #[test]
+    fn op_add_adds_y_plus_x() {
+        // 3 + 4 = 7
+        let mut state = state_with_xy(4, 3);
+        op_add(&mut state).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(7));
+    }
+
+    #[test]
+    fn op_add_enables_lift() {
+        let mut state = state_with_xy(1, 2);
+        state.stack.lift_enabled = false;
+        op_add(&mut state).unwrap();
+        assert!(state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn op_add_captures_lastx() {
+        // X=4 before add; lastx should be 4 after
+        let mut state = state_with_xy(4, 3);
+        op_add(&mut state).unwrap();
+        assert_eq!(state.stack.lastx.inner(), Decimal::from(4));
+    }
+
+    #[test]
+    fn op_sub_y_minus_x() {
+        // Y=10, X=3 → Y-X = 7
+        let mut state = state_with_xy(3, 10);
+        op_sub(&mut state).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(7));
+    }
+
+    #[test]
+    fn op_mul_multiplies() {
+        // Y=3, X=4 → 12
+        let mut state = state_with_xy(4, 3);
+        op_mul(&mut state).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(12));
+    }
+
+    #[test]
+    fn op_div_y_divided_by_x() {
+        // Y=10, X=2 → 5
+        let mut state = state_with_xy(2, 10);
+        op_div(&mut state).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(5));
+    }
+
+    #[test]
+    fn op_div_by_zero_returns_error() {
+        let mut state = state_with_xy(0, 10);
+        let result = op_div(&mut state);
+        assert_eq!(result, Err(HpError::DivideByZero));
+    }
+
+    #[test]
+    fn op_add_rotates_stack_y_gets_z() {
+        // Stack: X=1, Y=2, Z=3, T=4 → after add: X=3 (2+1), Y=3 (old Z), Z=4 (old T), T=4
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(1i32);
+        state.stack.y = HpNum::from(2i32);
+        state.stack.z = HpNum::from(3i32);
+        state.stack.t = HpNum::from(4i32);
+        op_add(&mut state).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(3));
+        assert_eq!(state.stack.y.inner(), Decimal::from(3)); // old Z
+        assert_eq!(state.stack.z.inner(), Decimal::from(4)); // old T
+        assert_eq!(state.stack.t.inner(), Decimal::from(4)); // T duplicated
+    }
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use crate::num::HpNum;
+    use crate::state::CalcState;
+    use crate::ops::{Op, dispatch};
+    use crate::error::HpError;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn dispatch_add_works() {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(3i32);
+        state.stack.y = HpNum::from(4i32);
+        dispatch(&mut state, Op::Add).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(7));
+    }
+
+    #[test]
+    fn dispatch_push_num_enters_value() {
+        let mut state = CalcState::new();
+        state.stack.lift_enabled = true;
+        let val = HpNum::from(42i32);
+        dispatch(&mut state, Op::PushNum(val)).unwrap();
+        assert_eq!(state.stack.x.inner(), Decimal::from(42));
+    }
+
+    #[test]
+    fn dispatch_div_by_zero_propagates_error() {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(0i32);
+        state.stack.y = HpNum::from(5i32);
+        let result = dispatch(&mut state, Op::Div);
+        assert_eq!(result, Err(HpError::DivideByZero));
+    }
+
+    #[test]
+    fn op_enum_is_clone_and_partialeq() {
+        let a = Op::Add;
+        let b = a.clone();
+        assert_eq!(a, b);
+        assert_ne!(Op::Add, Op::Sub);
+    }
+}
+
+#[cfg(test)]
+mod stack_ops_dispatch_tests {
+    use crate::num::HpNum;
+    use crate::state::CalcState;
+    use crate::ops::stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn op_enter_lifts_unconditionally_and_disables_lift() {
+        // With lift_enabled = false, ENTER should still lift
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(5i32);
+        state.stack.y = HpNum::from(2i32);
+        state.stack.z = HpNum::from(1i32);
+        state.stack.t = HpNum::from(0i32);
+        state.stack.lift_enabled = false; // disabled, but ENTER always lifts
+
+        op_enter(&mut state).unwrap();
+
+        // After ENTER: T←Z, Z←Y, Y←X (X duplicated in Y)
+        assert_eq!(state.stack.x.inner(), Decimal::from(5)); // X unchanged
+        assert_eq!(state.stack.y.inner(), Decimal::from(5)); // Y = old X
+        assert_eq!(state.stack.z.inner(), Decimal::from(2)); // Z = old Y
+        assert_eq!(state.stack.t.inner(), Decimal::from(1)); // T = old Z
+        // lift must be disabled after ENTER
+        assert!(!state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn op_enter_lifts_when_already_enabled() {
+        // With lift_enabled = true, ENTER should still lift (unconditional)
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(3i32);
+        state.stack.y = HpNum::from(2i32);
+        state.stack.lift_enabled = true;
+
+        op_enter(&mut state).unwrap();
+
+        assert_eq!(state.stack.y.inner(), Decimal::from(3)); // Y = old X
+        assert!(!state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn op_clx_zeros_x_and_disables_lift() {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(42i32);
+        state.stack.lift_enabled = true;
+
+        op_clx(&mut state).unwrap();
+
+        assert!(state.stack.x.is_zero());
+        assert!(!state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn op_chs_negates_x_neutral_lift() {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(7i32);
+        state.stack.lift_enabled = true;
+
+        op_chs(&mut state).unwrap();
+
+        assert_eq!(state.stack.x.inner(), Decimal::from(-7));
+        assert!(state.stack.lift_enabled); // Neutral: unchanged
+    }
+
+    #[test]
+    fn op_rdn_rotates_stack_down() {
+        // Stack: X=1, Y=2, Z=3, T=4
+        // After RDN: X=Y=2, Y=Z=3, Z=T=4, T=X=1
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(1i32);
+        state.stack.y = HpNum::from(2i32);
+        state.stack.z = HpNum::from(3i32);
+        state.stack.t = HpNum::from(4i32);
+
+        op_rdn(&mut state).unwrap();
+
+        assert_eq!(state.stack.x.inner(), Decimal::from(2));
+        assert_eq!(state.stack.y.inner(), Decimal::from(3));
+        assert_eq!(state.stack.z.inner(), Decimal::from(4));
+        assert_eq!(state.stack.t.inner(), Decimal::from(1));
+    }
+
+    #[test]
+    fn op_rdn_neutral_lift() {
+        let mut state = CalcState::new();
+        state.stack.lift_enabled = false;
+        op_rdn(&mut state).unwrap();
+        assert!(!state.stack.lift_enabled); // Neutral: unchanged
+
+        state.stack.lift_enabled = true;
+        op_rdn(&mut state).unwrap();
+        assert!(state.stack.lift_enabled); // Neutral: unchanged
+    }
+
+    #[test]
+    fn op_xy_swap_exchanges_x_and_y() {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(10i32);
+        state.stack.y = HpNum::from(20i32);
+
+        op_xy_swap(&mut state).unwrap();
+
+        assert_eq!(state.stack.x.inner(), Decimal::from(20));
+        assert_eq!(state.stack.y.inner(), Decimal::from(10));
+    }
+
+    #[test]
+    fn op_xy_swap_neutral_lift() {
+        let mut state = CalcState::new();
+        state.stack.lift_enabled = false;
+        op_xy_swap(&mut state).unwrap();
+        assert!(!state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn op_lastx_recalls_lastx_into_x() {
+        let mut state = CalcState::new();
+        state.stack.lastx = HpNum::from(99i32);
+        state.stack.x = HpNum::from(0i32);
+        state.stack.lift_enabled = false;
+
+        op_lastx(&mut state).unwrap();
+
+        // LASTX enters lastx value into X (via enter_number with lift_enabled)
+        assert_eq!(state.stack.x.inner(), Decimal::from(99));
+        assert!(state.stack.lift_enabled); // Enable
+    }
+
+    #[test]
+    fn op_lastx_lifts_stack_when_enabled() {
+        // LASTX should push stack: lift_enabled is set to true before enter_number call
+        let mut state = CalcState::new();
+        state.stack.lastx = HpNum::from(5i32);
+        state.stack.x = HpNum::from(10i32);
+        state.stack.y = HpNum::from(20i32);
+        state.stack.lift_enabled = false; // start disabled, op_lastx enables it
+
+        op_lastx(&mut state).unwrap();
+
+        // After LASTX: X=lastx=5, Y=old X=10
+        assert_eq!(state.stack.x.inner(), Decimal::from(5));
+        assert_eq!(state.stack.y.inner(), Decimal::from(10));
+        assert!(state.stack.lift_enabled);
+    }
+}
