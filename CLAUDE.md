@@ -34,6 +34,7 @@ Phases: Foundation → Core Math → Programming Engine → TUI & Input → Pers
 ## Tech Stack (v1.0)
 
 - Rust stable 1.78+, Cargo workspace
+- **`just`** — sole task runner; all build/test/lint/run/ci targets are `just` recipes. Never call `cargo` directly in CI or docs.
 - ratatui 0.30 + crossterm 0.29 (TUI)
 - serde + serde_json (state persistence, human-readable)
 - proptest + insta (property/snapshot tests)

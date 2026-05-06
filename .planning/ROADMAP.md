@@ -23,7 +23,7 @@
 ## Phase Details
 
 ### Phase 1: Foundation
-**Goal**: A Cargo workspace exists with a compiling `hp41-core` crate that models a correct 4-level HP-41 RPN stack with full stack-lift semantics, resolves the BCD vs f64 numeric representation, and returns typed errors with zero panics.
+**Goal**: A Cargo workspace exists with a `Justfile` covering all build/test/lint/run targets, a compiling `hp41-core` crate that models a correct 4-level HP-41 RPN stack with full stack-lift semantics, resolves the BCD vs f64 numeric representation, and returns typed errors with zero panics.
 **Depends on**: Nothing
 **Requirements**: CORE-01, CORE-02
 **Success Criteria** (what must be TRUE):
@@ -31,6 +31,7 @@
   2. ENTER, arithmetic result, CLX, CHS, and RCL each produce the correct stack-lift enable/disable/neutral behavior as specified in HP-41 documentation
   3. `cargo check -p hp41-core` passes with zero UI or CLI dependencies
   4. The numeric representation decision (BCD struct or `rust_decimal` wrapping f64 with 10-digit rounding) is committed to code and documented in an ADR comment in `state.rs`
+  5. `just --list` shows all standard recipes (build, test, lint, run, ci) and `just ci` passes on macOS
 **Plans**: TBD
 
 ### Phase 2: Core Math

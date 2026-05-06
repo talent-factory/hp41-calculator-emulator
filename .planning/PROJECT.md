@@ -72,6 +72,7 @@ This is a solo developer project (Daniel Senften) targeting a v1.0 CLI release o
 ## Constraints
 
 - **Tech stack**: Rust stable 1.78+ — deterministic, GC-free execution ideal for emulation core
+- **Task runner**: `just` — all build/test/lint/run targets defined as recipes in a top-level `Justfile`; no bare `cargo` commands in CI or docs
 - **Architecture**: `hp41-core` must never depend on `hp41-cli` or `hp41-gui` — enforced by Cargo workspace
 - **Dependencies**: ratatui 0.28+, crossterm, clap 4.x, serde/serde_json for v1.0; Tauri v2 + Node.js for v2.0 only
 - **Timeline**: v1.0 CLI release 2026-09-05 (~17 weeks from 2026-05-12)
@@ -89,6 +90,7 @@ This is a solo developer project (Daniel Senften) targeting a v1.0 CLI release o
 | Tauri v2 for v2.0 GUI | Rust backend + web frontend; pixel-perfect skin in HTML/CSS; deferred until v1.0 ships | — Pending |
 | GSD roadmap mirrors PRD milestones M0–M5 | Clean traceability; PRD already validated by author | — Pending |
 | Should-haves FR-14/15/16/19 included in v1.0 M4 hardening phase | Author confirmed all four in scope; FR-17 print emulation deferred | — Pending |
+| `just` as sole task runner | All build/test/lint/run/ci targets defined as `just` recipes; contributors and CI never call `cargo` directly | — Pending |
 
 ## Evolution
 
