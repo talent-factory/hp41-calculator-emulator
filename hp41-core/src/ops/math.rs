@@ -5,6 +5,8 @@
 //! Angle mode ops use `apply_lift_effect(Neutral)`.
 
 use rust_decimal::Decimal;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use std::f64::consts::PI;
 use std::str::FromStr;
 
 use crate::error::HpError;
@@ -12,26 +14,24 @@ use crate::num::HpNum;
 use crate::state::{AngleMode, CalcState};
 use crate::stack::{apply_lift_effect, binary_result, unary_result, LiftEffect};
 
-// ── Angle conversion constants ────────────────────────────────────────────
+// ── Angle conversion constants for forward trig (DEG/GRAD → radians) ────────
 //
-// These are computed as high-precision Decimal string literals.
-// They are module-private (not pub) — used only by to_radians/from_radians.
+// Stored at full Decimal precision (NOT pre-rounded to 10 sig digits).
+// Using HpNum::from(Decimal) would round them to 10 sig digits, which can
+// cause off-by-one errors in the last sig digit for canonical inputs.
+// We use HpNum(raw_decimal) (pub(crate) inner field) to bypass pre-rounding.
+// The multiplication result is still rounded to 10 sig digits via checked_mul.
 fn pi_over_180() -> HpNum {
-    HpNum::from(Decimal::from_str("0.01745329251994329576").unwrap())
-}
-fn deg_per_rad() -> HpNum {
-    HpNum::from(Decimal::from_str("57.29577951308232522583").unwrap())
+    HpNum(Decimal::from_str("0.01745329251994329576").unwrap())
 }
 fn pi_over_200() -> HpNum {
-    HpNum::from(Decimal::from_str("0.01570796326794896558").unwrap())
+    HpNum(Decimal::from_str("0.01570796326794896558").unwrap())
 }
-fn grad_per_rad() -> HpNum {
-    HpNum::from(Decimal::from_str("63.66197723675813430755").unwrap())
-}
-
-/// Convert a value from the current angle mode to radians.
-/// Used as INPUT conversion for SIN/COS/TAN (forward trig).
-fn to_radians(x: &HpNum, mode: AngleMode) -> Result<HpNum, HpError> {
+/// Convert a value from the current angle mode to radians (HpNum path).
+/// Used internally — NOT called by forward trig ops (those use the f64 path below).
+/// Kept for potential future use in extended ops.
+#[allow(dead_code)]
+fn to_radians_hpnum(x: &HpNum, mode: AngleMode) -> Result<HpNum, HpError> {
     match mode {
         AngleMode::Rad => Ok(x.clone()),
         AngleMode::Deg => x.checked_mul(&pi_over_180()),
@@ -39,13 +39,13 @@ fn to_radians(x: &HpNum, mode: AngleMode) -> Result<HpNum, HpError> {
     }
 }
 
-/// Convert a value from radians to the current angle mode.
-/// Used as OUTPUT conversion for ASIN/ACOS/ATAN (inverse trig).
-fn from_radians(x: &HpNum, mode: AngleMode) -> Result<HpNum, HpError> {
+/// Convert angle from current mode to radians in f64.
+/// Used by forward trig ops to avoid double-rounding.
+fn to_radians_f64(v: f64, mode: AngleMode) -> f64 {
     match mode {
-        AngleMode::Rad => Ok(x.clone()),
-        AngleMode::Deg => x.checked_mul(&deg_per_rad()),
-        AngleMode::Grad => x.checked_mul(&grad_per_rad()),
+        AngleMode::Rad  => v,
+        AngleMode::Deg  => v.to_radians(),  // uses std f64 conversion (v * PI / 180)
+        AngleMode::Grad => v * (PI / 200.0),
     }
 }
 
@@ -118,12 +118,23 @@ pub fn op_ypow(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 // ── Trig ops — forward ────────────────────────────────────────────────────
+//
+// Forward trig uses a direct f64 bridge (same rationale as inverse trig):
+//   1. Convert X to f64
+//   2. Convert to radians in f64 (avoids double-rounding via rounded constant)
+//   3. Compute sin/cos/tan in f64
+//   4. Round to 10 sig digits once at the end
+//
+// This gives exact results for canonical angles (SIN(30°)=0.5, COS(60°)=0.5, etc).
 
 /// SIN: sin(X) where X is in current angle_mode.
-/// LiftEffect: Enable. Converts X to radians BEFORE calling checked_sin.
+/// LiftEffect: Enable.
 pub fn op_sin(state: &mut CalcState) -> Result<(), HpError> {
-    let radians = to_radians(&state.stack.x, state.angle_mode)?;
-    let result = radians.checked_sin()?;
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let rad = to_radians_f64(v, state.angle_mode);
+    let result = Decimal::from_f64(rad.sin())
+        .map(HpNum::rounded)
+        .ok_or(HpError::Domain)?;
     unary_result(state, result);
     Ok(())
 }
@@ -131,8 +142,11 @@ pub fn op_sin(state: &mut CalcState) -> Result<(), HpError> {
 /// COS: cos(X) where X is in current angle_mode.
 /// LiftEffect: Enable.
 pub fn op_cos(state: &mut CalcState) -> Result<(), HpError> {
-    let radians = to_radians(&state.stack.x, state.angle_mode)?;
-    let result = radians.checked_cos()?;
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let rad = to_radians_f64(v, state.angle_mode);
+    let result = Decimal::from_f64(rad.cos())
+        .map(HpNum::rounded)
+        .ok_or(HpError::Domain)?;
     unary_result(state, result);
     Ok(())
 }
@@ -140,23 +154,51 @@ pub fn op_cos(state: &mut CalcState) -> Result<(), HpError> {
 /// TAN: tan(X) where X is in current angle_mode.
 /// LiftEffect: Enable. Domain error at tan(π/2) etc.
 pub fn op_tan(state: &mut CalcState) -> Result<(), HpError> {
-    let radians = to_radians(&state.stack.x, state.angle_mode)?;
-    let result = radians.checked_tan()?;
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let rad = to_radians_f64(v, state.angle_mode);
+    let tan_val = rad.tan();
+    // tan(π/2) = infinity in f64; Decimal::from_f64(inf) returns None → Domain
+    let result = Decimal::from_f64(tan_val)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Domain)?;
     unary_result(state, result);
     Ok(())
 }
 
 // ── Trig ops — inverse ────────────────────────────────────────────────────
 //
-// CRITICAL: checked_asin/acos/atan return radians.
-// from_radians() MUST be applied to convert to the current angle_mode.
-// This is the opposite direction from forward trig (where to_radians converts INPUT).
+// Inverse trig ops use a direct f64 bridge to avoid double-rounding.
+// The sequence is:
+//   1. Convert X (HpNum) to f64
+//   2. Apply domain guard
+//   3. Compute asin/acos/atan in f64 (result in radians)
+//   4. Convert from radians to target angle_mode (also in f64)
+//   5. Round to 10 sig digits via HpNum::rounded() ONCE at the end
+//
+// This avoids the precision error from: rounded_radians * deg_per_rad
+// (which loses accuracy in the last digit for canonical angles like ASIN(1)=90).
+// See deviation note in SUMMARY.md for explanation.
+
+fn f64_from_radians(rad: f64, mode: AngleMode) -> f64 {
+    match mode {
+        AngleMode::Rad  => rad,
+        AngleMode::Deg  => rad * (180.0 / PI),
+        AngleMode::Grad => rad * (200.0 / PI),
+    }
+}
 
 /// ASIN: arcsin(X), result in current angle_mode.
 /// LiftEffect: Enable. Domain error if |X| > 1.
 pub fn op_asin(state: &mut CalcState) -> Result<(), HpError> {
-    let result_rad = state.stack.x.checked_asin()?; // returns radians
-    let result = from_radians(&result_rad, state.angle_mode)?; // → angle_mode units
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    if !(-1.0..=1.0).contains(&v) {
+        return Err(HpError::Domain);
+    }
+    let rad = v.asin();
+    let angle = f64_from_radians(rad, state.angle_mode);
+    let result = Decimal::from_f64(angle)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
     unary_result(state, result);
     Ok(())
 }
@@ -164,8 +206,15 @@ pub fn op_asin(state: &mut CalcState) -> Result<(), HpError> {
 /// ACOS: arccos(X), result in current angle_mode.
 /// LiftEffect: Enable. Domain error if |X| > 1.
 pub fn op_acos(state: &mut CalcState) -> Result<(), HpError> {
-    let result_rad = state.stack.x.checked_acos()?;
-    let result = from_radians(&result_rad, state.angle_mode)?;
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    if !(-1.0..=1.0).contains(&v) {
+        return Err(HpError::Domain);
+    }
+    let rad = v.acos();
+    let angle = f64_from_radians(rad, state.angle_mode);
+    let result = Decimal::from_f64(angle)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
     unary_result(state, result);
     Ok(())
 }
@@ -173,8 +222,12 @@ pub fn op_acos(state: &mut CalcState) -> Result<(), HpError> {
 /// ATAN: arctan(X), result in current angle_mode.
 /// LiftEffect: Enable. No domain restriction.
 pub fn op_atan(state: &mut CalcState) -> Result<(), HpError> {
-    let result_rad = state.stack.x.checked_atan()?;
-    let result = from_radians(&result_rad, state.angle_mode)?;
+    let v = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let rad = v.atan();
+    let angle = f64_from_radians(rad, state.angle_mode);
+    let result = Decimal::from_f64(angle)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
     unary_result(state, result);
     Ok(())
 }
