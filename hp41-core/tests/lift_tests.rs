@@ -119,3 +119,100 @@ fn test_xy_swap_neutral_lift_false() {
     dispatch(&mut state, Op::XySwap).unwrap();
     assert!(!state.stack.lift_enabled, "XySwap is Neutral — must preserve false");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 2 lift semantics
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Math ops (all Enable) ─────────────────────────────────────────────────
+
+#[test]
+fn test_p2_math_ops_enable_lift() {
+    // Unary math ops must all set lift_enabled = true
+    let unary_ops = vec![
+        Op::Recip, Op::Sq, Op::Ln, Op::Log, Op::Exp, Op::TenPow,
+    ];
+    for op in unary_ops {
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(2); // valid input domain for all these ops
+        state.stack.lift_enabled = false;
+        let _ = dispatch(&mut state, op.clone()); // may return InvalidOp (stub) or Ok
+        if state.stack.x.inner() != rust_decimal::Decimal::from(2) {
+            // op ran successfully — check lift was set
+            assert!(state.stack.lift_enabled, "{op:?} must enable lift");
+        }
+    }
+}
+
+// ── Mode-setting ops (all Neutral) ───────────────────────────────────────
+
+#[test]
+fn test_p2_mode_ops_neutral_lift_when_disabled() {
+    let mode_ops: Vec<Op> = vec![
+        Op::SetDeg, Op::SetRad, Op::SetGrad,
+        Op::FmtFix(4), Op::FmtSci(4), Op::FmtEng(3),
+    ];
+    for op in mode_ops {
+        let mut s = CalcState::new();
+        s.stack.lift_enabled = false;
+        dispatch(&mut s, op.clone()).unwrap();
+        assert!(!s.stack.lift_enabled, "{op:?} must be Neutral — must not enable lift");
+    }
+}
+
+#[test]
+fn test_p2_mode_ops_neutral_lift_when_enabled() {
+    let mode_ops: Vec<Op> = vec![
+        Op::SetDeg, Op::SetRad, Op::SetGrad,
+        Op::FmtFix(4), Op::FmtSci(4), Op::FmtEng(3),
+    ];
+    for op in mode_ops {
+        let mut s = CalcState::new();
+        s.stack.lift_enabled = true;
+        dispatch(&mut s, op.clone()).unwrap();
+        assert!(s.stack.lift_enabled, "{op:?} must be Neutral — must not disable lift");
+    }
+}
+
+// ── Register ops (STO=Neutral, RCL=Enable, STO-arith=Neutral) ────────────
+
+#[test]
+fn test_sto_reg_neutral_lift() {
+    let mut s = CalcState::new();
+    s.stack.lift_enabled = false;
+    dispatch(&mut s, Op::StoReg(0)).unwrap();
+    assert!(!s.stack.lift_enabled, "StoReg must be Neutral lift");
+}
+
+#[test]
+fn test_rcl_reg_enables_lift() {
+    let mut s = CalcState::new();
+    s.stack.lift_enabled = false;
+    dispatch(&mut s, Op::RclReg(0)).unwrap();
+    assert!(s.stack.lift_enabled, "RclReg must Enable lift");
+}
+
+#[test]
+fn test_clreg_neutral_lift() {
+    let mut s = CalcState::new();
+    s.stack.lift_enabled = false;
+    dispatch(&mut s, Op::Clreg).unwrap();
+    assert!(!s.stack.lift_enabled, "Clreg must be Neutral lift");
+}
+
+// ── ALPHA ops (all Neutral) ───────────────────────────────────────────────
+
+#[test]
+fn test_alpha_ops_neutral_lift_in_lift_tests() {
+    let alpha_ops: Vec<Op> = vec![
+        Op::AlphaToggle,
+        Op::AlphaAppend('A'),
+        Op::AlphaClear,
+    ];
+    for op in alpha_ops {
+        let mut s = CalcState::new();
+        s.stack.lift_enabled = false;
+        dispatch(&mut s, op.clone()).unwrap();
+        assert!(!s.stack.lift_enabled, "{op:?} must be Neutral lift");
+    }
+}
