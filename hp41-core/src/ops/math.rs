@@ -22,10 +22,10 @@ use crate::state::{AngleMode, CalcState};
 // We use HpNum(raw_decimal) (pub(crate) inner field) to bypass pre-rounding.
 // The multiplication result is still rounded to 10 sig digits via checked_mul.
 fn pi_over_180() -> HpNum {
-    HpNum(Decimal::from_str("0.01745329251994329576").unwrap())
+    HpNum(Decimal::from_str("0.01745329251994329576").expect("valid constant"))
 }
 fn pi_over_200() -> HpNum {
-    HpNum(Decimal::from_str("0.01570796326794896558").unwrap())
+    HpNum(Decimal::from_str("0.01570796326794896558").expect("valid constant"))
 }
 /// Convert a value from the current angle mode to radians (HpNum path).
 /// Used internally — NOT called by forward trig ops (those use the f64 path below).

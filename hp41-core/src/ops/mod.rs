@@ -348,6 +348,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::state::CalcState;
