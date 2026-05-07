@@ -100,8 +100,18 @@ Plans:
   2. Annunciator state updates immediately when the calculator mode changes (e.g., toggling RAD vs DEG flips the annunciator in the same frame)
   3. User can perform any documented calculator operation using only the physical keyboard without consulting an external reference — discoverable key labels are visible in the TUI
   4. Any unhandled panic in hp41-core is caught at the CLI boundary and the terminal is restored to normal (not stuck in raw mode)
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+- [ ] 04-01-PLAN.md — Cargo.toml deps (ratatui 0.30 + crossterm 0.29 + clap 4.x) + App struct + module skeleton (compiling foundation)
+**Wave 2** *(parallel — different files)*
+- [ ] 04-02-PLAN.md — ui.rs full widget layout: stack panel, display panel, annunciator bar, status bar, key-reference panel
+- [ ] 04-03-PLAN.md — keys.rs (key_to_op() + KEY_REF_TABLE) + prgm_display.rs (format_step() + op_display_name()) + unit tests
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 04-04-PLAN.md — main.rs clap args wired + manual smoke test checkpoint (human verify)
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 04-05-PLAN.md — just ci gate: full workspace tests + coverage + clippy
 
 ### Phase 5: Persistence & UX
 **Goal**: Users can save and reload complete calculator state between sessions, auto-save fires every 30 seconds, an inline help system is accessible from within the TUI, USER mode works with persisted key assignments, and a bundled sample program library is ready to load.
@@ -147,7 +157,7 @@ Plans:
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
-| 4. TUI & Input | 0/? | Not started | - |
+| 4. TUI & Input | 0/5 | In progress | - |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |
@@ -182,4 +192,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-07 after Phase 3 planning*
+*Last updated: 2026-05-07 after Phase 4 planning (5 plans, 4 waves)*
