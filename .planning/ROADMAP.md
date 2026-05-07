@@ -173,7 +173,15 @@ Plans:
   3. Median key-press-to-display-update latency measured over 1000 keystrokes is ≤ 50 ms
   4. `cargo test -p hp41-core` passes with zero panics and `cargo-llvm-cov` reports ≥ 80% line coverage
   5. The 500-case numerical test suite (covering arithmetic, trig, logs, ISG/DSE edge cases, and transcendental function accumulation) passes with ≥ 98% agreement vs HP-41 reference values
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Phase 5 Plan 11 verification + panic audit (fix math.rs unwrap → expect, add deny(clippy::unwrap_used))
+- [ ] 07-02-PLAN.md — CI matrix update (cargo build --release on all 3 platforms) + Justfile bench recipes
+- [ ] 07-03-PLAN.md — Criterion benchmarks (benches/dispatch_bench.rs, [[bench]] entry, just bench recipe)
+- [ ] 07-04-PLAN.md — Coverage gap closure (12 targeted tests for ops/program.rs error paths, 59% → ≥80%)
+- [ ] 07-05-PLAN.md — 500-case numerical accuracy suite (tests/numerical_accuracy.rs, passes >= 490 gate)
+- [ ] 07-06-PLAN.md — Final just ci gate + planning document updates
 
 ---
 
@@ -187,7 +195,7 @@ Plans:
 | 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
 | 5. Persistence & UX | 10/11 | Gaps Found  | - |
 | 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
-| 7. Hardening | 0/? | Not started | - |
+| 7. Hardening | 0/6 | Not started | - |
 
 ---
 
