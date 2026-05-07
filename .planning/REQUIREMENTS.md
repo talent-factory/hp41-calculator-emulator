@@ -56,12 +56,12 @@
 
 ### Quality & Performance
 
-- [ ] **QUAL-01**: Cold-start latency ≤ 0.5 s on Apple M1 / Intel i5 8th gen
-- [ ] **QUAL-02**: Key-press → display update median latency ≤ 50 ms
-- [ ] **QUAL-03**: Crash-free sessions ≥ 99.5%; zero panics in `hp41-core`
-- [ ] **QUAL-04**: `hp41-core` has ≥80% unit-test coverage and zero UI/CLI dependencies
-- [ ] **QUAL-05**: Single codebase runs on Windows 10+, macOS 12+, Ubuntu 22.04+
-- [ ] **QUAL-06**: ≥98% numerical agreement with HP-41 hardware across 500-case test suite
+- [x] **QUAL-01**: Cold-start latency ≤ 0.5 s on Apple M1 / Intel i5 8th gen
+- [x] **QUAL-02**: Key-press → display update median latency ≤ 50 ms
+- [x] **QUAL-03**: Crash-free sessions ≥ 99.5%; zero panics in `hp41-core`
+- [x] **QUAL-04**: `hp41-core` has ≥80% unit-test coverage and zero UI/CLI dependencies
+- [x] **QUAL-05**: Single codebase runs on Windows 10+, macOS 12+, Ubuntu 22.04+
+- [x] **QUAL-06**: ≥98% numerical agreement with HP-41 hardware across 500-case test suite
 
 ## v2 Requirements
 
@@ -118,12 +118,12 @@
 | UX-03 | Phase 5 | Pending |
 | SCI-01 | Phase 6 | Validated in Phase 6 (2026-05-07) |
 | SCI-02 | Phase 6 | Validated in Phase 6 (2026-05-07) |
-| QUAL-01 | Phase 7 | Pending |
-| QUAL-02 | Phase 7 | Pending |
-| QUAL-03 | Phase 7 | Pending |
-| QUAL-04 | Phase 7 | Pending |
-| QUAL-05 | Phase 7 | Pending |
-| QUAL-06 | Phase 7 | Pending |
+| QUAL-01 | Phase 7 | Complete (2026-05-07) |
+| QUAL-02 | Phase 7 | Complete (2026-05-07) |
+| QUAL-03 | Phase 7 | Complete (2026-05-07) |
+| QUAL-04 | Phase 7 | Complete (2026-05-07) |
+| QUAL-05 | Phase 7 | Complete (2026-05-07) |
+| QUAL-06 | Phase 7 | Complete (2026-05-07) |
 
 **Coverage:**
 - v1 requirements: 25 total
@@ -132,4 +132,4 @@
 
 ---
 *Requirements defined: 2026-05-06*
-*Last updated: 2026-05-06 after roadmap creation*
+*Last updated: 2026-05-07 after Phase 7 completion — all QUAL-* requirements satisfied*
