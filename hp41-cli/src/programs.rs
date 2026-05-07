@@ -56,8 +56,8 @@ fn build_all_programs() -> Vec<SampleProgram> {
             ops: newton_root_ops(),
         },
         SampleProgram {
-            name: "Mean+StdDev",
-            description: "Enter n values with ENTER, then run for mean in X, sdev in Y.",
+            name: "Stack Mean (4 values)",
+            description: "Mean of 4-level stack (T,Z,Y,X): load four values with ENTER, run → mean in X.",
             ops: mean_sdev_ops(),
         },
         SampleProgram {
@@ -181,7 +181,7 @@ fn prime_test_ops() -> Vec<Op> {
 
 fn quadratic_ops() -> Vec<Op> {
     // Quadratic: discriminant = b²-4ac; roots = (-b ± √disc) / 2a
-    // Stack entry: a in T, b in Z, c in Y (X unused — cleared on run)
+    // Stack entry: c in X, b in Y, a in Z (T unused — STO X→c first, Rdn→STO Y→b, Rdn→STO Z→a)
     // Result: root1 in X, root2 in Y
     vec![
         Op::Lbl("A".to_string()),
@@ -273,32 +273,16 @@ fn newton_root_ops() -> Vec<Op> {
 }
 
 fn mean_sdev_ops() -> Vec<Op> {
-    // Mean of n values: enter n values in R00..R(n-1), then R10=n, run → mean in X
-    // Simplified: expects values pre-stored in R00..R09, count in R10
-    // Result: mean in X
+    // Mean of 4 values already on the stack (T, Z, Y, X).
+    // Adds all four: T+Z+Y+X, then divides by 4 → mean in X.
+    // No registers used. No indirect addressing needed.
     vec![
         Op::Lbl("A".to_string()),
-        Op::PushNum(HpNum::from(0i32)),
-        Op::StoReg(11),                     // R11 = sum
-        Op::RclReg(10),                     // n
-        Op::StoReg(12),                     // R12 = counter
-        Op::PushNum(HpNum::from(0i32)),
-        Op::StoReg(13),                     // R13 = index
-        Op::Lbl("L".to_string()),
-        Op::RclReg(12),
-        Op::Test(TestKind::XLeZero),        // if counter <= 0: done
-        Op::Gto("D".to_string()),
-        Op::RclReg(13),
-        Op::RclReg(0),                      // simplified: use R00 value always
-        Op::StoArith { reg: 11, kind: StoArithKind::Add },
-        Op::RclReg(12),
-        Op::PushNum(HpNum::from(1i32)),
-        Op::Sub, Op::StoReg(12),
-        Op::Gto("L".to_string()),
-        Op::Lbl("D".to_string()),
-        Op::RclReg(11),
-        Op::RclReg(10),
-        Op::Div,                            // mean = sum / n
+        Op::Add,                            // Y+X → X; T becomes new Z
+        Op::Add,                            // Z+X → X; T becomes new Y (was Z orig)
+        Op::Add,                            // Y+X → X; one value remains (was T orig)
+        Op::PushNum(HpNum::from(4i32)),
+        Op::Div,                            // (T+Z+Y+X) / 4 = mean
         Op::Rtn,
     ]
 }
