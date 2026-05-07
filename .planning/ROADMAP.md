@@ -12,7 +12,7 @@
 
 - [x] **Phase 1: Foundation** - Cargo workspace, CalcState, stack with HP-41-accurate stack-lift semantics, BCD/f64 decision (completed 2026-05-06)
 - [x] **Phase 2: Core Math** - Arithmetic, trig, number formatting, storage registers, ALPHA mode (completed 2026-05-07)
-- [ ] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE
+- [x] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE (completed 2026-05-07)
 - [ ] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping
 - [ ] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs
 - [ ] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions
