@@ -39,6 +39,19 @@ mod error_tests {
         assert_eq!(e.clone(), HpError::CallDepth);
         assert_ne!(e, HpError::InvalidOp);
     }
+
+    // Phase 6 Plan 01: InvalidInput variant (D-06 — HMS minutes/seconds >= 60)
+    #[test]
+    fn hperror_invalid_input_message() {
+        assert_eq!(HpError::InvalidInput.to_string(), "invalid input");
+    }
+
+    #[test]
+    fn hperror_invalid_input_is_partialeq() {
+        let e = HpError::InvalidInput;
+        assert_eq!(e.clone(), HpError::InvalidInput);
+        assert_ne!(e, HpError::InvalidOp);
+    }
 }
 
 #[cfg(test)]

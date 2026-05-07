@@ -13,4 +13,7 @@ pub enum HpError {
     // Phase 3 addition — HP-41 call-depth exceeded (5th subroutine level, D-13/D-14)
     #[error("try again")]
     CallDepth,
+    // Phase 6 addition — HMS field-range validation: minutes >= 60 or seconds >= 60 (D-06)
+    #[error("invalid input")]
+    InvalidInput,
 }
