@@ -51,18 +51,18 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 }
 
 /// XEQ: subroutine call. Enforces 4-level call stack limit (D-14).
-/// Interactive XEQ (not running) also runs via run_program for Phase 3.
+/// Interactive XEQ (not running) → InvalidOp; XEQ inside a running program is
+/// handled by run_loop directly (not this function). Phase 4 TUI can add
+/// interactive subroutine-run support via run_program().
 /// LiftEffect: Neutral.
-pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
-    if state.call_stack.len() >= 4 {
-        return Err(HpError::CallDepth); // D-13: error before any mutation (error-before-mutation pattern)
+pub fn op_xeq(state: &mut CalcState, _label: &str) -> Result<(), HpError> {
+    if !state.is_running {
+        return Err(HpError::InvalidOp);
     }
-    // find label first — fail before mutating call_stack (error-before-mutation pattern)
-    let target = find_label_in_state(state, label)?;
-    state.call_stack.push(state.pc); // save return address
-    state.pc = target + 1;           // jump to step after Lbl
-    apply_lift_effect(state, LiftEffect::Neutral);
-    Ok(())
+    // run_loop handles Op::Xeq directly (with call-depth check and label search).
+    // This arm is only reached if someone calls op_xeq() outside run_loop,
+    // which should not happen — return InvalidOp as a safe guard.
+    Err(HpError::InvalidOp)
 }
 
 /// RTN: return from subroutine. If call_stack is empty, terminates run (top-level RTN).
@@ -143,8 +143,17 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
 
 // ── Private interpreter loop ──────────────────────────────────────────────────
 
+/// Maximum steps per run_program execution — guards against infinite loops.
+/// HP-41 programs are at most 999 steps; 1 000 000 allows generous loop counts.
+const MAX_STEPS: u64 = 1_000_000;
+
 fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
+    let mut steps: u64 = 0;
     loop {
+        if steps >= MAX_STEPS {
+            return Err(HpError::Overflow); // infinite-loop guard (CR-01)
+        }
+        steps += 1;
         if state.pc >= program.len() {
             // Ran off end of program = implicit top-level RTN
             break;
