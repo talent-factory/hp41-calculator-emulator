@@ -2,444 +2,255 @@
 phase: 05-persistence-and-ux
 reviewed: 2026-05-07T00:00:00Z
 depth: standard
-files_reviewed: 20
+files_reviewed: 7
 files_reviewed_list:
-  - Cargo.toml
-  - hp41-cli/Cargo.toml
   - hp41-cli/src/app.rs
-  - hp41-cli/src/help_data.rs
-  - hp41-cli/src/keys.rs
-  - hp41-cli/src/main.rs
-  - hp41-cli/src/persistence.rs
   - hp41-cli/src/prgm_display.rs
   - hp41-cli/src/programs.rs
-  - hp41-cli/src/tests/keys_tests.rs
-  - hp41-cli/src/tests/mod.rs
-  - hp41-cli/src/ui.rs
-  - hp41-core/Cargo.toml
   - hp41-core/src/num.rs
-  - hp41-core/src/ops/alpha.rs
+  - hp41-core/src/ops/math.rs
   - hp41-core/src/ops/mod.rs
   - hp41-core/src/ops/program.rs
-  - hp41-core/src/ops/registers.rs
-  - hp41-core/src/state.rs
-  - hp41-core/src/tests.rs
 findings:
-  critical: 5
-  warning: 4
+  critical: 3
+  warning: 5
   info: 3
-  total: 12
+  total: 11
 status: issues_found
 ---
 
-# Phase 05: Code Review Report
+# Phase 05: Code Review Report (Post-Gap-Closure)
 
 **Reviewed:** 2026-05-07
 **Depth:** standard
-**Files Reviewed:** 20
+**Files Reviewed:** 7
 **Status:** issues_found
 
 ## Summary
 
-Phase 5 delivered persistence, overlays, USER mode, ALPHA backspace, and the sample
-program library. The persistence core (save/load/autosave) is solid: atomic writes,
-version-tagged JSON, `is_running` reset on load, and a thorough test suite. The TUI
-overlay architecture (`RefCell<TableState>`, z-ordered rendering) is sound.
+This is a post-gap-closure review for Phase 5 (Persistence & UX). The gap-closure work addressed two previously identified gaps: (1) prime_test_ops XySwap bug and mean_sdev_ops replacement, and (2) the help-overlay 'q' routing fix. Additionally, Op::Int was added to hp41-core for exact integer truncation.
 
-However, five blockers were found. The most impactful are an incorrect key-dispatch
-ordering in `handle_key` that makes the 'q' key bypass overlay and alpha-mode
-contexts; 'S'/'R' STO/RCL modal activation bypassing alpha mode entirely; a
-completely broken prime-test sample program; and the EEX ('e') key being documented
-and advertised but non-functional due to `rust_decimal::Decimal::from_str` not
-accepting scientific notation. A quadratic solver description mismatch also
-misguides users.
+The 'q' quit guard (gap SC-3) is correctly implemented: the guard at `app.rs:130` checks all four blocking conditions (`show_help`, `show_programs`, `alpha_mode`, `pending_input`) before allowing quit. The overlay navigation blocks correctly consume all keys when active, and the three new unit tests for this behavior are valid.
+
+Op::Int is correctly wired in `dispatch()`, `execute_op()`, and `prgm_display`. `trunc_int()` correctly uses `Decimal::trunc()` (truncates toward zero, matching HP-41 INT semantics for positive operands).
+
+The `prime_test_ops` XySwap removal is verified correct for the tested inputs n={2,3,4,9,13}. The `mean_sdev_ops` replacement produces the correct mean of 2.5 for the test inputs.
+
+However, three BLOCKER bugs exist in sample programs that were not caught by the gap-closure test suite: prime_test_ops misclassifies n=0 and n=1 as prime, gcd_ops produces wrong results for most non-trivial integer inputs (missing `Op::Int` in the floor-division step), and stack_stats_ops has an inverted Test+XySwap pattern that always stores the wrong candidate for both max and min.
 
 ---
 
 ## Critical Issues
 
-### CR-01: 'q' key quits application even when help overlay or alpha mode is active
+### CR-01: `prime_test_ops` classifies n=0 and n=1 as prime
 
-**File:** `hp41-cli/src/app.rs:127-130`
+**File:** `hp41-cli/src/programs.rs:160`
+**Issue:** The early-exit test `Test(TestKind::XLeY)` compares `X=n` against `Y=2`. When `n <= 2` the condition is TRUE and execution jumps to label "P" (result = 1, prime). This correctly handles n=2 but also classifies n=0 and n=1 as prime, which is mathematically wrong (1 is not prime by definition; 0 is not prime). The test suite `test_prime_test_correctness` tests n={2,3,4,9,13} but omits n=0 and n=1, so the bug is undetected.
 
-**Issue:** The unconditional `'q'` quit check fires at line 127, before the
-`show_help` guard (line 222) and the `alpha_mode` guard (line 188). Consequence:
-
-- Pressing `'q'` while the help overlay is open quits the application instead
-  of closing the overlay as documented (`Esc/q/?` in `HELP_DATA`).
-- Pressing `'q'` in ALPHA mode quits the application instead of appending `'q'`
-  to the ALPHA register.
-
-The `show_help` match arm at line 224 (`KeyCode::Char('q') => show_help = false`)
-is dead code for this reason.
-
-**Fix:** Move the `'q'` quit guard to after the overlay and alpha-mode gates, or
-check that no context-specific mode is active before quitting:
-
+**Fix:** Replace the single `XLeY` early-exit with two separate conditionals — one to reject n < 2 as non-prime, one to accept n == 2 as prime:
 ```rust
-fn handle_key(&mut self, key: KeyEvent) {
-    if key.kind != KeyEventKind::Press { return; }
-
-    // Always-active global keys (quit, Ctrl+C) must check context
-    if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        self.exit = true;
-        return;
-    }
-
-    // Quit 'q' is context-sensitive: only quit when no overlay/modal/alpha is active
-    if key.code == KeyCode::Char('q')
-        && !self.show_help
-        && !self.show_programs
-        && !self.state.alpha_mode
-        && self.pending_input.is_none()
-    {
-        self.exit = true;
-        return;
-    }
-    // ... rest of handle_key
-```
-
----
-
-### CR-02: 'S', 'R', Ctrl+A modal triggers bypass ALPHA mode — 'S' and 'R' cannot be typed in ALPHA register
-
-**File:** `hp41-cli/src/app.rs:164-183`
-
-**Issue:** The STO modal (`'S'`, line 164), RCL modal (`'R'`, line 170), and USER
-ASSIGN modal (`Ctrl+A`, line 175) are intercepted unconditionally before the
-`alpha_mode` check at line 188. When `alpha_mode` is active:
-
-- Pressing `'S'` opens the STO register modal instead of appending `'S'` to
-  `alpha_reg`. The letters S and R are common in HP-41 ALPHA labels (e.g. "START").
-- Pressing `'R'` opens the RCL modal instead of appending `'R'`.
-- `Ctrl+A` launches the USER key assignment modal.
-
-**Fix:** Guard these modal activations with `!self.state.alpha_mode`:
-
-```rust
-if key.code == KeyCode::Char('S')
-    && !key.modifiers.contains(KeyModifiers::CONTROL)
-    && !self.state.alpha_mode          // <- add this guard
-{
-    self.pending_input = Some(PendingInput::StoRegister(String::new()));
-    self.message = None;
-    return;
-}
-if key.code == KeyCode::Char('R')
-    && !key.modifiers.contains(KeyModifiers::CONTROL)
-    && !self.state.alpha_mode          // <- add this guard
-{
-    self.pending_input = Some(PendingInput::RclRegister(String::new()));
-    self.message = None;
-    return;
-}
-```
-
-Similarly for `Ctrl+A`.
-
----
-
-### CR-03: EEX key ('e') is non-functional — `Decimal::from_str` rejects scientific notation
-
-**File:** `hp41-cli/src/app.rs:275`, `hp41-core/src/ops/mod.rs:171`
-
-**Issue:** The key `'e'` is documented as "EEX (sci notation entry)" in
-`KEY_REF_TABLE` (keys.rs:74) and in `HELP_DATA` (help_data.rs:71), implying that
-typing e.g. `1e3` then Enter pushes 1000. In practice, the key appends the literal
-character `'e'` to `entry_buf`. When the entry is flushed, `flush_entry_buf` calls:
-
-```rust
-let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
-```
-
-`rust_decimal::Decimal::from_str` does NOT handle `e`/`E` scientific notation (its
-`parse_str_radix_10` implementation accepts only `[0-9]`, `.`, `_`, `+`, `-`). A
-separate `Decimal::from_scientific()` API exists for that purpose. Any entry
-containing `'e'` (e.g. `"1e3"`, `"2.5e-2"`) returns `HpError::InvalidOp` at flush
-time, showing "invalid operation" in the status bar. The key is effectively broken.
-
-**Fix:** In `flush_entry_buf`, try both parsers:
-
-```rust
-let d = Decimal::from_str(&s)
-    .or_else(|_| Decimal::from_scientific(&s))
-    .map_err(|_| HpError::InvalidOp)?;
-```
-
-Or pre-process the buffer to detect the `e`/`E` marker and route to
-`from_scientific`.
-
----
-
-### CR-04: Prime Test sample program returns 1 (prime) for every integer >= 2
-
-**File:** `hp41-cli/src/programs.rs:140-181`
-
-**Issue:** The early-exit condition in `prime_test_ops` is logically inverted.
-The intent is "if n <= 2, treat as prime immediately" but the code does:
-
-```
-PushNum(2)        // X=2
-RclReg(0)         // X=n, Y=2  (RclReg forces lift)
-XySwap            // X=2, Y=n
-Test(XLeY)        // condition: X <= Y  →  2 <= n  →  TRUE when n >= 2
-Gto("P")          // executed when condition is TRUE → declares PRIME
-```
-
-`Test(XLeY)` skips `Gto("P")` only when `2 > n` (i.e. n < 2). For every n >= 2
-(including 4, 6, 9, 100, ...) the program immediately jumps to label "P" and
-returns 1 (prime). Trial division is never reached for any input >= 2.
-
-**Fix:** Remove the `XySwap` so that X=n and Y=2, then use `TestKind::XLeY` (n <= 2
-→ prime) or keep the swap and use `TestKind::XGeY` (2 >= n → n <= 2):
-
-```rust
+// Before the divisor loop setup:
 Op::PushNum(HpNum::from(2i32)),
-Op::RclReg(0),
-// After RclReg: X=n, Y=2
-// No XySwap needed
-Op::Test(TestKind::XLeY),   // n <= 2 → goto P (prime)
+Op::RclReg(0),                        // X=n, Y=2
+Op::Test(TestKind::XLtY),            // n < 2 → TRUE → not prime
+Op::Gto("N".to_string()),
+Op::Test(TestKind::XEqY),            // n == 2 → TRUE → prime
 Op::Gto("P".to_string()),
+// fall through: n > 2, start trial division
+```
+Extend the test:
+```rust
+assert_eq!(run_prime(0), HpNum::from(0i32), "prime(0) must be 0");
+assert_eq!(run_prime(1), HpNum::from(0i32), "prime(1) must be 0 (not prime by definition)");
 ```
 
 ---
 
-### CR-05: Quadratic solver description states wrong stack convention
+### CR-02: `gcd_ops` missing `Op::Int` causes wrong GCD for most integer inputs
 
-**File:** `hp41-cli/src/programs.rs:45`, `hp41-cli/src/programs.rs:183-188`
+**File:** `hp41-cli/src/programs.rs:246-249`
+**Issue:** The Euclidean algorithm modulo step computes `r = a - b*(a/b)`. The code performs `RclReg(0), RclReg(1), Div` then immediately `RclReg(1), Mul` without applying `Op::Int` to truncate `a/b` to an integer. With `rust_decimal`, `7 / 3` evaluates to `2.333333333` (rounded to 10 sig digits via `HpNum::rounded`). Multiplying back: `2.333333333 * 3 = 6.999999999`. The remainder `7 - 6.999999999 = 0.000000001` is not zero, so the GCD loop never terminates correctly — it computes a fractional remainder rather than the true modulo. For most non-trivially divisible integer pairs, the loop will exhaust `MAX_STEPS` and return `HpError::Overflow`.
 
-**Issue:** The `SampleProgram` description says:
+The comment at line 248 acknowledges the imprecision: "approximate floor via truncation: use as-is (integer inputs assumed)." Integer inputs do not help — `Decimal::checked_div` does not produce integer results for non-evenly-divisible operands. The gap-closure correctly added `Op::Int` to `prime_test_ops` but `gcd_ops` was not updated.
 
-```
-"Stack: a(T) b(Z) c(Y) → roots in X,Y"
-```
-
-implying the user places `a` in T, `b` in Z, `c` in Y, with X irrelevant. The
-program however opens with `Op::StoReg(2)` which stores the **current X** register,
-not Y. If the stack is literally `T=a, Z=b, Y=c, X=<garbage>` as described, then:
-
-- `StoReg(2)` → R02 = garbage (X)
-- `Rdn` → X=c, Y=b, Z=a
-- `StoReg(1)` → R01 = c (comment says b)
-- `Rdn` → X=b, Y=a
-- `StoReg(0)` → R00 = b (comment says a)
-
-R00=b, R01=c, R02=garbage: the formula computes the wrong result with wrong
-coefficients.
-
-The code is only correct if the user enters coefficients such that **c is in X**
-at program start (i.e. the actual entry order is "push a, push b, push c with c
-ending up in X"). The description must be corrected to match this reality:
-
-**Fix:** Change the description to reflect the actual required entry state:
-
+**Fix:** Insert `Op::Int` after `Op::Div` in `gcd_ops`, mirroring the prime_test fix:
 ```rust
-description: "Roots of ax²+bx+c. Enter a, b, c (c in X, b in Y, a in Z) → root1 in X, root2 in Y.",
+Op::RclReg(0), Op::RclReg(1), Op::Div,
+Op::Int,                                 // trunc(a/b) — exact integer step
+Op::RclReg(1), Op::Mul,
+Op::RclReg(0), Op::XySwap, Op::Sub,     // r = a - b*trunc(a/b)
 ```
+Also add a behavioral test (e.g., `gcd(12, 8) = 4`, `gcd(7, 3) = 1`).
 
-And update the inline comment in `quadratic_ops` to match.
+---
+
+### CR-03: `stack_stats_ops` max/min comparison logic is inverted
+
+**File:** `hp41-cli/src/programs.rs:328-343`
+**Issue:** The max-finding section uses `Test(TestKind::XGtY)` immediately followed by `Op::XySwap`. `run_loop` applies skip-if-false semantics: `evaluate_test` returns true → execute next op; returns false → skip next op. When `XGtY` is TRUE (X is the larger value), `XySwap` executes and places the smaller value into X. `StoReg(5)` then stores the smaller value as the "max candidate." When `XGtY` is FALSE (X is not larger), `XySwap` is skipped and X (the smaller or equal value) is stored. In both cases the smaller of the two values is stored as the running maximum.
+
+The same inverted logic applies to the min-finding section using `Test(TestKind::XLtY)` — the larger value is stored as the min candidate.
+
+There is no behavioral test for `stack_stats_ops`, so this has been silently broken. The comment "ensure larger in X" describes the correct intent but the code implements the opposite.
+
+Concrete trace with stack T=4, Z=3, Y=2, X=5:
+- After `Enter`: T=3, Z=2, Y=5, X=5
+- After `Rdn`: T=5, Z=3, Y=2, X=5
+- `Test(XGtY)`: 5>2 TRUE → execute `XySwap` → X=2, Y=5
+- `StoReg(5)`: stores X=2 as "max" — wrong (max is 5)
+
+**Fix:** Invert the test conditions so XySwap fires only when the current X is *not* the target (max or min):
+```rust
+// Max-finding: swap when X < Y so the larger value ends up in X
+Op::Test(TestKind::XLtY),   // X < Y → swap to bring larger (Y) into X
+Op::XySwap,
+Op::StoReg(5),              // R05 = max(X, Y)
+
+// Min-finding: swap when X > Y so the smaller value ends up in X
+Op::Test(TestKind::XGtY),   // X > Y → swap to bring smaller (Y) into X
+Op::XySwap,
+Op::StoReg(4),              // R04 = min(X, Y)
+```
+A behavioral test verifying X=min, Y=max for a known 4-value stack must be added.
 
 ---
 
 ## Warnings
 
-### WR-01: `handle_reg_modal` silently maps parse overflow to register 0
+### WR-01: `'S'`, `'R'`, and `Ctrl+A` modal triggers not guarded against active overlays
 
-**File:** `hp41-cli/src/app.rs:442`
+**File:** `hp41-cli/src/app.rs:172-187`
+**Issue:** The STO modal (`'S'`, line 172), RCL modal (`'R'`, line 177), and USER-assign modal (`Ctrl+A`, line 183) are activated before the `show_help` overlay dispatch block (line 230). When the help overlay is open and the user presses `'S'`, `PendingInput::StoRegister` is set without closing the overlay. On the next keypress, `handle_pending_input` runs while `show_help=true` — the UI renders the help overlay but keystrokes silently feed the invisible STO modal. The user has no visual feedback that a modal is active.
 
-**Issue:**
-
+**Fix:** Add overlay guards to each modal trigger:
 ```rust
-let reg: u8 = new_acc.parse().unwrap_or(0);
-if reg < 100 {
-    self.call_dispatch(op_fn(reg));
-} else {
-    self.message = Some(format!("Invalid register: {new_acc}"));
+if key.code == KeyCode::Char('S')
+    && !key.modifiers.contains(KeyModifiers::CONTROL)
+    && !self.show_help
+    && !self.show_programs
+{
+    self.pending_input = Some(PendingInput::StoRegister(String::new()));
+    ...
 }
 ```
-
-`new_acc` is exactly 2 ASCII digits (loop auto-dispatches when `len == 2`), so the
-only two-digit strings that fail `u8::parse` are values 256–99 — none, since all two
-ASCII digit combinations are 00–99 and fit in u8. However the `unwrap_or(0)` silently
-maps a hypothetical parse failure to register 0 (R00), which would store/recall
-R00 without user intent. The `< 100` guard then also passes for 0. The defensive
-posture should fail loudly rather than silently use R00:
-
-**Fix:**
-
-```rust
-match new_acc.parse::<u8>() {
-    Ok(reg) if reg < 100 => self.call_dispatch(op_fn(reg)),
-    _ => self.message = Some(format!("Invalid register: {new_acc}")),
-}
-self.pending_input = None;
-```
+Apply the same `!self.show_help && !self.show_programs` guard to the `'R'` and `Ctrl+A` checks.
 
 ---
 
-### WR-02: `test_program_names_unique` uses `dedup()` without sorting — does not guarantee uniqueness
+### WR-02: `test_program_names_unique` uses `dedup()` — only detects consecutive duplicates
 
-**File:** `hp41-cli/src/programs.rs:443-447`
+**File:** `hp41-cli/src/programs.rs:439-444`
+**Issue:** `Vec::dedup()` removes only adjacent duplicate elements. A program list with names `["A", "B", "A"]` has the same length before and after `dedup()` and the test passes despite a duplicate. As the program list grows, a non-adjacent duplicate name would go undetected.
 
-**Issue:**
-
+**Fix:**
 ```rust
-let mut unique = names.clone();
-unique.dedup();
+use std::collections::HashSet;
+let names: Vec<&str> = sample_programs().iter().map(|p| p.name).collect();
+let unique: HashSet<&str> = names.iter().copied().collect();
 assert_eq!(names.len(), unique.len(), "Program names must be unique");
 ```
 
-`Vec::dedup()` removes only **consecutive** duplicates. If two programs with the
-same name are added in non-adjacent positions (e.g. indices 0 and 5), `dedup`
-leaves both and the test passes incorrectly. This is a test-reliability defect: it
-cannot catch the bug it is designed to catch.
+---
+
+### WR-03: `prime_test_ops` has no test coverage for n=0 and n=1
+
+**File:** `hp41-cli/src/programs.rs:447-468`
+**Issue:** `test_prime_test_correctness` covers n={2,3,4,9,13} but omits n=0 and n=1 — the exact inputs that expose CR-01. The gap-closure comment declares the XySwap bug "fixed" without evidence that edge cases around the boundary condition were verified.
+
+**Fix:** Add to `test_prime_test_correctness`:
+```rust
+assert_eq!(run_prime(0), HpNum::from(0i32), "prime(0) must be 0");
+assert_eq!(run_prime(1), HpNum::from(0i32), "prime(1) must be 0 (not prime by definition)");
+```
+
+---
+
+### WR-04: `op_int` (new `Op::Int`) has no unit tests in `hp41-core`
+
+**File:** `hp41-core/src/ops/math.rs:81-85`
+**Issue:** `op_int` was added as the enabler for the prime_test gap-closure fix but has no unit tests. The function's correctness for negative inputs, its `LASTX` save behavior (via `unary_result`), and its lift effect are all untested. A regression in `Decimal::trunc()` behavior across a `rust_decimal` version upgrade would go undetected.
+
+**Fix:** Add tests to the `#[cfg(test)]` module in `hp41-core/src/ops/math.rs` or `mod.rs`:
+```rust
+#[test]
+fn test_op_int_truncates_positive() {
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::PushNum(HpNum::from_str("2.9").unwrap())).unwrap();
+    dispatch(&mut state, Op::Int).unwrap();
+    assert_eq!(state.stack.x, HpNum::from(2i32));
+}
+
+#[test]
+fn test_op_int_truncates_negative_toward_zero() {
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::PushNum(HpNum::from_str("-2.7").unwrap())).unwrap();
+    dispatch(&mut state, Op::Int).unwrap();
+    assert_eq!(state.stack.x, HpNum::from(-2i32)); // NOT -3
+}
+
+#[test]
+fn test_op_int_saves_lastx() {
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::PushNum(HpNum::from_str("3.5").unwrap())).unwrap();
+    dispatch(&mut state, Op::Int).unwrap();
+    assert_eq!(state.stack.lastx, HpNum::from_str("3.5").unwrap());
+}
+```
+
+---
+
+### WR-05: `test_fibonacci_runs_without_panic` does not assert the computed value
+
+**File:** `hp41-cli/src/programs.rs:426-436`
+**Issue:** The test only calls `assert!(result.is_ok(), ...)` — it never checks the stack after the run. The comment itself says "F(6)=8 or similar," indicating uncertainty rather than specification. A behavioral regression (wrong result, but no error) would pass this test.
 
 **Fix:**
-
 ```rust
-let mut sorted = names.clone();
-sorted.sort_unstable();
-sorted.dedup();
-assert_eq!(names.len(), sorted.len(), "Program names must be unique");
-```
-
----
-
-### WR-03: `mean_sdev_ops` always reads R00 instead of the indexed register — program is non-functional
-
-**File:** `hp41-cli/src/programs.rs:293`
-
-**Issue:** The comment at line 293 acknowledges the defect:
-
-```rust
-Op::RclReg(13),
-Op::RclReg(0),                      // simplified: use R00 value always
-Op::StoArith { reg: 11, kind: StoArithKind::Add },
-```
-
-`RclReg(13)` recalls the index counter but discards it immediately (it is pushed
-onto the stack and then overwritten by `RclReg(0)`). The program always adds R00
-to the running sum, regardless of which iteration is executing. For any input where
-R00 is the only non-zero register, it sums the same value n times and divides by
-n, returning R00 — only accidentally correct. The program's own description says
-"Enter n values" which implies distinct registers, none of which are read.
-
-This sample program is misleading and non-functional as documented. Either the
-program should be removed or correctly implemented (using indirect addressing if
-supported, or with a clear note that it sums n copies of R00).
-
-**Fix (minimal — correct the description):** Change description to:
-
-```rust
-description: "Sums R00 n times (R10=n) then divides. Demonstration only; not a general mean.",
-```
-
-Or implement with proper per-register access using R13 as an index to drive multiple
-RclReg calls via a jump table, or remove and replace with a simpler honest example.
-
----
-
-### WR-04: `'?'` help toggle bypasses ALPHA mode — cannot type '?' into ALPHA register
-
-**File:** `hp41-cli/src/app.rs:149-153`
-
-**Issue:** The `'?'` key check at line 149 fires before the alpha-mode guard at
-line 188. In ALPHA mode, pressing `'?'` opens the help overlay instead of
-appending `'?'` to `alpha_reg`. This is the same class of routing-order defect as
-CR-02, but lower severity since `'?'` is uncommon in HP-41 label names.
-
-**Fix:** Guard the `'?'` handler with `!self.state.alpha_mode`:
-
-```rust
-if key.code == KeyCode::Char('?') && !self.state.alpha_mode {
-    self.show_help = !self.show_help;
-    self.show_programs = false;
-    return;
-}
+let result = hp41_core::run_program(&mut state, "A");
+assert!(result.is_ok(), "Fibonacci must run without error: {:?}", result);
+// F(6) = 8  (sequence: 0,1,1,2,3,5,8,...)
+assert_eq!(state.stack.x, HpNum::from(8i32), "Fibonacci(6) must equal 8");
 ```
 
 ---
 
 ## Info
 
-### IN-01: `HELP_DATA` Registers section has incorrect key labels for STO operations
+### IN-01: `Quadratic Solver` sample program description conflicts with function docstring
 
-**File:** `hp41-cli/src/help_data.rs:48-52`
+**File:** `hp41-cli/src/programs.rs:45` and `197`
+**Issue:** The `SampleProgram.description` field (rendered in the UI overlay) reads `"Stack: a(T) b(Z) c(Y) → roots in X,Y."` The function docstring says `"Stack entry: c in X, b in Y, a in Z"`. The code matches the docstring (`StoReg(2)` stores X as c, then two `Rdn` calls extract b and a from Y and Z). The description shown to users is wrong: it implies `a` is in T and nothing is in X, which would leave one register uninitialized.
 
-**Issue:** The help table shows:
-
-```
-("Shift+R", "STO [nn]",  "Store X … — press S then 2 digits"),
-("Shift+R+", "STO+ [nn]","Add X to register nn — press Shift+R+, then 2 digits"),
-```
-
-The key column says "Shift+R" but the description says "press S then 2 digits". The
-actual key binding for STO is `'S'` (capital S = Shift+S), not `Shift+R`. STO+ /
-STO- / STO× / STO÷ are not yet wired to key bindings (marked dead code in
-`PendingInput`). The key column is misleading — it should read `"S"` for STO and
-`"(unassigned)"` for STO arithmetic variants.
-
-**Fix:** Correct the key labels in `HELP_DATA`:
-
+**Fix:** Update the description string:
 ```rust
-("S",          "STO [nn]",  "Store X to register nn (00–99) — press S then 2 digits"),
-("(unassigned)","STO+ [nn]","Add X to register nn (Phase 7 polish — not yet bound)"),
-// etc.
+description: "Roots of ax²+bx+c. Stack: c(X) b(Y) a(Z) → root1 in X, root2 in Y.",
 ```
 
 ---
 
-### IN-02: `check_autosave` resets `last_save` even on save failure
+### IN-02: `prime_test_ops` comment uses "floor(n/d)" but `Op::Int` is truncate-toward-zero
 
-**File:** `hp41-cli/src/app.rs:82-87`
+**File:** `hp41-cli/src/programs.rs:174`
+**Issue:** The comment reads `"X=floor(n/d) (truncate toward zero)"`. These are not synonyms: `floor` rounds toward negative infinity; `trunc` rounds toward zero. For prime testing with positive `n` and `d` they produce the same result, so there is no runtime error, but the comment mixes two distinct operations in a way that would mislead anyone working with negative inputs.
 
-**Issue:**
-
+**Fix:**
 ```rust
-pub fn check_autosave(&mut self) {
-    if self.last_save.elapsed() >= Duration::from_secs(30) {
-        if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
-            self.message = Some(format!("Auto-save failed: {e}"));
-        }
-        self.last_save = Instant::now(); // reset even on failure
-    }
-}
-```
-
-The comment acknowledges this is intentional ("retry on next 30s tick"). However,
-on a persistent I/O error (e.g. disk full), the user sees the error message for one
-frame and then loses it — the next autosave attempt only happens 30 seconds later.
-This means a disk-full situation produces one warning flash every 30 seconds with no
-persistent indicator. Consider leaving `last_save` unchanged on failure so the next
-poll cycle (16ms) immediately retries and keeps the error message visible until the
-condition resolves. This is a quality concern, not a data-loss risk (the on-exit
-save also uses the same path and will also fail if the disk is full).
-
-**Fix (optional):** On save failure, do not reset `last_save`:
-
-```rust
-if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
-    self.message = Some(format!("Auto-save failed: {e}"));
-    // Do NOT reset last_save — immediate retry keeps error visible
-} else {
-    self.last_save = Instant::now();
-}
+Op::Int,  // X = trunc(n/d) — integer part toward zero (equals floor for positive n, d)
 ```
 
 ---
 
-### IN-03: `Ctrl+S` in ALPHA mode saves state (acceptable but undocumented)
+### IN-03: `handle_reg_modal` — `if reg < 100` guard is unreachable dead code
 
-**File:** `hp41-cli/src/app.rs:137-146`
+**File:** `hp41-cli/src/app.rs:451`
+**Issue:** `new_acc` is always a 2-character string of ASCII decimal digits. The maximum value is `"99"` which parses to `99u8`, always less than 100. The `else` branch producing `"Invalid register: {new_acc}"` is unreachable. The `unwrap_or(0)` fallback on the same line is also superfluous since a valid 2-char ASCII digit string never fails `u8::from_str`.
 
-**Issue:** `Ctrl+S` is intercepted before the `alpha_mode` check, so pressing
-`Ctrl+S` in ALPHA mode saves state rather than appending `'s'` (the save path is
-already handled by the CONTROL modifier check, so no character is lost). This is
-probably desirable behavior but is not mentioned in help text or alpha mode status
-message. Low priority — no functional defect.
-
-**Fix (documentation only):** Update the ALPHA mode status bar message or help data
-to note that `Ctrl+S` saves even in ALPHA mode.
+**Fix:** Remove the dead guard:
+```rust
+let reg: u8 = new_acc.parse().expect("two ASCII digits always parse as u8 ≤ 99");
+self.call_dispatch(op_fn(reg));
+self.pending_input = None;
+```
 
 ---
 
