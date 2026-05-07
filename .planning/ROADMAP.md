@@ -78,7 +78,18 @@ Plans:
   2. User can run a program containing all conditional tests (x=0?, x<0?, x>y?, etc.) and observe correct skip-next-step behavior when the condition is false
   3. User can write a counting loop using ISG with counter register value `1.00500` (current=1, final=5, step=1) and observe it increment exactly 4 times before falling through
   4. User can nest XEQ calls up to 4 levels deep; a 5th nested XEQ produces a "TRY AGAIN" error without crashing
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1** *(parallel — no dependencies)*
+- [ ] 03-01-PLAN.md — CalcState Phase 3 fields (program, prgm_mode, pc, call_stack, is_running)
+- [ ] 03-02-PLAN.md — HpError::CallDepth variant ("try again")
+- [ ] 03-03-PLAN.md — TestKind enum (12 variants) + Phase 3 Op variants (Lbl/Gto/Xeq/Rtn/PrgmMode/Test/Isg/Dse)
+**Wave 2** *(blocked on Wave 1 — parallel with each other)*
+- [ ] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
+- [ ] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
 
 ### Phase 4: TUI & Input
 **Goal**: Users interact with the emulator entirely via keyboard in a persistent ratatui terminal panel that shows the 4-level stack, LASTX, 12-character HP-41 display, and all annunciators at all times.
@@ -135,7 +146,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
-| 3. Programming Engine | 0/? | Not started | - |
+| 3. Programming Engine | 0/6 | Planned | - |
 | 4. TUI & Input | 0/? | Not started | - |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
@@ -171,4 +182,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-06 after Phase 2 planning*
+*Last updated: 2026-05-07 after Phase 3 planning*
