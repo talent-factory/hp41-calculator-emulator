@@ -22,9 +22,15 @@ use crate::{keys, persistence, ui};
 pub enum PendingInput {
     StoRegister(String),          // accumulating 2-digit register number for STO [nn]
     RclRegister(String),          // accumulating 2-digit register number for RCL [nn]
+    // STO arithmetic variants — handled in handle_pending_input() match arms.
+    // Not yet wired to key bindings (Phase 7 polish); #[allow] suppresses premature dead-code lint.
+    #[allow(dead_code)]
     StoAdd(String),               // STO+ [nn]
+    #[allow(dead_code)]
     StoSub(String),               // STO- [nn]
+    #[allow(dead_code)]
     StoMul(String),               // STO× [nn]
+    #[allow(dead_code)]
     StoDiv(String),               // STO÷ [nn]
     AssignKey,                    // D-27 step 1: waiting for key char to assign
     AssignLabel(char, String),    // D-27 step 2: char received; accumulating label name
@@ -45,12 +51,10 @@ pub struct App {
     pub pending_input: Option<PendingInput>,
     // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
     pub show_help: bool,
-    pub help_scroll: usize,
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
     /// Single-threaded, non-reentrant draw — borrow_mut() will never panic. (RESEARCH Pitfall 1)
     pub help_table_state: RefCell<TableState>,
     pub show_programs: bool,
-    pub programs_scroll: usize,
     pub programs_table_state: RefCell<TableState>,
 }
 
@@ -64,10 +68,8 @@ impl App {
             state_path,
             pending_input: None,
             show_help: false,
-            help_scroll: 0,
             help_table_state: RefCell::new(TableState::default()),
             show_programs: false,
-            programs_scroll: 0,
             programs_table_state: RefCell::new(TableState::default()),
         }
     }
@@ -337,12 +339,12 @@ impl App {
         match pending {
             Some(PendingInput::StoRegister(ref acc)) => self.handle_reg_modal(
                 key, acc.clone(),
-                |reg| Op::StoReg(reg),
+                Op::StoReg,
                 PendingInput::StoRegister,
             ),
             Some(PendingInput::RclRegister(ref acc)) => self.handle_reg_modal(
                 key, acc.clone(),
-                |reg| Op::RclReg(reg),
+                Op::RclReg,
                 PendingInput::RclRegister,
             ),
             Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
