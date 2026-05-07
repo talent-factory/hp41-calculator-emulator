@@ -15,7 +15,7 @@
 - [x] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE (completed 2026-05-07)
 - [x] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping (completed 2026-05-07)
 - [x] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs (completed 2026-05-07)
-- [ ] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions
+- [x] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions (completed 2026-05-07)
 - [ ] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite
 
 ---

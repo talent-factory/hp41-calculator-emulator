@@ -116,8 +116,8 @@
 | UX-01 | Phase 5 | Pending |
 | UX-02 | Phase 5 | Pending |
 | UX-03 | Phase 5 | Pending |
-| SCI-01 | Phase 6 | Pending |
-| SCI-02 | Phase 6 | Pending |
+| SCI-01 | Phase 6 | Validated in Phase 6 (2026-05-07) |
+| SCI-02 | Phase 6 | Validated in Phase 6 (2026-05-07) |
 | QUAL-01 | Phase 7 | Pending |
 | QUAL-02 | Phase 7 | Pending |
 | QUAL-03 | Phase 7 | Pending |
