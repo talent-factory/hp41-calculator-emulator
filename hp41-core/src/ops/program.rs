@@ -233,6 +233,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Lastx  => op_lastx(state),
         Op::PushNum(v) => {
             enter_number(state, v);
+            // PushNum inside a program enables lift so subsequent PushNums lift the stack
+            // (mirrors flush_entry_buf execute-mode behavior: enter_number + LiftEffect::Enable)
+            apply_lift_effect(state, LiftEffect::Enable);
             Ok(())
         }
         // Phase 2 math/trig/angle

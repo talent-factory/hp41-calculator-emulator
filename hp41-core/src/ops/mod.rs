@@ -253,9 +253,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle       => op_alpha_toggle(state),
         Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
         Op::AlphaClear        => op_alpha_clear(state),
-        // ── Programming ops (Phase 3) — wired in plan 03-06 ─────────────────
+        // ── Programming ops (Phase 3) — partially wired here for test 03-05 ──
         // The prgm_mode gate above intercepts these during recording.
-        // When prgm_mode=false these reach here — real implementations come in plan 03-06.
+        // PrgmMode entry arm needed so dispatch(Op::PrgmMode) works in execute mode.
+        // (Rule 3 auto-fix: required for program_tests.rs test suite to pass.)
+        // Remaining arms (Lbl/Gto/Xeq/Rtn/Test/Isg/Dse) wired in plan 03-06.
+        Op::PrgmMode => program::op_prgm_mode(state),
         _ => Err(HpError::InvalidOp),
     }
 }
