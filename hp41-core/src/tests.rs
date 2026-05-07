@@ -26,6 +26,19 @@ mod error_tests {
         assert_eq!(HpError::InvalidOp.to_string(), "invalid operation");
         assert_eq!(HpError::Domain.to_string(), "domain error");
     }
+
+    // Phase 3 Plan 02: CallDepth variant (D-13/D-14)
+    #[test]
+    fn hperror_call_depth_message_is_try_again() {
+        assert_eq!(HpError::CallDepth.to_string(), "try again");
+    }
+
+    #[test]
+    fn hperror_call_depth_is_partialeq() {
+        let e = HpError::CallDepth;
+        assert_eq!(e.clone(), HpError::CallDepth);
+        assert_ne!(e, HpError::InvalidOp);
+    }
 }
 
 #[cfg(test)]
