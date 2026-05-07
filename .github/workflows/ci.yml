@@ -40,7 +40,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just
-      - run: just test
+      - name: Build release binary
+        run: just build-release
+      - name: Run tests
+        run: just test
 
   coverage:
     name: Coverage (>=80%)
