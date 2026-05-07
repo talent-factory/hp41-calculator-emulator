@@ -697,6 +697,49 @@ mod num_trig_math_tests {
     }
 }
 
+// ── Phase 3 Plan 01: CalcState Programming Engine Fields ─────────────────────
+// RED phase — these fail until the five Phase 3 fields are added to state.rs.
+// Spec: D-01, D-05, D-06 from 03-CONTEXT.md
+#[cfg(test)]
+mod phase3_state_tests {
+    use crate::state::CalcState;
+
+    #[test]
+    fn calcstate_new_program_is_empty_vec() {
+        // D-01: program is a flat Vec<Op>; starts empty
+        let s = CalcState::new();
+        assert!(s.program.is_empty());
+    }
+
+    #[test]
+    fn calcstate_new_prgm_mode_is_false() {
+        // D-03: prgm_mode gates dispatch() recording; off at startup
+        let s = CalcState::new();
+        assert!(!s.prgm_mode);
+    }
+
+    #[test]
+    fn calcstate_new_pc_is_zero() {
+        // D-05: pc is the program counter index; 0 at startup
+        let s = CalcState::new();
+        assert_eq!(s.pc, 0usize);
+    }
+
+    #[test]
+    fn calcstate_new_call_stack_is_empty() {
+        // D-14: call_stack holds subroutine return addresses; empty at startup
+        let s = CalcState::new();
+        assert!(s.call_stack.is_empty());
+    }
+
+    #[test]
+    fn calcstate_new_is_running_is_false() {
+        // D-06: is_running guards re-entrancy; false at startup
+        let s = CalcState::new();
+        assert!(!s.is_running);
+    }
+}
+
 #[cfg(test)]
 mod dispatch_tests {
     use crate::num::HpNum;
