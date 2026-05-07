@@ -51,4 +51,4 @@ bench:
 # Usage: just bench-startup
 # Prerequisite: just build-release (or cargo build --release) must be run first
 bench-startup:
-	hyperfine --runs 10 ./target/release/hp41-cli
+	hyperfine --runs 10 ./target/release/hp41
