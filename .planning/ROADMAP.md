@@ -123,7 +123,7 @@ Plans:
   3. User can press `?` or type `HELP` in the TUI and see a searchable function reference covering all HP-41 operations with their keyboard mappings
   4. User can assign a custom program label to a key in USER mode, toggle USER mode, and observe the key assignment activate; the assignment survives a save/reload cycle
   5. User can load at least 10 bundled sample programs from within the TUI and run them to produce documented outputs
-**Plans**: 8 plans
+**Plans**: 10 plans
 
 Plans:
 **Wave 1** *(parallel — different files)*
@@ -139,6 +139,9 @@ Plans:
 - [ ] 05-07-PLAN.md — app.rs try_user_dispatch + F1-F4 USER keys + human smoke test checkpoint
 **Wave 5** *(blocked on Wave 4)*
 - [ ] 05-08-PLAN.md — CalcState serde round-trip test + just ci gate (lint + test + coverage ≥80%)
+**Wave 6** *(blocked on Wave 5 — gap closure)*
+- [ ] 05-09-PLAN.md — Fix sample program bugs: remove XySwap from prime_test_ops, replace mean_sdev_ops with 4-value stack mean, fix quadratic_ops comment
+- [ ] 05-10-PLAN.md — Guard 'q' quit with overlay/modal context; add unit tests for help overlay routing
 
 ### Phase 6: Science & Engineering
 **Goal**: Users can perform the HP-41's built-in statistics suite (Σ registers, mean, standard deviation, linear regression) and HMS/H time-and-angle conversion functions.
