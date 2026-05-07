@@ -51,6 +51,23 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('Y')           => Some(Op::YPow),
         // Phase 5: USER mode toggle (D-26)
         KeyCode::Char('u')           => Some(Op::UserMode),
+        // Phase 6: Science & Engineering stats bindings
+        // Note: 'd' is intercepted in app.rs for angle mode; use 'D' for SDEV.
+        KeyCode::Char('z')           => Some(Op::SigmaPlus),
+        KeyCode::Char('Z')           => Some(Op::SigmaMinus),
+        KeyCode::Char('m')           => Some(Op::Mean),
+        KeyCode::Char('D')           => Some(Op::Sdev),
+        KeyCode::Char('y')           => Some(Op::Yhat),
+        // Note: 'l' is taken by Op::Lastx; 'R' is STO/RCL modal (None); use 'b' for L.R.
+        KeyCode::Char('b')           => Some(Op::LR),
+        KeyCode::Char('O')           => Some(Op::Corr),
+        KeyCode::Char('V')           => Some(Op::ClSigmaStat),
+        // Phase 6: HMS bindings
+        // Note: 'f' is intercepted in app.rs for format mode; use 'F' for →HMS.
+        KeyCode::Char('h')           => Some(Op::HmsToH),
+        KeyCode::Char('F')           => Some(Op::HToHms),
+        KeyCode::Char('j')           => Some(Op::HmsAdd),
+        KeyCode::Char('J')           => Some(Op::HmsSub),
         // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
         // They do NOT return an Op here — the modal is intercepted in app.handle_key()
         // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
@@ -110,6 +127,19 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("Ctrl+P", "program library overlay"),
     ("Ctrl+A", "assign key in USER mode"),
     ("F1-F4",  "USER keys a/b/c/d (USER mode)"),
+    // Phase 6: Science & Engineering
+    ("z",      "\u{03A3}+  (\u{03A3}+ accumulate into stats registers; push n to X)"),
+    ("Z",      "\u{03A3}-  (\u{03A3}- remove from stats registers; push n to X)"),
+    ("m",      "MEAN (x\u{0305} in X, y\u{0305} in Y)"),
+    ("D",      "SDEV (sample \u{03C3}x in X, \u{03C3}y in Y; n-1 denom)"),
+    ("y",      "YHAT (\u{0177} prediction from X via linear regression)"),
+    ("b",      "L.R. (linear regression: slope m in Y, intercept b in X)"),
+    ("O",      "CORR (correlation coefficient r in X)"),
+    ("V",      "CL\u{03A3} (clear \u{03A3} stats registers R01-R06 to zero)"),
+    ("h",      "HMS\u{2192} (H.MMSS to decimal hours)"),
+    ("F",      "\u{2192}HMS (decimal hours to H.MMSS format)"),
+    ("j",      "HMS+  (add two H.MMSS values, base-60 carry)"),
+    ("J",      "HMS-  (subtract H.MMSS values, base-60 borrow)"),
 ];
 
 #[cfg(test)]

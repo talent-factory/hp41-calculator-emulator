@@ -103,11 +103,11 @@ fn unmapped_keys_return_none() {
 #[test]
 fn key_ref_table_has_33_entries() {
     // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
-    // also S entry was updated from SIN to STO modal and R entry added.
-    // Total is now 40. Test updated to match (Phase 5, D-10/D-26).
+    // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
+    // Total is now 52. Test name preserved for history; count updated to 52.
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        40,
-        "KEY_REF_TABLE must have exactly 40 entries (33 Phase 4 + 7 Phase 5)"
+        52,
+        "KEY_REF_TABLE must have exactly 52 entries (40 Phase 1-5 + 12 Phase 6)"
     );
 }
