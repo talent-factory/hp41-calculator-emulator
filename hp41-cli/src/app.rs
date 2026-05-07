@@ -157,6 +157,87 @@ impl App {
             return;
         }
 
+        // Phase 5: pending input guard — intercept BEFORE alpha mode and digit entry (D-08, Pitfall 5).
+        // S key triggers StoRegister modal; R key triggers RclRegister modal.
+        if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::StoRegister(String::new()));
+            self.message = None;
+            return;
+        }
+        if key.code == KeyCode::Char('R') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::RclRegister(String::new()));
+            self.message = None;
+            return;
+        }
+        // Ctrl+A triggers USER key assignment modal (D-27)
+        if key.code == KeyCode::Char('a') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::AssignKey);
+            self.message = None;
+            return;
+        }
+        // Route to pending_input handler if modal is active
+        if self.pending_input.is_some() {
+            self.handle_pending_input(key);
+            return;
+        }
+
+        // Phase 5: ALPHA mode routing (D-12) — must be BEFORE digit-entry block (RESEARCH Pitfall 5).
+        // In ALPHA mode, 'a' must append 'a', not dispatch Asin.
+        if self.state.alpha_mode {
+            self.handle_alpha_mode_key(key);
+            return;
+        }
+
+        // Phase 5: overlay navigation — help and program library overlays intercept nav keys.
+        if self.show_help {
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => {
+                    self.show_help = false;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.help_table_state.borrow_mut().select_previous();
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    self.help_table_state.borrow_mut().select_next();
+                }
+                _ => {}
+            }
+            return; // consume all keys when help overlay is open
+        }
+        if self.show_programs {
+            match key.code {
+                KeyCode::Esc => {
+                    self.show_programs = false;
+                    self.pending_input = None;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.programs_table_state.borrow_mut().select_previous();
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    self.programs_table_state.borrow_mut().select_next();
+                }
+                KeyCode::Enter => {
+                    // Load selected program (D-22)
+                    if let Some(idx) = self.programs_table_state.borrow().selected() {
+                        let programs = crate::programs::sample_programs();
+                        if idx < programs.len() {
+                            if !self.state.program.is_empty() {
+                                // Non-empty: request confirmation (D-22)
+                                self.pending_input = Some(PendingInput::ConfirmLoad(idx));
+                                self.show_programs = false;
+                            } else {
+                                self.state.program = programs[idx].ops.clone();
+                                self.message = Some(format!("Loaded: {}", programs[idx].name));
+                                self.show_programs = false;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
+
         // D-11 / D-13: digit keys and 'e' (EEX) append directly to entry_buf.
         // dispatch() calls flush_entry_buf() automatically on the next non-digit op.
         // DO NOT call dispatch() here — that would push each digit as a separate PushNum.
@@ -217,6 +298,167 @@ impl App {
         // All other ops: route through keys.rs → dispatch()
         if let Some(op) = keys::key_to_op(key, self) {
             self.call_dispatch(op);
+        }
+    }
+
+    /// Handle key events while pending_input is Some(…). (D-08 through D-11, D-22, D-27)
+    /// Release filter already applied in handle_key() before this is called.
+    fn handle_pending_input(&mut self, key: KeyEvent) {
+        // Take pending — we re-set it only if the modal continues.
+        let pending = self.pending_input.take();
+        match pending {
+            Some(PendingInput::StoRegister(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::StoReg(reg),
+                PendingInput::StoRegister,
+            ),
+            Some(PendingInput::RclRegister(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::RclReg(reg),
+                PendingInput::RclRegister,
+            ),
+            Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Add },
+                PendingInput::StoAdd,
+            ),
+            Some(PendingInput::StoSub(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Sub },
+                PendingInput::StoSub,
+            ),
+            Some(PendingInput::StoMul(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Mul },
+                PendingInput::StoMul,
+            ),
+            Some(PendingInput::StoDiv(ref acc)) => self.handle_reg_modal(
+                key, acc.clone(),
+                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Div },
+                PendingInput::StoDiv,
+            ),
+            Some(PendingInput::AssignKey) => {
+                // D-27 step 1: waiting for any printable char
+                match key.code {
+                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Char(c) => {
+                        self.pending_input = Some(PendingInput::AssignLabel(c, String::new()));
+                    }
+                    _ => { self.pending_input = Some(PendingInput::AssignKey); }
+                }
+            }
+            Some(PendingInput::AssignLabel(c, ref acc)) => {
+                // D-27 step 2: accumulating label name
+                match key.code {
+                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Enter => {
+                        if !acc.is_empty() {
+                            self.state.key_assignments.insert(c, acc.clone());
+                            self.message = Some(format!("Assigned '{c}' \u{2192} LBL:{acc}"));
+                        }
+                        self.pending_input = None;
+                    }
+                    KeyCode::Backspace => {
+                        let mut new_acc = acc.clone();
+                        new_acc.pop();
+                        self.pending_input = Some(PendingInput::AssignLabel(c, new_acc));
+                    }
+                    KeyCode::Char(ch) => {
+                        let mut new_acc = acc.clone();
+                        new_acc.push(ch);
+                        self.pending_input = Some(PendingInput::AssignLabel(c, new_acc));
+                    }
+                    _ => { self.pending_input = Some(PendingInput::AssignLabel(c, acc.clone())); }
+                }
+            }
+            Some(PendingInput::ConfirmLoad(idx)) => {
+                // D-22: confirm before overwriting existing program
+                match key.code {
+                    KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                        let programs = crate::programs::sample_programs();
+                        if idx < programs.len() {
+                            self.state.program = programs[idx].ops.clone();
+                            self.message = Some(format!("Loaded: {}", programs[idx].name));
+                        }
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Any other key (including 'n', Esc) = cancel
+                        self.message = Some("Load cancelled".to_string());
+                        self.pending_input = None;
+                    }
+                }
+            }
+            None => {} // shouldn't happen (guard checked is_some() before calling)
+        }
+    }
+
+    /// Generic 2-digit register number accumulator (D-09).
+    /// op_fn: given the parsed register number, returns the Op to dispatch.
+    /// pending_fn: given the accumulator string, returns the PendingInput variant to continue.
+    fn handle_reg_modal(
+        &mut self,
+        key: KeyEvent,
+        acc: String,
+        op_fn: impl Fn(u8) -> Op,
+        pending_fn: impl Fn(String) -> PendingInput,
+    ) {
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 2 {
+                    // Auto-dispatch on second digit (D-09)
+                    let reg: u8 = new_acc.parse().unwrap_or(0);
+                    if reg < 100 {
+                        self.call_dispatch(op_fn(reg));
+                    } else {
+                        self.message = Some(format!("Invalid register: {new_acc}"));
+                    }
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(pending_fn(new_acc));
+                }
+            }
+            KeyCode::Backspace => {
+                // D-09: Backspace resets entire accumulator
+                self.pending_input = Some(pending_fn(String::new()));
+            }
+            KeyCode::Esc => {
+                // D-09: Esc cancels modal
+                self.pending_input = None;
+            }
+            _ => {
+                // Non-digit, non-control key: restore modal (silently ignore)
+                self.pending_input = Some(pending_fn(acc));
+            }
+        }
+    }
+
+    /// Handle key events while state.alpha_mode is true (D-12 through D-15).
+    /// Printable chars → AlphaAppend. Backspace → AlphaBackspace. Enter/a → AlphaToggle (exit).
+    /// Release filter already applied in handle_key() before this is called.
+    fn handle_alpha_mode_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => {
+                // Exit ALPHA mode (D-13, D-15)
+                self.call_dispatch(Op::AlphaToggle);
+            }
+            KeyCode::Char('a') => {
+                // D-15: 'a' exits ALPHA mode (same as Enter)
+                self.call_dispatch(Op::AlphaToggle);
+            }
+            KeyCode::Backspace => {
+                // D-13: Backspace in ALPHA mode = AlphaBackspace (remove last char)
+                self.call_dispatch(Op::AlphaBackspace);
+            }
+            KeyCode::Char(c) => {
+                // D-12: all printable chars route to AlphaAppend
+                self.call_dispatch(Op::AlphaAppend(c));
+            }
+            _ => {
+                // Other keys (arrows, F-keys, etc.) ignored in ALPHA mode
+            }
         }
     }
 

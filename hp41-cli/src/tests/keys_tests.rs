@@ -63,7 +63,10 @@ fn inverse_trig_lowercase() {
 #[test]
 fn trig_math_uppercase_shift() {
     let app = make_app();
-    assert_eq!(key_to_op(press(KeyCode::Char('S')), &app), Some(Op::Sin));
+    // Phase 5: 'S' is now intercepted in app.handle_key() BEFORE key_to_op() — it triggers
+    // the STO [nn] modal. key_to_op must return None for 'S' and 'R' (D-10 routing).
+    assert_eq!(key_to_op(press(KeyCode::Char('S')), &app), None, "'S' must return None — STO modal is intercepted upstream");
+    assert_eq!(key_to_op(press(KeyCode::Char('R')), &app), None, "'R' must return None — RCL modal is intercepted upstream");
     assert_eq!(key_to_op(press(KeyCode::Char('C')), &app), Some(Op::Cos));
     assert_eq!(key_to_op(press(KeyCode::Char('T')), &app), Some(Op::Tan));
     assert_eq!(key_to_op(press(KeyCode::Char('L')), &app), Some(Op::Ln));
@@ -73,6 +76,8 @@ fn trig_math_uppercase_shift() {
     assert_eq!(key_to_op(press(KeyCode::Char('I')), &app), Some(Op::Recip));
     assert_eq!(key_to_op(press(KeyCode::Char('W')), &app), Some(Op::Sq));
     assert_eq!(key_to_op(press(KeyCode::Char('Y')), &app), Some(Op::YPow));
+    // Phase 5: 'u' maps to Op::UserMode
+    assert_eq!(key_to_op(press(KeyCode::Char('u')), &app), Some(Op::UserMode));
 }
 
 #[test]
@@ -97,9 +102,12 @@ fn unmapped_keys_return_none() {
 
 #[test]
 fn key_ref_table_has_33_entries() {
+    // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
+    // also S entry was updated from SIN to STO modal and R entry added.
+    // Total is now 40. Test updated to match (Phase 5, D-10/D-26).
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        33,
-        "KEY_REF_TABLE must have exactly 33 entries"
+        40,
+        "KEY_REF_TABLE must have exactly 40 entries (33 Phase 4 + 7 Phase 5)"
     );
 }
