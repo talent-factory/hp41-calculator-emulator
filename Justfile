@@ -22,8 +22,9 @@ lint:
 run:
 	cargo run -p hp41-cli
 
-# Check coverage gate — ≥80% line coverage on hp41-core
+# Check coverage gate — ≥80% line coverage on hp41-core (clean first to avoid stale profraw data)
 coverage:
+	cargo llvm-cov clean --workspace
 	cargo llvm-cov --fail-under-lines 80 -p hp41-core
 
 # Full CI gate: lint → test → coverage
