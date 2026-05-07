@@ -75,6 +75,15 @@ pub fn op_sq(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
+/// INT: truncate X toward zero (integer part, HP-41 INT function).
+/// Removes the fractional part of X. No domain restriction.
+/// LiftEffect: Enable (via unary_result). LASTX: saves X before overwrite.
+pub fn op_int(state: &mut CalcState) -> Result<(), HpError> {
+    let result = state.stack.x.trunc_int();
+    unary_result(state, result);
+    Ok(())
+}
+
 /// LN: natural logarithm of X.
 /// LiftEffect: Enable. Domain error if X ≤ 0.
 pub fn op_ln(state: &mut CalcState) -> Result<(), HpError> {

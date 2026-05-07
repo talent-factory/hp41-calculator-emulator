@@ -219,6 +219,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     use crate::ops::arithmetic::{op_add, op_sub, op_mul, op_div};
     use crate::ops::stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
     use crate::ops::math::{
+        op_int,
         op_recip, op_sqrt, op_sq, op_ypow, op_ln, op_log, op_exp, op_tenpow,
         op_sin, op_cos, op_tan, op_asin, op_acos, op_atan,
         op_set_deg, op_set_rad, op_set_grad,
@@ -248,6 +249,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             Ok(())
         }
         // Phase 2 math/trig/angle
+        Op::Int    => op_int(state),
         Op::Recip  => op_recip(state),
         Op::Sqrt   => op_sqrt(state),
         Op::Sq     => op_sq(state),
