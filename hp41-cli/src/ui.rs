@@ -6,20 +6,20 @@
 //!
 //! Minimum terminal size: 80×24 (D-01). Smaller terminals render an error message only.
 
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
+use ratatui::Frame;
 
 use crate::help_data;
 use crate::programs;
 
-use hp41_core::{AngleMode, format_hpnum, format_alpha};
+use hp41_core::{format_alpha, format_hpnum, AngleMode};
 
 use crate::app::App;
-use crate::prgm_display;
 use crate::keys::KEY_REF_TABLE;
+use crate::prgm_display;
 
 /// Render the full HP-41 TUI into `frame`. Called from App::draw() every frame.
 pub fn render_ui(app: &App, frame: &mut Frame) {
@@ -36,10 +36,8 @@ pub fn render_ui(app: &App, frame: &mut Frame) {
     }
 
     // Split into two columns: left 55%, right 45%.
-    let [left, right] = Layout::horizontal([
-        Constraint::Percentage(55),
-        Constraint::Percentage(45),
-    ]).areas(area);
+    let [left, right] =
+        Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(area);
 
     render_left_panel(app, frame, left);
     render_right_panel(app, frame, right);
@@ -67,18 +65,19 @@ fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
     //   Row 6: display panel  (3 lines — the largest/most prominent element)
     //   Row 7: annunciator bar (1 line)
     //   Row 8: status bar     (remainder)
-    let [row_t, row_z, row_y, row_x, row_lastx, row_spacer,
-         row_display, row_annunc, row_status] = Layout::vertical([
-        Constraint::Length(1),   // T
-        Constraint::Length(1),   // Z
-        Constraint::Length(1),   // Y
-        Constraint::Length(1),   // X
-        Constraint::Length(1),   // LASTX
-        Constraint::Length(1),   // spacer
-        Constraint::Length(3),   // display (prominent — 3 lines)
-        Constraint::Length(1),   // annunciators
-        Constraint::Min(0),      // status bar (remainder)
-    ]).areas(area);
+    let [row_t, row_z, row_y, row_x, row_lastx, row_spacer, row_display, row_annunc, row_status] =
+        Layout::vertical([
+            Constraint::Length(1), // T
+            Constraint::Length(1), // Z
+            Constraint::Length(1), // Y
+            Constraint::Length(1), // X
+            Constraint::Length(1), // LASTX
+            Constraint::Length(1), // spacer
+            Constraint::Length(3), // display (prominent — 3 lines)
+            Constraint::Length(1), // annunciators
+            Constraint::Min(0),    // status bar (remainder)
+        ])
+        .areas(area);
 
     let _ = row_spacer; // intentionally empty
 
@@ -89,8 +88,13 @@ fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_stack(
-    app: &App, frame: &mut Frame,
-    row_t: Rect, row_z: Rect, row_y: Rect, row_x: Rect, row_lastx: Rect,
+    app: &App,
+    frame: &mut Frame,
+    row_t: Rect,
+    row_z: Rect,
+    row_y: Rect,
+    row_x: Rect,
+    row_lastx: Rect,
 ) {
     let st = &app.state;
     let mode = &st.display_mode;
@@ -101,11 +105,11 @@ fn render_stack(
         Paragraph::new(text)
     };
 
-    frame.render_widget(fmt("T", &st.stack.t),      row_t);
-    frame.render_widget(fmt("Z", &st.stack.z),      row_z);
-    frame.render_widget(fmt("Y", &st.stack.y),      row_y);
-    frame.render_widget(fmt("X", &st.stack.x),      row_x);
-    frame.render_widget(fmt("L", &st.stack.lastx),  row_lastx);
+    frame.render_widget(fmt("T", &st.stack.t), row_t);
+    frame.render_widget(fmt("Z", &st.stack.z), row_z);
+    frame.render_widget(fmt("Y", &st.stack.y), row_y);
+    frame.render_widget(fmt("X", &st.stack.x), row_x);
+    frame.render_widget(fmt("L", &st.stack.lastx), row_lastx);
 }
 
 fn render_display(app: &App, frame: &mut Frame, area: Rect) {
@@ -117,10 +121,7 @@ fn render_display(app: &App, frame: &mut Frame, area: Rect) {
     let display_str = get_display_string(app);
 
     let block = Block::bordered().title_top(" Display ");
-    frame.render_widget(
-        Paragraph::new(display_str).block(block),
-        area,
-    );
+    frame.render_widget(Paragraph::new(display_str).block(block), area);
 }
 
 /// Get the string to show in the HP-41 display area.
@@ -159,19 +160,19 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
     // D-02 annunciator bar: USER PRGM ALPHA SHIFT RAD DEG GRAD
     // USER and SHIFT are always dim in Phase 4 (USER mode is Phase 5).
     let line = Line::from(vec![
-        ann("USER",  st.user_mode),
+        ann("USER", st.user_mode),
         Span::raw(" "),
-        ann("PRGM",  st.prgm_mode),
+        ann("PRGM", st.prgm_mode),
         Span::raw(" "),
         ann("ALPHA", st.alpha_mode),
         Span::raw(" "),
         ann("SHIFT", false),
         Span::raw(" "),
-        ann("RAD",   st.angle_mode == AngleMode::Rad),
+        ann("RAD", st.angle_mode == AngleMode::Rad),
         Span::raw(" "),
-        ann("DEG",   st.angle_mode == AngleMode::Deg),
+        ann("DEG", st.angle_mode == AngleMode::Deg),
         Span::raw(" "),
-        ann("GRAD",  st.angle_mode == AngleMode::Grad),
+        ann("GRAD", st.angle_mode == AngleMode::Grad),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
@@ -194,15 +195,15 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 fn pending_prompt(pending: &crate::app::PendingInput) -> String {
     use crate::app::PendingInput;
     match pending {
-        PendingInput::StoRegister(acc)      => format!("STO [{:_<2}]", acc),
-        PendingInput::RclRegister(acc)      => format!("RCL [{:_<2}]", acc),
-        PendingInput::StoAdd(acc)           => format!("STO+ [{:_<2}]", acc),
-        PendingInput::StoSub(acc)           => format!("STO- [{:_<2}]", acc),
-        PendingInput::StoMul(acc)           => format!("STO\u{00D7} [{:_<2}]", acc),
-        PendingInput::StoDiv(acc)           => format!("STO\u{00F7} [{:_<2}]", acc),
-        PendingInput::AssignKey             => "Assign: press key to assign".to_string(),
-        PendingInput::AssignLabel(c, acc)   => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
-        PendingInput::ConfirmLoad(idx)      => {
+        PendingInput::StoRegister(acc) => format!("STO [{:_<2}]", acc),
+        PendingInput::RclRegister(acc) => format!("RCL [{:_<2}]", acc),
+        PendingInput::StoAdd(acc) => format!("STO+ [{:_<2}]", acc),
+        PendingInput::StoSub(acc) => format!("STO- [{:_<2}]", acc),
+        PendingInput::StoMul(acc) => format!("STO\u{00D7} [{:_<2}]", acc),
+        PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{:_<2}]", acc),
+        PendingInput::AssignKey => "Assign: press key to assign".to_string(),
+        PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
+        PendingInput::ConfirmLoad(idx) => {
             let name = crate::programs::sample_programs()
                 .get(*idx)
                 .map(|p| p.name)
@@ -218,72 +219,53 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
 /// Uses ratatui 0.30 Rect::centered() — no manual calculation needed.
 /// RESEARCH Pitfall 1: draw(&self) is immutable; RefCell<TableState> allows borrow_mut here.
 fn render_help_overlay(app: &App, frame: &mut Frame) {
-    let overlay_area = frame.area().centered(
-        Constraint::Percentage(80),
-        Constraint::Percentage(90),
-    );
+    let overlay_area = frame
+        .area()
+        .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
     let rows: Vec<Row> = help_data::HELP_DATA
         .iter()
         .map(|(key, op, desc)| {
             if desc.starts_with("===") {
                 // Category header row: full-width, bold style
-                Row::new(vec![
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(*desc),
-                ])
-                .style(ratatui::style::Style::new().bold())
+                Row::new(vec![Cell::from(""), Cell::from(""), Cell::from(*desc)])
+                    .style(ratatui::style::Style::new().bold())
             } else {
-                Row::new(vec![
-                    Cell::from(*key),
-                    Cell::from(*op),
-                    Cell::from(*desc),
-                ])
+                Row::new(vec![Cell::from(*key), Cell::from(*op), Cell::from(*desc)])
             }
         })
         .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Length(10),
-        Constraint::Length(20),
-        Constraint::Min(30),
-    ])
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(10),
+            Constraint::Length(20),
+            Constraint::Min(30),
+        ],
+    )
     .block(Block::bordered().title_top(" HP-41 Function Reference  [? or Esc to close] "))
     .row_highlight_style(ratatui::style::Style::new().reversed());
 
     // RefCell::borrow_mut() — safe: draw() is single-threaded and non-reentrant.
-    frame.render_stateful_widget(
-        table,
-        overlay_area,
-        &mut app.help_table_state.borrow_mut(),
-    );
+    frame.render_stateful_widget(table, overlay_area, &mut app.help_table_state.borrow_mut());
 }
 
 /// Render the program library overlay (D-22, UX-03).
 fn render_programs_overlay(app: &App, frame: &mut Frame) {
-    let overlay_area = frame.area().centered(
-        Constraint::Percentage(70),
-        Constraint::Percentage(80),
-    );
+    let overlay_area = frame
+        .area()
+        .centered(Constraint::Percentage(70), Constraint::Percentage(80));
 
     let progs = programs::sample_programs();
     let rows: Vec<Row> = progs
         .iter()
-        .map(|p| {
-            Row::new(vec![
-                Cell::from(p.name),
-                Cell::from(p.description),
-            ])
-        })
+        .map(|p| Row::new(vec![Cell::from(p.name), Cell::from(p.description)]))
         .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Length(22),
-        Constraint::Min(30),
-    ])
-    .block(Block::bordered().title_top(" Sample Programs  [Enter=load, Esc=close] "))
-    .row_highlight_style(ratatui::style::Style::new().reversed());
+    let table = Table::new(rows, [Constraint::Length(22), Constraint::Min(30)])
+        .block(Block::bordered().title_top(" Sample Programs  [Enter=load, Esc=close] "))
+        .row_highlight_style(ratatui::style::Style::new().reversed());
 
     frame.render_stateful_widget(
         table,
@@ -299,7 +281,8 @@ fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
     // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
     let block = Block::bordered().title_top(" Keys ");
 
-    let lines: Vec<Line> = KEY_REF_TABLE.iter()
+    let lines: Vec<Line> = KEY_REF_TABLE
+        .iter()
         .map(|(k, desc)| {
             Line::from(vec![
                 Span::styled(format!("{k:<8}"), Style::new().bold()),

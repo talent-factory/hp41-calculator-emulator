@@ -13,8 +13,8 @@
 
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::state::CalcState;
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
+use crate::state::CalcState;
 
 /// Σ+: accumulate X and Y into Σ registers R01–R06, then push count n into X.
 /// Y, Z, T are NOT dropped (unlike binary ops). LASTX is NOT saved. LiftEffect: Enable.
@@ -24,12 +24,12 @@ pub fn op_sigma_plus(state: &mut CalcState) -> Result<(), HpError> {
     let y = state.stack.y.clone();
 
     // Accumulate — compute each term atomically before writing (Pitfall guard)
-    let new_r1 = state.regs[1].checked_add(&x.checked_sq()?)?;    // Σx² += x²
-    let new_r2 = state.regs[2].checked_add(&x)?;                    // Σx  += x
-    let new_r3 = state.regs[3].checked_add(&HpNum::from(1i32))?;   // n   += 1
-    let new_r4 = state.regs[4].checked_add(&y.checked_sq()?)?;    // Σy² += y²
-    let new_r5 = state.regs[5].checked_add(&y)?;                    // Σy  += y
-    let new_r6 = state.regs[6].checked_add(&x.checked_mul(&y)?)?;  // Σxy += x·y
+    let new_r1 = state.regs[1].checked_add(&x.checked_sq()?)?; // Σx² += x²
+    let new_r2 = state.regs[2].checked_add(&x)?; // Σx  += x
+    let new_r3 = state.regs[3].checked_add(&HpNum::from(1i32))?; // n   += 1
+    let new_r4 = state.regs[4].checked_add(&y.checked_sq()?)?; // Σy² += y²
+    let new_r5 = state.regs[5].checked_add(&y)?; // Σy  += y
+    let new_r6 = state.regs[6].checked_add(&x.checked_mul(&y)?)?; // Σxy += x·y
 
     // Write all atomically after all computations succeed
     state.regs[1] = new_r1;
@@ -149,7 +149,9 @@ pub fn op_lr(state: &mut CalcState) -> Result<(), HpError> {
     }
 
     // numerator = n·Σxy − Σx·Σy
-    let numer = n.checked_mul(sum_xy)?.checked_sub(&sum_x.checked_mul(sum_y)?)?;
+    let numer = n
+        .checked_mul(sum_xy)?
+        .checked_sub(&sum_x.checked_mul(sum_y)?)?;
 
     // m = numerator / denominator
     let m = numer.checked_div(&denom)?;
@@ -189,7 +191,9 @@ pub fn op_yhat(state: &mut CalcState) -> Result<(), HpError> {
         return Err(HpError::InvalidOp);
     }
 
-    let numer = n.checked_mul(sum_xy)?.checked_sub(&sum_x.checked_mul(sum_y)?)?;
+    let numer = n
+        .checked_mul(sum_xy)?
+        .checked_sub(&sum_x.checked_mul(sum_y)?)?;
     let m = numer.checked_div(&denom)?;
     let x_mean = sum_x.checked_div(&n)?;
     let y_mean = sum_y.checked_div(&n)?;
@@ -216,7 +220,9 @@ pub fn op_corr(state: &mut CalcState) -> Result<(), HpError> {
     let sum_y2 = &state.regs[4];
     let sum_xy = &state.regs[6];
 
-    let numer = n.checked_mul(sum_xy)?.checked_sub(&sum_x.checked_mul(sum_y)?)?;
+    let numer = n
+        .checked_mul(sum_xy)?
+        .checked_sub(&sum_x.checked_mul(sum_y)?)?;
     let denom_x = n.checked_mul(sum_x2)?.checked_sub(&sum_x.checked_sq()?)?;
     let denom_y = n.checked_mul(sum_y2)?.checked_sub(&sum_y.checked_sq()?)?;
     // checked_sqrt returns HpError::Domain if argument is negative

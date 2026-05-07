@@ -171,8 +171,8 @@ mod state_tests {
 #[cfg(test)]
 mod stack_ops_tests {
     use crate::num::HpNum;
+    use crate::stack::{apply_lift_effect, binary_result, enter_number, LiftEffect};
     use crate::state::CalcState;
-    use crate::stack::{LiftEffect, apply_lift_effect, enter_number, binary_result};
 
     #[test]
     fn lift_effect_has_three_variants() {
@@ -282,10 +282,10 @@ mod stack_ops_tests {
 
 #[cfg(test)]
 mod arithmetic_tests {
-    use crate::num::HpNum;
-    use crate::state::CalcState;
-    use crate::ops::arithmetic::{op_add, op_sub, op_mul, op_div};
     use crate::error::HpError;
+    use crate::num::HpNum;
+    use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
+    use crate::state::CalcState;
     use rust_decimal::Decimal;
 
     fn state_with_xy(x: i32, y: i32) -> CalcState {
@@ -372,8 +372,8 @@ mod arithmetic_tests {
 
 #[cfg(test)]
 mod num_scalar_math_tests {
-    use crate::num::HpNum;
     use crate::error::HpError;
+    use crate::num::HpNum;
     use rust_decimal::Decimal;
     use std::str::FromStr;
 
@@ -574,8 +574,8 @@ mod num_scalar_math_tests {
 
 #[cfg(test)]
 mod num_trig_math_tests {
-    use crate::num::HpNum;
     use crate::error::HpError;
+    use crate::num::HpNum;
     use rust_decimal::Decimal;
     use std::str::FromStr;
 
@@ -768,10 +768,10 @@ mod phase3_state_tests {
 
 #[cfg(test)]
 mod dispatch_tests {
-    use crate::num::HpNum;
-    use crate::state::CalcState;
-    use crate::ops::{Op, dispatch};
     use crate::error::HpError;
+    use crate::num::HpNum;
+    use crate::ops::{dispatch, Op};
+    use crate::state::CalcState;
     use rust_decimal::Decimal;
 
     #[test]
@@ -813,8 +813,8 @@ mod dispatch_tests {
 #[cfg(test)]
 mod stack_ops_dispatch_tests {
     use crate::num::HpNum;
+    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
     use crate::state::CalcState;
-    use crate::ops::stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
     use rust_decimal::Decimal;
 
     #[test]
@@ -834,7 +834,7 @@ mod stack_ops_dispatch_tests {
         assert_eq!(state.stack.y.inner(), Decimal::from(5)); // Y = old X
         assert_eq!(state.stack.z.inner(), Decimal::from(2)); // Z = old Y
         assert_eq!(state.stack.t.inner(), Decimal::from(1)); // T = old Z
-        // lift must be disabled after ENTER
+                                                             // lift must be disabled after ENTER
         assert!(!state.stack.lift_enabled);
     }
 
@@ -963,8 +963,8 @@ mod stack_ops_dispatch_tests {
 #[cfg(test)]
 mod serde_tests {
     use crate::num::HpNum;
-    use crate::state::CalcState;
     use crate::ops::Op;
+    use crate::state::CalcState;
 
     #[test]
     fn test_calc_state_serde_roundtrip() {
@@ -976,11 +976,7 @@ mod serde_tests {
         state.regs[5] = HpNum::from(42i32);
         state.user_mode = true;
         state.key_assignments.insert('z', "MYPROG".to_string());
-        state.program = vec![
-            Op::Lbl("A".to_string()),
-            Op::Add,
-            Op::Rtn,
-        ];
+        state.program = vec![Op::Lbl("A".to_string()), Op::Add, Op::Rtn];
         // Set is_running = true before serializing so the round-trip test
         // actually exercises the cross-module guarantee that load_state resets is_running.
         // serde_json::from_str alone does NOT reset it — that reset belongs in persistence::load_state.
@@ -992,8 +988,14 @@ mod serde_tests {
         // Raw serde_json round-trip: is_running should be true here (it serialized as true)
         let back: CalcState = serde_json::from_str(&json).expect("CalcState must deserialize");
 
-        assert_eq!(back.stack.x, state.stack.x, "X register must survive round-trip");
-        assert_eq!(back.regs[5], state.regs[5], "registers must survive round-trip");
+        assert_eq!(
+            back.stack.x, state.stack.x,
+            "X register must survive round-trip"
+        );
+        assert_eq!(
+            back.regs[5], state.regs[5],
+            "registers must survive round-trip"
+        );
         assert!(back.user_mode, "user_mode must survive round-trip");
         assert_eq!(
             back.key_assignments.get(&'z').map(|s| s.as_str()),

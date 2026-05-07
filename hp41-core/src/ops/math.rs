@@ -4,15 +4,15 @@
 //! Y^X uses `binary_result()` — saves X to LASTX and drops Y.
 //! Angle mode ops use `apply_lift_effect(Neutral)`.
 
-use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use rust_decimal::Decimal;
 use std::f64::consts::PI;
 use std::str::FromStr;
 
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::state::{AngleMode, CalcState};
 use crate::stack::{apply_lift_effect, binary_result, unary_result, LiftEffect};
+use crate::state::{AngleMode, CalcState};
 
 // ── Angle conversion constants for forward trig (DEG/GRAD → radians) ────────
 //
@@ -43,8 +43,8 @@ fn to_radians_hpnum(x: &HpNum, mode: AngleMode) -> Result<HpNum, HpError> {
 /// Used by forward trig ops to avoid double-rounding.
 fn to_radians_f64(v: f64, mode: AngleMode) -> f64 {
     match mode {
-        AngleMode::Rad  => v,
-        AngleMode::Deg  => v.to_radians(),  // uses std f64 conversion (v * PI / 180)
+        AngleMode::Rad => v,
+        AngleMode::Deg => v.to_radians(), // uses std f64 conversion (v * PI / 180)
         AngleMode::Grad => v * (PI / 200.0),
     }
 }
@@ -190,8 +190,8 @@ pub fn op_tan(state: &mut CalcState) -> Result<(), HpError> {
 
 fn f64_from_radians(rad: f64, mode: AngleMode) -> f64 {
     match mode {
-        AngleMode::Rad  => rad,
-        AngleMode::Deg  => rad * (180.0 / PI),
+        AngleMode::Rad => rad,
+        AngleMode::Deg => rad * (180.0 / PI),
         AngleMode::Grad => rad * (200.0 / PI),
     }
 }

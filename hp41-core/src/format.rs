@@ -5,9 +5,9 @@
 //! HP-41 display is 12 characters wide.
 //! FIX overflow: when integer part exceeds display capacity, falls back to SCI 9.
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal::RoundingStrategy;
-use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 
 use crate::num::HpNum;
@@ -85,10 +85,8 @@ fn format_sci(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -sci_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
-        digits as u32,
-        RoundingStrategy::MidpointAwayFromZero,
-    );
+    let mut mantissa_rounded =
+        mantissa.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
 
     // Carry: rounding can push mantissa from e.g. 9.9995 to 10.000
     let mut sci_exp = sci_exp;
@@ -131,10 +129,8 @@ fn format_eng(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -eng_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
-        digits as u32,
-        RoundingStrategy::MidpointAwayFromZero,
-    );
+    let mut mantissa_rounded =
+        mantissa.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
 
     // Carry: rounding can push the mantissa past the current power-of-10 boundary.
     // E.g. mantissa 999.9995 in ENG(3) rounds to 1000.000 → must become 1.000E+3 higher.

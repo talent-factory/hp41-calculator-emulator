@@ -3,8 +3,8 @@
 //! Canonical test: 1.3045 (1h 30m 45s) → HMS→ → 1.5125 decimal hours.
 //! Verified: 1 + 30/60 + 45/3600 = 1 + 0.5 + 0.0125 = 1.5125 exactly.
 
-use hp41_core::{CalcState, HpError, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -229,8 +229,5 @@ fn test_hms_add_invalid_operand_returns_invalid_input() {
     let mut s = CalcState::new();
     push_dec(&mut s, "1.0000"); // Y (valid)
     push_dec(&mut s, "1.6000"); // X (invalid: 60 minutes)
-    assert_eq!(
-        dispatch(&mut s, Op::HmsAdd),
-        Err(HpError::InvalidInput)
-    );
+    assert_eq!(dispatch(&mut s, Op::HmsAdd), Err(HpError::InvalidInput));
 }

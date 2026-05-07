@@ -2,10 +2,10 @@
 //! These tests require hp41-core::format to exist (created in Plan 04).
 //! Until Plan 04 runs, these tests will fail to compile.
 
-use hp41_core::{HpNum, HpError, CalcState};
 use hp41_core::format::format_hpnum;
 use hp41_core::ops::{dispatch, Op};
 use hp41_core::state::DisplayMode;
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -26,7 +26,10 @@ fn test_fix4_trailing_zeros() {
 
 fn test_fix4_pi_rounded() {
     // FIX 4 of 3.14159265359 → "3.1416" (rounds up at digit 4)
-    assert_eq!(format_hpnum(&num("3.14159265359"), &DisplayMode::Fix(4)), "3.1416");
+    assert_eq!(
+        format_hpnum(&num("3.14159265359"), &DisplayMode::Fix(4)),
+        "3.1416"
+    );
 }
 
 #[test]
@@ -56,7 +59,10 @@ fn test_fix4_overflow_to_sci() {
     let n = num("1000000000000000"); // 1e15 in decimal notation
     let result = format_hpnum(&n, &DisplayMode::Fix(4));
     // Must contain 'E' — the HP-41 overflow to SCI indicator
-    assert!(result.contains('E'), "FIX overflow must fall back to SCI: got '{result}'");
+    assert!(
+        result.contains('E'),
+        "FIX overflow must fall back to SCI: got '{result}'"
+    );
 }
 
 // ── SCI mode ─────────────────────────────────────────────────────────────
@@ -65,14 +71,20 @@ fn test_fix4_overflow_to_sci() {
 
 fn test_sci4_speed_of_light() {
     // 299792500 in SCI 4 = "2.9979E 08" (HP-41 format: space before positive exponent)
-    assert_eq!(format_hpnum(&num("299792500"), &DisplayMode::Sci(4)), "2.9979E 08");
+    assert_eq!(
+        format_hpnum(&num("299792500"), &DisplayMode::Sci(4)),
+        "2.9979E 08"
+    );
 }
 
 #[test]
 
 fn test_sci4_small_number() {
     // 0.00001234 in SCI 4 = "1.2340E-05"
-    assert_eq!(format_hpnum(&num("0.00001234"), &DisplayMode::Sci(4)), "1.2340E-05");
+    assert_eq!(
+        format_hpnum(&num("0.00001234"), &DisplayMode::Sci(4)),
+        "1.2340E-05"
+    );
 }
 
 #[test]
@@ -85,7 +97,10 @@ fn test_sci0_single_digit() {
 #[test]
 
 fn test_sci4_zero() {
-    assert_eq!(format_hpnum(&HpNum::zero(), &DisplayMode::Sci(4)), "0.0000E 00");
+    assert_eq!(
+        format_hpnum(&HpNum::zero(), &DisplayMode::Sci(4)),
+        "0.0000E 00"
+    );
 }
 
 // ── ENG mode ─────────────────────────────────────────────────────────────
@@ -94,21 +109,30 @@ fn test_sci4_zero() {
 
 fn test_eng3_12345() {
     // ENG 3 of 12345.678 → "12.346E 03" (exponent is multiple of 3; mantissa 2 digits before decimal)
-    assert_eq!(format_hpnum(&num("12345.678"), &DisplayMode::Eng(3)), "12.346E 03");
+    assert_eq!(
+        format_hpnum(&num("12345.678"), &DisplayMode::Eng(3)),
+        "12.346E 03"
+    );
 }
 
 #[test]
 
 fn test_eng3_small_number() {
     // ENG 3 of 0.001234 → "1.234E-03"
-    assert_eq!(format_hpnum(&num("0.001234"), &DisplayMode::Eng(3)), "1.234E-03");
+    assert_eq!(
+        format_hpnum(&num("0.001234"), &DisplayMode::Eng(3)),
+        "1.234E-03"
+    );
 }
 
 #[test]
 
 fn test_eng3_million() {
     // ENG 3 of 1000000 → "1.000E 06"
-    assert_eq!(format_hpnum(&num("1000000"), &DisplayMode::Eng(3)), "1.000E 06");
+    assert_eq!(
+        format_hpnum(&num("1000000"), &DisplayMode::Eng(3)),
+        "1.000E 06"
+    );
 }
 
 // ── Gap-closure tests (CR-01 and CR-03) ──────────────────────────────────
@@ -116,14 +140,26 @@ fn test_eng3_million() {
 #[test]
 fn test_sci3_mantissa_carry() {
     // CR-01: 9.9995 in Sci(3) rounds mantissa to 10.000 → must carry to "1.000E 01"
-    assert_eq!(format_hpnum(&num("9.9995"), &DisplayMode::Sci(3)), "1.000E 01");
+    assert_eq!(
+        format_hpnum(&num("9.9995"), &DisplayMode::Sci(3)),
+        "1.000E 01"
+    );
 }
 
 #[test]
 fn test_fmt_fix_out_of_range() {
     // CR-03: HP-41 only supports FIX/SCI/ENG 0–9; digit count 10 must be an error
     let mut state = CalcState::default();
-    assert_eq!(dispatch(&mut state, Op::FmtFix(10)), Err(HpError::InvalidOp));
-    assert_eq!(dispatch(&mut state, Op::FmtSci(10)), Err(HpError::InvalidOp));
-    assert_eq!(dispatch(&mut state, Op::FmtEng(10)), Err(HpError::InvalidOp));
+    assert_eq!(
+        dispatch(&mut state, Op::FmtFix(10)),
+        Err(HpError::InvalidOp)
+    );
+    assert_eq!(
+        dispatch(&mut state, Op::FmtSci(10)),
+        Err(HpError::InvalidOp)
+    );
+    assert_eq!(
+        dispatch(&mut state, Op::FmtEng(10)),
+        Err(HpError::InvalidOp)
+    );
 }

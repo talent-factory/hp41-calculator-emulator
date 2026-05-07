@@ -1,7 +1,7 @@
 //! Integration tests for ALPH-01: ALPHA register, 24-char limit, toggle, clear.
 
-use hp41_core::CalcState;
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::CalcState;
 
 // ── AlphaAppend ──────────────────────────────────────────────────────────
 
@@ -23,8 +23,15 @@ fn test_alpha_24_char_limit_enforced() {
     for c in "ABCDEFGHIJKLMNOPQRSTUVWXY".chars() {
         dispatch(&mut s, Op::AlphaAppend(c)).unwrap();
     }
-    assert_eq!(s.alpha_reg.chars().count(), 24, "alpha_reg must stop at 24 chars");
-    assert!(!s.alpha_reg.contains('Y'), "25th char 'Y' must be silently discarded");
+    assert_eq!(
+        s.alpha_reg.chars().count(),
+        24,
+        "alpha_reg must stop at 24 chars"
+    );
+    assert!(
+        !s.alpha_reg.contains('Y'),
+        "25th char 'Y' must be silently discarded"
+    );
     assert!(s.alpha_reg.ends_with('X'), "24th char must be 'X'");
 }
 

@@ -3,8 +3,8 @@
 //! All tests dispatch through hp41_core::ops::dispatch() — same path as interactive use.
 //! Σ register layout: R01=Σx², R02=Σx, R03=n, R04=Σy², R05=Σy, R06=Σxy (D-03).
 
-use hp41_core::{CalcState, HpError, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -27,8 +27,16 @@ fn add_point(state: &mut CalcState, y: i32, x: i32) {
 fn test_sigma_plus_count_increments() {
     let mut s = CalcState::new();
     add_point(&mut s, 5, 3); // X=3, Y=5
-    assert_eq!(s.regs[3].inner(), Decimal::from(1), "n must be 1 after first Σ+");
-    assert_eq!(s.stack.x.inner(), Decimal::from(1), "X must hold n=1 after Σ+");
+    assert_eq!(
+        s.regs[3].inner(),
+        Decimal::from(1),
+        "n must be 1 after first Σ+"
+    );
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(1),
+        "X must hold n=1 after Σ+"
+    );
 }
 
 #[test]
@@ -37,10 +45,18 @@ fn test_sigma_plus_accumulates_sum_x() {
     add_point(&mut s, 5, 3); // X=3, Y=5
     add_point(&mut s, 2, 7); // X=7, Y=2
 
-    assert_eq!(s.regs[3].inner(), Decimal::from(2), "n must be 2 after two Σ+");
+    assert_eq!(
+        s.regs[3].inner(),
+        Decimal::from(2),
+        "n must be 2 after two Σ+"
+    );
     assert_eq!(s.regs[2].inner(), Decimal::from(10), "Σx must be 3+7=10");
     assert_eq!(s.regs[5].inner(), Decimal::from(7), "Σy must be 5+2=7");
-    assert_eq!(s.stack.x.inner(), Decimal::from(2), "X must hold n=2 after second Σ+");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(2),
+        "X must hold n=2 after second Σ+"
+    );
 }
 
 #[test]
@@ -76,8 +92,8 @@ fn test_sigma_minus_removes_data_point() {
     add_point(&mut s, 5, 3);
 
     // Remove the same point
-    push(  &mut s, 5); // Y=5
-    push(  &mut s, 3); // X=3
+    push(&mut s, 5); // Y=5
+    push(&mut s, 3); // X=3
     dispatch(&mut s, Op::SigmaMinus).unwrap();
 
     assert_eq!(s.regs[3].inner(), Decimal::ZERO, "n must be 0 after Σ+/Σ−");
@@ -140,8 +156,14 @@ fn test_sdev_sample_two_points() {
     // Expected: σx = 1.414213562, σy = 2.828427125 (rounding of sqrt(8) independently)
     let expected_sx = Decimal::from_str("1.414213562").unwrap();
     let expected_sy = Decimal::from_str("2.828427125").unwrap();
-    assert_eq!(sigma_x, expected_sx, "σx must be sqrt(2) rounded to 10 sig digits");
-    assert_eq!(sigma_y, expected_sy, "σy must be sqrt(8) rounded to 10 sig digits");
+    assert_eq!(
+        sigma_x, expected_sx,
+        "σx must be sqrt(2) rounded to 10 sig digits"
+    );
+    assert_eq!(
+        sigma_y, expected_sy,
+        "σy must be sqrt(8) rounded to 10 sig digits"
+    );
 }
 
 // ── L.R. tests ────────────────────────────────────────────────────────────────
@@ -166,8 +188,16 @@ fn test_lr_slope_in_y_intercept_in_x() {
 
     let expected_slope = Decimal::from(2);
     let expected_intercept = Decimal::from(1);
-    assert_eq!(s.stack.x.inner(), expected_intercept, "X must hold intercept b=1 (D-05)");
-    assert_eq!(s.stack.y.inner(), expected_slope, "Y must hold slope m=2 (D-05)");
+    assert_eq!(
+        s.stack.x.inner(),
+        expected_intercept,
+        "X must hold intercept b=1 (D-05)"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        expected_slope,
+        "Y must hold slope m=2 (D-05)"
+    );
 }
 
 #[test]
@@ -178,7 +208,10 @@ fn test_corr_denominator_zero_returns_error() {
         add_point(&mut s, y, 5); // X always 5
     }
     let result = dispatch(&mut s, Op::Corr);
-    assert!(result.is_err(), "CORR with identical x values must return an error");
+    assert!(
+        result.is_err(),
+        "CORR with identical x values must return an error"
+    );
 }
 
 // ── YHAT tests ────────────────────────────────────────────────────────────────
@@ -194,7 +227,11 @@ fn test_yhat_uses_regression() {
     push(&mut s, 4); // X=4
     dispatch(&mut s, Op::Yhat).unwrap();
 
-    assert_eq!(s.stack.x.inner(), Decimal::from(9), "ŷ must be 9 for x=4 on Y=2X+1");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(9),
+        "ŷ must be 9 for x=4 on Y=2X+1"
+    );
 }
 
 // ── CORR tests ────────────────────────────────────────────────────────────────
@@ -208,7 +245,11 @@ fn test_corr_perfect_positive_correlation() {
     }
 
     dispatch(&mut s, Op::Corr).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(1), "r must be 1.0 for perfect linear data");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(1),
+        "r must be 1.0 for perfect linear data"
+    );
 }
 
 #[test]
@@ -219,7 +260,10 @@ fn test_corr_singular_returns_error() {
         add_point(&mut s, y, 5); // X always 5
     }
     let result = dispatch(&mut s, Op::Corr);
-    assert!(result.is_err(), "CORR with identical x values must return an error");
+    assert!(
+        result.is_err(),
+        "CORR with identical x values must return an error"
+    );
 }
 
 // ── CLΣSTAT tests ─────────────────────────────────────────────────────────────

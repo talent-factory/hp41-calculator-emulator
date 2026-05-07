@@ -1,7 +1,7 @@
 //! Integration tests for REGS-01: storage registers R00–R99, STO/RCL, STO-arith.
 
-use hp41_core::{CalcState, HpError, HpNum};
 use hp41_core::ops::{dispatch, Op, StoArithKind};
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 
 fn push(state: &mut CalcState, n: i32) {
@@ -19,7 +19,11 @@ fn test_sto_rcl_round_trip() {
     s.stack.x = HpNum::zero();
     s.stack.lift_enabled = false;
     dispatch(&mut s, Op::RclReg(5)).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(42), "RCL must restore STO'd value");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(42),
+        "RCL must restore STO'd value"
+    );
 }
 
 #[test]
@@ -36,10 +40,18 @@ fn test_rcl_pushes_to_stack() {
     push(&mut s, 10);
     dispatch(&mut s, Op::StoReg(3)).unwrap();
     push(&mut s, 99);
-    s.stack.lift_enabled = true;  // force lift for RCL
+    s.stack.lift_enabled = true; // force lift for RCL
     dispatch(&mut s, Op::RclReg(3)).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(10), "RCL must become new X");
-    assert_eq!(s.stack.y.inner(), Decimal::from(99), "previous X must lift to Y");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(10),
+        "RCL must become new X"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(99),
+        "previous X must lift to Y"
+    );
 }
 
 // ── STO-arith ────────────────────────────────────────────────────────────
@@ -49,9 +61,20 @@ fn test_sto_add_updates_register() {
     let mut s = CalcState::new();
     s.regs[5] = HpNum::from(10);
     push(&mut s, 3);
-    dispatch(&mut s, Op::StoArith { reg: 5, kind: StoArithKind::Add }).unwrap();
+    dispatch(
+        &mut s,
+        Op::StoArith {
+            reg: 5,
+            kind: StoArithKind::Add,
+        },
+    )
+    .unwrap();
     assert_eq!(s.regs[5].inner(), Decimal::from(13));
-    assert_eq!(s.stack.x.inner(), Decimal::from(3), "X must be unchanged after STO+");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(3),
+        "X must be unchanged after STO+"
+    );
 }
 
 #[test]
@@ -59,7 +82,14 @@ fn test_sto_sub_updates_register() {
     let mut s = CalcState::new();
     s.regs[2] = HpNum::from(20);
     push(&mut s, 5);
-    dispatch(&mut s, Op::StoArith { reg: 2, kind: StoArithKind::Sub }).unwrap();
+    dispatch(
+        &mut s,
+        Op::StoArith {
+            reg: 2,
+            kind: StoArithKind::Sub,
+        },
+    )
+    .unwrap();
     assert_eq!(s.regs[2].inner(), Decimal::from(15));
 }
 
@@ -68,7 +98,14 @@ fn test_sto_mul_updates_register() {
     let mut s = CalcState::new();
     s.regs[0] = HpNum::from(4);
     push(&mut s, 3);
-    dispatch(&mut s, Op::StoArith { reg: 0, kind: StoArithKind::Mul }).unwrap();
+    dispatch(
+        &mut s,
+        Op::StoArith {
+            reg: 0,
+            kind: StoArithKind::Mul,
+        },
+    )
+    .unwrap();
     assert_eq!(s.regs[0].inner(), Decimal::from(12));
 }
 
@@ -77,7 +114,14 @@ fn test_sto_div_updates_register() {
     let mut s = CalcState::new();
     s.regs[1] = HpNum::from(10);
     push(&mut s, 2);
-    dispatch(&mut s, Op::StoArith { reg: 1, kind: StoArithKind::Div }).unwrap();
+    dispatch(
+        &mut s,
+        Op::StoArith {
+            reg: 1,
+            kind: StoArithKind::Div,
+        },
+    )
+    .unwrap();
     assert_eq!(s.regs[1].inner(), Decimal::from(5));
 }
 
@@ -118,7 +162,10 @@ fn test_sto_is_neutral_lift() {
     s.stack.lift_enabled = false;
     push(&mut s, 1);
     dispatch(&mut s, Op::StoReg(0)).unwrap();
-    assert!(!s.stack.lift_enabled, "STO must be Neutral — must not set lift to true");
+    assert!(
+        !s.stack.lift_enabled,
+        "STO must be Neutral — must not set lift to true"
+    );
 }
 
 #[test]
@@ -128,7 +175,10 @@ fn test_sto_is_neutral_lift_when_lift_already_true() {
     push(&mut s, 1);
     dispatch(&mut s, Op::StoReg(0)).unwrap();
     // Neutral = does not CHANGE lift, so it should remain true
-    assert!(s.stack.lift_enabled, "STO Neutral must not disable lift either");
+    assert!(
+        s.stack.lift_enabled,
+        "STO Neutral must not disable lift either"
+    );
 }
 
 #[test]
@@ -144,7 +194,14 @@ fn test_sto_arith_is_neutral_lift() {
     let mut s = CalcState::new();
     s.stack.lift_enabled = false;
     push(&mut s, 1);
-    dispatch(&mut s, Op::StoArith { reg: 0, kind: StoArithKind::Add }).unwrap();
+    dispatch(
+        &mut s,
+        Op::StoArith {
+            reg: 0,
+            kind: StoArithKind::Add,
+        },
+    )
+    .unwrap();
     assert!(!s.stack.lift_enabled, "STO+ must be Neutral lift");
 }
 

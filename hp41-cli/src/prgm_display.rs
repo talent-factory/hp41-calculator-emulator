@@ -4,15 +4,16 @@
 //! step string: "{pc:03} {op_name}" (D-14). Shown in the Display panel when
 //! CalcState::prgm_mode is true.
 
-use hp41_core::CalcState;
 use hp41_core::ops::{Op, StoArithKind};
+use hp41_core::CalcState;
 
 /// Format the current program step.
 /// Returns "{pc:03} {op_name}" where op_name is the HP-41 key label for the Op.
 /// Returns "{pc:03} END" when pc is at or beyond the end of the program.
 pub fn format_step(state: &CalcState) -> String {
     let step_num = state.pc;
-    let op_name = state.program
+    let op_name = state
+        .program
         .get(step_num)
         .map(op_display_name)
         .unwrap_or_else(|| "END".to_string());
@@ -26,46 +27,46 @@ pub fn format_step(state: &CalcState) -> String {
 fn op_display_name(op: &Op) -> String {
     match op {
         // Phase 1: arithmetic
-        Op::Add          => "+ ".to_string(),
-        Op::Sub          => "- ".to_string(),
-        Op::Mul          => "\u{00D7} ".to_string(),
-        Op::Div          => "\u{00F7} ".to_string(),
+        Op::Add => "+ ".to_string(),
+        Op::Sub => "- ".to_string(),
+        Op::Mul => "\u{00D7} ".to_string(),
+        Op::Div => "\u{00F7} ".to_string(),
         // Phase 1: stack
-        Op::Enter        => "ENTER".to_string(),
-        Op::Clx          => "CLX".to_string(),
-        Op::Chs          => "CHS".to_string(),
-        Op::Rdn          => "R\u{2193}".to_string(),
-        Op::XySwap       => "X\u{27F7}Y".to_string(),
-        Op::Lastx        => "LASTX".to_string(),
-        Op::PushNum(n)   => format!("{}", n.inner()),
+        Op::Enter => "ENTER".to_string(),
+        Op::Clx => "CLX".to_string(),
+        Op::Chs => "CHS".to_string(),
+        Op::Rdn => "R\u{2193}".to_string(),
+        Op::XySwap => "X\u{27F7}Y".to_string(),
+        Op::Lastx => "LASTX".to_string(),
+        Op::PushNum(n) => format!("{}", n.inner()),
         // Phase 2: unary math
-        Op::Int          => "INT".to_string(),
-        Op::Recip        => "1/x".to_string(),
-        Op::Sqrt         => "\u{221a}x".to_string(),
-        Op::Sq           => "x\u{00B2}".to_string(),
-        Op::YPow         => "Y^X".to_string(),
-        Op::Ln           => "LN".to_string(),
-        Op::Log          => "LOG".to_string(),
-        Op::Exp          => "e^x".to_string(),
-        Op::TenPow       => "10^x".to_string(),
+        Op::Int => "INT".to_string(),
+        Op::Recip => "1/x".to_string(),
+        Op::Sqrt => "\u{221a}x".to_string(),
+        Op::Sq => "x\u{00B2}".to_string(),
+        Op::YPow => "Y^X".to_string(),
+        Op::Ln => "LN".to_string(),
+        Op::Log => "LOG".to_string(),
+        Op::Exp => "e^x".to_string(),
+        Op::TenPow => "10^x".to_string(),
         // Phase 2: trig
-        Op::Sin          => "SIN".to_string(),
-        Op::Cos          => "COS".to_string(),
-        Op::Tan          => "TAN".to_string(),
-        Op::Asin         => "ASIN".to_string(),
-        Op::Acos         => "ACOS".to_string(),
-        Op::Atan         => "ATAN".to_string(),
+        Op::Sin => "SIN".to_string(),
+        Op::Cos => "COS".to_string(),
+        Op::Tan => "TAN".to_string(),
+        Op::Asin => "ASIN".to_string(),
+        Op::Acos => "ACOS".to_string(),
+        Op::Atan => "ATAN".to_string(),
         // Phase 2: angle mode
-        Op::SetDeg       => "DEG".to_string(),
-        Op::SetRad       => "RAD".to_string(),
-        Op::SetGrad      => "GRAD".to_string(),
+        Op::SetDeg => "DEG".to_string(),
+        Op::SetRad => "RAD".to_string(),
+        Op::SetGrad => "GRAD".to_string(),
         // Phase 2: display mode
-        Op::FmtFix(n)    => format!("FIX {n}"),
-        Op::FmtSci(n)    => format!("SCI {n}"),
-        Op::FmtEng(n)    => format!("ENG {n}"),
+        Op::FmtFix(n) => format!("FIX {n}"),
+        Op::FmtSci(n) => format!("SCI {n}"),
+        Op::FmtEng(n) => format!("ENG {n}"),
         // Phase 2: registers
-        Op::StoReg(r)    => format!("STO {r:02}"),
-        Op::RclReg(r)    => format!("RCL {r:02}"),
+        Op::StoReg(r) => format!("STO {r:02}"),
+        Op::RclReg(r) => format!("RCL {r:02}"),
         Op::StoArith { reg, kind } => {
             let op_sym = match kind {
                 StoArithKind::Add => "+",
@@ -75,35 +76,35 @@ fn op_display_name(op: &Op) -> String {
             };
             format!("STO{op_sym} {reg:02}")
         }
-        Op::Clreg        => "CLREG".to_string(),
+        Op::Clreg => "CLREG".to_string(),
         // Phase 2: alpha
-        Op::AlphaToggle    => "ALPHA".to_string(),
+        Op::AlphaToggle => "ALPHA".to_string(),
         Op::AlphaAppend(c) => format!("'{c}'"),
-        Op::AlphaClear     => "CLRALPHA".to_string(),
+        Op::AlphaClear => "CLRALPHA".to_string(),
         // Phase 3: programming
-        Op::Lbl(s)       => format!("LBL {s}"),
-        Op::Gto(s)       => format!("GTO {s}"),
-        Op::Xeq(s)       => format!("XEQ {s}"),
-        Op::Rtn          => "RTN".to_string(),
-        Op::PrgmMode     => "PRGM".to_string(),
-        Op::Test(_)      => "TEST".to_string(),
-        Op::Isg(r)       => format!("ISG {r:02}"),
-        Op::Dse(r)       => format!("DSE {r:02}"),
+        Op::Lbl(s) => format!("LBL {s}"),
+        Op::Gto(s) => format!("GTO {s}"),
+        Op::Xeq(s) => format!("XEQ {s}"),
+        Op::Rtn => "RTN".to_string(),
+        Op::PrgmMode => "PRGM".to_string(),
+        Op::Test(_) => "TEST".to_string(),
+        Op::Isg(r) => format!("ISG {r:02}"),
+        Op::Dse(r) => format!("DSE {r:02}"),
         // Phase 5: new Op variants
-        Op::UserMode       => "USER".to_string(),
+        Op::UserMode => "USER".to_string(),
         Op::AlphaBackspace => "\u{2190}".to_string(),
         // Phase 6: Science & Engineering
-        Op::SigmaPlus   => "\u{03A3}+".to_string(),
-        Op::SigmaMinus  => "\u{03A3}-".to_string(),
-        Op::Mean        => "MEAN".to_string(),
-        Op::Sdev        => "SDEV".to_string(),
-        Op::LR          => "L.R.".to_string(),
-        Op::Yhat        => "\u{0177}".to_string(),
-        Op::Corr        => "CORR".to_string(),
+        Op::SigmaPlus => "\u{03A3}+".to_string(),
+        Op::SigmaMinus => "\u{03A3}-".to_string(),
+        Op::Mean => "MEAN".to_string(),
+        Op::Sdev => "SDEV".to_string(),
+        Op::LR => "L.R.".to_string(),
+        Op::Yhat => "\u{0177}".to_string(),
+        Op::Corr => "CORR".to_string(),
         Op::ClSigmaStat => "CL\u{03A3}".to_string(),
-        Op::HmsToH      => "HMS\u{2192}".to_string(),
-        Op::HToHms      => "\u{2192}HMS".to_string(),
-        Op::HmsAdd      => "HMS+".to_string(),
-        Op::HmsSub      => "HMS-".to_string(),
+        Op::HmsToH => "HMS\u{2192}".to_string(),
+        Op::HToHms => "\u{2192}HMS".to_string(),
+        Op::HmsAdd => "HMS+".to_string(),
+        Op::HmsSub => "HMS-".to_string(),
     }
 }

@@ -17,7 +17,10 @@ fn press(code: KeyCode) -> KeyEvent {
 }
 
 fn make_app() -> App {
-    App::new(CalcState::new(), std::path::PathBuf::from("/tmp/hp41_test.json"))
+    App::new(
+        CalcState::new(),
+        std::path::PathBuf::from("/tmp/hp41_test.json"),
+    )
 }
 
 #[test]
@@ -49,7 +52,10 @@ fn stack_ops_lowercase() {
     assert_eq!(key_to_op(press(KeyCode::Char('x')), &app), Some(Op::XySwap));
     assert_eq!(key_to_op(press(KeyCode::Char('l')), &app), Some(Op::Lastx));
     assert_eq!(key_to_op(press(KeyCode::Char('s')), &app), Some(Op::Sqrt));
-    assert_eq!(key_to_op(press(KeyCode::Char('p')), &app), Some(Op::PrgmMode));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('p')), &app),
+        Some(Op::PrgmMode)
+    );
 }
 
 #[test]
@@ -65,8 +71,16 @@ fn trig_math_uppercase_shift() {
     let app = make_app();
     // Phase 5: 'S' is now intercepted in app.handle_key() BEFORE key_to_op() — it triggers
     // the STO [nn] modal. key_to_op must return None for 'S' and 'R' (D-10 routing).
-    assert_eq!(key_to_op(press(KeyCode::Char('S')), &app), None, "'S' must return None — STO modal is intercepted upstream");
-    assert_eq!(key_to_op(press(KeyCode::Char('R')), &app), None, "'R' must return None — RCL modal is intercepted upstream");
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('S')), &app),
+        None,
+        "'S' must return None — STO modal is intercepted upstream"
+    );
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('R')), &app),
+        None,
+        "'R' must return None — RCL modal is intercepted upstream"
+    );
     assert_eq!(key_to_op(press(KeyCode::Char('C')), &app), Some(Op::Cos));
     assert_eq!(key_to_op(press(KeyCode::Char('T')), &app), Some(Op::Tan));
     assert_eq!(key_to_op(press(KeyCode::Char('L')), &app), Some(Op::Ln));
@@ -77,7 +91,10 @@ fn trig_math_uppercase_shift() {
     assert_eq!(key_to_op(press(KeyCode::Char('W')), &app), Some(Op::Sq));
     assert_eq!(key_to_op(press(KeyCode::Char('Y')), &app), Some(Op::YPow));
     // Phase 5: 'u' maps to Op::UserMode
-    assert_eq!(key_to_op(press(KeyCode::Char('u')), &app), Some(Op::UserMode));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('u')), &app),
+        Some(Op::UserMode)
+    );
 }
 
 #[test]

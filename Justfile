@@ -24,3 +24,17 @@ coverage:
 
 # Full CI gate: lint → test → coverage
 ci: lint test coverage
+
+# Check formatting without modifying files (mirrors CI)
+fmt-check:
+	cargo fmt --all -- --check
+
+# Auto-format all Rust sources
+fmt:
+	cargo fmt --all
+
+# Install the pre-push git hook (run once after cloning)
+install-hooks:
+	@printf '#!/usr/bin/env bash\nset -euo pipefail\necho "🔍 pre-push: cargo fmt --check ..."\ncargo fmt --all -- --check || { echo ""; echo "❌ Run: cargo fmt --all"; exit 1; }\necho "🔍 pre-push: just lint ..."\njust lint || { echo ""; echo "❌ Run: just lint"; exit 1; }\necho "✅ pre-push checks passed"\n' > .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo "✅ pre-push hook installed"

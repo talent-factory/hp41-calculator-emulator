@@ -1,7 +1,7 @@
 //! Integration tests for CORE-02: All operations declare correct stack-lift effects.
 
-use hp41_core::{CalcState, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpNum};
 
 fn make_state_with_values() -> CalcState {
     let mut s = CalcState::new();
@@ -77,7 +77,10 @@ fn test_chs_neutral_lift_true() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = true;
     dispatch(&mut state, Op::Chs).unwrap();
-    assert!(state.stack.lift_enabled, "Chs is Neutral — must preserve true");
+    assert!(
+        state.stack.lift_enabled,
+        "Chs is Neutral — must preserve true"
+    );
 }
 
 #[test]
@@ -85,7 +88,10 @@ fn test_chs_neutral_lift_false() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = false;
     dispatch(&mut state, Op::Chs).unwrap();
-    assert!(!state.stack.lift_enabled, "Chs is Neutral — must preserve false");
+    assert!(
+        !state.stack.lift_enabled,
+        "Chs is Neutral — must preserve false"
+    );
 }
 
 #[test]
@@ -93,7 +99,10 @@ fn test_rdn_neutral_lift_true() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = true;
     dispatch(&mut state, Op::Rdn).unwrap();
-    assert!(state.stack.lift_enabled, "Rdn is Neutral — must preserve true");
+    assert!(
+        state.stack.lift_enabled,
+        "Rdn is Neutral — must preserve true"
+    );
 }
 
 #[test]
@@ -101,7 +110,10 @@ fn test_rdn_neutral_lift_false() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = false;
     dispatch(&mut state, Op::Rdn).unwrap();
-    assert!(!state.stack.lift_enabled, "Rdn is Neutral — must preserve false");
+    assert!(
+        !state.stack.lift_enabled,
+        "Rdn is Neutral — must preserve false"
+    );
 }
 
 #[test]
@@ -109,7 +121,10 @@ fn test_xy_swap_neutral_lift_true() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = true;
     dispatch(&mut state, Op::XySwap).unwrap();
-    assert!(state.stack.lift_enabled, "XySwap is Neutral — must preserve true");
+    assert!(
+        state.stack.lift_enabled,
+        "XySwap is Neutral — must preserve true"
+    );
 }
 
 #[test]
@@ -117,7 +132,10 @@ fn test_xy_swap_neutral_lift_false() {
     let mut state = make_state_with_values();
     state.stack.lift_enabled = false;
     dispatch(&mut state, Op::XySwap).unwrap();
-    assert!(!state.stack.lift_enabled, "XySwap is Neutral — must preserve false");
+    assert!(
+        !state.stack.lift_enabled,
+        "XySwap is Neutral — must preserve false"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,9 +147,7 @@ fn test_xy_swap_neutral_lift_false() {
 #[test]
 fn test_p2_math_ops_enable_lift() {
     // Unary math ops must all set lift_enabled = true
-    let unary_ops = vec![
-        Op::Recip, Op::Sq, Op::Ln, Op::Log, Op::Exp, Op::TenPow,
-    ];
+    let unary_ops = vec![Op::Recip, Op::Sq, Op::Ln, Op::Log, Op::Exp, Op::TenPow];
     for op in unary_ops {
         let mut state = CalcState::new();
         state.stack.x = HpNum::from(2); // valid input domain for all these ops
@@ -149,28 +165,42 @@ fn test_p2_math_ops_enable_lift() {
 #[test]
 fn test_p2_mode_ops_neutral_lift_when_disabled() {
     let mode_ops: Vec<Op> = vec![
-        Op::SetDeg, Op::SetRad, Op::SetGrad,
-        Op::FmtFix(4), Op::FmtSci(4), Op::FmtEng(3),
+        Op::SetDeg,
+        Op::SetRad,
+        Op::SetGrad,
+        Op::FmtFix(4),
+        Op::FmtSci(4),
+        Op::FmtEng(3),
     ];
     for op in mode_ops {
         let mut s = CalcState::new();
         s.stack.lift_enabled = false;
         dispatch(&mut s, op.clone()).unwrap();
-        assert!(!s.stack.lift_enabled, "{op:?} must be Neutral — must not enable lift");
+        assert!(
+            !s.stack.lift_enabled,
+            "{op:?} must be Neutral — must not enable lift"
+        );
     }
 }
 
 #[test]
 fn test_p2_mode_ops_neutral_lift_when_enabled() {
     let mode_ops: Vec<Op> = vec![
-        Op::SetDeg, Op::SetRad, Op::SetGrad,
-        Op::FmtFix(4), Op::FmtSci(4), Op::FmtEng(3),
+        Op::SetDeg,
+        Op::SetRad,
+        Op::SetGrad,
+        Op::FmtFix(4),
+        Op::FmtSci(4),
+        Op::FmtEng(3),
     ];
     for op in mode_ops {
         let mut s = CalcState::new();
         s.stack.lift_enabled = true;
         dispatch(&mut s, op.clone()).unwrap();
-        assert!(s.stack.lift_enabled, "{op:?} must be Neutral — must not disable lift");
+        assert!(
+            s.stack.lift_enabled,
+            "{op:?} must be Neutral — must not disable lift"
+        );
     }
 }
 
@@ -204,11 +234,7 @@ fn test_clreg_neutral_lift() {
 
 #[test]
 fn test_alpha_ops_neutral_lift_in_lift_tests() {
-    let alpha_ops: Vec<Op> = vec![
-        Op::AlphaToggle,
-        Op::AlphaAppend('A'),
-        Op::AlphaClear,
-    ];
+    let alpha_ops: Vec<Op> = vec![Op::AlphaToggle, Op::AlphaAppend('A'), Op::AlphaClear];
     for op in alpha_ops {
         let mut s = CalcState::new();
         s.stack.lift_enabled = false;

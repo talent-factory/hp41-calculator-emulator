@@ -3,9 +3,9 @@
 //! Test naming follows the pattern from register_tests.rs and entry_buf_tests.rs.
 //! All tests use CalcState::new() and hp41_core::ops::dispatch() as the entry point.
 
-use hp41_core::{CalcState, HpError, HpNum};
-use hp41_core::ops::{dispatch, Op, TestKind};
 use hp41_core::ops::program::run_program; // full path — lib.rs pub use added in 03-06
+use hp41_core::ops::{dispatch, Op, TestKind};
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -51,7 +51,11 @@ fn test_prgm_mode_records_ops() {
     assert_eq!(s.program.len(), 1, "One op must be recorded");
     assert_eq!(s.program[0], Op::Add, "Recorded op must be Op::Add");
     // Stack must be unchanged — Add was NOT executed
-    assert_eq!(x_val(&s), Decimal::ZERO, "X must be unchanged (Add not executed)");
+    assert_eq!(
+        x_val(&s),
+        Decimal::ZERO,
+        "X must be unchanged (Add not executed)"
+    );
 }
 
 #[test]
@@ -60,18 +64,29 @@ fn test_prgm_mode_does_not_push_stack() {
     push(&mut s, 7); // X = 7 before recording
     dispatch(&mut s, Op::PrgmMode).unwrap();
     dispatch(&mut s, Op::Clx).unwrap(); // recorded, not executed
-    assert_eq!(x_val(&s), Decimal::from(7), "X must still be 7; CLX was recorded not executed");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(7),
+        "X must still be 7; CLX was recorded not executed"
+    );
 }
 
 #[test]
 fn test_prgm_mode_exit_not_recorded() {
     let mut s = CalcState::new();
     dispatch(&mut s, Op::PrgmMode).unwrap(); // enter
-    dispatch(&mut s, Op::Add).unwrap();       // recorded
+    dispatch(&mut s, Op::Add).unwrap(); // recorded
     let len_before = s.program.len();
     dispatch(&mut s, Op::PrgmMode).unwrap(); // exit — must NOT be recorded
-    assert!(!s.prgm_mode, "prgm_mode must be false after second PrgmMode");
-    assert_eq!(s.program.len(), len_before, "PrgmMode exit must not append to program");
+    assert!(
+        !s.prgm_mode,
+        "prgm_mode must be false after second PrgmMode"
+    );
+    assert_eq!(
+        s.program.len(),
+        len_before,
+        "PrgmMode exit must not append to program"
+    );
 }
 
 #[test]
@@ -80,8 +95,15 @@ fn test_prgm_mode_records_pushnum_via_entry_buf() {
     dispatch(&mut s, Op::PrgmMode).unwrap();
     s.entry_buf = "5".to_string();
     dispatch(&mut s, Op::Add).unwrap(); // flush entry_buf → Op::PushNum(5) recorded, then Op::Add
-    assert_eq!(s.program.len(), 2, "entry_buf flush must record PushNum before Add");
-    assert!(matches!(s.program[0], Op::PushNum(_)), "First recorded op must be PushNum");
+    assert_eq!(
+        s.program.len(),
+        2,
+        "entry_buf flush must record PushNum before Add"
+    );
+    assert!(
+        matches!(s.program[0], Op::PushNum(_)),
+        "First recorded op must be PushNum"
+    );
     assert_eq!(s.program[1], Op::Add, "Second recorded op must be Add");
 }
 
@@ -97,7 +119,11 @@ fn test_run_program_basic_lbl_rtn() {
         Op::Rtn,
     ];
     run_program(&mut s, "A").unwrap();
-    assert_eq!(x_val(&s), Decimal::from(42), "X must be 42 after running program A");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(42),
+        "X must be 42 after running program A"
+    );
 }
 
 #[test]
@@ -119,7 +145,11 @@ fn test_gto_within_program() {
         Op::Rtn,
     ];
     run_program(&mut s, "A").unwrap();
-    assert_eq!(x_val(&s), Decimal::from(1), "GTO must skip PushNum(99); X must be 1");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(1),
+        "GTO must skip PushNum(99); X must be 1"
+    );
 }
 
 #[test]
@@ -151,16 +181,17 @@ fn test_xeq_and_rtn() {
     run_program(&mut s, "A").unwrap();
     // Stack after: X=1 (pushed last by A), Y=42 (pushed by B)
     assert_eq!(x_val(&s), Decimal::from(1), "X must be 1 (last push in A)");
-    assert_eq!(s.stack.y.inner(), Decimal::from(42), "Y must be 42 (pushed by B)");
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(42),
+        "Y must be 42 (pushed by B)"
+    );
 }
 
 #[test]
 fn test_rtn_at_top_level_terminates() {
     let mut s = CalcState::new();
-    s.program = vec![
-        Op::Lbl("A".to_string()),
-        Op::Rtn,
-    ];
+    s.program = vec![Op::Lbl("A".to_string()), Op::Rtn];
     // Top-level RTN must return Ok(()), not an error
     assert_eq!(run_program(&mut s, "A"), Ok(()));
 }
@@ -232,14 +263,18 @@ fn test_test_x_eq_zero_true_executes_next() {
     ];
     // X starts as 0 (CalcState::new())
     run_program(&mut s, "A").unwrap();
-    assert_eq!(x_val(&s), Decimal::from(1), "Condition true: next step executes (D-09)");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(1),
+        "Condition true: next step executes (D-09)"
+    );
 }
 
 #[test]
 fn test_test_x_eq_zero_false_skips_next() {
     let mut s = CalcState::new();
     push(&mut s, 1); // X = 1 (non-zero)
-    // Test(XEqZero) is false → skip next step (PushNum(99)), execute PushNum(2)
+                     // Test(XEqZero) is false → skip next step (PushNum(99)), execute PushNum(2)
     s.program = vec![
         Op::Lbl("A".to_string()),
         Op::Test(TestKind::XEqZero),
@@ -248,38 +283,167 @@ fn test_test_x_eq_zero_false_skips_next() {
         Op::Rtn,
     ];
     run_program(&mut s, "A").unwrap();
-    assert_eq!(x_val(&s), Decimal::from(2), "Condition false: next step skipped (D-09)");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(2),
+        "Condition false: next step skipped (D-09)"
+    );
 }
 
 #[test]
 fn test_all_12_test_kinds_basic() {
     // Verify each TestKind returns the correct bool for a known input
-    struct Case { kind: TestKind, x: i64, y: i64, expected: bool }
+    struct Case {
+        kind: TestKind,
+        x: i64,
+        y: i64,
+        expected: bool,
+    }
     let cases = vec![
-        Case { kind: TestKind::XEqZero, x: 0, y: 0, expected: true },
-        Case { kind: TestKind::XEqZero, x: 1, y: 0, expected: false },
-        Case { kind: TestKind::XNeZero, x: 1, y: 0, expected: true },
-        Case { kind: TestKind::XNeZero, x: 0, y: 0, expected: false },
-        Case { kind: TestKind::XLtZero, x: -1, y: 0, expected: true },
-        Case { kind: TestKind::XLtZero, x: 0, y: 0, expected: false },
-        Case { kind: TestKind::XGtZero, x: 1, y: 0, expected: true },
-        Case { kind: TestKind::XGtZero, x: 0, y: 0, expected: false },
-        Case { kind: TestKind::XLeZero, x: 0, y: 0, expected: true },
-        Case { kind: TestKind::XLeZero, x: 1, y: 0, expected: false },
-        Case { kind: TestKind::XGeZero, x: 0, y: 0, expected: true },
-        Case { kind: TestKind::XGeZero, x: -1, y: 0, expected: false },
-        Case { kind: TestKind::XEqY,    x: 3, y: 3, expected: true },
-        Case { kind: TestKind::XEqY,    x: 3, y: 4, expected: false },
-        Case { kind: TestKind::XNeY,    x: 3, y: 4, expected: true },
-        Case { kind: TestKind::XNeY,    x: 3, y: 3, expected: false },
-        Case { kind: TestKind::XLtY,    x: 2, y: 3, expected: true },
-        Case { kind: TestKind::XLtY,    x: 3, y: 3, expected: false },
-        Case { kind: TestKind::XGtY,    x: 4, y: 3, expected: true },
-        Case { kind: TestKind::XGtY,    x: 3, y: 3, expected: false },
-        Case { kind: TestKind::XLeY,    x: 3, y: 3, expected: true },
-        Case { kind: TestKind::XLeY,    x: 4, y: 3, expected: false },
-        Case { kind: TestKind::XGeY,    x: 3, y: 3, expected: true },
-        Case { kind: TestKind::XGeY,    x: 2, y: 3, expected: false },
+        Case {
+            kind: TestKind::XEqZero,
+            x: 0,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XEqZero,
+            x: 1,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XNeZero,
+            x: 1,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XNeZero,
+            x: 0,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XLtZero,
+            x: -1,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XLtZero,
+            x: 0,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XGtZero,
+            x: 1,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XGtZero,
+            x: 0,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XLeZero,
+            x: 0,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XLeZero,
+            x: 1,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XGeZero,
+            x: 0,
+            y: 0,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XGeZero,
+            x: -1,
+            y: 0,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XEqY,
+            x: 3,
+            y: 3,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XEqY,
+            x: 3,
+            y: 4,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XNeY,
+            x: 3,
+            y: 4,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XNeY,
+            x: 3,
+            y: 3,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XLtY,
+            x: 2,
+            y: 3,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XLtY,
+            x: 3,
+            y: 3,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XGtY,
+            x: 4,
+            y: 3,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XGtY,
+            x: 3,
+            y: 3,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XLeY,
+            x: 3,
+            y: 3,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XLeY,
+            x: 4,
+            y: 3,
+            expected: false,
+        },
+        Case {
+            kind: TestKind::XGeY,
+            x: 3,
+            y: 3,
+            expected: true,
+        },
+        Case {
+            kind: TestKind::XGeY,
+            x: 2,
+            y: 3,
+            expected: false,
+        },
     ];
     for case in cases {
         let mut s = CalcState::new();
@@ -287,8 +451,11 @@ fn test_all_12_test_kinds_basic() {
         push(&mut s, case.x); // X on top
         use hp41_core::ops::program::evaluate_test;
         let result = evaluate_test(&s, &case.kind);
-        assert_eq!(result, case.expected,
-            "TestKind::{:?} with X={} Y={} expected={}", case.kind, case.x, case.y, case.expected);
+        assert_eq!(
+            result, case.expected,
+            "TestKind::{:?} with X={} Y={} expected={}",
+            case.kind, case.x, case.y, case.expected
+        );
     }
 }
 
@@ -308,8 +475,11 @@ fn test_isg_increments_4_times_before_skip() {
 
     s.program = vec![
         Op::Lbl("LOOP".to_string()),
-        Op::StoArith { reg: 1, kind: hp41_core::ops::StoArithKind::Add }, // R01 += X (X=1)
-        Op::Isg(0),                 // increment R00, skip if > final
+        Op::StoArith {
+            reg: 1,
+            kind: hp41_core::ops::StoArithKind::Add,
+        }, // R01 += X (X=1)
+        Op::Isg(0),                  // increment R00, skip if > final
         Op::Gto("LOOP".to_string()), // branch back if not skipping
         Op::Rtn,
     ];
@@ -333,15 +503,21 @@ fn test_isg_step_zero_treated_as_one() {
     push(&mut s, 1);
     s.program = vec![
         Op::Lbl("L".to_string()),
-        Op::StoArith { reg: 1, kind: hp41_core::ops::StoArithKind::Add },
+        Op::StoArith {
+            reg: 1,
+            kind: hp41_core::ops::StoArithKind::Add,
+        },
         Op::Isg(0),
         Op::Gto("L".to_string()),
         Op::Rtn,
     ];
     run_program(&mut s, "L").unwrap();
     // current starts at 3: 3+1=4 (4>5? No), 4+1=5 (5>5? No), 5+1=6 (6>5? Yes, skip). Body runs 3 times.
-    assert_eq!(s.regs[1].inner(), Decimal::from(3),
-        "Step 00 treated as 1; loop body runs 3 times (3→4→5→6>5 skip)");
+    assert_eq!(
+        s.regs[1].inner(),
+        Decimal::from(3),
+        "Step 00 treated as 1; loop body runs 3 times (3→4→5→6>5 skip)"
+    );
 }
 
 #[test]
@@ -362,7 +538,11 @@ fn test_isg_counter_string_round_trip() {
     ];
     // current=1, step=1 → new_current=2. 2 > 5? No → do not skip (PushNum executes).
     run_program(&mut s, "A").unwrap();
-    assert_eq!(x_val(&s), Decimal::from(1), "First ISG: current 1→2, not yet > 5, must not skip");
+    assert_eq!(
+        x_val(&s),
+        Decimal::from(1),
+        "First ISG: current 1→2, not yet > 5, must not skip"
+    );
 }
 
 #[test]
@@ -374,7 +554,10 @@ fn test_dse_decrements_until_skip() {
     push(&mut s, 1);
     s.program = vec![
         Op::Lbl("L".to_string()),
-        Op::StoArith { reg: 1, kind: hp41_core::ops::StoArithKind::Add },
+        Op::StoArith {
+            reg: 1,
+            kind: hp41_core::ops::StoArithKind::Add,
+        },
         Op::Dse(0),
         Op::Gto("L".to_string()),
         Op::Rtn,
@@ -382,8 +565,11 @@ fn test_dse_decrements_until_skip() {
     run_program(&mut s, "L").unwrap();
     // DSE: 3-1=2 (2<=1? No, continue), 2-1=1 (1<=1? Yes, skip).
     // Loop body runs 2 times (at current 3 and 2).
-    assert_eq!(s.regs[1].inner(), Decimal::from(2),
-        "DSE loop body runs 2 times (3→2, 2→1≤1 skip)");
+    assert_eq!(
+        s.regs[1].inner(),
+        Decimal::from(2),
+        "DSE loop body runs 2 times (3→2, 2→1≤1 skip)"
+    );
 }
 
 // ── Integration / state management ───────────────────────────────────────────
@@ -393,7 +579,10 @@ fn test_is_running_reset_on_completion() {
     let mut s = CalcState::new();
     s.program = vec![Op::Lbl("A".to_string()), Op::Rtn];
     run_program(&mut s, "A").unwrap();
-    assert!(!s.is_running, "is_running must be false after successful completion");
+    assert!(
+        !s.is_running,
+        "is_running must be false after successful completion"
+    );
 }
 
 #[test]
@@ -421,7 +610,10 @@ fn test_is_running_reset_on_error() {
     ];
     let result = run_program(&mut s, "A");
     assert_eq!(result, Err(HpError::CallDepth));
-    assert!(!s.is_running, "is_running must be false even after error (D-06 safety reset)");
+    assert!(
+        !s.is_running,
+        "is_running must be false even after error (D-06 safety reset)"
+    );
 }
 
 #[test]
@@ -435,7 +627,7 @@ fn test_full_program_via_dispatch_recording() {
     s.entry_buf = "10".to_string();
     dispatch(&mut s, Op::Enter).unwrap(); // flush 10 as PushNum, record Enter
     s.entry_buf = "20".to_string();
-    dispatch(&mut s, Op::Add).unwrap();   // flush 20 as PushNum, record Add
+    dispatch(&mut s, Op::Add).unwrap(); // flush 20 as PushNum, record Add
     dispatch(&mut s, Op::Rtn).unwrap();
     // Exit PRGM mode
     dispatch(&mut s, Op::PrgmMode).unwrap();

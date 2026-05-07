@@ -8,11 +8,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::DefaultTerminal;
 use ratatui::widgets::TableState;
+use ratatui::DefaultTerminal;
 
 use hp41_core::ops::Op;
-use hp41_core::{CalcState, AngleMode, DisplayMode};
+use hp41_core::{AngleMode, CalcState, DisplayMode};
 
 use crate::{keys, persistence, ui};
 
@@ -20,21 +20,21 @@ use crate::{keys, persistence, ui};
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
-    StoRegister(String),          // accumulating 2-digit register number for STO [nn]
-    RclRegister(String),          // accumulating 2-digit register number for RCL [nn]
+    StoRegister(String), // accumulating 2-digit register number for STO [nn]
+    RclRegister(String), // accumulating 2-digit register number for RCL [nn]
     // STO arithmetic variants — handled in handle_pending_input() match arms.
     // Not yet wired to key bindings (Phase 7 polish); #[allow] suppresses premature dead-code lint.
     #[allow(dead_code)]
-    StoAdd(String),               // STO+ [nn]
+    StoAdd(String), // STO+ [nn]
     #[allow(dead_code)]
-    StoSub(String),               // STO- [nn]
+    StoSub(String), // STO- [nn]
     #[allow(dead_code)]
-    StoMul(String),               // STO× [nn]
+    StoMul(String), // STO× [nn]
     #[allow(dead_code)]
-    StoDiv(String),               // STO÷ [nn]
-    AssignKey,                    // D-27 step 1: waiting for key char to assign
-    AssignLabel(char, String),    // D-27 step 2: char received; accumulating label name
-    ConfirmLoad(usize),           // D-22: awaiting Y/n before overwriting program
+    StoDiv(String), // STO÷ [nn]
+    AssignKey,                 // D-27 step 1: waiting for key char to assign
+    AssignLabel(char, String), // D-27 step 2: char received; accumulating label name
+    ConfirmLoad(usize),        // D-22: awaiting Y/n before overwriting program
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -144,10 +144,7 @@ impl App {
         // D-04: Ctrl+S — manual save to active state file
         if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
             match persistence::save_state(&self.state_path, &self.state) {
-                Ok(()) => self.message = Some(format!(
-                    "Saved to {}",
-                    self.state_path.display()
-                )),
+                Ok(()) => self.message = Some(format!("Saved to {}", self.state_path.display())),
                 Err(e) => self.message = Some(format!("Save failed: {e}")),
             }
             return;
@@ -290,8 +287,8 @@ impl App {
         // D-10: 'd' cycles angle mode DEG → RAD → GRAD
         if key.code == KeyCode::Char('d') {
             let next_op = match self.state.angle_mode {
-                AngleMode::Deg  => Op::SetRad,
-                AngleMode::Rad  => Op::SetGrad,
+                AngleMode::Deg => Op::SetRad,
+                AngleMode::Rad => Op::SetGrad,
                 AngleMode::Grad => Op::SetDeg,
             };
             self.call_dispatch(next_op);
@@ -345,50 +342,68 @@ impl App {
         // Take pending — we re-set it only if the modal continues.
         let pending = self.pending_input.take();
         match pending {
-            Some(PendingInput::StoRegister(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                Op::StoReg,
-                PendingInput::StoRegister,
-            ),
-            Some(PendingInput::RclRegister(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                Op::RclReg,
-                PendingInput::RclRegister,
-            ),
+            Some(PendingInput::StoRegister(ref acc)) => {
+                self.handle_reg_modal(key, acc.clone(), Op::StoReg, PendingInput::StoRegister)
+            }
+            Some(PendingInput::RclRegister(ref acc)) => {
+                self.handle_reg_modal(key, acc.clone(), Op::RclReg, PendingInput::RclRegister)
+            }
             Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Add },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Add,
+                },
                 PendingInput::StoAdd,
             ),
             Some(PendingInput::StoSub(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Sub },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Sub,
+                },
                 PendingInput::StoSub,
             ),
             Some(PendingInput::StoMul(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Mul },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Mul,
+                },
                 PendingInput::StoMul,
             ),
             Some(PendingInput::StoDiv(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Div },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Div,
+                },
                 PendingInput::StoDiv,
             ),
             Some(PendingInput::AssignKey) => {
                 // D-27 step 1: waiting for any printable char
                 match key.code {
-                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
                     KeyCode::Char(c) => {
                         self.pending_input = Some(PendingInput::AssignLabel(c, String::new()));
                     }
-                    _ => { self.pending_input = Some(PendingInput::AssignKey); }
+                    _ => {
+                        self.pending_input = Some(PendingInput::AssignKey);
+                    }
                 }
             }
             Some(PendingInput::AssignLabel(c, ref acc)) => {
                 // D-27 step 2: accumulating label name
                 match key.code {
-                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
                     KeyCode::Enter => {
                         if !acc.is_empty() {
                             self.state.key_assignments.insert(c, acc.clone());
@@ -406,7 +421,9 @@ impl App {
                         new_acc.push(ch);
                         self.pending_input = Some(PendingInput::AssignLabel(c, new_acc));
                     }
-                    _ => { self.pending_input = Some(PendingInput::AssignLabel(c, acc.clone())); }
+                    _ => {
+                        self.pending_input = Some(PendingInput::AssignLabel(c, acc.clone()));
+                    }
                 }
             }
             Some(PendingInput::ConfirmLoad(idx)) => {
@@ -606,9 +623,15 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(result, "try_user_dispatch must return true when key is assigned");
+        assert!(
+            result,
+            "try_user_dispatch must return true when key is assigned"
+        );
         // Program should have run and pushed 42 onto stack
-        assert!(!app.state.stack.x.is_zero(), "program should have pushed 42 to X");
+        assert!(
+            !app.state.stack.x.is_zero(),
+            "program should have pushed 42 to X"
+        );
     }
 
     /// D-28: try_user_dispatch() returns false when user_mode is off — normal routing applies.
@@ -622,7 +645,10 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(!result, "try_user_dispatch must return false when user_mode is off");
+        assert!(
+            !result,
+            "try_user_dispatch must return false when user_mode is off"
+        );
     }
 
     /// D-28: try_user_dispatch() returns false when user_mode is on but key has no assignment.
@@ -636,7 +662,10 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(!result, "try_user_dispatch must return false when key has no assignment");
+        assert!(
+            !result,
+            "try_user_dispatch must return false when key has no assignment"
+        );
     }
 
     // Helper — create a Press key event with no modifiers.

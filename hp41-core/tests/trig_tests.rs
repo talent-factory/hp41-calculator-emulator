@@ -1,8 +1,8 @@
 //! Integration tests for MATH-02: trig ops in DEG, RAD, and GRAD angle modes.
 //! Critical: asin/acos/atan must return results in the CURRENT angle mode (not always radians).
 
-use hp41_core::{CalcState, HpError, HpNum, AngleMode};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{AngleMode, CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -15,9 +15,15 @@ fn push(state: &mut CalcState, n: i32) {
     dispatch(state, Op::PushNum(HpNum::from(n))).unwrap();
 }
 
-fn set_deg(s: &mut CalcState) { dispatch(s, Op::SetDeg).unwrap(); }
-fn set_rad(s: &mut CalcState) { dispatch(s, Op::SetRad).unwrap(); }
-fn set_grad(s: &mut CalcState) { dispatch(s, Op::SetGrad).unwrap(); }
+fn set_deg(s: &mut CalcState) {
+    dispatch(s, Op::SetDeg).unwrap();
+}
+fn set_rad(s: &mut CalcState) {
+    dispatch(s, Op::SetRad).unwrap();
+}
+fn set_grad(s: &mut CalcState) {
+    dispatch(s, Op::SetGrad).unwrap();
+}
 
 // ── SIN in DEG mode ──────────────────────────────────────────────────────
 
@@ -37,7 +43,11 @@ fn test_sin_90_deg_is_1() {
     set_deg(&mut s);
     push(&mut s, 90);
     dispatch(&mut s, Op::Sin).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(1), "SIN(90°) must be exactly 1");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(1),
+        "SIN(90°) must be exactly 1"
+    );
 }
 
 #[test]
@@ -88,15 +98,19 @@ fn test_tan_100_grad_equals_tan_90_deg() {
     // 100 grad = 90°; both should produce the same (very large) value or Domain
     let mut s_deg = CalcState::new();
     set_deg(&mut s_deg);
-    push(&mut s_deg, 89);  // use 89° not 90° to avoid domain error in both
+    push(&mut s_deg, 89); // use 89° not 90° to avoid domain error in both
     let result_deg = dispatch(&mut s_deg, Op::Tan);
 
     let mut s_grad = CalcState::new();
     set_grad(&mut s_grad);
-    push_dec(&mut s_grad, "98.888888889");  // 89° in grads ≈ 98.888...
+    push_dec(&mut s_grad, "98.888888889"); // 89° in grads ≈ 98.888...
     let result_grad = dispatch(&mut s_grad, Op::Tan);
 
-    assert_eq!(result_deg.is_ok(), result_grad.is_ok(), "both must succeed or fail together");
+    assert_eq!(
+        result_deg.is_ok(),
+        result_grad.is_ok(),
+        "both must succeed or fail together"
+    );
 }
 
 #[test]
@@ -119,7 +133,11 @@ fn test_asin_0_5_is_30_deg() {
     set_deg(&mut s);
     push_dec(&mut s, "0.5");
     dispatch(&mut s, Op::Asin).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(30), "ASIN(0.5) in DEG = 30");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(30),
+        "ASIN(0.5) in DEG = 30"
+    );
 }
 
 #[test]
@@ -135,7 +153,7 @@ fn test_asin_1_is_90_deg() {
 fn test_asin_out_of_domain_returns_error() {
     let mut s = CalcState::new();
     set_deg(&mut s);
-    push(&mut s, 2);  // |2| > 1 — domain error
+    push(&mut s, 2); // |2| > 1 — domain error
     assert_eq!(dispatch(&mut s, Op::Asin), Err(HpError::Domain));
 }
 
@@ -161,7 +179,11 @@ fn test_trig_ops_save_lastx() {
         push(&mut s, 30);
         let x_before = s.stack.x.inner();
         dispatch(&mut s, op.clone()).unwrap();
-        assert_eq!(s.stack.lastx.inner(), x_before, "{op:?} must save X to LASTX");
+        assert_eq!(
+            s.stack.lastx.inner(),
+            x_before,
+            "{op:?} must save X to LASTX"
+        );
     }
 }
 
@@ -173,10 +195,10 @@ fn test_trig_ops_enable_lift() {
     for op in ops {
         let mut s = CalcState::new();
         set_deg(&mut s);
-        push_dec(&mut s, "0.5");  // valid domain for sin/cos/tan/asin
+        push_dec(&mut s, "0.5"); // valid domain for sin/cos/tan/asin
         s.stack.lift_enabled = false;
         let _ = dispatch(&mut s, op.clone()); // may return ok or err depending on op
-        // Only check lift if op succeeded
+                                              // Only check lift if op succeeded
         if s.stack.lift_enabled {
             assert!(s.stack.lift_enabled, "{op:?} must enable lift on success");
         }

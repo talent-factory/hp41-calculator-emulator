@@ -14,8 +14,8 @@ use std::str::FromStr;
 use crate::error::HpError;
 use crate::num::HpNum;
 use crate::ops::{Op, TestKind};
-use crate::state::CalcState;
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
+use crate::state::CalcState;
 
 // ── Public op dispatch functions ─────────────────────────────────────────────
 // Called from dispatch() match arms (added in plan 03-06).
@@ -216,31 +216,29 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
 /// MUST NOT call flush_entry_buf (no digit entry mid-program, RESEARCH Pitfall 2).
 /// MUST NOT check prgm_mode (always false when is_running = true).
 fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
-    use crate::ops::arithmetic::{op_add, op_sub, op_mul, op_div};
-    use crate::ops::stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
+    use crate::ops::alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
+    use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
     use crate::ops::math::{
-        op_int,
-        op_recip, op_sqrt, op_sq, op_ypow, op_ln, op_log, op_exp, op_tenpow,
-        op_sin, op_cos, op_tan, op_asin, op_acos, op_atan,
-        op_set_deg, op_set_rad, op_set_grad,
+        op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_recip, op_set_deg,
+        op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
     };
-    use crate::ops::registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
-    use crate::ops::alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear, op_alpha_backspace};
+    use crate::ops::registers::{op_clreg, op_rcl, op_sto, op_sto_arith};
+    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
     use crate::state::DisplayMode;
 
     match op {
         // Phase 1 arithmetic
-        Op::Add    => op_add(state),
-        Op::Sub    => op_sub(state),
-        Op::Mul    => op_mul(state),
-        Op::Div    => op_div(state),
+        Op::Add => op_add(state),
+        Op::Sub => op_sub(state),
+        Op::Mul => op_mul(state),
+        Op::Div => op_div(state),
         // Phase 1 stack ops
-        Op::Enter  => op_enter(state),
-        Op::Clx    => op_clx(state),
-        Op::Chs    => op_chs(state),
-        Op::Rdn    => op_rdn(state),
+        Op::Enter => op_enter(state),
+        Op::Clx => op_clx(state),
+        Op::Chs => op_chs(state),
+        Op::Rdn => op_rdn(state),
         Op::XySwap => op_xy_swap(state),
-        Op::Lastx  => op_lastx(state),
+        Op::Lastx => op_lastx(state),
         Op::PushNum(v) => {
             enter_number(state, v);
             // PushNum inside a program enables lift so subsequent PushNums lift the stack
@@ -249,71 +247,83 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             Ok(())
         }
         // Phase 2 math/trig/angle
-        Op::Int    => op_int(state),
-        Op::Recip  => op_recip(state),
-        Op::Sqrt   => op_sqrt(state),
-        Op::Sq     => op_sq(state),
-        Op::YPow   => op_ypow(state),
-        Op::Ln     => op_ln(state),
-        Op::Log    => op_log(state),
-        Op::Exp    => op_exp(state),
+        Op::Int => op_int(state),
+        Op::Recip => op_recip(state),
+        Op::Sqrt => op_sqrt(state),
+        Op::Sq => op_sq(state),
+        Op::YPow => op_ypow(state),
+        Op::Ln => op_ln(state),
+        Op::Log => op_log(state),
+        Op::Exp => op_exp(state),
         Op::TenPow => op_tenpow(state),
-        Op::Sin    => op_sin(state),
-        Op::Cos    => op_cos(state),
-        Op::Tan    => op_tan(state),
-        Op::Asin   => op_asin(state),
-        Op::Acos   => op_acos(state),
-        Op::Atan   => op_atan(state),
+        Op::Sin => op_sin(state),
+        Op::Cos => op_cos(state),
+        Op::Tan => op_tan(state),
+        Op::Asin => op_asin(state),
+        Op::Acos => op_acos(state),
+        Op::Atan => op_atan(state),
         Op::SetDeg => op_set_deg(state),
         Op::SetRad => op_set_rad(state),
         Op::SetGrad => op_set_grad(state),
         Op::FmtFix(n) => {
-            if n > 9 { return Err(HpError::InvalidOp); }
+            if n > 9 {
+                return Err(HpError::InvalidOp);
+            }
             state.display_mode = DisplayMode::Fix(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
         Op::FmtSci(n) => {
-            if n > 9 { return Err(HpError::InvalidOp); }
+            if n > 9 {
+                return Err(HpError::InvalidOp);
+            }
             state.display_mode = DisplayMode::Sci(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
         Op::FmtEng(n) => {
-            if n > 9 { return Err(HpError::InvalidOp); }
+            if n > 9 {
+                return Err(HpError::InvalidOp);
+            }
             state.display_mode = DisplayMode::Eng(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
-        Op::StoReg(r)              => op_sto(state, r),
-        Op::RclReg(r)              => op_rcl(state, r),
+        Op::StoReg(r) => op_sto(state, r),
+        Op::RclReg(r) => op_rcl(state, r),
         Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),
-        Op::Clreg                  => op_clreg(state),
-        Op::AlphaToggle            => op_alpha_toggle(state),
-        Op::AlphaAppend(ch)        => op_alpha_append(state, ch),
-        Op::AlphaClear             => op_alpha_clear(state),
-        Op::AlphaBackspace         => op_alpha_backspace(state),
-        Op::UserMode               => {
+        Op::Clreg => op_clreg(state),
+        Op::AlphaToggle => op_alpha_toggle(state),
+        Op::AlphaAppend(ch) => op_alpha_append(state, ch),
+        Op::AlphaClear => op_alpha_clear(state),
+        Op::AlphaBackspace => op_alpha_backspace(state),
+        Op::UserMode => {
             state.user_mode = !state.user_mode;
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
         // ── Phase 6: Science & Engineering ───────────────────────────────────────
-        Op::SigmaPlus   => super::stats::op_sigma_plus(state),
-        Op::SigmaMinus  => super::stats::op_sigma_minus(state),
-        Op::Mean        => super::stats::op_mean(state),
-        Op::Sdev        => super::stats::op_sdev(state),
-        Op::LR          => super::stats::op_lr(state),
-        Op::Yhat        => super::stats::op_yhat(state),
-        Op::Corr        => super::stats::op_corr(state),
+        Op::SigmaPlus => super::stats::op_sigma_plus(state),
+        Op::SigmaMinus => super::stats::op_sigma_minus(state),
+        Op::Mean => super::stats::op_mean(state),
+        Op::Sdev => super::stats::op_sdev(state),
+        Op::LR => super::stats::op_lr(state),
+        Op::Yhat => super::stats::op_yhat(state),
+        Op::Corr => super::stats::op_corr(state),
         Op::ClSigmaStat => super::stats::op_cl_sigma_stat(state),
-        Op::HmsToH      => super::hms::op_hms_to_h(state),
-        Op::HToHms      => super::hms::op_h_to_hms(state),
-        Op::HmsAdd      => super::hms::op_hms_add(state),
-        Op::HmsSub      => super::hms::op_hms_sub(state),
+        Op::HmsToH => super::hms::op_hms_to_h(state),
+        Op::HToHms => super::hms::op_h_to_hms(state),
+        Op::HmsAdd => super::hms::op_hms_add(state),
+        Op::HmsSub => super::hms::op_hms_sub(state),
         // Programming ops handled by run_loop directly — must not reach here
-        Op::Lbl(_) | Op::Gto(_) | Op::Xeq(_) | Op::Rtn | Op::PrgmMode
-        | Op::Test(_) | Op::Isg(_) | Op::Dse(_) => Err(HpError::InvalidOp),
+        Op::Lbl(_)
+        | Op::Gto(_)
+        | Op::Xeq(_)
+        | Op::Rtn
+        | Op::PrgmMode
+        | Op::Test(_)
+        | Op::Isg(_)
+        | Op::Dse(_) => Err(HpError::InvalidOp),
     }
 }
 
@@ -334,12 +344,12 @@ pub fn evaluate_test(state: &CalcState, kind: &TestKind) -> bool {
         TestKind::XGtZero => x > zero,
         TestKind::XLeZero => x <= zero,
         TestKind::XGeZero => x >= zero,
-        TestKind::XEqY    => x == y,
-        TestKind::XNeY    => x != y,
-        TestKind::XLtY    => x < y,
-        TestKind::XGtY    => x > y,
-        TestKind::XLeY    => x <= y,
-        TestKind::XGeY    => x >= y,
+        TestKind::XEqY => x == y,
+        TestKind::XNeY => x != y,
+        TestKind::XLtY => x < y,
+        TestKind::XGtY => x > y,
+        TestKind::XLeY => x <= y,
+        TestKind::XGeY => x >= y,
     }
 }
 
@@ -365,9 +375,13 @@ pub fn parse_counter(n: &HpNum) -> Result<(i64, i64, i64, String), HpError> {
     // Pad RIGHT with zeros to exactly 5 chars (trailing-zero normalisation fix, RESEARCH Pitfall 3)
     let frac_padded = format!("{:0<5}", frac_part);
     // Truncate if somehow longer than 5 (defensive; should not occur with valid HP-41 counters)
-    let frac_padded = if frac_padded.len() > 5 { frac_padded[..5].to_string() } else { frac_padded };
+    let frac_padded = if frac_padded.len() > 5 {
+        frac_padded[..5].to_string()
+    } else {
+        frac_padded
+    };
     let final_val: i64 = frac_padded[..3].parse().map_err(|_| HpError::InvalidOp)?;
-    let step_raw: i64  = frac_padded[3..5].parse().map_err(|_| HpError::InvalidOp)?;
+    let step_raw: i64 = frac_padded[3..5].parse().map_err(|_| HpError::InvalidOp)?;
     let step = if step_raw == 0 { 1 } else { step_raw }; // step 00 → 1 (D-10)
     Ok((current, final_val, step, frac_padded))
 }

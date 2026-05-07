@@ -1,6 +1,6 @@
 use crate::error::HpError;
-use crate::state::CalcState;
 use crate::stack::binary_result;
+use crate::state::CalcState;
 
 /// Add: Y + X → X
 /// LiftEffect: Enable (via binary_result)

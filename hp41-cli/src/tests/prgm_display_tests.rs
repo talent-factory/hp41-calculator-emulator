@@ -1,6 +1,9 @@
 //! Unit tests for prgm_display::format_step().
 
-use hp41_core::{CalcState, ops::{Op, dispatch}};
+use hp41_core::{
+    ops::{dispatch, Op},
+    CalcState,
+};
 
 use crate::prgm_display::format_step;
 

@@ -14,7 +14,10 @@ fn test_phase5_pers01_persistence_functions_exist() {
     use crate::persistence::default_state_path;
 
     let path = default_state_path();
-    assert!(path.to_str().is_some(), "default_state_path() must return a valid UTF-8 path");
+    assert!(
+        path.to_str().is_some(),
+        "default_state_path() must return a valid UTF-8 path"
+    );
     assert!(
         path.to_str().unwrap().contains("autosave.json"),
         "default path must end with autosave.json, got: {}",
@@ -34,7 +37,10 @@ fn test_phase5_ux01_help_data_non_empty() {
 fn test_phase5_ux03_sample_programs_count() {
     // UX-03: at least 10 bundled sample programs
     use crate::programs::sample_programs;
-    assert!(sample_programs().len() >= 10, "must have at least 10 sample programs");
+    assert!(
+        sample_programs().len() >= 10,
+        "must have at least 10 sample programs"
+    );
 }
 
 #[test]

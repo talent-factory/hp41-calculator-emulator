@@ -4,8 +4,8 @@
 //! All operations have Neutral lift effect (do not modify lift_enabled).
 
 use crate::error::HpError;
-use crate::state::CalcState;
 use crate::stack::{apply_lift_effect, LiftEffect};
+use crate::state::CalcState;
 
 /// ALPHA toggle: flip alpha_mode flag.
 /// When alpha_mode = true, the CLI routes keyboard chars to AlphaAppend.

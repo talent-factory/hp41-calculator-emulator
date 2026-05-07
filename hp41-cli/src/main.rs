@@ -4,18 +4,18 @@
 //! runs App event loop, then saves state and restores terminal.
 
 mod app;
-mod ui;
-mod keys;
-mod prgm_display;
-mod persistence;
 mod help_data;
+mod keys;
+mod persistence;
+mod prgm_display;
 mod programs;
+mod ui;
 
 #[cfg(test)]
 mod tests;
 
-use clap::Parser;
 use app::App;
+use clap::Parser;
 use hp41_core::CalcState;
 
 /// HP-41 Calculator Emulator — faithful HP-41C/CV/CX behavioral emulation in the terminal.
@@ -32,7 +32,8 @@ fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     // Resolve the active state file path (D-02: CLI override or default).
-    let state_path = cli.state_file
+    let state_path = cli
+        .state_file
         .unwrap_or_else(persistence::default_state_path);
 
     // D-03: load existing state or start fresh; NEVER panic on parse failure.

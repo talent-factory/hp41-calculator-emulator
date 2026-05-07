@@ -24,8 +24,8 @@
 //   - No f64 arithmetic on HP-41 register values anywhere in hp41-core.
 
 use crate::num::HpNum;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
 
 /// Trigonometric angle mode — controls input/output units for SIN/COS/TAN/ASIN/ACOS/ATAN.
 /// Default: Deg (HP-41 hardware cold-start default).

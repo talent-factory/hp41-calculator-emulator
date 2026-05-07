@@ -57,7 +57,8 @@ fn build_all_programs() -> Vec<SampleProgram> {
         },
         SampleProgram {
             name: "Stack Mean (4 values)",
-            description: "Mean of 4-level stack (T,Z,Y,X): load four values with ENTER, run → mean in X.",
+            description:
+                "Mean of 4-level stack (T,Z,Y,X): load four values with ENTER, run → mean in X.",
             ops: mean_sdev_ops(),
         },
         SampleProgram {
@@ -87,28 +88,28 @@ fn fibonacci_ops() -> Vec<Op> {
     // Algorithm: loop n times: tmp=b, b=a+b, a=tmp
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(2),                      // R02 = n (loop count)
+        Op::StoReg(2), // R02 = n (loop count)
         Op::PushNum(HpNum::from(0i32)),
-        Op::StoReg(0),                      // R00 = 0 (a)
+        Op::StoReg(0), // R00 = 0 (a)
         Op::PushNum(HpNum::from(1i32)),
-        Op::StoReg(1),                      // R01 = 1 (b)
+        Op::StoReg(1), // R01 = 1 (b)
         // Build ISG counter: current=1, final=n, step=1
         // ISG counter format CCCCC.FFFSS: use R02 directly as loop count via DSE
-        Op::Lbl("B".to_string()),           // loop top
-        Op::RclReg(0),                      // a
-        Op::RclReg(1),                      // b, a
-        Op::Add,                            // a+b
-        Op::RclReg(1),                      // b, a+b
-        Op::StoReg(0),                      // R00 = old b
+        Op::Lbl("B".to_string()), // loop top
+        Op::RclReg(0),            // a
+        Op::RclReg(1),            // b, a
+        Op::Add,                  // a+b
+        Op::RclReg(1),            // b, a+b
+        Op::StoReg(0),            // R00 = old b
         Op::XySwap,
-        Op::StoReg(1),                      // R01 = a+b
+        Op::StoReg(1), // R01 = a+b
         Op::RclReg(2),
         Op::PushNum(HpNum::from(1i32)),
         Op::Sub,
-        Op::StoReg(2),                      // R02--
-        Op::Test(TestKind::XGtZero),        // if R02 > 0: loop
+        Op::StoReg(2),               // R02--
+        Op::Test(TestKind::XGtZero), // if R02 > 0: loop
         Op::Gto("B".to_string()),
-        Op::RclReg(1),                      // result = b = Fib(n)
+        Op::RclReg(1), // result = b = Fib(n)
         Op::Rtn,
     ]
 }
@@ -118,21 +119,24 @@ fn factorial_ops() -> Vec<Op> {
     // R00 = accumulator, R01 = counter
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(1),                      // R01 = n (counter)
+        Op::StoReg(1), // R01 = n (counter)
         Op::PushNum(HpNum::from(1i32)),
-        Op::StoReg(0),                      // R00 = 1 (result)
+        Op::StoReg(0), // R00 = 1 (result)
         Op::Lbl("B".to_string()),
-        Op::RclReg(1),                      // counter
-        Op::Test(TestKind::XLeZero),        // if counter <= 0: done
+        Op::RclReg(1),               // counter
+        Op::Test(TestKind::XLeZero), // if counter <= 0: done
         Op::Gto("C".to_string()),
-        Op::StoArith { reg: 0, kind: StoArithKind::Mul }, // R00 *= counter
+        Op::StoArith {
+            reg: 0,
+            kind: StoArithKind::Mul,
+        }, // R00 *= counter
         Op::RclReg(1),
         Op::PushNum(HpNum::from(1i32)),
         Op::Sub,
-        Op::StoReg(1),                      // counter--
+        Op::StoReg(1), // counter--
         Op::Gto("B".to_string()),
         Op::Lbl("C".to_string()),
-        Op::RclReg(0),                      // result
+        Op::RclReg(0), // result
         Op::Rtn,
     ]
 }
@@ -154,40 +158,40 @@ fn prime_test_ops() -> Vec<Op> {
     //     Test(XEqZero): remainder=0 → TRUE → Gto("N") [not prime]; ≠0 → FALSE → skip, increment d
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(0),                      // R00 = n
-        Op::PushNum(HpNum::from(2i32)),     // Y=2, X=2 (lift)
-        Op::RclReg(0),                      // X=n, Y=2
-        Op::Test(TestKind::XLeY),           // n≤2 → TRUE → execute Gto("P"); n>2 → FALSE → skip
+        Op::StoReg(0),                  // R00 = n
+        Op::PushNum(HpNum::from(2i32)), // Y=2, X=2 (lift)
+        Op::RclReg(0),                  // X=n, Y=2
+        Op::Test(TestKind::XLeY),       // n≤2 → TRUE → execute Gto("P"); n>2 → FALSE → skip
         Op::Gto("P".to_string()),
         Op::PushNum(HpNum::from(2i32)),
-        Op::StoReg(1),                      // R01 = divisor = 2
-        Op::Lbl("L".to_string()),           // loop top
-        Op::RclReg(1),                      // X=d
-        Op::Sq,                             // X=d²
-        Op::RclReg(0),                      // X=n, Y=d²
-        Op::Test(TestKind::XLtY),           // n<d² → TRUE → execute Gto("P"); n≥d² → FALSE → skip
+        Op::StoReg(1),            // R01 = divisor = 2
+        Op::Lbl("L".to_string()), // loop top
+        Op::RclReg(1),            // X=d
+        Op::Sq,                   // X=d²
+        Op::RclReg(0),            // X=n, Y=d²
+        Op::Test(TestKind::XLtY), // n<d² → TRUE → execute Gto("P"); n≥d² → FALSE → skip
         Op::Gto("P".to_string()),
         // Compute n mod d = n - d * int(n/d) — exact integer modulo via Op::Int
-        Op::RclReg(0),                      // X=n
-        Op::RclReg(1),                      // X=d, Y=n
-        Op::Div,                            // X=n/d (real division)
-        Op::Int,                            // X=floor(n/d) (truncate toward zero)
-        Op::RclReg(1),                      // X=d, Y=floor(n/d)
-        Op::Mul,                            // X=d*floor(n/d)
-        Op::RclReg(0),                      // X=n, Y=d*floor(n/d)
-        Op::XySwap,                         // X=d*floor(n/d), Y=n
-        Op::Sub,                            // X = Y-X = n - d*floor(n/d) = n mod d
-        Op::Test(TestKind::XEqZero),        // remainder=0 → TRUE → execute Gto("N"); ≠0 → FALSE → skip
+        Op::RclReg(0),               // X=n
+        Op::RclReg(1),               // X=d, Y=n
+        Op::Div,                     // X=n/d (real division)
+        Op::Int,                     // X=floor(n/d) (truncate toward zero)
+        Op::RclReg(1),               // X=d, Y=floor(n/d)
+        Op::Mul,                     // X=d*floor(n/d)
+        Op::RclReg(0),               // X=n, Y=d*floor(n/d)
+        Op::XySwap,                  // X=d*floor(n/d), Y=n
+        Op::Sub,                     // X = Y-X = n - d*floor(n/d) = n mod d
+        Op::Test(TestKind::XEqZero), // remainder=0 → TRUE → execute Gto("N"); ≠0 → FALSE → skip
         Op::Gto("N".to_string()),
         Op::RclReg(1),
         Op::PushNum(HpNum::from(1i32)),
         Op::Add,
-        Op::StoReg(1),                      // divisor++
+        Op::StoReg(1), // divisor++
         Op::Gto("L".to_string()),
-        Op::Lbl("P".to_string()),           // prime
+        Op::Lbl("P".to_string()), // prime
         Op::PushNum(HpNum::from(1i32)),
         Op::Rtn,
-        Op::Lbl("N".to_string()),           // not prime
+        Op::Lbl("N".to_string()), // not prime
         Op::PushNum(HpNum::from(0i32)),
         Op::Rtn,
     ]
@@ -200,32 +204,41 @@ fn quadratic_ops() -> Vec<Op> {
     vec![
         Op::Lbl("A".to_string()),
         // Store coefficients from stack
-        Op::StoReg(2),                      // R02 = c (X)
+        Op::StoReg(2), // R02 = c (X)
         Op::Rdn,
-        Op::StoReg(1),                      // R01 = b (Y→X after roll)
+        Op::StoReg(1), // R01 = b (Y→X after roll)
         Op::Rdn,
-        Op::StoReg(0),                      // R00 = a
+        Op::StoReg(0), // R00 = a
         // discriminant = b² - 4ac
-        Op::RclReg(1), Op::Sq,             // b²
+        Op::RclReg(1),
+        Op::Sq, // b²
         Op::PushNum(HpNum::from(4i32)),
-        Op::RclReg(0), Op::Mul,            // 4a
-        Op::RclReg(2), Op::Mul,            // 4ac
-        Op::Sub,                            // b² - 4ac
-        Op::Sqrt,                           // √disc
-        Op::StoReg(3),                      // R03 = √disc
+        Op::RclReg(0),
+        Op::Mul, // 4a
+        Op::RclReg(2),
+        Op::Mul,       // 4ac
+        Op::Sub,       // b² - 4ac
+        Op::Sqrt,      // √disc
+        Op::StoReg(3), // R03 = √disc
         // root1 = (-b + √disc) / 2a
-        Op::RclReg(1), Op::Chs,            // -b
-        Op::RclReg(3), Op::Add,            // -b + √disc
+        Op::RclReg(1),
+        Op::Chs, // -b
+        Op::RclReg(3),
+        Op::Add, // -b + √disc
         Op::PushNum(HpNum::from(2i32)),
-        Op::RclReg(0), Op::Mul,            // 2a
-        Op::Div,                            // root1
+        Op::RclReg(0),
+        Op::Mul, // 2a
+        Op::Div, // root1
         // root2 = (-b - √disc) / 2a
-        Op::RclReg(1), Op::Chs,
-        Op::RclReg(3), Op::Sub,            // -b - √disc
+        Op::RclReg(1),
+        Op::Chs,
+        Op::RclReg(3),
+        Op::Sub, // -b - √disc
         Op::PushNum(HpNum::from(2i32)),
-        Op::RclReg(0), Op::Mul,
-        Op::Div,                            // root2
-        Op::XySwap,                        // X=root1, Y=root2
+        Op::RclReg(0),
+        Op::Mul,
+        Op::Div,    // root2
+        Op::XySwap, // X=root1, Y=root2
         Op::Rtn,
     ]
 }
@@ -235,25 +248,32 @@ fn gcd_ops() -> Vec<Op> {
     // R00=a, R01=b; iterate: a,b = b, a mod b until b=0
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(1),                      // R01 = b = X
+        Op::StoReg(1), // R01 = b = X
         Op::XySwap,
-        Op::StoReg(0),                      // R00 = a = Y
+        Op::StoReg(0), // R00 = a = Y
         Op::Lbl("L".to_string()),
         Op::RclReg(1),
-        Op::Test(TestKind::XEqZero),        // if b == 0: done
+        Op::Test(TestKind::XEqZero), // if b == 0: done
         Op::Gto("D".to_string()),
         // r = a mod b = a - b * floor(a/b)
-        Op::RclReg(0), Op::RclReg(1), Op::Div,
+        Op::RclReg(0),
+        Op::RclReg(1),
+        Op::Div,
         // floor-truncate quotient then multiply back for exact integer modulo
-        Op::Int,                                // floor-truncate quotient (BCD division is exact; Int truncates)
-        Op::RclReg(1), Op::Mul,
-        Op::RclReg(0), Op::XySwap, Op::Sub, // r = a - b*(a/b)
-        Op::StoReg(2),                      // R02 = r
-        Op::RclReg(1), Op::StoReg(0),      // a = b
-        Op::RclReg(2), Op::StoReg(1),      // b = r
+        Op::Int, // floor-truncate quotient (BCD division is exact; Int truncates)
+        Op::RclReg(1),
+        Op::Mul,
+        Op::RclReg(0),
+        Op::XySwap,
+        Op::Sub,       // r = a - b*(a/b)
+        Op::StoReg(2), // R02 = r
+        Op::RclReg(1),
+        Op::StoReg(0), // a = b
+        Op::RclReg(2),
+        Op::StoReg(1), // b = r
         Op::Gto("L".to_string()),
         Op::Lbl("D".to_string()),
-        Op::RclReg(0),                      // GCD result
+        Op::RclReg(0), // GCD result
         Op::Rtn,
     ]
 }
@@ -264,25 +284,27 @@ fn newton_root_ops() -> Vec<Op> {
     // R00 = N, R01 = guess, R02 = counter
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(0),                       // R00 = N
+        Op::StoReg(0), // R00 = N
         Op::PushNum(HpNum::from(1i32)),
-        Op::StoReg(1),                       // R01 = initial guess = 1
+        Op::StoReg(1), // R01 = initial guess = 1
         Op::PushNum(HpNum::from(10i32)),
-        Op::StoReg(2),                       // R02 = 10 (iterations)
+        Op::StoReg(2), // R02 = 10 (iterations)
         Op::Lbl("L".to_string()),
         Op::RclReg(0),
-        Op::RclReg(1), Op::Div,             // N/guess
-        Op::RclReg(1), Op::Add,             // guess + N/guess
+        Op::RclReg(1),
+        Op::Div, // N/guess
+        Op::RclReg(1),
+        Op::Add, // guess + N/guess
         Op::PushNum(HpNum::from(2i32)),
-        Op::Div,                             // new guess
+        Op::Div, // new guess
         Op::StoReg(1),
         Op::RclReg(2),
         Op::PushNum(HpNum::from(1i32)),
         Op::Sub,
         Op::StoReg(2),
-        Op::Test(TestKind::XGtZero),         // if iterations remain: loop
+        Op::Test(TestKind::XGtZero), // if iterations remain: loop
         Op::Gto("L".to_string()),
-        Op::RclReg(1),                       // result
+        Op::RclReg(1), // result
         Op::Rtn,
     ]
 }
@@ -293,11 +315,11 @@ fn mean_sdev_ops() -> Vec<Op> {
     // No registers used. No indirect addressing needed.
     vec![
         Op::Lbl("A".to_string()),
-        Op::Add,                            // Y+X → X; T becomes new Z
-        Op::Add,                            // Z+X → X; T becomes new Y (was Z orig)
-        Op::Add,                            // Y+X → X; one value remains (was T orig)
+        Op::Add, // Y+X → X; T becomes new Z
+        Op::Add, // Z+X → X; T becomes new Y (was Z orig)
+        Op::Add, // Y+X → X; one value remains (was T orig)
         Op::PushNum(HpNum::from(4i32)),
-        Op::Div,                            // (T+Z+Y+X) / 4 = mean
+        Op::Div, // (T+Z+Y+X) / 4 = mean
         Op::Rtn,
     ]
 }
@@ -308,13 +330,13 @@ fn deg_to_rad_ops() -> Vec<Op> {
     vec![
         Op::Lbl("A".to_string()),
         Op::PushNum(HpNum::from(180i32)),
-        Op::Div,                            // X / 180
-        Op::SetRad,                         // ensure RAD mode
-        Op::PushNum(HpNum::from(1i32)),     // push 1
-        Op::Asin,                           // asin(1) = π/2
+        Op::Div,                        // X / 180
+        Op::SetRad,                     // ensure RAD mode
+        Op::PushNum(HpNum::from(1i32)), // push 1
+        Op::Asin,                       // asin(1) = π/2
         Op::PushNum(HpNum::from(2i32)),
-        Op::Mul,                            // π
-        Op::Mul,                            // (X/180) × π = X in radians
+        Op::Mul, // π
+        Op::Mul, // (X/180) × π = X in radians
         Op::Rtn,
     ]
 }
@@ -327,41 +349,41 @@ fn stack_stats_ops() -> Vec<Op> {
     vec![
         Op::Lbl("A".to_string()),
         // Save all 4 stack values to R00-R03 (Rdn cycles each to X position)
-        Op::StoReg(0),                     // R00 = X
+        Op::StoReg(0), // R00 = X
         Op::Rdn,
-        Op::StoReg(1),                     // R01 = Y (original)
+        Op::StoReg(1), // R01 = Y (original)
         Op::Rdn,
-        Op::StoReg(2),                     // R02 = Z (original)
+        Op::StoReg(2), // R02 = Z (original)
         Op::Rdn,
-        Op::StoReg(3),                     // R03 = T (original)
+        Op::StoReg(3), // R03 = T (original)
         // Find max: compare pairs; XLtY fires when X is smaller → swap brings larger to X
         Op::RclReg(0),
-        Op::RclReg(1),                     // X=R01, Y=R00
-        Op::Test(TestKind::XLtY),          // R01 < R00 → swap so larger ends up in X
+        Op::RclReg(1),            // X=R01, Y=R00
+        Op::Test(TestKind::XLtY), // R01 < R00 → swap so larger ends up in X
         Op::XySwap,
-        Op::StoReg(5),                     // R05 = max(R00, R01)
-        Op::RclReg(2),                     // X=R02, Y=running max
-        Op::Test(TestKind::XLtY),          // R02 < running max → swap
+        Op::StoReg(5),            // R05 = max(R00, R01)
+        Op::RclReg(2),            // X=R02, Y=running max
+        Op::Test(TestKind::XLtY), // R02 < running max → swap
         Op::XySwap,
-        Op::StoReg(5),                     // R05 = max(R00..R02)
-        Op::RclReg(3),                     // X=R03, Y=running max
+        Op::StoReg(5), // R05 = max(R00..R02)
+        Op::RclReg(3), // X=R03, Y=running max
         Op::Test(TestKind::XLtY),
         Op::XySwap,
-        Op::StoReg(5),                     // R05 = final max
+        Op::StoReg(5), // R05 = final max
         // Find min: invert test for smaller-wins; XGtY fires when X is larger → swap brings smaller to X
         Op::RclReg(0),
-        Op::RclReg(1),                     // X=R01, Y=R00
-        Op::Test(TestKind::XGtY),          // R01 > R00 → swap so smaller ends up in X
+        Op::RclReg(1),            // X=R01, Y=R00
+        Op::Test(TestKind::XGtY), // R01 > R00 → swap so smaller ends up in X
         Op::XySwap,
-        Op::StoReg(4),                     // R04 = min(R00, R01)
-        Op::RclReg(2),                     // X=R02, Y=running min
-        Op::Test(TestKind::XGtY),          // R02 > running min → swap
+        Op::StoReg(4),            // R04 = min(R00, R01)
+        Op::RclReg(2),            // X=R02, Y=running min
+        Op::Test(TestKind::XGtY), // R02 > running min → swap
         Op::XySwap,
-        Op::StoReg(4),                     // R04 = min(R00..R02)
-        Op::RclReg(3),                     // X=R03, Y=running min
+        Op::StoReg(4), // R04 = min(R00..R02)
+        Op::RclReg(3), // X=R03, Y=running min
         Op::Test(TestKind::XGtY),
         Op::XySwap,
-        Op::StoReg(4),                     // R04 = final min
+        Op::StoReg(4), // R04 = final min
         // Result: X = min, Y = max
         Op::RclReg(4),
         Op::RclReg(5),
@@ -375,17 +397,17 @@ fn countdown_ops() -> Vec<Op> {
     // Demonstrates DSE loop control (HP-41 classic).
     vec![
         Op::Lbl("A".to_string()),
-        Op::StoReg(9),                      // R09 = n (starting count)
+        Op::StoReg(9), // R09 = n (starting count)
         Op::Lbl("L".to_string()),
-        Op::RclReg(9),                      // show current count in X
-        Op::Test(TestKind::XLeZero),        // if n <= 0: done
+        Op::RclReg(9),               // show current count in X
+        Op::Test(TestKind::XLeZero), // if n <= 0: done
         Op::Gto("D".to_string()),
         Op::PushNum(HpNum::from(1i32)),
         Op::Sub,
-        Op::StoReg(9),                      // n--
+        Op::StoReg(9), // n--
         Op::Gto("L".to_string()),
         Op::Lbl("D".to_string()),
-        Op::PushNum(HpNum::from(1i32)),     // final value = 1
+        Op::PushNum(HpNum::from(1i32)), // final value = 1
         Op::Rtn,
     ]
 }
@@ -437,7 +459,11 @@ mod tests {
         // Push n=6, run → should produce F(6)=8 or similar without panic
         hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(6i32))).unwrap();
         let result = hp41_core::run_program(&mut state, "A");
-        assert!(result.is_ok(), "Fibonacci must run without error: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Fibonacci must run without error: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -465,11 +491,31 @@ mod tests {
             state.stack.x.clone()
         };
 
-        assert_eq!(run_prime(2), HpNum::from(1i32), "prime(2) must be 1 (prime)");
-        assert_eq!(run_prime(3), HpNum::from(1i32), "prime(3) must be 1 (prime)");
-        assert_eq!(run_prime(4), HpNum::from(0i32), "prime(4) must be 0 (composite)");
-        assert_eq!(run_prime(9), HpNum::from(0i32), "prime(9) must be 0 (composite: 3×3)");
-        assert_eq!(run_prime(13), HpNum::from(1i32), "prime(13) must be 1 (prime)");
+        assert_eq!(
+            run_prime(2),
+            HpNum::from(1i32),
+            "prime(2) must be 1 (prime)"
+        );
+        assert_eq!(
+            run_prime(3),
+            HpNum::from(1i32),
+            "prime(3) must be 1 (prime)"
+        );
+        assert_eq!(
+            run_prime(4),
+            HpNum::from(0i32),
+            "prime(4) must be 0 (composite)"
+        );
+        assert_eq!(
+            run_prime(9),
+            HpNum::from(0i32),
+            "prime(9) must be 0 (composite: 3×3)"
+        );
+        assert_eq!(
+            run_prime(13),
+            HpNum::from(1i32),
+            "prime(13) must be 1 (prime)"
+        );
     }
 
     #[test]
@@ -493,7 +539,9 @@ mod tests {
         hp41_core::run_program(&mut state, "A").expect("Stack Mean must run without error");
         // (1+2+3+4)/4 = 2.5
         let result_str = state.stack.x.to_string();
-        let result: f64 = result_str.parse().expect("stack.x must be parseable as f64");
+        let result: f64 = result_str
+            .parse()
+            .expect("stack.x must be parseable as f64");
         assert!(
             (result - 2.5).abs() < 1e-9,
             "Stack mean of [1,2,3,4] must be 2.5, got {result}"
@@ -521,7 +569,7 @@ mod tests {
         };
 
         assert_eq!(run_gcd(12, 8), HpNum::from(4i32), "gcd(12,8) must be 4");
-        assert_eq!(run_gcd(7, 3),  HpNum::from(1i32), "gcd(7,3) must be 1");
+        assert_eq!(run_gcd(7, 3), HpNum::from(1i32), "gcd(7,3) must be 1");
         assert_eq!(run_gcd(15, 5), HpNum::from(5i32), "gcd(15,5) must be 5");
     }
 

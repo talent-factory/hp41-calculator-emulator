@@ -1,5 +1,5 @@
-use crate::state::CalcState;
 use crate::num::HpNum;
+use crate::state::CalcState;
 
 /// Stack-lift effect that every operation must declare.
 ///
@@ -17,7 +17,7 @@ pub enum LiftEffect {
 /// This is the single authority for modifying lift_enabled.
 pub fn apply_lift_effect(state: &mut CalcState, effect: LiftEffect) {
     match effect {
-        LiftEffect::Enable  => state.stack.lift_enabled = true,
+        LiftEffect::Enable => state.stack.lift_enabled = true,
         LiftEffect::Disable => state.stack.lift_enabled = false,
         LiftEffect::Neutral => { /* intentional no-op */ }
     }
