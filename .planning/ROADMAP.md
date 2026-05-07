@@ -132,7 +132,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 05-03-PLAN.md — persistence.rs (StateFile, save_state, load_state, default_state_path) + main.rs --state-file arg + App persistence fields + auto-save timer + Ctrl+S
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 05-04-PLAN.md — help_data.rs (HELP_DATA ~130 entries, 10 categories) + programs.rs (SampleProgram + 10 programs via OnceLock)
+- [ ] 05-04-PLAN.md — help_data.rs (HELP_DATA ≥50 entries, 10 categories, all keyboard-accessible ops) + programs.rs (SampleProgram + 10 programs via OnceLock)
 - [ ] 05-05-PLAN.md — ui.rs overlays (help + programs) + annunciator USER wiring + status bar pending_prompt
 **Wave 4** *(blocked on Wave 3)*
 - [ ] 05-06-PLAN.md — app.rs handle_pending_input (STO/RCL/STO-arith modal) + handle_alpha_mode_key + overlay navigation
@@ -172,7 +172,7 @@ Plans:
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
 | 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
-| 5. Persistence & UX | 0/8 | Not started | - |
+| 5. Persistence & UX | 0/8 | Planned     | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |
 

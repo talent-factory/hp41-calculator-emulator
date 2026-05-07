@@ -682,22 +682,13 @@ pub enum TestKind {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`regs: [HpNum; 100]` and serde**
-   - What we know: serde derives `Serialize`/`Deserialize` for fixed-size arrays. Arrays `[T; N]` are supported when `T: Serialize + N <= 32`... but N=100 exceeds serde's built-in fixed-array limit of 32.
-   - What's unclear: Does serde derive support `[HpNum; 100]` natively, or does it require `serde_with` or a custom impl?
-   - Recommendation: Use `serde_with = "3"` with `#[serde_as(as = "[_; 100]")]`, or change `regs: [HpNum; 100]` to `regs: Vec<HpNum>` (with a constructor that pre-fills 100 zeros). The Vec approach is simplest. Alternatively, `#[serde(with = "serde_arrays")]` from the `serde_arrays` crate (lightweight). **The planner should pick one approach before the serialization wave.**
+1. **`regs: [HpNum; 100]` and serde** — RESOLVED: Change `regs` to `Vec<HpNum>` with `CalcState::new()` initializing it with 100 `HpNum::zero()` values. `Vec<HpNum>` derives serde cleanly with no extra crates. Array index syntax `state.regs[n]` works identically for Vec. Plans 01 and 08 implement and test this.
 
-2. **`Lbl(String)` in Op — is `String` serde-compatible in const context?**
-   - What we know: `String` derives serde cleanly. The issue is only with `const` arrays of Op (Pitfall 2).
-   - What's unclear: The `LblId` type was mentioned in CONTEXT.md canonical refs as `hp41-core/src/ops/mod.rs` — but inspecting the file shows `Op::Lbl(String)` directly, no `LblId` enum. No action needed — `String` is serde-compatible.
-   - Recommendation: No change needed; `String` in Op variants serializes as JSON string automatically.
+2. **`Lbl(String)` in Op — is `String` serde-compatible in const context?** — RESOLVED: `String` serializes fine with serde derive. The only issue is `Op::Lbl(String)` cannot appear in `const` arrays (heap type). Resolution: Use `OnceLock<Vec<SampleProgram>>` per D-24 amendment (approved 2026-05-07). Plan 04 implements `sample_programs()` accessor.
 
-3. **`draw(&self)` vs `RefCell<TableState>` ergonomics**
-   - What we know: `RefCell::borrow_mut()` panics at runtime if already borrowed — but since draw() is single-threaded and non-reentrant, this is safe.
-   - What's unclear: Whether the team prefers RefCell complexity or refactoring draw() to `&mut self`.
-   - Recommendation: Use `RefCell<TableState>` to minimize Phase 4 disruption. Document the single-threaded safety invariant in a comment.
+3. **`draw(&self)` vs `RefCell<TableState>` ergonomics** — RESOLVED: Use `RefCell<TableState>` in App struct for `help_table_state` and `programs_table_state`. Single-threaded event loop makes `borrow_mut()` safe (no re-entrant draw calls possible). Plans 05 and 06 implement and test this.
 
 ---
 

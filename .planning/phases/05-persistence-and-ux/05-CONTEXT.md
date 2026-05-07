@@ -67,7 +67,7 @@ Add durable state to the running TUI: auto-save every 30 s + on graceful shutdow
   8. **Unit Converter: °→rad** — converts degrees to radians and back; demonstrates math ops
   9. **Stack Stats** — min/max of N stack entries; demonstrates R↓ + conditional
   10. **Countdown Timer** — counts down from X using ISG/DSE; demonstrates display + loop
-- **D-24:** Programs stored as Rust `const` arrays of `Op` variants (no JSON files to embed). This keeps them compile-time checked and avoids any runtime file loading complexity.
+- **D-24:** ~~Programs stored as Rust `const` arrays of `Op` variants~~ **AMENDED 2026-05-07:** `Op::Lbl(String)` is heap-allocated and cannot appear in `const` context (Rust language constraint). Use `static SAMPLE_PROGRAMS: std::sync::OnceLock<Vec<SampleProgram>> = OnceLock::new();` initialized via `get_or_init()` at first access. Runtime-initialized but thread-safe and effectively a compile-time-verified lazy static. User approved this amendment.
 
 ### USER Mode
 - **D-25:** Add to `CalcState`: `user_mode: bool` (default false), `key_assignments: std::collections::BTreeMap<char, String>` (key char → LBL name). Use `BTreeMap` (not `HashMap`) for deterministic serde serialization.
