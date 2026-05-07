@@ -1,6 +1,6 @@
 ---
 phase: 05-persistence-and-ux
-reviewed: 2026-05-07T00:00:00Z
+reviewed: 2026-05-07T10:00:00Z
 depth: standard
 files_reviewed: 7
 files_reviewed_list:
@@ -12,42 +12,42 @@ files_reviewed_list:
   - hp41-core/src/ops/mod.rs
   - hp41-core/src/ops/program.rs
 findings:
-  critical: 3
-  warning: 5
+  critical: 1
+  warning: 6
   info: 3
-  total: 11
+  total: 10
 status: issues_found
 ---
 
-# Phase 05: Code Review Report (Post-Gap-Closure)
+# Phase 05: Code Review Report (Re-review after plan 05-11 gap closure)
 
-**Reviewed:** 2026-05-07
+**Reviewed:** 2026-05-07 (re-review of hp41-cli/src/programs.rs)
 **Depth:** standard
-**Files Reviewed:** 7
+**Files Reviewed:** 7 (full scope); re-review focused on programs.rs
 **Status:** issues_found
 
 ## Summary
 
-This is a post-gap-closure review for Phase 5 (Persistence & UX). The gap-closure work addressed two previously identified gaps: (1) prime_test_ops XySwap bug and mean_sdev_ops replacement, and (2) the help-overlay 'q' routing fix. Additionally, Op::Int was added to hp41-core for exact integer truncation.
+This is the second-pass review of Phase 5 (Persistence & UX), focused on `hp41-cli/src/programs.rs` after plan 05-11 gap closure. Two previously identified BLOCKER bugs were addressed:
 
-The 'q' quit guard (gap SC-3) is correctly implemented: the guard at `app.rs:130` checks all four blocking conditions (`show_help`, `show_programs`, `alpha_mode`, `pending_input`) before allowing quit. The overlay navigation blocks correctly consume all keys when active, and the three new unit tests for this behavior are valid.
+**CR-02 (gcd_ops) — FIXED.** `Op::Int` is now present at line 248 immediately after `Op::Div`, truncating the quotient to an integer before multiply-back. The Euclidean modulo step `a - b * trunc(a/b)` is now arithmetically exact. Manually verified for gcd(12,8)=4, gcd(7,3)=1, gcd(15,5)=5. The new `test_gcd_correctness` test at line 504 confirms these cases.
 
-Op::Int is correctly wired in `dispatch()`, `execute_op()`, and `prgm_display`. `trunc_int()` correctly uses `Decimal::trunc()` (truncates toward zero, matching HP-41 INT semantics for positive operands).
+**CR-03 (stack_stats_ops) — FIXED.** The register-save pattern (R00-R03 via 3×Rdn cycling) correctly captures the original X, Y, Z, T values. The max-finding section now uses `Test(XLtY)` + XySwap (fires when X is smaller, swapping larger Y into X) and the min-finding section now uses `Test(XGtY)` + XySwap (fires when X is larger, swapping smaller Y into X). Both sections were manually traced with the test inputs [3,1,4,5] and with a descending sequence [5,4,3,2] — all produce correct min=1/5, max=5/5 results. The new `test_stack_stats_correctness` test at line 529 validates the documented [3,1,4,5] inputs.
 
-The `prime_test_ops` XySwap removal is verified correct for the tested inputs n={2,3,4,9,13}. The `mean_sdev_ops` replacement produces the correct mean of 2.5 for the test inputs.
+**One BLOCKER remains open (CR-01):** `prime_test_ops` classifies n=0 and n=1 as prime due to the `XLeY` early-exit test at line 160. This was not in scope for plan 05-11.
 
-However, three BLOCKER bugs exist in sample programs that were not caught by the gap-closure test suite: prime_test_ops misclassifies n=0 and n=1 as prime, gcd_ops produces wrong results for most non-trivial integer inputs (missing `Op::Int` in the floor-division step), and stack_stats_ops has an inverted Test+XySwap pattern that always stores the wrong candidate for both max and min.
+Four pre-existing warnings remain open. One new warning is added for the shallow depth of the new `test_gcd_correctness` test suite. Warnings from other files in the full review (WR-01 in app.rs, WR-04 in math.rs) are preserved in their original sections below.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `prime_test_ops` classifies n=0 and n=1 as prime
+### CR-01: `prime_test_ops` classifies n=0 and n=1 as prime [OPEN — not in plan 05-11 scope]
 
 **File:** `hp41-cli/src/programs.rs:160`
-**Issue:** The early-exit test `Test(TestKind::XLeY)` compares `X=n` against `Y=2`. When `n <= 2` the condition is TRUE and execution jumps to label "P" (result = 1, prime). This correctly handles n=2 but also classifies n=0 and n=1 as prime, which is mathematically wrong (1 is not prime by definition; 0 is not prime). The test suite `test_prime_test_correctness` tests n={2,3,4,9,13} but omits n=0 and n=1, so the bug is undetected.
+**Issue:** The early-exit test `Test(TestKind::XLeY)` compares X=n against Y=2. When n <= 2 the condition is TRUE and execution jumps to label "P" (result = 1, prime). This correctly handles n=2 but also classifies n=0 and n=1 as prime, which is mathematically wrong (0 and 1 are not prime by definition). The test suite at line 467-473 covers n={2,3,4,9,13} but omits n=0 and n=1, so this bug remains undetected.
 
-**Fix:** Replace the single `XLeY` early-exit with two separate conditionals — one to reject n < 2 as non-prime, one to accept n == 2 as prime:
+**Fix:** Replace the single `XLeY` early-exit with two separate conditionals:
 ```rust
 // Before the divisor loop setup:
 Op::PushNum(HpNum::from(2i32)),
@@ -56,9 +56,9 @@ Op::Test(TestKind::XLtY),            // n < 2 → TRUE → not prime
 Op::Gto("N".to_string()),
 Op::Test(TestKind::XEqY),            // n == 2 → TRUE → prime
 Op::Gto("P".to_string()),
-// fall through: n > 2, start trial division
+// fall through: n > 2, start trial division at d=3 (or keep d=2 for even check)
 ```
-Extend the test:
+Extend the test to include:
 ```rust
 assert_eq!(run_prime(0), HpNum::from(0i32), "prime(0) must be 0");
 assert_eq!(run_prime(1), HpNum::from(0i32), "prime(1) must be 0 (not prime by definition)");
@@ -66,61 +66,12 @@ assert_eq!(run_prime(1), HpNum::from(0i32), "prime(1) must be 0 (not prime by de
 
 ---
 
-### CR-02: `gcd_ops` missing `Op::Int` causes wrong GCD for most integer inputs
-
-**File:** `hp41-cli/src/programs.rs:246-249`
-**Issue:** The Euclidean algorithm modulo step computes `r = a - b*(a/b)`. The code performs `RclReg(0), RclReg(1), Div` then immediately `RclReg(1), Mul` without applying `Op::Int` to truncate `a/b` to an integer. With `rust_decimal`, `7 / 3` evaluates to `2.333333333` (rounded to 10 sig digits via `HpNum::rounded`). Multiplying back: `2.333333333 * 3 = 6.999999999`. The remainder `7 - 6.999999999 = 0.000000001` is not zero, so the GCD loop never terminates correctly — it computes a fractional remainder rather than the true modulo. For most non-trivially divisible integer pairs, the loop will exhaust `MAX_STEPS` and return `HpError::Overflow`.
-
-The comment at line 248 acknowledges the imprecision: "approximate floor via truncation: use as-is (integer inputs assumed)." Integer inputs do not help — `Decimal::checked_div` does not produce integer results for non-evenly-divisible operands. The gap-closure correctly added `Op::Int` to `prime_test_ops` but `gcd_ops` was not updated.
-
-**Fix:** Insert `Op::Int` after `Op::Div` in `gcd_ops`, mirroring the prime_test fix:
-```rust
-Op::RclReg(0), Op::RclReg(1), Op::Div,
-Op::Int,                                 // trunc(a/b) — exact integer step
-Op::RclReg(1), Op::Mul,
-Op::RclReg(0), Op::XySwap, Op::Sub,     // r = a - b*trunc(a/b)
-```
-Also add a behavioral test (e.g., `gcd(12, 8) = 4`, `gcd(7, 3) = 1`).
-
----
-
-### CR-03: `stack_stats_ops` max/min comparison logic is inverted
-
-**File:** `hp41-cli/src/programs.rs:328-343`
-**Issue:** The max-finding section uses `Test(TestKind::XGtY)` immediately followed by `Op::XySwap`. `run_loop` applies skip-if-false semantics: `evaluate_test` returns true → execute next op; returns false → skip next op. When `XGtY` is TRUE (X is the larger value), `XySwap` executes and places the smaller value into X. `StoReg(5)` then stores the smaller value as the "max candidate." When `XGtY` is FALSE (X is not larger), `XySwap` is skipped and X (the smaller or equal value) is stored. In both cases the smaller of the two values is stored as the running maximum.
-
-The same inverted logic applies to the min-finding section using `Test(TestKind::XLtY)` — the larger value is stored as the min candidate.
-
-There is no behavioral test for `stack_stats_ops`, so this has been silently broken. The comment "ensure larger in X" describes the correct intent but the code implements the opposite.
-
-Concrete trace with stack T=4, Z=3, Y=2, X=5:
-- After `Enter`: T=3, Z=2, Y=5, X=5
-- After `Rdn`: T=5, Z=3, Y=2, X=5
-- `Test(XGtY)`: 5>2 TRUE → execute `XySwap` → X=2, Y=5
-- `StoReg(5)`: stores X=2 as "max" — wrong (max is 5)
-
-**Fix:** Invert the test conditions so XySwap fires only when the current X is *not* the target (max or min):
-```rust
-// Max-finding: swap when X < Y so the larger value ends up in X
-Op::Test(TestKind::XLtY),   // X < Y → swap to bring larger (Y) into X
-Op::XySwap,
-Op::StoReg(5),              // R05 = max(X, Y)
-
-// Min-finding: swap when X > Y so the smaller value ends up in X
-Op::Test(TestKind::XGtY),   // X > Y → swap to bring smaller (Y) into X
-Op::XySwap,
-Op::StoReg(4),              // R04 = min(X, Y)
-```
-A behavioral test verifying X=min, Y=max for a known 4-value stack must be added.
-
----
-
 ## Warnings
 
-### WR-01: `'S'`, `'R'`, and `Ctrl+A` modal triggers not guarded against active overlays
+### WR-01: `'S'`, `'R'`, and `Ctrl+A` modal triggers not guarded against active overlays [OPEN — app.rs, not in plan 05-11 scope]
 
 **File:** `hp41-cli/src/app.rs:172-187`
-**Issue:** The STO modal (`'S'`, line 172), RCL modal (`'R'`, line 177), and USER-assign modal (`Ctrl+A`, line 183) are activated before the `show_help` overlay dispatch block (line 230). When the help overlay is open and the user presses `'S'`, `PendingInput::StoRegister` is set without closing the overlay. On the next keypress, `handle_pending_input` runs while `show_help=true` — the UI renders the help overlay but keystrokes silently feed the invisible STO modal. The user has no visual feedback that a modal is active.
+**Issue:** The STO modal (`'S'`), RCL modal (`'R'`), and USER-assign modal (`Ctrl+A`) are activated before the overlay dispatch block. When the help overlay is open and the user presses `'S'`, `PendingInput::StoRegister` is set without closing the overlay. On the next keypress, `handle_pending_input` runs while `show_help=true` — the UI renders the help overlay but keystrokes silently feed the invisible STO modal.
 
 **Fix:** Add overlay guards to each modal trigger:
 ```rust
@@ -130,17 +81,16 @@ if key.code == KeyCode::Char('S')
     && !self.show_programs
 {
     self.pending_input = Some(PendingInput::StoRegister(String::new()));
-    ...
 }
 ```
 Apply the same `!self.show_help && !self.show_programs` guard to the `'R'` and `Ctrl+A` checks.
 
 ---
 
-### WR-02: `test_program_names_unique` uses `dedup()` — only detects consecutive duplicates
+### WR-02: `test_program_names_unique` uses `dedup()` — only detects consecutive duplicates [OPEN]
 
-**File:** `hp41-cli/src/programs.rs:439-444`
-**Issue:** `Vec::dedup()` removes only adjacent duplicate elements. A program list with names `["A", "B", "A"]` has the same length before and after `dedup()` and the test passes despite a duplicate. As the program list grows, a non-adjacent duplicate name would go undetected.
+**File:** `hp41-cli/src/programs.rs:444-448`
+**Issue:** `Vec::dedup()` removes only adjacent duplicate elements. A program list with names `["A", "B", "A"]` has the same length before and after `dedup()` and the test passes despite a duplicate. As the program list grows beyond 10 entries, a non-adjacent duplicate would go undetected.
 
 **Fix:**
 ```rust
@@ -152,10 +102,10 @@ assert_eq!(names.len(), unique.len(), "Program names must be unique");
 
 ---
 
-### WR-03: `prime_test_ops` has no test coverage for n=0 and n=1
+### WR-03: `prime_test_ops` has no test coverage for n=0 and n=1 [OPEN]
 
-**File:** `hp41-cli/src/programs.rs:447-468`
-**Issue:** `test_prime_test_correctness` covers n={2,3,4,9,13} but omits n=0 and n=1 — the exact inputs that expose CR-01. The gap-closure comment declares the XySwap bug "fixed" without evidence that edge cases around the boundary condition were verified.
+**File:** `hp41-cli/src/programs.rs:467-473`
+**Issue:** `test_prime_test_correctness` covers n={2,3,4,9,13} but omits n=0 and n=1 — the exact inputs that expose the still-open CR-01. The gap-closure comment declares the XySwap bug "fixed" without evidence that edge cases around the boundary condition were verified.
 
 **Fix:** Add to `test_prime_test_correctness`:
 ```rust
@@ -165,12 +115,12 @@ assert_eq!(run_prime(1), HpNum::from(0i32), "prime(1) must be 0 (not prime by de
 
 ---
 
-### WR-04: `op_int` (new `Op::Int`) has no unit tests in `hp41-core`
+### WR-04: `op_int` has no unit tests in `hp41-core` [OPEN — math.rs, not in plan 05-11 scope]
 
 **File:** `hp41-core/src/ops/math.rs:81-85`
-**Issue:** `op_int` was added as the enabler for the prime_test gap-closure fix but has no unit tests. The function's correctness for negative inputs, its `LASTX` save behavior (via `unary_result`), and its lift effect are all untested. A regression in `Decimal::trunc()` behavior across a `rust_decimal` version upgrade would go undetected.
+**Issue:** `op_int` was added as the enabler for the prime_test and gcd gap-closure fixes but has no unit tests. The function's correctness for negative inputs, its `LASTX` save behavior (via `unary_result`), and its lift effect are all untested. A regression in `Decimal::trunc()` behavior across a `rust_decimal` version upgrade would go undetected.
 
-**Fix:** Add tests to the `#[cfg(test)]` module in `hp41-core/src/ops/math.rs` or `mod.rs`:
+**Fix:** Add tests to the `#[cfg(test)]` module in `hp41-core/src/ops/math.rs`:
 ```rust
 #[test]
 fn test_op_int_truncates_positive() {
@@ -187,22 +137,14 @@ fn test_op_int_truncates_negative_toward_zero() {
     dispatch(&mut state, Op::Int).unwrap();
     assert_eq!(state.stack.x, HpNum::from(-2i32)); // NOT -3
 }
-
-#[test]
-fn test_op_int_saves_lastx() {
-    let mut state = CalcState::new();
-    dispatch(&mut state, Op::PushNum(HpNum::from_str("3.5").unwrap())).unwrap();
-    dispatch(&mut state, Op::Int).unwrap();
-    assert_eq!(state.stack.lastx, HpNum::from_str("3.5").unwrap());
-}
 ```
 
 ---
 
-### WR-05: `test_fibonacci_runs_without_panic` does not assert the computed value
+### WR-05: `test_fibonacci_runs_without_panic` does not assert the computed value [OPEN]
 
-**File:** `hp41-cli/src/programs.rs:426-436`
-**Issue:** The test only calls `assert!(result.is_ok(), ...)` — it never checks the stack after the run. The comment itself says "F(6)=8 or similar," indicating uncertainty rather than specification. A behavioral regression (wrong result, but no error) would pass this test.
+**File:** `hp41-cli/src/programs.rs:431-441`
+**Issue:** The test only calls `assert!(result.is_ok(), ...)` — it never checks the stack after the run. The comment "F(6)=8 or similar" signals uncertainty rather than specification. A behavioral regression (wrong result, no error) would pass this test.
 
 **Fix:**
 ```rust
@@ -214,24 +156,41 @@ assert_eq!(state.stack.x, HpNum::from(8i32), "Fibonacci(6) must equal 8");
 
 ---
 
+### WR-06: `test_gcd_correctness` test cases require at most 2 Euclidean iterations [NEW]
+
+**File:** `hp41-cli/src/programs.rs:523-525`
+**Issue:** All three test cases in `test_gcd_correctness` terminate in two or fewer modulo steps:
+- `gcd(12, 8)`: r=4, then r=0. Two iterations.
+- `gcd(7, 3)`: r=1, then r=0. Two iterations.
+- `gcd(15, 5)`: r=0. One iteration.
+
+None of these cases exercises the multi-iteration path of the Euclidean loop, which is the most structurally complex part of `gcd_ops`. A subtle bug in the loop's register-update logic (`RclReg(1), StoReg(0)` / `RclReg(2), StoReg(1)`) or in the `Gto("L")` dispatch would not be caught by the current test suite.
+
+**Fix:** Add at least one multi-step case. `gcd(21, 13)` requires six iterations (gcd=1):
+```rust
+assert_eq!(run_gcd(21, 13), HpNum::from(1i32), "gcd(21,13) must be 1 (6 Euclidean steps)");
+```
+
+---
+
 ## Info
 
-### IN-01: `Quadratic Solver` sample program description conflicts with function docstring
+### IN-01: `Quadratic Solver` description conflicts with code behavior [OPEN]
 
-**File:** `hp41-cli/src/programs.rs:45` and `197`
-**Issue:** The `SampleProgram.description` field (rendered in the UI overlay) reads `"Stack: a(T) b(Z) c(Y) → roots in X,Y."` The function docstring says `"Stack entry: c in X, b in Y, a in Z"`. The code matches the docstring (`StoReg(2)` stores X as c, then two `Rdn` calls extract b and a from Y and Z). The description shown to users is wrong: it implies `a` is in T and nothing is in X, which would leave one register uninitialized.
+**File:** `hp41-cli/src/programs.rs:45`
+**Issue:** `SampleProgram.description` reads `"Stack: a(T) b(Z) c(Y) → roots in X,Y."` The code at lines 203-207 stores `StoReg(2)` = X (c), `Rdn → StoReg(1)` = Y (b), `Rdn → StoReg(0)` = Z (a). The correct stack entry order is c(X) b(Y) a(Z), not a(T) b(Z) c(Y). The description shown to users is incorrect.
 
-**Fix:** Update the description string:
+**Fix:**
 ```rust
 description: "Roots of ax²+bx+c. Stack: c(X) b(Y) a(Z) → root1 in X, root2 in Y.",
 ```
 
 ---
 
-### IN-02: `prime_test_ops` comment uses "floor(n/d)" but `Op::Int` is truncate-toward-zero
+### IN-02: `prime_test_ops` comment uses "floor" where the operation is "trunc" [OPEN]
 
 **File:** `hp41-cli/src/programs.rs:174`
-**Issue:** The comment reads `"X=floor(n/d) (truncate toward zero)"`. These are not synonyms: `floor` rounds toward negative infinity; `trunc` rounds toward zero. For prime testing with positive `n` and `d` they produce the same result, so there is no runtime error, but the comment mixes two distinct operations in a way that would mislead anyone working with negative inputs.
+**Issue:** The comment reads `"X=floor(n/d) (truncate toward zero)"`. `floor` (toward negative infinity) and `trunc` (toward zero) differ for negative inputs. For positive prime testing inputs they produce the same result, so no runtime error, but the comment conflates two distinct mathematical operations.
 
 **Fix:**
 ```rust
@@ -240,10 +199,10 @@ Op::Int,  // X = trunc(n/d) — integer part toward zero (equals floor for posit
 
 ---
 
-### IN-03: `handle_reg_modal` — `if reg < 100` guard is unreachable dead code
+### IN-03: `handle_reg_modal` dead `if reg < 100` guard [OPEN — app.rs, not in plan 05-11 scope]
 
 **File:** `hp41-cli/src/app.rs:451`
-**Issue:** `new_acc` is always a 2-character string of ASCII decimal digits. The maximum value is `"99"` which parses to `99u8`, always less than 100. The `else` branch producing `"Invalid register: {new_acc}"` is unreachable. The `unwrap_or(0)` fallback on the same line is also superfluous since a valid 2-char ASCII digit string never fails `u8::from_str`.
+**Issue:** `new_acc` is always a 2-character string of ASCII decimal digits, maximum value 99. The guard `if reg < 100` and its `else` error branch are unreachable. The `unwrap_or(0)` fallback on the same line is also dead.
 
 **Fix:** Remove the dead guard:
 ```rust
@@ -251,6 +210,15 @@ let reg: u8 = new_acc.parse().expect("two ASCII digits always parse as u8 ≤ 99
 self.call_dispatch(op_fn(reg));
 self.pending_input = None;
 ```
+
+---
+
+## Gap Closure Verification (plan 05-11)
+
+| Finding | Status | Evidence |
+|---------|--------|---------|
+| CR-02: gcd missing Op::Int | **CLOSED** | `Op::Int` at line 248; `test_gcd_correctness` at line 504; manual trace confirms correct modulo for gcd(12,8), gcd(7,3), gcd(15,5) |
+| CR-03: stack_stats inverted tests | **CLOSED** | XLtY for max-finding, XGtY for min-finding at lines 340-362; manual traces for [3,1,4,5] and [5,4,3,2] produce correct X=min, Y=max; `test_stack_stats_correctness` at line 529 validates documented inputs |
 
 ---
 
