@@ -82,12 +82,12 @@ Plans:
 
 Plans:
 **Wave 1** *(parallel — no dependencies)*
-- [ ] 03-01-PLAN.md — CalcState Phase 3 fields (program, prgm_mode, pc, call_stack, is_running)
-- [ ] 03-02-PLAN.md — HpError::CallDepth variant ("try again")
-- [ ] 03-03-PLAN.md — TestKind enum (12 variants) + Phase 3 Op variants (Lbl/Gto/Xeq/Rtn/PrgmMode/Test/Isg/Dse)
+- [x] 03-01-PLAN.md — CalcState Phase 3 fields (program, prgm_mode, pc, call_stack, is_running)
+- [x] 03-02-PLAN.md — HpError::CallDepth variant ("try again")
+- [x] 03-03-PLAN.md — TestKind enum (12 variants) + Phase 3 Op variants (Lbl/Gto/Xeq/Rtn/PrgmMode/Test/Isg/Dse)
 **Wave 2** *(blocked on Wave 1 — parallel with each other)*
 - [x] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
-- [ ] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
+- [x] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
 **Wave 3** *(blocked on Wave 2)*
 - [ ] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
 
