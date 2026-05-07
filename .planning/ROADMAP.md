@@ -35,10 +35,10 @@
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-PLAN-01.md — Cargo workspace scaffold + Justfile + cargo-llvm-cov install
-- [ ] 01-PLAN-02.md — HpError, HpNum, CalcState/Stack types + LiftEffect helpers + ADR comment
-- [ ] 01-PLAN-03.md — Op enum, dispatch, arithmetic ops (add/sub/mul/div), stack ops (enter/clx/chs/rdn/xy_swap/lastx)
-- [ ] 01-PLAN-04.md — CORE-01 unit tests, CORE-02 lift-effect tests, proptest suite, `just ci` gate
+- [x] 01-PLAN-01.md — Cargo workspace scaffold + Justfile + cargo-llvm-cov install
+- [x] 01-PLAN-02.md — HpError, HpNum, CalcState/Stack types + LiftEffect helpers + ADR comment
+- [x] 01-PLAN-03.md — Op enum, dispatch, arithmetic ops (add/sub/mul/div), stack ops (enter/clx/chs/rdn/xy_swap/lastx)
+- [x] 01-PLAN-04.md — CORE-01 unit tests, CORE-02 lift-effect tests, proptest suite, `just ci` gate
 
 ### Phase 2: Core Math
 **Goal**: Users can perform the complete HP-41 arithmetic, trigonometric, and formatting operation set, store and recall values in R00–R99 registers, and enter alphanumeric strings in ALPHA mode — all with HP-41-accurate 10-digit results.
@@ -104,7 +104,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 04-01-PLAN.md — Cargo.toml deps (ratatui 0.30 + crossterm 0.29 + clap 4.x) + App struct + module skeleton (compiling foundation)
+- [x] 04-01-PLAN.md — Cargo.toml deps (ratatui 0.30 + crossterm 0.29 + clap 4.x) + App struct + module skeleton (compiling foundation)
 **Wave 2** *(parallel — different files)*
 - [ ] 04-02-PLAN.md — ui.rs full widget layout: stack panel, display panel, annunciator bar, status bar, key-reference panel
 - [ ] 04-03-PLAN.md — keys.rs (key_to_op() + KEY_REF_TABLE) + prgm_display.rs (format_step() + op_display_name()) + unit tests
@@ -157,7 +157,7 @@ Plans:
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
-| 4. TUI & Input | 0/5 | In progress | - |
+| 4. TUI & Input | 1/5 | In progress | - |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |

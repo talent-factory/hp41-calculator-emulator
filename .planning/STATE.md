@@ -29,9 +29,9 @@ progress:
 
 ## Current Position
 
-**Current phase:** 3 (Programming Engine) — COMPLETE (6/6 plans done)
-**Current plan:** 03-06 — dispatch() wiring of Phase 3 Op arms (complete)
-**Status:** Phase complete — ready for Phase 4
+**Current phase:** 4 (TUI & Input) — IN PROGRESS (1/5 plans done)
+**Current plan:** 04-01 — Cargo deps + App struct + module skeleton (complete)
+**Status:** Phase 4 active — Plan 04-01 complete
 
 ```
 Progress: [███████████··] 75%
@@ -39,7 +39,7 @@ Progress: [███████████··] 75%
 Phase 1: Foundation          [x] Complete (2026-05-06)
 Phase 2: Core Math           [x] Complete (2026-05-07)
 Phase 3: Programming Engine  [x] Complete (2026-05-07)
-Phase 4: TUI & Input         [ ] Not started
+Phase 4: TUI & Input         [.] In progress (1/5 plans done)
 Phase 5: Persistence & UX    [ ] Not started
 Phase 6: Science & Engineering [ ] Not started
 Phase 7: Hardening           [ ] Not started
@@ -74,6 +74,9 @@ Phase 7: Hardening           [ ] Not started
 | ISG/DSE discard bool in interactive dispatch | op_isg/op_dse return Result<bool>; dispatch() wraps with .map(|_| ()) — skip signal only meaningful in run_loop, not interactive keypress context | Phase 3 |
 | No async in hp41-core | Synchronous event loop; tokio only in hp41-cli if needed for autosave timer | All |
 | ratatui 0.30 + crossterm | Only backend with Windows 10+ support; crossterm fires Key::Press + Key::Release on Windows (filter!) | Phase 4 |
+| ratatui::init() returns DefaultTerminal | RestoreTerminalGuard does not exist in 0.30; ratatui::restore() must be called explicitly after run() | Phase 4 |
+| draw(&self) immutable in App | Avoids borrow conflict with &mut terminal inside terminal.draw() — required by Rust borrow checker | Phase 4 |
+| Digit entry appends to entry_buf directly | dispatch() auto-flushes on next non-digit op; calling dispatch per digit would push each as a separate PushNum | Phase 4 |
 | serde_json for persistence | Human-readable, shareable; users can diff/git state files | Phase 5 |
 
 ### Critical Implementation Traps
@@ -111,8 +114,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-07
-**Last action:** Completed plan 03-06 — wired all 8 Phase 3 dispatch arms + exported run_program/TestKind from lib.rs; just ci green (280 tests, 81.62% coverage)
-**Next action:** Phase 4 — TUI & Input
+**Last action:** Completed plan 04-01 — ratatui 0.30 + crossterm 0.29 + clap 4.x added; App struct with poll-based event loop; module stubs compile; cargo check -p hp41-cli passes with zero errors
+**Next action:** Phase 4, Plan 04-02 — ui.rs full widget layout (stack panel, display, annunciators, key reference)
 
 ---
 *State initialized: 2026-05-06*
