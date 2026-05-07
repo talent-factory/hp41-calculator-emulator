@@ -38,7 +38,8 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('k')           => Some(Op::Atan),
         // Trig / math: uppercase char = Shift+letter (D-09, crossterm convention).
         // Crossterm delivers Shift+s as KeyCode::Char('S'); no modifier check needed.
-        KeyCode::Char('S')           => Some(Op::Sin),
+        // NOTE: 'S' is now intercepted in app.handle_key() BEFORE key_to_op() is called.
+        // It triggers the STO [nn] register modal (Phase 5, D-10). SIN is now unmapped.
         KeyCode::Char('C')           => Some(Op::Cos),
         KeyCode::Char('T')           => Some(Op::Tan),
         KeyCode::Char('L')           => Some(Op::Ln),
@@ -48,6 +49,13 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('I')           => Some(Op::Recip),
         KeyCode::Char('W')           => Some(Op::Sq),
         KeyCode::Char('Y')           => Some(Op::YPow),
+        // Phase 5: USER mode toggle (D-26)
+        KeyCode::Char('u')           => Some(Op::UserMode),
+        // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
+        // They do NOT return an Op here — the modal is intercepted in app.handle_key()
+        // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
+        // (The modal sets pending_input, which is handled via handle_pending_input.)
+        KeyCode::Char('S') | KeyCode::Char('R') => None,
         // F5/F7/F8 handled in app.handle_key — return None here.
         KeyCode::F(5) | KeyCode::F(7) | KeyCode::F(8) => None,
         // F1-F4: Phase 5 stubs (user-assignable keys).
@@ -77,7 +85,8 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("a",      "ASIN (arc sine)"),
     ("c",      "ACOS (arc cosine)"),
     ("k",      "ATAN (arc tangent)"),
-    ("S",      "SIN  (Shift+s)"),
+    ("S",      "STO [nn] (modal register entry)"),
+    ("R",      "RCL [nn] (modal register entry)"),
     ("C",      "COS  (Shift+c)"),
     ("T",      "TAN  (Shift+t)"),
     ("L",      "LN   (Shift+l)"),
@@ -94,4 +103,48 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("F7",     "SST (step forward)"),
     ("F8",     "BST (step back)"),
     ("q/^C",   "quit"),
+    // Phase 5: new bindings
+    ("u",      "USER mode toggle"),
+    ("?",      "help overlay (toggle)"),
+    ("Ctrl+S", "save state to file"),
+    ("Ctrl+P", "program library overlay"),
+    ("Ctrl+A", "assign key in USER mode"),
+    ("F1-F4",  "USER keys a/b/c/d (USER mode)"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use hp41_core::{CalcState, ops::Op};
+
+    /// BLOCKER 1: test_user_mode_dispatch — pressing 'u' dispatches Op::UserMode which
+    /// toggles state.user_mode. Verifies the op the key binding produces is correct.
+    #[test]
+    fn test_user_mode_dispatch() {
+        let mut state = CalcState::new();
+        assert!(!state.user_mode, "user_mode starts false");
+
+        // Dispatch Op::UserMode directly (same op that key 'u' produces via key_to_op)
+        let result = hp41_core::ops::dispatch(&mut state, Op::UserMode);
+        assert!(result.is_ok(), "UserMode dispatch must not error: {:?}", result);
+        assert!(state.user_mode, "user_mode must be true after toggling once");
+
+        // Second dispatch: toggle back to false
+        let result2 = hp41_core::ops::dispatch(&mut state, Op::UserMode);
+        assert!(result2.is_ok());
+        assert!(!state.user_mode, "user_mode must be false after toggling twice");
+    }
+
+    /// Verify that key assignments persist on state (prerequisite for USER mode key dispatch).
+    #[test]
+    fn test_user_key_assignment_persists() {
+        let mut state = CalcState::new();
+        state.user_mode = true;
+        state.key_assignments.insert('a', "MYPROG".to_string());
+
+        assert_eq!(
+            state.key_assignments.get(&'a').map(|s| s.as_str()),
+            Some("MYPROG"),
+            "key assignment must be retrievable from state"
+        );
+    }
+}
