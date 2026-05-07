@@ -86,7 +86,7 @@ Plans:
 - [ ] 03-02-PLAN.md — HpError::CallDepth variant ("try again")
 - [ ] 03-03-PLAN.md — TestKind enum (12 variants) + Phase 3 Op variants (Lbl/Gto/Xeq/Rtn/PrgmMode/Test/Isg/Dse)
 **Wave 2** *(blocked on Wave 1 — parallel with each other)*
-- [ ] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
+- [x] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
 - [ ] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
 **Wave 3** *(blocked on Wave 2)*
 - [ ] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
@@ -146,7 +146,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
-| 3. Programming Engine | 0/6 | Planned | - |
+| 3. Programming Engine | 4/6 | In Progress | - |
 | 4. TUI & Input | 0/? | Not started | - |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |

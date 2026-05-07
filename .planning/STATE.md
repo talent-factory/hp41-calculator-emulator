@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: Ready to plan
-status: ready_to_plan
-last_updated: "2026-05-07T00:00:00.000Z"
+current_plan: "05"
+status: in_progress
+last_updated: "2026-05-07T08:14:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 11
-  completed_plans: 10
-  percent: 57
+  completed_phases: 2
+  total_plans: 17
+  completed_plans: 14
+  percent: 62
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -29,16 +29,16 @@ progress:
 
 ## Current Position
 
-**Current phase:** 2 (Core Math) — PLANNED
-**Current plan:** Ready to execute (7 plans, 4 waves)
-**Status:** Ready to execute
+**Current phase:** 3 (Programming Engine) — IN PROGRESS (plan 04/06 complete)
+**Current plan:** 03-05 — ops/program.rs (run_program, run_loop, ISG/DSE, TestKind eval)
+**Status:** In progress
 
 ```
-Progress: [·······] 0%
+Progress: [████████·····] 62%
 
-Phase 1: Foundation          [ ] Not started
-Phase 2: Core Math           [ ] Not started
-Phase 3: Programming Engine  [ ] Not started
+Phase 1: Foundation          [x] Complete (2026-05-06)
+Phase 2: Core Math           [x] Complete (2026-05-07)
+Phase 3: Programming Engine  [·] In progress (4/6 plans done)
 Phase 4: TUI & Input         [ ] Not started
 Phase 5: Persistence & UX    [ ] Not started
 Phase 6: Science & Engineering [ ] Not started
@@ -107,9 +107,9 @@ None.
 
 ## Session Continuity
 
-**Last active:** 2026-05-06
-**Last action:** Quick task 260506-a1g — added .gitignore for Rust/Cargo workspace
-**Next action:** Run `/gsd-plan-phase 1` to plan Phase 1: Foundation
+**Last active:** 2026-05-07
+**Last action:** Completed plan 03-04 — prgm_mode gate in dispatch() + flush_entry_buf routing
+**Next action:** Execute plan 03-05 — ops/program.rs (run_program, run_loop, ISG/DSE, TestKind eval)
 
 ---
 *State initialized: 2026-05-06*
