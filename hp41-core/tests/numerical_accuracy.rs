@@ -1,3 +1,12 @@
+// Reference values are HP-41 hardware outputs, not mathematical constants.
+// These approximate literals are intentional: they represent what the real
+// hardware displays, not exact mathematical values.
+#![allow(clippy::approx_constant)]
+// HP-41 reference values use digit groupings that match the hardware display
+// format (e.g., 3.141_592_653 groups at 3+3+3) rather than Rust's 3+3 convention.
+#![allow(clippy::inconsistent_digit_grouping)]
+#![allow(clippy::unwrap_used)]
+
 //! 500-case numerical accuracy suite for QUAL-06.
 //!
 //! Reference values derived from HP-41 Owner's Handbook formulas and known
@@ -6,8 +15,6 @@
 //! Tolerance: <= 1e-10 (10-digit rounding threshold, consistent with HpNum::rounded()).
 //!
 //! Gate: passes >= 490 (98% of 500, D-08). Failing cases printed as diagnostics.
-
-#![allow(clippy::unwrap_used)]
 
 use hp41_core::ops::program::op_isg;
 use hp41_core::ops::program::op_dse;
