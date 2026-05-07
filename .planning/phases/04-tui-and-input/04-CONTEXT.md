@@ -45,12 +45,15 @@ Build the full `hp41-cli` TUI binary using ratatui 0.30 + crossterm 0.29: a pers
   - `x` → `Op::XySwap`
   - `l` → `Op::Lastx`
   - `s` → `Op::Sqrt`
+  - `a` → `Op::Asin`, `c` → `Op::Acos`, `k` → `Op::Atan`
   - `q` → quit
   - `p` → `Op::PrgmMode` (toggle PRGM recording)
   - `F5` → `Op::Rtn` (R/S in interactive context: run program from PC=0 or stop)
   - `F1–F4` → user-assignable (Phase 5); stub as no-op in Phase 4
   - `?` → toggle help overlay (Phase 5); stub in Phase 4
-  - Full trig, log, exp: multi-key sequences or dedicated letters (see below)
+  - **STO/RCL/STO-arith/CLREG**: DEFERRED to Phase 5 — these require entering a 2-digit register number, which needs an argument-entry dialog not yet built
+  - **AlphaToggle/AlphaAppend/AlphaClear**: DEFERRED to Phase 5 — ALPHA mode routes ALL keys to the alpha register, requiring a separate input mode not in Phase 4 scope
+  - Full trig, log, exp: shift-key modifier (see D-09)
 - **D-09:** Multi-key sequences for less common ops: `ss` = SIN, `cc` = COS, `tt` = TAN, `ll` = LN, `gg` = LOG, `ee` = EXP, `hh` = 10^x, `ii` = 1/x, `ww` = x², `yy` = y^x. Prefix timeout: 500ms. If second key doesn't arrive, first key is treated literally or ignored.
   Alternative (simpler): shift key modifier. `Shift+s` = SIN, etc. — use this if multi-key adds complexity.
   **[auto]**: Use shift-key modifier approach: `S` (uppercase) = SIN, `C` = COS, `T` = TAN, `L` = LN, `G` = LOG, `E` = EXP (e^x), `H` = 10^x, `I` = 1/x, `W` = x², `Y` = y^x. Uppercase via Shift is standard terminal behavior.
@@ -68,7 +71,7 @@ Build the full `hp41-cli` TUI binary using ratatui 0.30 + crossterm 0.29: a pers
 - **D-16:** R/S (run/stop): `F5` in execute mode runs program from LBL at current pc (or prompts for label). In Phase 4, simplified: `F5` calls `run_program(state, "A")` hardcoded — full label entry deferred to Phase 5.
 
 ### Panic Handling
-- **D-17:** `ratatui::init()` return value (RestoreTerminalGuard) must be held until program exit — do NOT drop it early. The guard restores terminal on drop, which fires on panic via the installed hook.
+- **D-17:** `ratatui::init()` returns `DefaultTerminal` (not a guard). The panic hook is a side effect of init(). Call `ratatui::restore()` explicitly after the event loop exits (in both success and error paths). The panic hook fires restore automatically on unhandled panic.
 - **D-18:** All `hp41-core` errors are `Result<(), HpError>` — no panics in core. CLI boundary catches errors and displays them in the TUI status bar (one-line error message at bottom of screen), not as panics.
 
 ### Claude's Discretion
@@ -140,6 +143,8 @@ Build the full `hp41-cli` TUI binary using ratatui 0.30 + crossterm 0.29: a pers
 - Full digit-count adjustment (FIX 4, SCI 2, etc.) via key sequence — Phase 5
 - Terminal resize handling — deferred; minimum 80×24 enforced with error message
 - Mouse support — out of scope for v1.0
+- STO/RCL/STO-arith/CLREG keyboard input — require register-number entry dialog (Phase 5)
+- AlphaToggle/AlphaAppend/AlphaClear keyboard input — require ALPHA input mode routing (Phase 5)
 
 </deferred>
 
