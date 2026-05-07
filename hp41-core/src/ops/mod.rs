@@ -47,6 +47,7 @@ pub enum TestKind {
 ///          Asin, Acos, Atan, SetDeg, SetRad, SetGrad,
 ///          FmtFix, FmtSci, FmtEng, StoReg, RclReg, StoArith, Clreg,
 ///          AlphaToggle, AlphaAppend, AlphaClear
+/// Phase 3: Lbl, Gto, Xeq, Rtn, PrgmMode, Test, Isg, Dse
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
     // ── Arithmetic (Phase 1) ──────────────────────────────────────────
@@ -123,6 +124,24 @@ pub enum Op {
     AlphaAppend(char),
     /// CLRALPHA — clear alpha_reg. LiftEffect: Neutral.
     AlphaClear,
+    // ── Programming (Phase 3) ────────────────────────────────────────────
+    /// LBL "name" — program label marker. No-op during execution. LiftEffect: Neutral.
+    /// D-01: labels are Op::Lbl markers stored in the flat program Vec.
+    Lbl(String),
+    /// GTO "name" — unconditional branch to label. LiftEffect: Neutral.
+    Gto(String),
+    /// XEQ "name" — subroutine call (max 4 deep, D-14). LiftEffect: Neutral.
+    Xeq(String),
+    /// RTN — return from subroutine; terminates run if call_stack is empty. LiftEffect: Neutral.
+    Rtn,
+    /// PRGM — toggle prgm_mode recording flag (D-03). LiftEffect: Neutral.
+    PrgmMode,
+    /// Conditional test — skip next step if condition is false (D-09). LiftEffect: Neutral.
+    Test(TestKind),
+    /// ISG n — increment register n by step, skip next if new_current > final (D-11). LiftEffect: Neutral.
+    Isg(u8),
+    /// DSE n — decrement register n by step, skip next if new_current <= final (D-11). LiftEffect: Neutral.
+    Dse(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -213,5 +232,17 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle       => op_alpha_toggle(state),
         Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
         Op::AlphaClear        => op_alpha_clear(state),
+        // ── Programming stubs (Phase 3) — implemented in plan 03-06 ─────────
+        // These arms are placeholder stubs. They satisfy the exhaustive match
+        // requirement while Wave 2 modules (program.rs) are not yet wired.
+        // Plan 03-06 replaces these with real implementations.
+        Op::Lbl(_)     => Err(HpError::InvalidOp),
+        Op::Gto(_)     => Err(HpError::InvalidOp),
+        Op::Xeq(_)     => Err(HpError::InvalidOp),
+        Op::Rtn        => Err(HpError::InvalidOp),
+        Op::PrgmMode   => Err(HpError::InvalidOp),
+        Op::Test(_)    => Err(HpError::InvalidOp),
+        Op::Isg(_)     => Err(HpError::InvalidOp),
+        Op::Dse(_)     => Err(HpError::InvalidOp),
     }
 }
