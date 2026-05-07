@@ -145,7 +145,6 @@ fn prime_test_ops() -> Vec<Op> {
         Op::StoReg(0),                      // R00 = n
         Op::PushNum(HpNum::from(2i32)),
         Op::RclReg(0),
-        Op::XySwap,
         Op::Test(TestKind::XLeY),           // if n <= 2: prime
         Op::Gto("P".to_string()),
         Op::PushNum(HpNum::from(2i32)),
