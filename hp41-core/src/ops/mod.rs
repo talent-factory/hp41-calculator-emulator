@@ -11,6 +11,7 @@ pub mod math;
 // Phase 2 modules — uncommented when their files are created:
 pub mod registers;
 pub mod alpha;
+pub mod program;
 
 use arithmetic::{op_add, op_sub, op_mul, op_div};
 use stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
