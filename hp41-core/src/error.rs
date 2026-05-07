@@ -10,4 +10,7 @@ pub enum HpError {
     InvalidOp,
     #[error("domain error")]
     Domain,
+    // Phase 3 addition — HP-41 call-depth exceeded (5th subroutine level, D-13/D-14)
+    #[error("try again")]
+    CallDepth,
 }
