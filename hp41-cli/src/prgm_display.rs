@@ -88,5 +88,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Test(_)      => "TEST".to_string(),
         Op::Isg(r)       => format!("ISG {r:02}"),
         Op::Dse(r)       => format!("DSE {r:02}"),
+        // Phase 5: new Op variants
+        Op::UserMode       => "USER".to_string(),
+        Op::AlphaBackspace => "\u{2190}".to_string(),
     }
 }
