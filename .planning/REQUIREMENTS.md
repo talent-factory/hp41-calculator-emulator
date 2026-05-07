@@ -26,8 +26,8 @@
 
 ### Keystroke Programming
 
-- [ ] **PROG-01**: User can record keystroke programs using LBL, GTO, XEQ, RTN, conditional tests (x=0?, x<0?, x>y?, etc.), ISG, and DSE
-- [ ] **PROG-02**: ISG/DSE counter format (`CCCCC.FFFDD`) behaves identically to HP-41 hardware (no float arithmetic on counter fields)
+- [x] **PROG-01**: User can record keystroke programs using LBL, GTO, XEQ, RTN, conditional tests (x=0?, x<0?, x>y?, etc.), ISG, and DSE
+- [x] **PROG-02**: ISG/DSE counter format (`CCCCC.FFFDD`) behaves identically to HP-41 hardware (no float arithmetic on counter fields)
 
 ### Display & TUI
 
@@ -106,8 +106,8 @@
 | MATH-03 | Phase 2 | Pending |
 | REGS-01 | Phase 2 | Pending |
 | ALPH-01 | Phase 2 | Pending |
-| PROG-01 | Phase 3 | Pending |
-| PROG-02 | Phase 3 | Pending |
+| PROG-01 | Phase 3 | Complete |
+| PROG-02 | Phase 3 | Complete |
 | DISP-01 | Phase 4 | Pending |
 | DISP-02 | Phase 4 | Pending |
 | INPUT-01 | Phase 4 | Pending |

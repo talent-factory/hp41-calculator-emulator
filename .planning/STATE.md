@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_plan: "06"
-status: in_progress
-last_updated: "2026-05-07T09:30:00.000Z"
+current_phase: 3 (Programming Engine) — COMPLETE
+current_plan: 03-06 — dispatch() wiring of Phase 3 Op arms (complete)
+status: phase_complete
+last_updated: "2026-05-07T08:38:00Z"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 15
-  percent: 65
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -29,16 +29,16 @@ progress:
 
 ## Current Position
 
-**Current phase:** 3 (Programming Engine) — IN PROGRESS (plan 05/06 complete)
-**Current plan:** 03-06 — dispatch() wiring of Phase 3 Op arms
-**Status:** In progress
+**Current phase:** 3 (Programming Engine) — COMPLETE (6/6 plans done)
+**Current plan:** 03-06 — dispatch() wiring of Phase 3 Op arms (complete)
+**Status:** Phase complete — ready for Phase 4
 
 ```
-Progress: [█████████····] 65%
+Progress: [███████████··] 75%
 
 Phase 1: Foundation          [x] Complete (2026-05-06)
 Phase 2: Core Math           [x] Complete (2026-05-07)
-Phase 3: Programming Engine  [·] In progress (5/6 plans done)
+Phase 3: Programming Engine  [x] Complete (2026-05-07)
 Phase 4: TUI & Input         [ ] Not started
 Phase 5: Persistence & UX    [ ] Not started
 Phase 6: Science & Engineering [ ] Not started
@@ -53,7 +53,7 @@ Phase 7: Hardening           [ ] Not started
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | Unmeasured |
 | Key-press latency (median) | ≤ 50 ms | Unmeasured |
-| `hp41-core` test coverage | ≥ 80% | 0% |
+| `hp41-core` test coverage | ≥ 80% | 81.62% (GATE PASSED) |
 | Numerical accuracy (500-case suite) | ≥ 98% | 0 cases |
 | Crash-free sessions | ≥ 99.5% | Unverified |
 
@@ -71,6 +71,7 @@ Phase 7: Hardening           [ ] Not started
 | Instruction enum, not dyn Trait | HP-41 instruction set is fixed/closed; enum is faster, serializable, exhaustive | Phase 3 |
 | PushNum in execute_op enables lift | Without LiftEffect::Enable, sequential PushNums in a program overwrite X — critical for correct stack behavior | Phase 3 |
 | ISG body-before-check loop semantics | With Lbl/body/ISG/GTO structure, body runs on same pass as skipping ISG — 5 iterations with R00=1.00500 (current=1, final=5) | Phase 3 |
+| ISG/DSE discard bool in interactive dispatch | op_isg/op_dse return Result<bool>; dispatch() wraps with .map(|_| ()) — skip signal only meaningful in run_loop, not interactive keypress context | Phase 3 |
 | No async in hp41-core | Synchronous event loop; tokio only in hp41-cli if needed for autosave timer | All |
 | ratatui 0.30 + crossterm | Only backend with Windows 10+ support; crossterm fires Key::Press + Key::Release on Windows (filter!) | Phase 4 |
 | serde_json for persistence | Human-readable, shareable; users can diff/git state files | Phase 5 |
@@ -110,8 +111,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-07
-**Last action:** Completed plan 03-05 — ops/program.rs interpreter + program_tests.rs 23-test suite (all green)
-**Next action:** Execute plan 03-06 — wire Phase 3 Op dispatch arms (Lbl/Gto/Xeq/Rtn/Test/Isg/Dse)
+**Last action:** Completed plan 03-06 — wired all 8 Phase 3 dispatch arms + exported run_program/TestKind from lib.rs; just ci green (280 tests, 81.62% coverage)
+**Next action:** Phase 4 — TUI & Input
 
 ---
 *State initialized: 2026-05-06*

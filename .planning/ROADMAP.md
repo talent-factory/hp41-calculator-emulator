@@ -89,7 +89,7 @@ Plans:
 - [x] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
 - [x] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
+- [x] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
 
 ### Phase 4: TUI & Input
 **Goal**: Users interact with the emulator entirely via keyboard in a persistent ratatui terminal panel that shows the 4-level stack, LASTX, 12-character HP-41 display, and all annunciators at all times.
@@ -146,7 +146,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
-| 3. Programming Engine | 4/6 | In Progress | - |
+| 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
 | 4. TUI & Input | 0/? | Not started | - |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
