@@ -14,7 +14,7 @@
 - [x] **Phase 2: Core Math** - Arithmetic, trig, number formatting, storage registers, ALPHA mode (completed 2026-05-07)
 - [x] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE (completed 2026-05-07)
 - [x] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping (completed 2026-05-07)
-- [ ] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs
+- [x] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs (completed 2026-05-07)
 - [ ] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions
 - [ ] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite
 
@@ -127,21 +127,21 @@ Plans:
 
 Plans:
 **Wave 1** *(parallel — different files)*
-- [ ] 05-01-PLAN.md — Cargo deps (serde, serde_json, dirs) + HpNum serde derives + CalcState/Stack serde + regs Vec migration + user_mode/key_assignments fields
-- [ ] 05-02-PLAN.md — Op/StoArithKind/TestKind serde derives + Op::UserMode + Op::AlphaBackspace variants + dispatch wiring
+- [x] 05-01-PLAN.md — Cargo deps (serde, serde_json, dirs) + HpNum serde derives + CalcState/Stack serde + regs Vec migration + user_mode/key_assignments fields
+- [x] 05-02-PLAN.md — Op/StoArithKind/TestKind serde derives + Op::UserMode + Op::AlphaBackspace variants + dispatch wiring
 **Wave 2** *(blocked on Wave 1)*
-- [ ] 05-03-PLAN.md — persistence.rs (StateFile, save_state, load_state, default_state_path) + main.rs --state-file arg + App persistence fields + auto-save timer + Ctrl+S
+- [x] 05-03-PLAN.md — persistence.rs (StateFile, save_state, load_state, default_state_path) + main.rs --state-file arg + App persistence fields + auto-save timer + Ctrl+S
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 05-04-PLAN.md — help_data.rs (HELP_DATA ≥50 entries, 10 categories, all keyboard-accessible ops) + programs.rs (SampleProgram + 10 programs via OnceLock)
-- [ ] 05-05-PLAN.md — ui.rs overlays (help + programs) + annunciator USER wiring + status bar pending_prompt
+- [x] 05-04-PLAN.md — help_data.rs (HELP_DATA ≥50 entries, 10 categories, all keyboard-accessible ops) + programs.rs (SampleProgram + 10 programs via OnceLock)
+- [x] 05-05-PLAN.md — ui.rs overlays (help + programs) + annunciator USER wiring + status bar pending_prompt
 **Wave 4** *(blocked on Wave 3)*
-- [ ] 05-06-PLAN.md — app.rs handle_pending_input (STO/RCL/STO-arith modal) + handle_alpha_mode_key + overlay navigation
-- [ ] 05-07-PLAN.md — app.rs try_user_dispatch + F1-F4 USER keys + human smoke test checkpoint
+- [x] 05-06-PLAN.md — app.rs handle_pending_input (STO/RCL/STO-arith modal) + handle_alpha_mode_key + overlay navigation
+- [x] 05-07-PLAN.md — app.rs try_user_dispatch + F1-F4 USER keys + human smoke test checkpoint
 **Wave 5** *(blocked on Wave 4)*
-- [ ] 05-08-PLAN.md — CalcState serde round-trip test + just ci gate (lint + test + coverage ≥80%)
+- [x] 05-08-PLAN.md — CalcState serde round-trip test + just ci gate (lint + test + coverage ≥80%)
 **Wave 6** *(blocked on Wave 5 — gap closure)*
-- [ ] 05-09-PLAN.md — Fix sample program bugs: remove XySwap from prime_test_ops, replace mean_sdev_ops with 4-value stack mean, fix quadratic_ops comment
-- [ ] 05-10-PLAN.md — Guard 'q' quit with overlay/modal context; add unit tests for help overlay routing
+- [x] 05-09-PLAN.md — Fix sample program bugs: remove XySwap from prime_test_ops, replace mean_sdev_ops with 4-value stack mean, fix quadratic_ops comment
+- [x] 05-10-PLAN.md — Guard 'q' quit with overlay/modal context; add unit tests for help overlay routing
 
 ### Phase 6: Science & Engineering
 **Goal**: Users can perform the HP-41's built-in statistics suite (Σ registers, mean, standard deviation, linear regression) and HMS/H time-and-angle conversion functions.
