@@ -944,3 +944,52 @@ mod stack_ops_dispatch_tests {
         assert!(state.stack.lift_enabled);
     }
 }
+
+// ── Phase 5 Plan 08: CalcState serde round-trip ──────────────────────────────
+// Covers PERS-01 at the core level: full CalcState serialization contract.
+#[cfg(test)]
+mod serde_tests {
+    use crate::num::HpNum;
+    use crate::state::CalcState;
+    use crate::ops::Op;
+
+    #[test]
+    fn test_calc_state_serde_roundtrip() {
+        // Full CalcState round-trip via serde_json — covers PERS-01 at the core level.
+        let mut state = CalcState::new();
+
+        // Set up some non-default state
+        state.stack.x = HpNum::from(3i32);
+        state.regs[5] = HpNum::from(42i32);
+        state.user_mode = true;
+        state.key_assignments.insert('z', "MYPROG".to_string());
+        state.program = vec![
+            Op::Lbl("A".to_string()),
+            Op::Add,
+            Op::Rtn,
+        ];
+        // Set is_running = true before serializing so the round-trip test
+        // actually exercises the cross-module guarantee that load_state resets is_running.
+        // serde_json::from_str alone does NOT reset it — that reset belongs in persistence::load_state.
+        // This test verifies the serde contract (field survives JSON). The persistence::test_is_running_reset_on_load
+        // test verifies the load_state() reset. Together they close the guarantee.
+        state.is_running = true;
+
+        let json = serde_json::to_string(&state).expect("CalcState must serialize");
+        // Raw serde_json round-trip: is_running should be true here (it serialized as true)
+        let back: CalcState = serde_json::from_str(&json).expect("CalcState must deserialize");
+
+        assert_eq!(back.stack.x, state.stack.x, "X register must survive round-trip");
+        assert_eq!(back.regs[5], state.regs[5], "registers must survive round-trip");
+        assert!(back.user_mode, "user_mode must survive round-trip");
+        assert_eq!(
+            back.key_assignments.get(&'z').map(|s| s.as_str()),
+            Some("MYPROG"),
+            "key_assignments must survive round-trip"
+        );
+        assert_eq!(back.program.len(), 3, "program must survive round-trip");
+        // is_running serializes and deserializes faithfully at the serde level.
+        // The persistence::load_state() function resets it to false — tested in persistence::tests.
+        assert!(back.is_running, "is_running must survive the raw serde round-trip (reset happens in load_state, not serde)");
+    }
+}

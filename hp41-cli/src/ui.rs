@@ -10,7 +10,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Cell, Paragraph, Row, Table, TableState};
+use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
 
 use crate::help_data;
 use crate::programs;
@@ -292,9 +292,27 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
     );
 }
 
+// ── Right panel ───────────────────────────────────────────────────────────────
+
+fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
+    // INPUT-01 / D-03: key-reference panel — discoverable key labels.
+    // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
+    let block = Block::bordered().title_top(" Keys ");
+
+    let lines: Vec<Line> = KEY_REF_TABLE.iter()
+        .map(|(k, desc)| {
+            Line::from(vec![
+                Span::styled(format!("{k:<8}"), Style::new().bold()),
+                Span::raw(*desc),
+            ])
+        })
+        .collect();
+
+    frame.render_widget(Paragraph::new(lines).block(block), area);
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use hp41_core::CalcState;
     use std::path::PathBuf;
 
@@ -323,23 +341,4 @@ mod tests {
         app.programs_table_state.borrow_mut().select_next();
         app.programs_table_state.borrow_mut().select_previous();
     }
-}
-
-// ── Right panel ───────────────────────────────────────────────────────────────
-
-fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
-    // INPUT-01 / D-03: key-reference panel — discoverable key labels.
-    // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
-    let block = Block::bordered().title_top(" Keys ");
-
-    let lines: Vec<Line> = KEY_REF_TABLE.iter()
-        .map(|(k, desc)| {
-            Line::from(vec![
-                Span::styled(format!("{k:<8}"), Style::new().bold()),
-                Span::raw(*desc),
-            ])
-        })
-        .collect();
-
-    frame.render_widget(Paragraph::new(lines).block(block), area);
 }

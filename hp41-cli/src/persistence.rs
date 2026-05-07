@@ -48,7 +48,7 @@ pub fn save_state(path: &Path, state: &CalcState) -> std::io::Result<()> {
     let file = fs::File::create(path)?;
     let wrapper = StateFile::current(state.clone());
     serde_json::to_writer_pretty(file, &wrapper)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        .map_err(std::io::Error::other)
 }
 
 /// Load CalcState from a state file.
