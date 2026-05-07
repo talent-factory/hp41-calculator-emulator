@@ -13,7 +13,7 @@
 - [x] **Phase 1: Foundation** - Cargo workspace, CalcState, stack with HP-41-accurate stack-lift semantics, BCD/f64 decision (completed 2026-05-06)
 - [x] **Phase 2: Core Math** - Arithmetic, trig, number formatting, storage registers, ALPHA mode (completed 2026-05-07)
 - [x] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE (completed 2026-05-07)
-- [ ] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping
+- [x] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping (completed 2026-05-07)
 - [ ] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs
 - [ ] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions
 - [ ] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite
@@ -106,12 +106,12 @@ Plans:
 **Wave 1**
 - [x] 04-01-PLAN.md — Cargo.toml deps (ratatui 0.30 + crossterm 0.29 + clap 4.x) + App struct + module skeleton (compiling foundation)
 **Wave 2** *(parallel — different files)*
-- [ ] 04-02-PLAN.md — ui.rs full widget layout: stack panel, display panel, annunciator bar, status bar, key-reference panel
-- [ ] 04-03-PLAN.md — keys.rs (key_to_op() + KEY_REF_TABLE) + prgm_display.rs (format_step() + op_display_name()) + unit tests
+- [x] 04-02-PLAN.md — ui.rs full widget layout: stack panel, display panel, annunciator bar, status bar, key-reference panel
+- [x] 04-03-PLAN.md — keys.rs (key_to_op() + KEY_REF_TABLE) + prgm_display.rs (format_step() + op_display_name()) + unit tests
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 04-04-PLAN.md — main.rs clap args wired + manual smoke test checkpoint (human verify)
+- [x] 04-04-PLAN.md — main.rs clap args wired + manual smoke test checkpoint (human verify)
 **Wave 4** *(blocked on Wave 3)*
-- [ ] 04-05-PLAN.md — just ci gate: full workspace tests + coverage + clippy
+- [x] 04-05-PLAN.md — just ci gate: full workspace tests + coverage + clippy
 
 ### Phase 5: Persistence & UX
 **Goal**: Users can save and reload complete calculator state between sessions, auto-save fires every 30 seconds, an inline help system is accessible from within the TUI, USER mode works with persisted key assignments, and a bundled sample program library is ready to load.
@@ -157,7 +157,7 @@ Plans:
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
-| 4. TUI & Input | 1/5 | In progress | - |
+| 4. TUI & Input | 5/5 | Complete   | 2026-05-07 |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |
