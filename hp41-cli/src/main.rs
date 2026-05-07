@@ -8,6 +8,9 @@ mod ui;
 mod keys;
 mod prgm_display;
 
+#[cfg(test)]
+mod tests;
+
 use app::App;
 
 fn main() -> std::io::Result<()> {
