@@ -180,6 +180,19 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
 /// Callers (hp41-cli, tests) call dispatch(state, op) and handle the Result.
 pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     flush_entry_buf(state)?; // commit any pending digit entry before executing op
+    // ── Phase 3: PRGM mode recording gate (D-03) ────────────────────────────
+    if state.prgm_mode {
+        // PrgmMode op while recording = exit recording immediately (toggle, Pitfall 6).
+        // This op is NOT recorded — it executes immediately to restore normal dispatch.
+        if matches!(op, Op::PrgmMode) {
+            state.prgm_mode = false;
+            apply_lift_effect(state, LiftEffect::Neutral);
+            return Ok(());
+        }
+        // All other ops: append to program Vec; do NOT execute. Stack unmodified.
+        state.program.push(op);
+        return Ok(());
+    }
     match op {
         // ── Phase 1 ops ──────────────────────────────────────────────────
         Op::Add        => op_add(state),
@@ -239,17 +252,9 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle       => op_alpha_toggle(state),
         Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
         Op::AlphaClear        => op_alpha_clear(state),
-        // ── Programming stubs (Phase 3) — implemented in plan 03-06 ─────────
-        // These arms are placeholder stubs. They satisfy the exhaustive match
-        // requirement while Wave 2 modules (program.rs) are not yet wired.
-        // Plan 03-06 replaces these with real implementations.
-        Op::Lbl(_)     => Err(HpError::InvalidOp),
-        Op::Gto(_)     => Err(HpError::InvalidOp),
-        Op::Xeq(_)     => Err(HpError::InvalidOp),
-        Op::Rtn        => Err(HpError::InvalidOp),
-        Op::PrgmMode   => Err(HpError::InvalidOp),
-        Op::Test(_)    => Err(HpError::InvalidOp),
-        Op::Isg(_)     => Err(HpError::InvalidOp),
-        Op::Dse(_)     => Err(HpError::InvalidOp),
+        // ── Programming ops (Phase 3) — wired in plan 03-06 ─────────────────
+        // The prgm_mode gate above intercepts these during recording.
+        // When prgm_mode=false these reach here — real implementations come in plan 03-06.
+        _ => Err(HpError::InvalidOp),
     }
 }
