@@ -48,6 +48,7 @@ pub fn op_alpha_backspace(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::state::CalcState;

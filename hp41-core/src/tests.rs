@@ -1,5 +1,6 @@
 // Tests for Phase 1 Plan 02: Core type modules
 // RED phase — these fail until the four modules are implemented.
+#![allow(clippy::unwrap_used)]
 
 #[cfg(test)]
 mod error_tests {

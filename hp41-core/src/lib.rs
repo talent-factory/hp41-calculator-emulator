@@ -1,3 +1,4 @@
+#![deny(clippy::unwrap_used)]
 //! hp41-core — HP-41 calculator behavioral emulation library.
 //!
 //! Zero UI/CLI dependencies. All state is in [`state::CalcState`].
