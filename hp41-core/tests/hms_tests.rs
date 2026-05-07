@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 fn push_dec(state: &mut CalcState, s: &str) {
     let d = Decimal::from_str(s).expect("valid decimal literal in test");
+    state.stack.lift_enabled = true;
     dispatch(state, Op::PushNum(HpNum::from(d))).unwrap();
 }
 
