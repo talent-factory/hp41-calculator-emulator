@@ -2,6 +2,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use hp41_core::ops::Op;
+use hp41_core::CalcState;
 
 use crate::app::App;
 use crate::keys::key_to_op;
@@ -15,21 +16,25 @@ fn press(code: KeyCode) -> KeyEvent {
     }
 }
 
+fn make_app() -> App {
+    App::new(CalcState::new(), std::path::PathBuf::from("/tmp/hp41_test.json"))
+}
+
 #[test]
 fn enter_maps_to_op_enter() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Enter), &app), Some(Op::Enter));
 }
 
 #[test]
 fn backspace_maps_to_op_clx() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Backspace), &app), Some(Op::Clx));
 }
 
 #[test]
 fn arithmetic_keys() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Char('+')), &app), Some(Op::Add));
     assert_eq!(key_to_op(press(KeyCode::Char('-')), &app), Some(Op::Sub));
     assert_eq!(key_to_op(press(KeyCode::Char('*')), &app), Some(Op::Mul));
@@ -38,7 +43,7 @@ fn arithmetic_keys() {
 
 #[test]
 fn stack_ops_lowercase() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Char('n')), &app), Some(Op::Chs));
     assert_eq!(key_to_op(press(KeyCode::Char('r')), &app), Some(Op::Rdn));
     assert_eq!(key_to_op(press(KeyCode::Char('x')), &app), Some(Op::XySwap));
@@ -49,7 +54,7 @@ fn stack_ops_lowercase() {
 
 #[test]
 fn inverse_trig_lowercase() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Char('a')), &app), Some(Op::Asin));
     assert_eq!(key_to_op(press(KeyCode::Char('c')), &app), Some(Op::Acos));
     assert_eq!(key_to_op(press(KeyCode::Char('k')), &app), Some(Op::Atan));
@@ -57,7 +62,7 @@ fn inverse_trig_lowercase() {
 
 #[test]
 fn trig_math_uppercase_shift() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::Char('S')), &app), Some(Op::Sin));
     assert_eq!(key_to_op(press(KeyCode::Char('C')), &app), Some(Op::Cos));
     assert_eq!(key_to_op(press(KeyCode::Char('T')), &app), Some(Op::Tan));
@@ -72,7 +77,7 @@ fn trig_math_uppercase_shift() {
 
 #[test]
 fn f_keys_handled_in_app_return_none() {
-    let app = App::new();
+    let app = make_app();
     assert_eq!(key_to_op(press(KeyCode::F(5)), &app), None);
     assert_eq!(key_to_op(press(KeyCode::F(7)), &app), None);
     assert_eq!(key_to_op(press(KeyCode::F(8)), &app), None);
@@ -82,7 +87,7 @@ fn f_keys_handled_in_app_return_none() {
 
 #[test]
 fn unmapped_keys_return_none() {
-    let app = App::new();
+    let app = make_app();
     // digit keys are handled by app.handle_key directly, not key_to_op
     assert_eq!(key_to_op(press(KeyCode::Char('1')), &app), None);
     assert_eq!(key_to_op(press(KeyCode::Char('.')), &app), None);

@@ -3,15 +3,33 @@
 //! App owns CalcState and acts as the controller between crossterm key events
 //! and hp41-core's dispatch() entry point.
 
-use std::time::Duration;
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::DefaultTerminal;
+use ratatui::widgets::TableState;
 
 use hp41_core::ops::Op;
 use hp41_core::{CalcState, AngleMode, DisplayMode};
 
-use crate::{keys, ui};
+use crate::{keys, persistence, ui};
+
+/// Transient UI state for multi-key input (D-08). NOT serialized to disk.
+/// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
+#[derive(Debug, Clone)]
+pub enum PendingInput {
+    StoRegister(String),          // accumulating 2-digit register number for STO [nn]
+    RclRegister(String),          // accumulating 2-digit register number for RCL [nn]
+    StoAdd(String),               // STO+ [nn]
+    StoSub(String),               // STO- [nn]
+    StoMul(String),               // STO× [nn]
+    StoDiv(String),               // STO÷ [nn]
+    AssignKey,                    // D-27 step 1: waiting for key char to assign
+    AssignLabel(char, String),    // D-27 step 2: char received; accumulating label name
+    ConfirmLoad(usize),           // D-22: awaiting Y/n before overwriting program
+}
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
 pub struct App {
@@ -20,14 +38,50 @@ pub struct App {
     pub message: Option<String>,
     /// Set to true to exit the event loop and return from run().
     pub exit: bool,
+    // ── Phase 5: persistence (D-05) ──────────────────────────────────────────
+    pub last_save: Instant,
+    pub state_path: PathBuf,
+    // ── Phase 5: modal input (D-08) ──────────────────────────────────────────
+    pub pending_input: Option<PendingInput>,
+    // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
+    pub show_help: bool,
+    pub help_scroll: usize,
+    /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
+    /// Single-threaded, non-reentrant draw — borrow_mut() will never panic. (RESEARCH Pitfall 1)
+    pub help_table_state: RefCell<TableState>,
+    pub show_programs: bool,
+    pub programs_scroll: usize,
+    pub programs_table_state: RefCell<TableState>,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(state: CalcState, state_path: PathBuf) -> Self {
         App {
-            state: CalcState::new(),
+            state,
             message: None,
             exit: false,
+            last_save: Instant::now(),
+            state_path,
+            pending_input: None,
+            show_help: false,
+            help_scroll: 0,
+            help_table_state: RefCell::new(TableState::default()),
+            show_programs: false,
+            programs_scroll: 0,
+            programs_table_state: RefCell::new(TableState::default()),
+        }
+    }
+
+    /// Check whether the auto-save interval has elapsed; save if so.
+    /// Extracted from run() so it can be unit-tested with a manipulated `last_save`.
+    /// Called once per poll iteration from run().
+    pub fn check_autosave(&mut self) {
+        if self.last_save.elapsed() >= Duration::from_secs(30) {
+            if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
+                // One-time warning; retry on next 30s tick (Claude's Discretion)
+                self.message = Some(format!("Auto-save failed: {e}"));
+            }
+            self.last_save = Instant::now(); // reset even on failure
         }
     }
 
@@ -45,8 +99,11 @@ impl App {
                     self.handle_key(key);
                 }
             }
-            // Phase 5: auto-save timer check goes here (PERS-02 — 30s auto-save)
+            // PERS-02: 30-second auto-save via extracted method (D-05)
+            self.check_autosave();
         }
+        // D-05: save on graceful exit before ratatui::restore()
+        let _ = persistence::save_state(&self.state_path, &self.state);
         Ok(())
     }
 
@@ -71,6 +128,32 @@ impl App {
         }
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
+            return;
+        }
+
+        // D-04: Ctrl+S — manual save to active state file
+        if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            match persistence::save_state(&self.state_path, &self.state) {
+                Ok(()) => self.message = Some(format!(
+                    "Saved to {}",
+                    self.state_path.display()
+                )),
+                Err(e) => self.message = Some(format!("Save failed: {e}")),
+            }
+            return;
+        }
+
+        // D-16: '?' toggles the help overlay
+        if key.code == KeyCode::Char('?') {
+            self.show_help = !self.show_help;
+            self.show_programs = false; // close programs overlay if open
+            return;
+        }
+
+        // D-22: Ctrl+P toggles the program library overlay
+        if key.code == KeyCode::Char('p') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.show_programs = !self.show_programs;
+            self.show_help = false; // close help overlay if open
             return;
         }
 
@@ -143,5 +226,56 @@ impl App {
             Ok(()) => self.message = None,
             Err(e) => self.message = Some(format!("{e}")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    /// PERS-02: verify that check_autosave() saves the file when last_save is old enough.
+    /// Manipulates last_save directly to avoid sleeping 30s in tests.
+    #[test]
+    fn test_autosave_timer_logic() {
+        let tmp_dir = std::env::temp_dir().join("hp41_autosave_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let state_path = tmp_dir.join("autosave_test.json");
+
+        let state = hp41_core::CalcState::new();
+        let mut app = App::new(state, state_path.clone());
+
+        // Wind last_save back 31 seconds — timer should fire immediately.
+        app.last_save = Instant::now() - Duration::from_secs(31);
+
+        app.check_autosave();
+
+        assert!(
+            state_path.exists(),
+            "check_autosave() must create the state file when 30s have elapsed"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    /// PERS-02: verify that check_autosave() does NOT save when last_save is recent.
+    #[test]
+    fn test_autosave_timer_no_premature_save() {
+        let tmp_dir = std::env::temp_dir().join("hp41_autosave_premature_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let state_path = tmp_dir.join("premature.json");
+
+        let state = hp41_core::CalcState::new();
+        let mut app = App::new(state, state_path.clone());
+
+        // last_save is Instant::now() — only 0ms elapsed; should NOT save.
+        app.check_autosave();
+
+        assert!(
+            !state_path.exists(),
+            "check_autosave() must NOT save before 30s have elapsed"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
     }
 }
