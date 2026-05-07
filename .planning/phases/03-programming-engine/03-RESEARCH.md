@@ -733,22 +733,22 @@ All tests use the integration test pattern established by `entry_buf_tests.rs` a
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **PrgmMode Enter vs Exit as Separate Ops**
    - What we know: CONTEXT.md only mentions `Op::PrgmMode` (singular) and Claude's Discretion says it toggles
    - What's unclear: HP-41 hardware uses the same PRGM key to enter and exit; the toggle model matches
-   - Recommendation: Implement as toggle; add a comment in dispatch() for future reference
+   - RESOLVED: Implement as toggle; add a comment in dispatch() for future reference
 
 2. **GTO in Interactive Mode (Non-Running, Non-Recording)**
    - What we know: CONTEXT.md leaves this to Claude's Discretion; says "RTN is a no-op or error in run context only"
    - What's unclear: What should interactive GTO do? HP-41 moves the program cursor position.
-   - Recommendation: Return `HpError::InvalidOp` for Phase 3; Phase 4 can add cursor navigation when the TUI is built
+   - RESOLVED: Return `HpError::InvalidOp` for Phase 3; Phase 4 can add cursor navigation when the TUI is built
 
 3. **DSE Boundary Condition Exact Semantics**
    - What we know: D-11 says DSE: `new_current <= final → skip`; ISG: `new_current > final → skip`
    - What's unclear: For DSE with current=1, final=1, step=1: decrement to 0, then 0 ≤ 1 → skip (exits). Verify: does DSE skip when current falls BELOW final, or AT final?
-   - Recommendation: The success criterion only specifies ISG. For DSE: implement `new_current <= final → skip` per D-11; add a test that confirms the boundary case once.
+   - RESOLVED: The success criterion only specifies ISG. For DSE: implement `new_current <= final → skip` per D-11; add a test that confirms the boundary case once.
 
 ---
 
