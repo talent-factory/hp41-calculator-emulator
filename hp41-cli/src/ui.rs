@@ -147,7 +147,7 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
     // D-02 annunciator bar: USER PRGM ALPHA SHIFT RAD DEG GRAD
     // USER and SHIFT are always dim in Phase 4 (USER mode is Phase 5).
     let line = Line::from(vec![
-        ann("USER",  false),
+        ann("USER",  st.user_mode),
         Span::raw(" "),
         ann("PRGM",  st.prgm_mode),
         Span::raw(" "),
@@ -165,11 +165,39 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_status(app: &App, frame: &mut Frame, area: Rect) {
-    // D-18: errors from hp41-core are shown in the status bar, never as panics.
-    let text = app.message
-        .as_deref()
-        .unwrap_or("Ready");
+    // D-11: pending_input prompts override normal status message
+    // D-14: ALPHA mode has a standard status message
+    let text: String = if let Some(ref pending) = app.pending_input {
+        pending_prompt(pending)
+    } else if app.state.alpha_mode {
+        "ALPHA mode — Enter or A to exit".to_string()
+    } else {
+        app.message.as_deref().unwrap_or("Ready").to_string()
+    };
     frame.render_widget(Paragraph::new(text), area);
+}
+
+/// Format the status bar text for each PendingInput variant (D-11).
+/// Uses {:_<2} to show placeholder underscores for accumulator length.
+fn pending_prompt(pending: &crate::app::PendingInput) -> String {
+    use crate::app::PendingInput;
+    match pending {
+        PendingInput::StoRegister(acc)      => format!("STO [{:_<2}]", acc),
+        PendingInput::RclRegister(acc)      => format!("RCL [{:_<2}]", acc),
+        PendingInput::StoAdd(acc)           => format!("STO+ [{:_<2}]", acc),
+        PendingInput::StoSub(acc)           => format!("STO- [{:_<2}]", acc),
+        PendingInput::StoMul(acc)           => format!("STO\u{00D7} [{:_<2}]", acc),
+        PendingInput::StoDiv(acc)           => format!("STO\u{00F7} [{:_<2}]", acc),
+        PendingInput::AssignKey             => "Assign: press key to assign".to_string(),
+        PendingInput::AssignLabel(c, acc)   => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
+        PendingInput::ConfirmLoad(idx)      => {
+            let name = crate::programs::sample_programs()
+                .get(*idx)
+                .map(|p| p.name)
+                .unwrap_or("program");
+            format!("Load '{name}'? Current program will be lost. [Y/n]")
+        }
+    }
 }
 
 // ── Right panel ───────────────────────────────────────────────────────────────
