@@ -13,6 +13,8 @@ pub mod math;
 pub mod registers;
 pub mod alpha;
 pub mod program;
+pub mod stats;
+pub mod hms;
 
 use arithmetic::{op_add, op_sub, op_mul, op_div};
 use stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
@@ -51,6 +53,8 @@ pub enum TestKind {
 ///          FmtFix, FmtSci, FmtEng, StoReg, RclReg, StoArith, Clreg,
 ///          AlphaToggle, AlphaAppend, AlphaClear
 /// Phase 3: Lbl, Gto, Xeq, Rtn, PrgmMode, Test, Isg, Dse
+/// Phase 6: SigmaPlus, SigmaMinus, Mean, Sdev, LR, Yhat, Corr, ClSigmaStat,
+///          HmsToH, HToHms, HmsAdd, HmsSub
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Op {
     // ── Arithmetic (Phase 1) ──────────────────────────────────────────
@@ -153,6 +157,31 @@ pub enum Op {
     // ── ALPHA backspace (Phase 5) ────────────────────────────────────────
     /// ALPHA backspace: remove last char from alpha_reg (HP-41 ← key). LiftEffect: Neutral.
     AlphaBackspace,
+    // ── Science & Engineering (Phase 6) ─────────────────────────────────
+    /// Σ+ — accumulate X and Y into Σ registers R01–R06; push count n into X. LiftEffect: Enable.
+    SigmaPlus,
+    /// Σ− — remove X and Y from Σ registers R01–R06; push count n into X. LiftEffect: Enable.
+    SigmaMinus,
+    /// MEAN — push x̄ to X and ȳ to Y from Σ registers. LiftEffect: Enable.
+    Mean,
+    /// SDEV — push sample σx to X and σy to Y (n-1 denominator). LiftEffect: Enable.
+    Sdev,
+    /// L.R. — linear regression: push slope m to Y and intercept b to X. LiftEffect: Enable.
+    LR,
+    /// YHAT — ŷ prediction: read x from X, push ŷ into X. LiftEffect: Enable.
+    Yhat,
+    /// CORR — correlation coefficient r in X. LiftEffect: Enable.
+    Corr,
+    /// CLΣSTAT — zero Σ registers R01–R06. LiftEffect: Neutral.
+    ClSigmaStat,
+    /// HMS→ — convert H.MMSS to decimal hours in X. LiftEffect: Enable.
+    HmsToH,
+    /// →HMS — convert decimal hours in X to H.MMSS. LiftEffect: Enable.
+    HToHms,
+    /// HMS+ — add two H.MMSS values (Y + X), result in X with stack drop. LiftEffect: Enable.
+    HmsAdd,
+    /// HMS− — subtract H.MMSS values (Y − X), result in X with stack drop. LiftEffect: Enable.
+    HmsSub,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -287,6 +316,19 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Dse(reg)   => {
             program::op_dse(state, reg).map(|_| ())
         }
+        // ── Phase 6: Science & Engineering ───────────────────────────────────────
+        Op::SigmaPlus   => stats::op_sigma_plus(state),
+        Op::SigmaMinus  => stats::op_sigma_minus(state),
+        Op::Mean        => stats::op_mean(state),
+        Op::Sdev        => stats::op_sdev(state),
+        Op::LR          => stats::op_lr(state),
+        Op::Yhat        => stats::op_yhat(state),
+        Op::Corr        => stats::op_corr(state),
+        Op::ClSigmaStat => stats::op_cl_sigma_stat(state),
+        Op::HmsToH      => hms::op_hms_to_h(state),
+        Op::HToHms      => hms::op_h_to_hms(state),
+        Op::HmsAdd      => hms::op_hms_add(state),
+        Op::HmsSub      => hms::op_hms_sub(state),
     }
 }
 

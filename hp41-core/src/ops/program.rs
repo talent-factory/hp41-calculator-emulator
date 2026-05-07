@@ -298,6 +298,19 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
+        // ── Phase 6: Science & Engineering ───────────────────────────────────────
+        Op::SigmaPlus   => super::stats::op_sigma_plus(state),
+        Op::SigmaMinus  => super::stats::op_sigma_minus(state),
+        Op::Mean        => super::stats::op_mean(state),
+        Op::Sdev        => super::stats::op_sdev(state),
+        Op::LR          => super::stats::op_lr(state),
+        Op::Yhat        => super::stats::op_yhat(state),
+        Op::Corr        => super::stats::op_corr(state),
+        Op::ClSigmaStat => super::stats::op_cl_sigma_stat(state),
+        Op::HmsToH      => super::hms::op_hms_to_h(state),
+        Op::HToHms      => super::hms::op_h_to_hms(state),
+        Op::HmsAdd      => super::hms::op_hms_add(state),
+        Op::HmsSub      => super::hms::op_hms_sub(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_) | Op::Gto(_) | Op::Xeq(_) | Op::Rtn | Op::PrgmMode
         | Op::Test(_) | Op::Isg(_) | Op::Dse(_) => Err(HpError::InvalidOp),

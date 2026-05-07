@@ -92,5 +92,18 @@ fn op_display_name(op: &Op) -> String {
         // Phase 5: new Op variants
         Op::UserMode       => "USER".to_string(),
         Op::AlphaBackspace => "\u{2190}".to_string(),
+        // Phase 6: Science & Engineering
+        Op::SigmaPlus   => "\u{03A3}+".to_string(),
+        Op::SigmaMinus  => "\u{03A3}-".to_string(),
+        Op::Mean        => "MEAN".to_string(),
+        Op::Sdev        => "SDEV".to_string(),
+        Op::LR          => "L.R.".to_string(),
+        Op::Yhat        => "\u{0177}".to_string(),
+        Op::Corr        => "CORR".to_string(),
+        Op::ClSigmaStat => "CL\u{03A3}".to_string(),
+        Op::HmsToH      => "HMS\u{2192}".to_string(),
+        Op::HToHms      => "\u{2192}HMS".to_string(),
+        Op::HmsAdd      => "HMS+".to_string(),
+        Op::HmsSub      => "HMS-".to_string(),
     }
 }
