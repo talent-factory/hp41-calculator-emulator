@@ -91,11 +91,6 @@ fn unmapped_keys_return_none() {
 }
 
 #[test]
-fn key_ref_table_not_empty() {
-    assert!(!crate::keys::KEY_REF_TABLE.is_empty(), "KEY_REF_TABLE must be populated");
-}
-
-#[test]
 fn key_ref_table_has_33_entries() {
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
