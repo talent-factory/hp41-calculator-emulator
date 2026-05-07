@@ -157,11 +157,11 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 06-01-PLAN.md — HpError::InvalidInput variant + Op enum extension (12 new variants + module declarations)
+- [x] 06-01-PLAN.md — HpError::InvalidInput variant + Op enum extension (12 new variants + module declarations)
 **Wave 2** *(blocked on Wave 1)*
-- [ ] 06-02-PLAN.md — stats.rs (8 ops) + hms.rs (4 ops) + execute_op() arms + prgm_display.rs arms
+- [x] 06-02-PLAN.md — stats.rs (8 ops) + hms.rs (4 ops) + execute_op() arms + prgm_display.rs arms
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 06-03-PLAN.md — stats_tests.rs + hms_tests.rs + keys.rs bindings + help_data.rs entries + just ci gate
+- [x] 06-03-PLAN.md — stats_tests.rs + hms_tests.rs + keys.rs bindings + help_data.rs entries + just ci gate
 
 ### Phase 7: Hardening
 **Goal**: The v1.0 CLI meets all non-functional quality requirements: cold-start under 0.5 s, key latency under 50 ms, zero panics in core, 80%+ test coverage in `hp41-core`, single-codebase cross-platform builds, and 98%+ numerical agreement with HP-41 hardware across the 500-case test suite.
@@ -186,7 +186,7 @@ Plans:
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
 | 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
 | 5. Persistence & UX | 10/11 | Gaps Found  | - |
-| 6. Science & Engineering | 0/3 | Ready to execute | - |
+| 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
 | 7. Hardening | 0/? | Not started | - |
 
 ---
