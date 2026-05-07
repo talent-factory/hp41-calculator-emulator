@@ -123,7 +123,7 @@ Plans:
   3. User can press `?` or type `HELP` in the TUI and see a searchable function reference covering all HP-41 operations with their keyboard mappings
   4. User can assign a custom program label to a key in USER mode, toggle USER mode, and observe the key assignment activate; the assignment survives a save/reload cycle
   5. User can load at least 10 bundled sample programs from within the TUI and run them to produce documented outputs
-**Plans**: 10 plans
+**Plans**: 11 plans
 
 Plans:
 **Wave 1** *(parallel — different files)*
@@ -142,6 +142,8 @@ Plans:
 **Wave 6** *(blocked on Wave 5 — gap closure)*
 - [x] 05-09-PLAN.md — Fix sample program bugs: remove XySwap from prime_test_ops, replace mean_sdev_ops with 4-value stack mean, fix quadratic_ops comment
 - [x] 05-10-PLAN.md — Guard 'q' quit with overlay/modal context; add unit tests for help overlay routing
+**Wave 7** *(blocked on Wave 6 — gap closure)*
+- [ ] 05-11-PLAN.md — Fix gcd_ops (insert Op::Int for floor division CR-02) and stack_stats_ops (invert XGtY/XLtY comparisons CR-03); add behavioral tests for both
 
 ### Phase 6: Science & Engineering
 **Goal**: Users can perform the HP-41's built-in statistics suite (Σ registers, mean, standard deviation, linear regression) and HMS/H time-and-angle conversion functions.
@@ -175,7 +177,7 @@ Plans:
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
 | 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
-| 5. Persistence & UX | 0/8 | Planned     | - |
+| 5. Persistence & UX | 10/11 | Gaps Found  | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |
 
