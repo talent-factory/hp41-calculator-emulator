@@ -37,7 +37,7 @@ fmt-check:
 fmt:
 	cargo fmt --all
 
-# Run criterion benchmarks for hp41-core (advisory — does not gate CI)
+# Run criterion benchmarks for hp41-core dispatch latency (advisory — does not gate CI)
 bench:
 	cargo bench -p hp41-core
 
@@ -46,10 +46,6 @@ install-hooks:
 	@printf '#!/usr/bin/env bash\nset -euo pipefail\necho "🔍 pre-push: cargo fmt --check ..."\ncargo fmt --all -- --check || { echo ""; echo "❌ Run: cargo fmt --all"; exit 1; }\necho "🔍 pre-push: just lint ..."\njust lint || { echo ""; echo "❌ Run: just lint"; exit 1; }\necho "✅ pre-push checks passed"\n' > .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo "✅ pre-push hook installed"
-
-# Run criterion benchmarks for hp41-core dispatch latency (advisory — does not gate CI)
-bench:
-	cargo bench -p hp41-core
 
 # Measure cold-start latency with hyperfine (manual pre-release step — not a CI gate)
 # Usage: just bench-startup
