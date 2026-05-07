@@ -244,7 +244,8 @@ fn gcd_ops() -> Vec<Op> {
         Op::Gto("D".to_string()),
         // r = a mod b = a - b * floor(a/b)
         Op::RclReg(0), Op::RclReg(1), Op::Div,
-        // approximate floor via truncation: use as-is (integer inputs assumed)
+        // floor-truncate quotient then multiply back for exact integer modulo
+        Op::Int,                                // floor-truncate quotient (BCD division is exact; Int truncates)
         Op::RclReg(1), Op::Mul,
         Op::RclReg(0), Op::XySwap, Op::Sub, // r = a - b*(a/b)
         Op::StoReg(2),                      // R02 = r
@@ -320,41 +321,45 @@ fn deg_to_rad_ops() -> Vec<Op> {
 
 fn stack_stats_ops() -> Vec<Op> {
     // Min and max of the 4-level stack (T, Z, Y, X).
-    // Compares pairs; result: X = min of stack, Y = max of stack.
+    // Saves all 4 values to R00-R03 via Rdn cycling, then finds min/max with
+    // pairwise RclReg comparisons so all four values are correctly reached.
+    // Result: X = min, Y = max.
     vec![
         Op::Lbl("A".to_string()),
-        // Find max: compare X and Y
-        Op::Enter,                          // duplicate X → X,X in Y,X
-        Op::Rdn,                            // bring Y up: Y(orig), X(orig), X(copy)
-        Op::Test(TestKind::XGtY),          // if X > Y: X is larger
-        Op::XySwap,                        // ensure larger in X
-        Op::StoReg(5),                     // R05 = max candidate so far
-        // Compare with Z
+        // Save all 4 stack values to R00-R03 (Rdn cycles each to X position)
+        Op::StoReg(0),                     // R00 = X
         Op::Rdn,
-        Op::RclReg(5),
-        Op::Test(TestKind::XGtY),
+        Op::StoReg(1),                     // R01 = Y (original)
+        Op::Rdn,
+        Op::StoReg(2),                     // R02 = Z (original)
+        Op::Rdn,
+        Op::StoReg(3),                     // R03 = T (original)
+        // Find max: compare pairs; XLtY fires when X is smaller → swap brings larger to X
+        Op::RclReg(0),
+        Op::RclReg(1),                     // X=R01, Y=R00
+        Op::Test(TestKind::XLtY),          // R01 < R00 → swap so larger ends up in X
         Op::XySwap,
-        Op::StoReg(5),                     // R05 = running max
-        // Compare with T
-        Op::Rdn,
-        Op::RclReg(5),
-        Op::Test(TestKind::XGtY),
+        Op::StoReg(5),                     // R05 = max(R00, R01)
+        Op::RclReg(2),                     // X=R02, Y=running max
+        Op::Test(TestKind::XLtY),          // R02 < running max → swap
+        Op::XySwap,
+        Op::StoReg(5),                     // R05 = max(R00..R02)
+        Op::RclReg(3),                     // X=R03, Y=running max
+        Op::Test(TestKind::XLtY),
         Op::XySwap,
         Op::StoReg(5),                     // R05 = final max
-        // Min: same logic with reversed test
-        Op::Enter,
-        Op::Rdn,
-        Op::Test(TestKind::XLtY),
+        // Find min: invert test for smaller-wins; XGtY fires when X is larger → swap brings smaller to X
+        Op::RclReg(0),
+        Op::RclReg(1),                     // X=R01, Y=R00
+        Op::Test(TestKind::XGtY),          // R01 > R00 → swap so smaller ends up in X
         Op::XySwap,
-        Op::StoReg(4),                     // R04 = min candidate
-        Op::Rdn,
-        Op::RclReg(4),
-        Op::Test(TestKind::XLtY),
+        Op::StoReg(4),                     // R04 = min(R00, R01)
+        Op::RclReg(2),                     // X=R02, Y=running min
+        Op::Test(TestKind::XGtY),          // R02 > running min → swap
         Op::XySwap,
-        Op::StoReg(4),
-        Op::Rdn,
-        Op::RclReg(4),
-        Op::Test(TestKind::XLtY),
+        Op::StoReg(4),                     // R04 = min(R00..R02)
+        Op::RclReg(3),                     // X=R03, Y=running min
+        Op::Test(TestKind::XGtY),
         Op::XySwap,
         Op::StoReg(4),                     // R04 = final min
         // Result: X = min, Y = max
@@ -492,6 +497,67 @@ mod tests {
         assert!(
             (result - 2.5).abs() < 1e-9,
             "Stack mean of [1,2,3,4] must be 2.5, got {result}"
+        );
+    }
+
+    #[test]
+    fn test_gcd_correctness() {
+        // Verifies CR-02 fix: Op::Int added after Op::Div in gcd_ops modulo step.
+        let gcd_prog = sample_programs()
+            .iter()
+            .find(|p| p.name == "GCD (Euclidean)")
+            .expect("GCD (Euclidean) program must exist");
+
+        let run_gcd = |a: i32, b: i32| -> HpNum {
+            let mut state = CalcState::new();
+            state.program = gcd_prog.ops.clone();
+            // Push Y=a, X=b: gcd(Y, X)
+            hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(a))).unwrap();
+            hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+            hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(b))).unwrap();
+            hp41_core::run_program(&mut state, "A")
+                .unwrap_or_else(|e| panic!("gcd({a},{b}) failed: {e:?}"));
+            state.stack.x.clone()
+        };
+
+        assert_eq!(run_gcd(12, 8), HpNum::from(4i32), "gcd(12,8) must be 4");
+        assert_eq!(run_gcd(7, 3),  HpNum::from(1i32), "gcd(7,3) must be 1");
+        assert_eq!(run_gcd(15, 5), HpNum::from(5i32), "gcd(15,5) must be 5");
+    }
+
+    #[test]
+    fn test_stack_stats_correctness() {
+        // Verifies CR-03 fix: test conditions in stack_stats_ops are inverted so
+        // larger value is stored as max (R05) and smaller value as min (R04).
+        // Documented output: X = min of stack, Y = max of stack.
+        let stats_prog = sample_programs()
+            .iter()
+            .find(|p| p.name == "Stack Stats")
+            .expect("Stack Stats program must exist");
+
+        let mut state = CalcState::new();
+        state.program = stats_prog.ops.clone();
+        // Build stack: push 3 ENTER 1 ENTER 4 ENTER 5 → T=3, Z=1, Y=4, X=5
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(3i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(1i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(4i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(5i32))).unwrap();
+        hp41_core::run_program(&mut state, "A").expect("Stack Stats must run without error");
+        // X = min = 1, Y = max = 5
+        assert_eq!(
+            state.stack.x,
+            HpNum::from(1i32),
+            "Stack Stats: X must be min (1) for inputs [3,1,4,5], got {:?}",
+            state.stack.x
+        );
+        assert_eq!(
+            state.stack.y,
+            HpNum::from(5i32),
+            "Stack Stats: Y must be max (5) for inputs [3,1,4,5], got {:?}",
+            state.stack.y
         );
     }
 }
