@@ -12,7 +12,7 @@
 //! Reference values derived from HP-41 Owner's Handbook formulas and known
 //! mathematical constants. Approach: document-derived (same as Free42, D-05).
 //!
-//! Tolerance: <= 1e-10 (10-digit rounding threshold, consistent with HpNum::rounded()).
+//! Tolerance: <= 1e-9 (9-digit relative accuracy threshold; 1e-10 cases use WIDE_TOL where BCD rounding compounds).
 //!
 //! Gate: passes >= 490 (98% of 500, D-08). Failing cases printed as diagnostics.
 
