@@ -180,16 +180,19 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::SetRad     => op_set_rad(state),
         Op::SetGrad    => op_set_grad(state),
         Op::FmtFix(n) => {
+            if n > 9 { return Err(HpError::InvalidOp); }
             state.display_mode = DisplayMode::Fix(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
         Op::FmtSci(n) => {
+            if n > 9 { return Err(HpError::InvalidOp); }
             state.display_mode = DisplayMode::Sci(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
         Op::FmtEng(n) => {
+            if n > 9 { return Err(HpError::InvalidOp); }
             state.display_mode = DisplayMode::Eng(n);
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())

@@ -85,10 +85,17 @@ fn format_sci(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -sci_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mantissa_rounded = mantissa.round_dp_with_strategy(
+    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
         digits as u32,
         RoundingStrategy::MidpointAwayFromZero,
     );
+
+    // Carry: rounding can push mantissa from e.g. 9.9995 to 10.000
+    let mut sci_exp = sci_exp;
+    if mantissa_rounded >= Decimal::from(10) {
+        mantissa_rounded /= Decimal::from(10);
+        sci_exp += 1;
+    }
 
     // Format mantissa to `digits` decimal places
     let mantissa_str = format!("{:.prec$}", mantissa_rounded, prec = digits);
@@ -124,10 +131,20 @@ fn format_eng(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -eng_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mantissa_rounded = mantissa.round_dp_with_strategy(
+    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
         digits as u32,
         RoundingStrategy::MidpointAwayFromZero,
     );
+
+    // Carry: rounding can push the mantissa past the current power-of-10 boundary.
+    // E.g. mantissa 999.9995 in ENG(3) rounds to 1000.000 → must become 1.000E+3 higher.
+    let mut eng_exp = eng_exp;
+    let carry_threshold = decimal_pow10(sci_exp - eng_exp + 1);
+    if mantissa_rounded >= carry_threshold {
+        let new_eng_exp = floor_to_multiple_of_3(sci_exp + 1);
+        mantissa_rounded = scale_decimal(mantissa_rounded, eng_exp - new_eng_exp);
+        eng_exp = new_eng_exp;
+    }
 
     // Format mantissa to `digits` decimal places
     let mantissa_str = format!("{:.prec$}", mantissa_rounded, prec = digits);

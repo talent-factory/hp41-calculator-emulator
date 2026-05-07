@@ -2,8 +2,9 @@
 //! These tests require hp41-core::format to exist (created in Plan 04).
 //! Until Plan 04 runs, these tests will fail to compile.
 
-use hp41_core::HpNum;
+use hp41_core::{HpNum, HpError, CalcState};
 use hp41_core::format::format_hpnum;
+use hp41_core::ops::{dispatch, Op};
 use hp41_core::state::DisplayMode;
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -108,4 +109,21 @@ fn test_eng3_small_number() {
 fn test_eng3_million() {
     // ENG 3 of 1000000 → "1.000E 06"
     assert_eq!(format_hpnum(&num("1000000"), &DisplayMode::Eng(3)), "1.000E 06");
+}
+
+// ── Gap-closure tests (CR-01 and CR-03) ──────────────────────────────────
+
+#[test]
+fn test_sci3_mantissa_carry() {
+    // CR-01: 9.9995 in Sci(3) rounds mantissa to 10.000 → must carry to "1.000E 01"
+    assert_eq!(format_hpnum(&num("9.9995"), &DisplayMode::Sci(3)), "1.000E 01");
+}
+
+#[test]
+fn test_fmt_fix_out_of_range() {
+    // CR-03: HP-41 only supports FIX/SCI/ENG 0–9; digit count 10 must be an error
+    let mut state = CalcState::default();
+    assert_eq!(dispatch(&mut state, Op::FmtFix(10)), Err(HpError::InvalidOp));
+    assert_eq!(dispatch(&mut state, Op::FmtSci(10)), Err(HpError::InvalidOp));
+    assert_eq!(dispatch(&mut state, Op::FmtEng(10)), Err(HpError::InvalidOp));
 }
