@@ -123,8 +123,16 @@ impl App {
             return;
         }
 
-        // Quit: 'q' or Ctrl+C
-        if key.code == KeyCode::Char('q') {
+        // Quit: 'q' — only when no overlay or modal is active (D-16, D-22).
+        // When show_help or show_programs is open, 'q' closes the overlay (handled below).
+        // When alpha_mode is active, 'q' is an alpha character (handled by handle_alpha_mode_key).
+        // When pending_input is Some, 'q' may cancel the modal (handled by handle_pending_input).
+        if key.code == KeyCode::Char('q')
+            && !self.show_help
+            && !self.show_programs
+            && !self.state.alpha_mode
+            && self.pending_input.is_none()
+        {
             self.exit = true;
             return;
         }
