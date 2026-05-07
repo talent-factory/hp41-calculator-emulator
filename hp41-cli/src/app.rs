@@ -638,4 +638,44 @@ mod tests {
         ));
         assert!(!result, "try_user_dispatch must return false when key has no assignment");
     }
+
+    // Helper — create a Press key event with no modifiers.
+    fn make_key(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_q_does_not_quit_when_help_overlay_open() {
+        // SC-3 gap closure: 'q' must close the overlay, NOT set exit=true.
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.exit, "'q' must not quit when help overlay is open");
+        assert!(!app.show_help, "'q' must close the help overlay");
+    }
+
+    #[test]
+    fn test_q_quits_when_no_overlay_open() {
+        // Normal quit path must still work after the guard is applied.
+        let mut app = make_app();
+        assert!(!app.show_help);
+        assert!(!app.show_programs);
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(app.exit, "'q' must set exit=true when no overlay is open");
+    }
+
+    #[test]
+    fn test_q_does_not_quit_when_programs_overlay_open() {
+        // 'q' is not bound to close the programs overlay (only Esc is), but it must
+        // not set exit=true either.
+        let mut app = make_app();
+        app.show_programs = true;
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.exit, "'q' must not quit when programs overlay is open");
+    }
 }
