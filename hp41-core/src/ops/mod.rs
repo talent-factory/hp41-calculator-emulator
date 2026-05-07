@@ -22,7 +22,7 @@ use math::{
     op_set_deg, op_set_rad, op_set_grad,
 };
 use registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
-use alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear};
+use alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear, op_alpha_backspace};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -144,6 +144,12 @@ pub enum Op {
     Isg(u8),
     /// DSE n — decrement register n by step, skip next if new_current <= final (D-11). LiftEffect: Neutral.
     Dse(u8),
+    // ── USER mode (Phase 5) ──────────────────────────────────────────────
+    /// USER mode toggle: flip state.user_mode. LiftEffect: Neutral.
+    UserMode,
+    // ── ALPHA backspace (Phase 5) ────────────────────────────────────────
+    /// ALPHA backspace: remove last char from alpha_reg (HP-41 ← key). LiftEffect: Neutral.
+    AlphaBackspace,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -254,6 +260,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle       => op_alpha_toggle(state),
         Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
         Op::AlphaClear        => op_alpha_clear(state),
+        Op::AlphaBackspace    => op_alpha_backspace(state),
+        Op::UserMode          => {
+            state.user_mode = !state.user_mode;
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // ── Phase 3: Programming ops ─────────────────────────────────────────
         // Note: PrgmMode exit (prgm_mode=true + Op::PrgmMode) is handled by the gate above.
         // PrgmMode entry (prgm_mode=false) reaches here and sets prgm_mode=true.
@@ -271,5 +283,38 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Dse(reg)   => {
             program::op_dse(state, reg).map(|_| ())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::CalcState;
+
+    #[test]
+    fn test_user_mode_toggle() {
+        let mut state = CalcState::new();
+        assert!(!state.user_mode);
+        dispatch(&mut state, Op::UserMode).unwrap();
+        assert!(state.user_mode, "UserMode must flip to true");
+        dispatch(&mut state, Op::UserMode).unwrap();
+        assert!(!state.user_mode, "second UserMode must flip back to false");
+    }
+
+    #[test]
+    fn test_op_serde_round_trip() {
+        // Verify Op::Add serializes as JSON string, not a complex structure
+        let json = serde_json::to_string(&Op::Add).unwrap();
+        let back: Op = serde_json::from_str(&json).unwrap();
+        assert_eq!(Op::Add, back);
+    }
+
+    #[test]
+    fn test_pushnum_serde_round_trip() {
+        use crate::num::HpNum;
+        let op = Op::PushNum(HpNum::from(42i32));
+        let json = serde_json::to_string(&op).unwrap();
+        let back: Op = serde_json::from_str(&json).unwrap();
+        assert_eq!(op, back);
     }
 }

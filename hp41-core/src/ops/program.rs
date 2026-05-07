@@ -224,7 +224,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         op_set_deg, op_set_rad, op_set_grad,
     };
     use crate::ops::registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
-    use crate::ops::alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear};
+    use crate::ops::alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear, op_alpha_backspace};
     use crate::state::DisplayMode;
 
     match op {
@@ -290,6 +290,12 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle            => op_alpha_toggle(state),
         Op::AlphaAppend(ch)        => op_alpha_append(state, ch),
         Op::AlphaClear             => op_alpha_clear(state),
+        Op::AlphaBackspace         => op_alpha_backspace(state),
+        Op::UserMode               => {
+            state.user_mode = !state.user_mode;
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_) | Op::Gto(_) | Op::Xeq(_) | Op::Rtn | Op::PrgmMode
         | Op::Test(_) | Op::Isg(_) | Op::Dse(_) => Err(HpError::InvalidOp),
