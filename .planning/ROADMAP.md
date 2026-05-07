@@ -16,7 +16,7 @@
 - [x] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping (completed 2026-05-07)
 - [x] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs (completed 2026-05-07)
 - [x] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions (completed 2026-05-07)
-- [ ] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite
+- [x] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite (completed 2026-05-07)
 
 ---
 
@@ -177,15 +177,15 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 07-01-PLAN.md — Phase 5 Plan 11 verification + panic audit (fix math.rs unwrap → expect, add deny(clippy::unwrap_used))
+- [x] 07-01-PLAN.md — Phase 5 Plan 11 verification + panic audit (fix math.rs unwrap → expect, add deny(clippy::unwrap_used))
 **Wave 2** *(blocked on Wave 1 — parallel with each other)*
-- [ ] 07-02-PLAN.md — CI matrix update (just build-release on all 3 platforms) + Justfile bench recipes
-- [ ] 07-03-PLAN.md — Criterion benchmarks (benches/dispatch_bench.rs, [[bench]] entry, just bench recipe)
-- [ ] 07-04-PLAN.md — Coverage gap closure (12 targeted tests for ops/program.rs error paths, 59% → ≥80%)
+- [x] 07-02-PLAN.md — CI matrix update (cargo build --release on all 3 platforms) + Justfile bench recipes
+- [x] 07-03-PLAN.md — Criterion benchmarks (benches/dispatch_bench.rs, [[bench]] entry, just bench recipe)
+- [x] 07-04-PLAN.md — Coverage gap closure (12 targeted tests for ops/program.rs error paths, 59% → ≥80%)
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 07-05-PLAN.md — 500-case numerical accuracy suite (tests/numerical_accuracy.rs, passes >= 490 gate)
+- [x] 07-05-PLAN.md — 500-case numerical accuracy suite (tests/numerical_accuracy.rs, passes >= 490 gate)
 **Wave 4** *(blocked on Wave 3)*
-- [ ] 07-06-PLAN.md — Final just ci gate + planning document updates
+- [x] 07-06-PLAN.md — Final just ci gate + planning document updates
 
 ---
 
@@ -199,7 +199,7 @@ Plans:
 | 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
 | 5. Persistence & UX | 10/11 | Gaps Found  | - |
 | 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
-| 7. Hardening | 0/6 | Not started | - |
+| 7. Hardening | 6/6 | Complete | 2026-05-07 |
 
 ---
 
@@ -231,4 +231,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-07 after Phase 6 planning (3 plans, 3 waves)*
+*Last updated: 2026-05-07 after Phase 7 completion (6 plans, 4 waves) — all 7 phases complete, v1.0 ready*
