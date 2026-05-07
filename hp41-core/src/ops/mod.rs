@@ -253,12 +253,22 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::AlphaToggle       => op_alpha_toggle(state),
         Op::AlphaAppend(ch)   => op_alpha_append(state, ch),
         Op::AlphaClear        => op_alpha_clear(state),
-        // ── Programming ops (Phase 3) — partially wired here for test 03-05 ──
-        // The prgm_mode gate above intercepts these during recording.
-        // PrgmMode entry arm needed so dispatch(Op::PrgmMode) works in execute mode.
-        // (Rule 3 auto-fix: required for program_tests.rs test suite to pass.)
-        // Remaining arms (Lbl/Gto/Xeq/Rtn/Test/Isg/Dse) wired in plan 03-06.
-        Op::PrgmMode => program::op_prgm_mode(state),
-        _ => Err(HpError::InvalidOp),
+        // ── Phase 3: Programming ops ─────────────────────────────────────────
+        // Note: PrgmMode exit (prgm_mode=true + Op::PrgmMode) is handled by the gate above.
+        // PrgmMode entry (prgm_mode=false) reaches here and sets prgm_mode=true.
+        Op::Lbl(_)     => program::op_lbl(state),
+        Op::Gto(s)     => program::op_gto(state, &s),
+        Op::Xeq(s)     => program::op_xeq(state, &s),
+        Op::Rtn        => program::op_rtn(state),
+        Op::PrgmMode   => program::op_prgm_mode(state),
+        Op::Test(kind) => program::op_test(state, kind),
+        Op::Isg(reg)   => {
+            // op_isg returns Result<bool>; dispatch() returns Result<()>.
+            // Discard the bool skip signal — skip semantics only apply inside run_loop.
+            program::op_isg(state, reg).map(|_| ())
+        }
+        Op::Dse(reg)   => {
+            program::op_dse(state, reg).map(|_| ())
+        }
     }
 }

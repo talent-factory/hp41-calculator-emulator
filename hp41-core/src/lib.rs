@@ -15,6 +15,8 @@ pub use num::HpNum;
 pub use state::{CalcState, Stack, AngleMode, DisplayMode};
 pub use stack::LiftEffect;
 pub use format::{format_hpnum, format_alpha};
+pub use ops::program::run_program;
+pub use ops::{StoArithKind, TestKind};
 
 #[cfg(test)]
 mod tests;
