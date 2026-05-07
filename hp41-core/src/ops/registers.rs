@@ -60,7 +60,7 @@ pub fn op_sto_arith(state: &mut CalcState, reg: u8, kind: StoArithKind) -> Resul
 /// CLREG: clear all storage registers to zero.
 /// LiftEffect: Neutral.
 pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
-    state.regs = std::array::from_fn(|_| crate::num::HpNum::zero());
+    state.regs = vec![crate::num::HpNum::zero(); 100];
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
 }

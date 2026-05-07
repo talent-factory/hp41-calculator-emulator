@@ -24,10 +24,12 @@
 //   - No f64 arithmetic on HP-41 register values anywhere in hp41-core.
 
 use crate::num::HpNum;
+use std::collections::BTreeMap;
+use serde::{Serialize, Deserialize};
 
 /// Trigonometric angle mode — controls input/output units for SIN/COS/TAN/ASIN/ACOS/ATAN.
 /// Default: Deg (HP-41 hardware cold-start default).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum AngleMode {
     Deg,
     Rad,
@@ -37,7 +39,7 @@ pub enum AngleMode {
 /// Number display mode — controls how HpNum values are formatted for display.
 /// u8 field = digit count (0–9).
 /// Default: Fix(4) (HP-41 hardware cold-start default).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DisplayMode {
     Fix(u8),
     Sci(u8),
@@ -47,11 +49,11 @@ pub enum DisplayMode {
 /// The complete, mutable state of the HP-41 calculator.
 ///
 /// All operations take `&mut CalcState`. No global mutable state anywhere.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalcState {
     pub stack: Stack,
     /// Storage registers R00–R99 (0-indexed). All zero on startup.
-    pub regs: [HpNum; 100],
+    pub regs: Vec<HpNum>,
     /// ALPHA register — up to 24 characters.
     pub alpha_reg: String,
     /// true = keyboard routes chars to alpha_reg instead of entry_buf.
@@ -77,13 +79,20 @@ pub struct CalcState {
     /// True while run_program() is active; guards against re-entrancy.
     /// D-06: reset to false even on error path.
     pub is_running: bool,
+    // ── Phase 5: USER mode & key assignments ─────────────────────────────────
+    /// USER mode active: when true, key_assignments are consulted before normal dispatch.
+    /// D-25: default false.
+    pub user_mode: bool,
+    /// User key assignments: maps key char → program label name.
+    /// BTreeMap for deterministic JSON serialization order (D-25, D-29).
+    pub key_assignments: BTreeMap<char, String>,
 }
 
 impl CalcState {
     pub fn new() -> Self {
         CalcState {
             stack: Stack::new(),
-            regs: std::array::from_fn(|_| HpNum::zero()),
+            regs: vec![HpNum::zero(); 100],
             alpha_reg: String::new(),
             alpha_mode: false,
             angle_mode: AngleMode::Deg,
@@ -94,6 +103,8 @@ impl CalcState {
             pc: 0,
             call_stack: Vec::new(),
             is_running: false,
+            user_mode: false,
+            key_assignments: BTreeMap::new(),
         }
     }
 }
@@ -108,7 +119,7 @@ impl Default for CalcState {
 ///
 /// Registers: X (visible), Y, Z, T (bottom). T is duplicated (not dropped) on lift.
 /// lift_enabled: true means the next number entry will lift the stack before writing X.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stack {
     /// X register — the currently visible value
     pub x: HpNum,

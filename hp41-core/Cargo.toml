@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rust_decimal = { workspace = true, features = ["maths"] }
+rust_decimal = { workspace = true, features = ["maths", "serde-with-str"] }
 thiserror = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.11"
 insta = { version = "1.47", features = ["yaml"] }
+serde_json = { workspace = true }

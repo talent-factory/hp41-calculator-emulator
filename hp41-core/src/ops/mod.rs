@@ -4,6 +4,7 @@ use crate::state::{CalcState, DisplayMode};
 use crate::stack::{apply_lift_effect, LiftEffect};
 use rust_decimal::Decimal;
 use std::str::FromStr;
+use serde::{Serialize, Deserialize};
 
 pub mod arithmetic;
 pub mod stack_ops;
@@ -24,7 +25,7 @@ use registers::{op_sto, op_rcl, op_sto_arith, op_clreg};
 use alpha::{op_alpha_toggle, op_alpha_append, op_alpha_clear};
 
 /// STO arithmetic operation kind.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StoArithKind {
     Add,
     Sub,
@@ -35,7 +36,7 @@ pub enum StoArithKind {
 /// HP-41 conditional test kind — 12 total. Used in Op::Test(TestKind).
 /// D-07: single enum covers all HP-41 conditionals (symmetric with StoArithKind pattern).
 /// D-08: exact variant names.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TestKind {
     XEqZero, XNeZero, XLtZero, XGtZero, XLeZero, XGeZero,
     XEqY,    XNeY,    XLtY,    XGtY,    XLeY,    XGeY,
@@ -49,7 +50,7 @@ pub enum TestKind {
 ///          FmtFix, FmtSci, FmtEng, StoReg, RclReg, StoArith, Clreg,
 ///          AlphaToggle, AlphaAppend, AlphaClear
 /// Phase 3: Lbl, Gto, Xeq, Rtn, PrgmMode, Test, Isg, Dse
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Op {
     // ── Arithmetic (Phase 1) ──────────────────────────────────────────
     Add,
