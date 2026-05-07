@@ -62,6 +62,21 @@ pub struct CalcState {
     pub display_mode: DisplayMode,
     /// Pending digit string for number entry. Empty when not in digit-entry state.
     pub entry_buf: String,
+    // ── Phase 3: Programming Engine ──────────────────────────────────────────
+    /// Keystroke program storage. Flat list — Op::Lbl markers delimit subroutines.
+    /// D-01: single contiguous Vec<Op> matching HP-41 flat program memory.
+    pub program: Vec<crate::ops::Op>,
+    /// PRGM mode: when true dispatch() records ops to program instead of executing.
+    /// D-03: gate is checked at the top of dispatch().
+    pub prgm_mode: bool,
+    /// Program counter — index of the next op to execute in `program`.
+    /// D-05: set by run_program(); 0 at startup.
+    pub pc: usize,
+    /// Subroutine return stack. Max 4 entries (HP-41 hardware limit, D-14).
+    pub call_stack: Vec<usize>,
+    /// True while run_program() is active; guards against re-entrancy.
+    /// D-06: reset to false even on error path.
+    pub is_running: bool,
 }
 
 impl CalcState {
@@ -74,6 +89,11 @@ impl CalcState {
             angle_mode: AngleMode::Deg,
             display_mode: DisplayMode::Fix(4),
             entry_buf: String::new(),
+            program: Vec::new(),
+            prgm_mode: false,
+            pc: 0,
+            call_stack: Vec::new(),
+            is_running: false,
         }
     }
 }
