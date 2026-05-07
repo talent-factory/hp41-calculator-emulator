@@ -157,7 +157,7 @@ Plans:
 | 1. Foundation | 4/4 | Complete    | 2026-05-06 |
 | 2. Core Math | 7/7 | Gaps Found | - |
 | 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
-| 4. TUI & Input | 5/5 | Complete   | 2026-05-07 |
+| 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
 | 5. Persistence & UX | 0/? | Not started | - |
 | 6. Science & Engineering | 0/? | Not started | - |
 | 7. Hardening | 0/? | Not started | - |

@@ -31,12 +31,12 @@
 
 ### Display & TUI
 
-- [ ] **DISP-01**: User sees the HP-41 alphanumeric 12-character display with annunciators (USER, PRGM, ALPHA, SHIFT, RAD/DEG/GRAD) in the TUI
-- [ ] **DISP-02**: User sees a persistent TUI panel showing the 4-level stack (X/Y/Z/T), LASTX, annunciator bar, and current display at all times
+- [x] **DISP-01**: User sees the HP-41 alphanumeric 12-character display with annunciators (USER, PRGM, ALPHA, SHIFT, RAD/DEG/GRAD) in the TUI
+- [x] **DISP-02**: User sees a persistent TUI panel showing the 4-level stack (X/Y/Z/T), LASTX, annunciator bar, and current display at all times
 
 ### Keyboard Input
 
-- [ ] **INPUT-01**: User can operate all calculator functions via physical keyboard in the TUI without needing an external reference for basic operations
+- [x] **INPUT-01**: User can operate all calculator functions via physical keyboard in the TUI without needing an external reference for basic operations
 
 ### State Persistence
 
@@ -108,9 +108,9 @@
 | ALPH-01 | Phase 2 | Pending |
 | PROG-01 | Phase 3 | Complete |
 | PROG-02 | Phase 3 | Complete |
-| DISP-01 | Phase 4 | Pending |
-| DISP-02 | Phase 4 | Pending |
-| INPUT-01 | Phase 4 | Pending |
+| DISP-01 | Phase 4 | Complete |
+| DISP-02 | Phase 4 | Complete |
+| INPUT-01 | Phase 4 | Complete |
 | PERS-01 | Phase 5 | Pending |
 | PERS-02 | Phase 5 | Pending |
 | UX-01 | Phase 5 | Pending |
