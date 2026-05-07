@@ -188,6 +188,34 @@ impl App {
             return;
         }
 
+        // Phase 5: USER mode dispatch (D-28) — check key assignments before normal routing.
+        // Only active when user_mode == true. Returns true if key was consumed.
+        if self.try_user_dispatch(key) {
+            return;
+        }
+
+        // Phase 5: F1–F4 pre-wired USER keys a/b/c/d (D-28)
+        // In USER mode: run the assigned program for a/b/c/d.
+        // Outside USER mode: no-op (F1-F4 have no non-USER function in v1.0).
+        if self.state.user_mode {
+            let user_char = match key.code {
+                KeyCode::F(1) => Some('a'),
+                KeyCode::F(2) => Some('b'),
+                KeyCode::F(3) => Some('c'),
+                KeyCode::F(4) => Some('d'),
+                _ => None,
+            };
+            if let Some(c) = user_char {
+                if let Some(label) = self.state.key_assignments.get(&c).cloned() {
+                    match hp41_core::run_program(&mut self.state, &label) {
+                        Ok(()) => self.message = None,
+                        Err(e) => self.message = Some(format!("{e}")),
+                    }
+                }
+                return; // consume F1-F4 in USER mode regardless of assignment
+            }
+        }
+
         // Phase 5: overlay navigation — help and program library overlays intercept nav keys.
         if self.show_help {
             match key.code {
@@ -462,6 +490,26 @@ impl App {
         }
     }
 
+    /// USER mode dispatch: if user_mode is active and the key has an assignment,
+    /// run the assigned program label and return true (key consumed).
+    /// Returns false if user_mode is off or no assignment exists for this key.
+    /// D-28: USER mode key dispatch via key_assignments BTreeMap.
+    fn try_user_dispatch(&mut self, key: KeyEvent) -> bool {
+        if !self.state.user_mode {
+            return false;
+        }
+        if let KeyCode::Char(c) = key.code {
+            if let Some(label) = self.state.key_assignments.get(&c).cloned() {
+                match hp41_core::run_program(&mut self.state, &label) {
+                    Ok(()) => self.message = None,
+                    Err(e) => self.message = Some(format!("{e}")),
+                }
+                return true; // consumed
+            }
+        }
+        false // not consumed — fall through to normal routing
+    }
+
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
     fn call_dispatch(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
@@ -519,5 +567,65 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    fn make_app() -> App {
+        App::new(
+            hp41_core::CalcState::new(),
+            std::path::PathBuf::from("/tmp/hp41_test_app.json"),
+        )
+    }
+
+    /// D-28: try_user_dispatch() returns true and runs program when user_mode is active
+    /// and the pressed key has an assignment in key_assignments.
+    #[test]
+    fn test_user_mode_dispatch_runs_program() {
+        let mut app = make_app();
+        // Set up a simple program under label "A"
+        app.state.program = vec![
+            Op::Lbl("A".to_string()),
+            Op::PushNum(hp41_core::HpNum::from(42i32)),
+            Op::Rtn,
+        ];
+        // Assign 'z' → "A"
+        app.state.key_assignments.insert('z', "A".to_string());
+        app.state.user_mode = true;
+
+        // Simulate pressing 'z' with user_mode on
+        let result = app.try_user_dispatch(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('z'),
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        assert!(result, "try_user_dispatch must return true when key is assigned");
+        // Program should have run and pushed 42 onto stack
+        assert!(!app.state.stack.x.is_zero(), "program should have pushed 42 to X");
+    }
+
+    /// D-28: try_user_dispatch() returns false when user_mode is off — normal routing applies.
+    #[test]
+    fn test_user_mode_dispatch_skipped_when_off() {
+        let mut app = make_app();
+        app.state.key_assignments.insert('z', "A".to_string());
+        app.state.user_mode = false; // USER mode OFF
+
+        let result = app.try_user_dispatch(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('z'),
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        assert!(!result, "try_user_dispatch must return false when user_mode is off");
+    }
+
+    /// D-28: try_user_dispatch() returns false when user_mode is on but key has no assignment.
+    #[test]
+    fn test_user_mode_dispatch_no_assignment() {
+        let mut app = make_app();
+        app.state.user_mode = true;
+        // No key assignments at all
+
+        let result = app.try_user_dispatch(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('z'),
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        assert!(!result, "try_user_dispatch must return false when key has no assignment");
     }
 }
