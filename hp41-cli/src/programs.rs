@@ -56,8 +56,8 @@ fn build_all_programs() -> Vec<SampleProgram> {
             ops: newton_root_ops(),
         },
         SampleProgram {
-            name: "Mean+StdDev",
-            description: "Enter n values with ENTER, then run for mean in X, sdev in Y.",
+            name: "Stack Mean (4 values)",
+            description: "Mean of 4-level stack (T,Z,Y,X): load four values with ENTER, run → mean in X.",
             ops: mean_sdev_ops(),
         },
         SampleProgram {
@@ -138,33 +138,46 @@ fn factorial_ops() -> Vec<Op> {
 }
 
 fn prime_test_ops() -> Vec<Op> {
-    // Is X prime? Pushes 1 (yes) or 0 (no).
-    // Simple trial division by 2 and odd numbers up to √X.
+    // Is X prime? Pushes 1 (yes) or 0 (no). Trial division up to √n.
+    // R00 = n, R01 = divisor d.
+    //
+    // Stack semantics (TRUE = execute next; FALSE = skip next):
+    //   Early exit: PushNum(2), RclReg(0) → X=n, Y=2
+    //     Test(XLeY): n≤2 → TRUE → Gto("P") [prime]; n>2 → FALSE → skip Gto, continue loop
+    //
+    //   Loop termination: RclReg(1), Sq, RclReg(0) → X=n, Y=d²
+    //     Test(XLtY): n<d² → TRUE → Gto("P") [prime]; n≥d² → FALSE → skip, check modulo
+    //
+    //   Modulo: n mod d = n - d*int(n/d)   (uses Op::Int for exact integer truncation)
+    //     RclReg(0), RclReg(1), Div, Int, RclReg(1), Mul → X=d*int(n/d), Y=n (after RclReg(0), XySwap)
+    //     Sub (Y-X): n - d*int(n/d) = n mod d
+    //     Test(XEqZero): remainder=0 → TRUE → Gto("N") [not prime]; ≠0 → FALSE → skip, increment d
     vec![
         Op::Lbl("A".to_string()),
         Op::StoReg(0),                      // R00 = n
-        Op::PushNum(HpNum::from(2i32)),
-        Op::RclReg(0),
-        Op::XySwap,
-        Op::Test(TestKind::XLeY),           // if n <= 2: prime
+        Op::PushNum(HpNum::from(2i32)),     // Y=2, X=2 (lift)
+        Op::RclReg(0),                      // X=n, Y=2
+        Op::Test(TestKind::XLeY),           // n≤2 → TRUE → execute Gto("P"); n>2 → FALSE → skip
         Op::Gto("P".to_string()),
         Op::PushNum(HpNum::from(2i32)),
         Op::StoReg(1),                      // R01 = divisor = 2
-        Op::Lbl("L".to_string()),
-        Op::RclReg(1),
-        Op::Sq,
-        Op::RclReg(0),
-        Op::Test(TestKind::XGtY),           // if divisor² > n: prime
+        Op::Lbl("L".to_string()),           // loop top
+        Op::RclReg(1),                      // X=d
+        Op::Sq,                             // X=d²
+        Op::RclReg(0),                      // X=n, Y=d²
+        Op::Test(TestKind::XLtY),           // n<d² → TRUE → execute Gto("P"); n≥d² → FALSE → skip
         Op::Gto("P".to_string()),
-        Op::RclReg(0),
-        Op::RclReg(1),
-        Op::Div,
-        Op::RclReg(1),
-        Op::Mul,
-        Op::RclReg(0),
-        Op::XySwap,
-        Op::Sub,                            // n mod d = n - d*(n/d)
-        Op::Test(TestKind::XEqZero),        // if remainder == 0: not prime
+        // Compute n mod d = n - d * int(n/d) — exact integer modulo via Op::Int
+        Op::RclReg(0),                      // X=n
+        Op::RclReg(1),                      // X=d, Y=n
+        Op::Div,                            // X=n/d (real division)
+        Op::Int,                            // X=floor(n/d) (truncate toward zero)
+        Op::RclReg(1),                      // X=d, Y=floor(n/d)
+        Op::Mul,                            // X=d*floor(n/d)
+        Op::RclReg(0),                      // X=n, Y=d*floor(n/d)
+        Op::XySwap,                         // X=d*floor(n/d), Y=n
+        Op::Sub,                            // X = Y-X = n - d*floor(n/d) = n mod d
+        Op::Test(TestKind::XEqZero),        // remainder=0 → TRUE → execute Gto("N"); ≠0 → FALSE → skip
         Op::Gto("N".to_string()),
         Op::RclReg(1),
         Op::PushNum(HpNum::from(1i32)),
@@ -182,7 +195,7 @@ fn prime_test_ops() -> Vec<Op> {
 
 fn quadratic_ops() -> Vec<Op> {
     // Quadratic: discriminant = b²-4ac; roots = (-b ± √disc) / 2a
-    // Stack entry: a in T, b in Z, c in Y (X unused — cleared on run)
+    // Stack entry: c in X, b in Y, a in Z (T unused — STO X→c first, Rdn→STO Y→b, Rdn→STO Z→a)
     // Result: root1 in X, root2 in Y
     vec![
         Op::Lbl("A".to_string()),
@@ -274,32 +287,16 @@ fn newton_root_ops() -> Vec<Op> {
 }
 
 fn mean_sdev_ops() -> Vec<Op> {
-    // Mean of n values: enter n values in R00..R(n-1), then R10=n, run → mean in X
-    // Simplified: expects values pre-stored in R00..R09, count in R10
-    // Result: mean in X
+    // Mean of 4 values already on the stack (T, Z, Y, X).
+    // Adds all four: T+Z+Y+X, then divides by 4 → mean in X.
+    // No registers used. No indirect addressing needed.
     vec![
         Op::Lbl("A".to_string()),
-        Op::PushNum(HpNum::from(0i32)),
-        Op::StoReg(11),                     // R11 = sum
-        Op::RclReg(10),                     // n
-        Op::StoReg(12),                     // R12 = counter
-        Op::PushNum(HpNum::from(0i32)),
-        Op::StoReg(13),                     // R13 = index
-        Op::Lbl("L".to_string()),
-        Op::RclReg(12),
-        Op::Test(TestKind::XLeZero),        // if counter <= 0: done
-        Op::Gto("D".to_string()),
-        Op::RclReg(13),
-        Op::RclReg(0),                      // simplified: use R00 value always
-        Op::StoArith { reg: 11, kind: StoArithKind::Add },
-        Op::RclReg(12),
-        Op::PushNum(HpNum::from(1i32)),
-        Op::Sub, Op::StoReg(12),
-        Op::Gto("L".to_string()),
-        Op::Lbl("D".to_string()),
-        Op::RclReg(11),
-        Op::RclReg(10),
-        Op::Div,                            // mean = sum / n
+        Op::Add,                            // Y+X → X; T becomes new Z
+        Op::Add,                            // Z+X → X; T becomes new Y (was Z orig)
+        Op::Add,                            // Y+X → X; one value remains (was T orig)
+        Op::PushNum(HpNum::from(4i32)),
+        Op::Div,                            // (T+Z+Y+X) / 4 = mean
         Op::Rtn,
     ]
 }
@@ -444,5 +441,57 @@ mod tests {
         let mut unique = names.clone();
         unique.dedup();
         assert_eq!(names.len(), unique.len(), "Program names must be unique");
+    }
+
+    #[test]
+    fn test_prime_test_correctness() {
+        // Verifies SC-5 gap closure: prime_test_ops XySwap bug is fixed.
+        let prime_prog = sample_programs()
+            .iter()
+            .find(|p| p.name == "Prime Test")
+            .expect("Prime Test program must exist");
+
+        let run_prime = |n: i32| -> HpNum {
+            let mut state = CalcState::new();
+            state.program = prime_prog.ops.clone();
+            hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(n))).unwrap();
+            hp41_core::run_program(&mut state, "A")
+                .unwrap_or_else(|e| panic!("prime({n}) failed: {e:?}"));
+            state.stack.x.clone()
+        };
+
+        assert_eq!(run_prime(2), HpNum::from(1i32), "prime(2) must be 1 (prime)");
+        assert_eq!(run_prime(3), HpNum::from(1i32), "prime(3) must be 1 (prime)");
+        assert_eq!(run_prime(4), HpNum::from(0i32), "prime(4) must be 0 (composite)");
+        assert_eq!(run_prime(9), HpNum::from(0i32), "prime(9) must be 0 (composite: 3×3)");
+        assert_eq!(run_prime(13), HpNum::from(1i32), "prime(13) must be 1 (prime)");
+    }
+
+    #[test]
+    fn test_stack_mean_correctness() {
+        // Verifies SC-5 gap closure: mean_sdev_ops replaced with correct stack mean.
+        let mean_prog = sample_programs()
+            .iter()
+            .find(|p| p.name == "Stack Mean (4 values)")
+            .expect("Stack Mean (4 values) program must exist");
+
+        let mut state = CalcState::new();
+        state.program = mean_prog.ops.clone();
+        // Build stack: push 1 ENTER 2 ENTER 3 ENTER 4 → T=1, Z=2, Y=3, X=4
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(1i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(2i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(3i32))).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::Enter).unwrap();
+        hp41_core::ops::dispatch(&mut state, Op::PushNum(HpNum::from(4i32))).unwrap();
+        hp41_core::run_program(&mut state, "A").expect("Stack Mean must run without error");
+        // (1+2+3+4)/4 = 2.5
+        let result_str = state.stack.x.to_string();
+        let result: f64 = result_str.parse().expect("stack.x must be parseable as f64");
+        assert!(
+            (result - 2.5).abs() < 1e-9,
+            "Stack mean of [1,2,3,4] must be 2.5, got {result}"
+        );
     }
 }

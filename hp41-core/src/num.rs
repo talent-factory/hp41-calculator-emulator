@@ -201,6 +201,13 @@ impl HpNum {
     pub fn inner(&self) -> Decimal {
         self.0
     }
+
+    /// INT — truncate toward zero (integer part, HP-41 INT function).
+    /// Equivalent to Decimal::trunc() which truncates toward zero.
+    /// No domain restriction; always succeeds.
+    pub fn trunc_int(&self) -> HpNum {
+        HpNum(self.0.trunc())
+    }
 }
 
 impl From<i32> for HpNum {

@@ -17,6 +17,7 @@ pub mod program;
 use arithmetic::{op_add, op_sub, op_mul, op_div};
 use stack_ops::{op_enter, op_clx, op_chs, op_rdn, op_xy_swap, op_lastx};
 use math::{
+    op_int,
     op_recip, op_sqrt, op_sq, op_ypow, op_ln, op_log, op_exp, op_tenpow,
     op_sin, op_cos, op_tan, op_asin, op_acos, op_atan,
     op_set_deg, op_set_rad, op_set_grad,
@@ -67,6 +68,8 @@ pub enum Op {
     /// Push a numeric literal onto the stack (e.g., from keyboard digit entry).
     PushNum(HpNum),
     // ── Unary math (Phase 2) ─────────────────────────────────────────
+    /// INT — truncate X toward zero (integer part). LiftEffect: Enable.
+    Int,
     /// 1/x — reciprocal. LiftEffect: Enable.
     Recip,
     /// √x — square root. LiftEffect: Enable.
@@ -218,6 +221,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             Ok(())
         }
         // ── Phase 2 math/trig/angle ops (Plan 04) ───────────────────────
+        Op::Int        => op_int(state),
         Op::Recip      => op_recip(state),
         Op::Sqrt       => op_sqrt(state),
         Op::Sq         => op_sq(state),

@@ -39,6 +39,7 @@ fn op_display_name(op: &Op) -> String {
         Op::Lastx        => "LASTX".to_string(),
         Op::PushNum(n)   => format!("{}", n.inner()),
         // Phase 2: unary math
+        Op::Int          => "INT".to_string(),
         Op::Recip        => "1/x".to_string(),
         Op::Sqrt         => "\u{221a}x".to_string(),
         Op::Sq           => "x\u{00B2}".to_string(),
