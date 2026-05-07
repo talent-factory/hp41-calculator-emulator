@@ -31,6 +31,15 @@ pub enum StoArithKind {
     Div,
 }
 
+/// HP-41 conditional test kind — 12 total. Used in Op::Test(TestKind).
+/// D-07: single enum covers all HP-41 conditionals (symmetric with StoArithKind pattern).
+/// D-08: exact variant names.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestKind {
+    XEqZero, XNeZero, XLtZero, XGtZero, XLeZero, XGeZero,
+    XEqY,    XNeY,    XLtY,    XGtY,    XLeY,    XGeY,
+}
+
 /// HP-41 calculator operations.
 ///
 /// Phase 1: Add, Sub, Mul, Div, Enter, Clx, Chs, Rdn, XySwap, Lastx, PushNum
