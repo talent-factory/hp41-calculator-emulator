@@ -162,8 +162,15 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     state.entry_buf.clear();
     let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
     let n = HpNum::rounded(d);
-    crate::stack::enter_number(state, n);
-    crate::stack::apply_lift_effect(state, LiftEffect::Enable);
+    if state.prgm_mode {
+        // Recording mode: PushNum goes to program Vec, not stack (D-03/D-04).
+        // lift_enabled is NOT changed — recording does not affect execution state.
+        state.program.push(Op::PushNum(n));
+    } else {
+        // Execute mode: existing behaviour unchanged.
+        crate::stack::enter_number(state, n);
+        crate::stack::apply_lift_effect(state, LiftEffect::Enable);
+    }
     Ok(())
 }
 
