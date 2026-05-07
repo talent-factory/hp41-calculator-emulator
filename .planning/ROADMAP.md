@@ -176,11 +176,15 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
+**Wave 1**
 - [ ] 07-01-PLAN.md — Phase 5 Plan 11 verification + panic audit (fix math.rs unwrap → expect, add deny(clippy::unwrap_used))
-- [ ] 07-02-PLAN.md — CI matrix update (cargo build --release on all 3 platforms) + Justfile bench recipes
+**Wave 2** *(blocked on Wave 1 — parallel with each other)*
+- [ ] 07-02-PLAN.md — CI matrix update (just build-release on all 3 platforms) + Justfile bench recipes
 - [ ] 07-03-PLAN.md — Criterion benchmarks (benches/dispatch_bench.rs, [[bench]] entry, just bench recipe)
 - [ ] 07-04-PLAN.md — Coverage gap closure (12 targeted tests for ops/program.rs error paths, 59% → ≥80%)
+**Wave 3** *(blocked on Wave 2)*
 - [ ] 07-05-PLAN.md — 500-case numerical accuracy suite (tests/numerical_accuracy.rs, passes >= 490 gate)
+**Wave 4** *(blocked on Wave 3)*
 - [ ] 07-06-PLAN.md — Final just ci gate + planning document updates
 
 ---
