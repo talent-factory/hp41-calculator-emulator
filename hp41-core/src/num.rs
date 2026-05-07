@@ -4,9 +4,13 @@ use rust_decimal::MathematicalOps;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::prelude::FromPrimitive;
 use crate::error::HpError;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct HpNum(pub(crate) Decimal);
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HpNum(
+    #[serde(with = "rust_decimal::serde::str")]
+    pub(crate) Decimal,
+);
 
 impl HpNum {
     /// Enforce HP-41 10-significant-digit precision with round-half-away-from-zero.
@@ -220,5 +224,31 @@ impl std::fmt::Display for HpNum {
 impl Default for HpNum {
     fn default() -> Self {
         HpNum::zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hpnum_serde_is_string() {
+        let n = HpNum::from(3i32);
+        let json = serde_json::to_string(&n).unwrap();
+        // Must be a JSON string "3", not a float 3
+        assert!(json.starts_with('"'), "HpNum must serialize as JSON string, got: {json}");
+        let back: HpNum = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, n, "round-trip must be lossless");
+    }
+
+    #[test]
+    fn test_hpnum_serde_decimal_precision() {
+        use rust_decimal::Decimal;
+        use std::str::FromStr;
+        let d = Decimal::from_str("3.1415926536").unwrap();
+        let n = HpNum(d);
+        let json = serde_json::to_string(&n).unwrap();
+        let back: HpNum = serde_json::from_str(&json).unwrap();
+        assert_eq!(n, back, "10-digit decimal must round-trip exactly");
     }
 }
