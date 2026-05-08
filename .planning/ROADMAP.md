@@ -97,7 +97,7 @@
   **Wave 2** *(blocked on Wave 1)*
   - [x] 11-02-PLAN.md — PRNT-01/02/03/04 (cli): PrintModal keyboard modal, 'P' interceptor, call_dispatch_and_drain, print_log_writer, --print-log arg, PRNT: _ display, help entries
   **Wave 3** *(blocked on Wave 2 completion — gap closure)*
-  - [ ] 11-03-PLAN.md — CR-01/CR-03: drain_and_show_print_output() helper + 3 run_program call sites + serde(skip) on print_buffer
+  - [x] 11-03-PLAN.md — CR-01/CR-03: drain_and_show_print_output() helper + 3 run_program call sites + serde(skip) on print_buffer
   **Cross-cutting constraints:**
   - `Op::PRX/PRA/PRSTK` variants from 11-01 must be visible before 11-02 can compile
   - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new core code uses `?`-propagation
