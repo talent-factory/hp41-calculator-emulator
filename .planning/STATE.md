@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: planning
-current_phase: 9
+milestone_name: CLI Feature Completeness
+current_phase: 0
 current_plan: Not started
-status: Milestone v1.0 complete — ready for v1.1 planning
+status: planning
 last_updated: "2026-05-08T10:00:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 45
-  completed_plans: 45
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -31,21 +31,10 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-**Milestone v1.0:** Complete ✅
-**Current focus:** Planning v1.1
-
-```
-Progress: [████████████████] 100% (all v1.0 phases complete)
-
-Phase 1: Foundation          [x] Complete (2026-05-06)
-Phase 2: Core Math           [x] Complete (2026-05-07)
-Phase 3: Programming Engine  [x] Complete (2026-05-07)
-Phase 4: TUI & Input         [x] Complete (2026-05-07)
-Phase 5: Persistence & UX    [x] Complete (2026-05-07)
-Phase 6: Science & Engineering [x] Complete (2026-05-07)
-Phase 7: Hardening           [x] Complete (2026-05-07)
-Phase 8: Tech Debt Cleanup   [x] Complete (2026-05-08)
-```
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-08 — Milestone v1.1 started
 
 ---
 
@@ -108,8 +97,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** v1.0 milestone complete — all phases done, REQUIREMENTS.md archived, tagged v1.0
-**Next action:** `/gsd-new-milestone` to plan v1.1
+**Last action:** Milestone v1.1 started — goals confirmed, defining requirements
+**Next action:** Define requirements, create roadmap, then `/gsd-plan-phase [N]`
 
 ---
 *State initialized: 2026-05-06*

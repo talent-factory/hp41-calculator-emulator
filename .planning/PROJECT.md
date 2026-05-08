@@ -1,5 +1,15 @@
 # HP-41 Calculator Emulator
 
+## Current Milestone: v1.1 CLI Feature Completeness
+
+**Goal:** Close remaining HP-41 behavioral gaps and add print + synthetic programming capabilities.
+
+**Target features:**
+- STO arithmetic keyboard modals (`STO+/-/×/÷` interactive key binding)
+- EEX trailing-e-without-exponent hardware lock behavior
+- Print emulation (`PRX`/`PRA`/`PRSTK` → console/text file)
+- Synthetic programming (byte-code injection, FOCAL internals)
+
 ## What This Is
 
 A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN calculator, delivered as a keyboard-driven TUI CLI (`hp41-cli`) backed by a UI-agnostic core library (`hp41-core`). v1.0 shipped on 2026-05-08 with complete HP-41 arithmetic, keystroke programming, persistence, and cross-platform CI. v2.0 will add a Tauri-based graphical desktop app reusing `hp41-core` unchanged.
@@ -101,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Audit Key Decisions with outcomes
 
 ---
-*Last updated: 2026-05-08 after v1.0 milestone completion*
+*Last updated: 2026-05-08 after v1.1 milestone planning start*
