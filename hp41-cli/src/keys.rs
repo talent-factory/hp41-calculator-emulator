@@ -161,6 +161,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
 
 #[cfg(test)]
 mod tests {
+    use super::KEY_REF_TABLE;
     use hp41_core::{ops::Op, CalcState};
 
     /// BLOCKER 1: test_user_mode_dispatch — pressing 'u' dispatches Op::UserMode which
@@ -202,6 +203,35 @@ mod tests {
             state.key_assignments.get(&'a').map(|s| s.as_str()),
             Some("MYPROG"),
             "key assignment must be retrievable from state"
+        );
+    }
+
+    // Phase 8: KEY_REF_TABLE content tests (do not require App construction)
+    #[test]
+    fn test_key_ref_table_has_sin_entry() {
+        let has_sin = KEY_REF_TABLE
+            .iter()
+            .any(|(k, desc)| *k == "q" && desc.contains("SIN"));
+        assert!(has_sin, "KEY_REF_TABLE must have q->SIN entry");
+    }
+
+    #[test]
+    fn test_key_ref_table_has_clreg_entry() {
+        let has_clreg = KEY_REF_TABLE
+            .iter()
+            .any(|(k, desc)| *k == "g" && desc.contains("CLREG"));
+        assert!(has_clreg, "KEY_REF_TABLE must have g->CLREG entry");
+    }
+
+    #[test]
+    fn test_key_ref_table_quit_is_ctrl_c_only() {
+        // 'q' must no longer be listed as a quit key after Phase 8 reassignment
+        let q_quit = KEY_REF_TABLE
+            .iter()
+            .any(|(k, desc)| k.contains('q') && desc.to_lowercase().contains("quit"));
+        assert!(
+            !q_quit,
+            "KEY_REF_TABLE must not list 'q' as a quit key after reassignment to SIN"
         );
     }
 }

@@ -121,10 +121,32 @@ fn unmapped_keys_return_none() {
 fn key_ref_table_has_33_entries() {
     // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
     // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
-    // Total is now 52. Test name preserved for history; count updated to 52.
+    // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
+    // Total is now 54. Test name preserved for history; count updated to 54.
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        52,
-        "KEY_REF_TABLE must have exactly 52 entries (40 Phase 1-5 + 12 Phase 6)"
+        54,
+        "KEY_REF_TABLE must have exactly 54 entries (52 Phase 1-6 + 2 Phase 8: q->SIN, g->CLREG)"
+    );
+}
+
+// Phase 8: key_to_op() bindings for SIN and CLREG
+#[test]
+fn q_maps_to_sin() {
+    let app = make_app();
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('q')), &app),
+        Some(Op::Sin),
+        "'q' must map to Op::Sin after Phase 8 reassignment"
+    );
+}
+
+#[test]
+fn g_maps_to_clreg() {
+    let app = make_app();
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('g')), &app),
+        Some(Op::Clreg),
+        "'g' must map to Op::Clreg"
     );
 }
