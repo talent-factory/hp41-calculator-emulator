@@ -37,7 +37,7 @@
 
 - [x] **Phase 9: Infrastructure & EEX Fix** - Bump MSRV + rust_decimal; correct EEX trailing-e-without-exponent to hardware behavior (completed 2026-05-08)
 - [x] **Phase 10: STO Arithmetic Modals** - Wire the existing op_sto_arith core to a 3-step keyboard modal (S → op → register) (completed 2026-05-08)
-- [ ] **Phase 11: Print Emulation** - Add PRX/PRA/PRSTK ops with print_buffer on CalcState; optional file log via --print-log
+- [x] **Phase 11: Print Emulation** - Add PRX/PRA/PRSTK ops with print_buffer on CalcState; optional file log via --print-log (completed 2026-05-08)
 - [ ] **Phase 12: Synthetic Programming** - GETKEY, NULL, hidden registers M/N/O, and a hex-byte insertion modal
 
 ---
@@ -131,5 +131,5 @@
 | 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
 | 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 11. Print Emulation | v1.1 | 0/4 | Not started | - |
+| 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
 | 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
