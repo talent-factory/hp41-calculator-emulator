@@ -578,6 +578,19 @@ impl App {
 }
 
 #[cfg(test)]
+impl App {
+    /// Test-only constructor: builds a minimal App suitable for handle_key
+    /// integration tests. Uses a temporary state path; persistence side effects
+    /// are harmless because tests do not call the auto-save path.
+    pub fn new_for_test() -> Self {
+        App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+        )
+    }
+}
+
+#[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
@@ -851,5 +864,87 @@ mod tests {
             "30",
             "'q' closing help must not dispatch Op::Sin (x must remain 30, not become 0.5)"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod eex_integration_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use hp41_core::ops::dispatch;
+
+    fn make_app() -> App {
+        // Construct a minimal App with a default CalcState. The persistence path
+        // and TUI fields don't matter for these tests — we only exercise handle_key
+        // and the cli/core integration via dispatch.
+        App::new_for_test()
+    }
+
+    fn key(c: char) -> KeyEvent {
+        KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_eex_trailing_e_then_enter_pushes_mantissa() {
+        // Phase 9 success criterion #1: "1.5e" + ENTER pushes 1.5 to X (exponent 00).
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        // Now dispatch Enter — flush_entry_buf normalizes "1.5e" -> "1.5e00" -> 1.5.
+        dispatch(&mut app.state, Op::Enter).expect("Enter must succeed");
+        // Use format_hpnum with the state's display mode (Fix(4) by default) to
+        // verify the pushed value is 1.5. format_hpnum is re-exported by hp41-core.
+        let formatted = hp41_core::format_hpnum(&app.state.stack.x, &app.state.display_mode);
+        assert_eq!(formatted, "1.5000", "EEX trailing-e must push mantissa 1.5 (shown as 1.5000 in FIX 4)");
+        assert!(app.state.entry_buf.is_empty());
+    }
+
+    #[test]
+    fn test_empty_buffer_eex_inserts_implicit_one() {
+        // Phase 9 D-07: pressing 'e' on an empty buffer inserts "1e".
+        let mut app = make_app();
+        assert!(app.state.entry_buf.is_empty());
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1e");
+    }
+
+    #[test]
+    fn test_exponent_digit_cap_blocks_third_digit() {
+        // Phase 9 D-05/D-06: 3rd exponent digit silently blocked.
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        app.handle_key(key('2'));
+        app.handle_key(key('3'));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+        // Third digit must be silently ignored.
+        app.handle_key(key('4'));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+        assert!(app.message.is_none(), "silent block — no message set");
+    }
+
+    #[test]
+    fn test_double_eex_blocked() {
+        // Phase 9 D-08: pressing 'e' when entry_buf already contains 'e' is ignored.
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        assert!(app.message.is_none(), "silent block — no message set");
     }
 }
