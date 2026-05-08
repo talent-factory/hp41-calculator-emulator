@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: CLI Feature Completeness
 current_phase: 12
 current_plan: Not started
-status: ready_to_plan
-last_updated: "2026-05-08T23:59:00.000Z"
+status: context_gathered
+last_updated: "2026-05-08T23:59:30.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -102,9 +102,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** Phase 11 complete — gap closure plan 11-03 executed (CR-01 drain fix + CR-03 serde(skip) fix); verification passed 5/5 must-haves
-**Next action:** Phase 12 planning — `/gsd-discuss-phase 12` or `/gsd-plan-phase 12`
+**Last action:** Phase 12 context gathered — 4 areas discussed (GETKEY mechanics, hidden registers M/N/O, hex-byte safe subset, hex modal keyboard binding); 12-CONTEXT.md written
+**Next action:** Phase 12 planning — `/gsd-plan-phase 12`
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after Phase 11 context gathering*
+*Last updated: 2026-05-08 after Phase 12 context gathering*
