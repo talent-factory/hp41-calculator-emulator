@@ -52,4 +52,4 @@ install-hooks:
 # Usage: just bench-startup
 # Prerequisite: just build-release (or cargo build --release) must be run first
 bench-startup:
-	hyperfine --runs 10 ./target/release/hp41
+	hyperfine --warmup 3 --runs 10 './target/release/hp41 --bench-startup'

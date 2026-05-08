@@ -26,6 +26,11 @@ struct Cli {
     /// Default: ~/.hp41/autosave.json
     #[arg(long, value_name = "FILE")]
     state_file: Option<std::path::PathBuf>,
+
+    /// Run all startup initialization (state load, core init) then exit — no TUI required.
+    /// Used by `just bench-startup` to measure cold-start time without a real terminal.
+    #[arg(long, hide = true)]
+    bench_startup: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -49,6 +54,10 @@ fn main() -> std::io::Result<()> {
             (CalcState::new(), None)
         }
     };
+
+    if cli.bench_startup {
+        return Ok(());
+    }
 
     let terminal = ratatui::init();
 
