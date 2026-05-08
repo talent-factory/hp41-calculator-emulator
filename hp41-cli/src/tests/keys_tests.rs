@@ -20,6 +20,7 @@ fn make_app() -> App {
     App::new(
         CalcState::new(),
         std::path::PathBuf::from("/tmp/hp41_test.json"),
+        None,
     )
 }
 

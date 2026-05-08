@@ -63,7 +63,7 @@ fn main() -> std::io::Result<()> {
 
     let terminal = ratatui::init();
 
-    let mut app = App::new(initial_state, state_path);
+    let mut app = App::new(initial_state, state_path, None);
     if let Some(msg) = load_message {
         app.message = Some(msg);
     }
