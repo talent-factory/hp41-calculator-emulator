@@ -1,550 +1,486 @@
-# Architecture Patterns: HP-41 Calculator Emulator
+# Architecture Patterns
 
-**Domain:** Behavioral calculator emulator with TUI frontend, Rust workspace
-**Researched:** 2026-05-06
-**Overall confidence:** HIGH (core patterns), MEDIUM (HP-41 specific behavioral details)
-
----
-
-## Recommended Architecture
-
-A three-layer architecture enforced by Cargo workspace membership:
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   hp41-cli (binary)                 │
-│  TUI rendering · key mapping · auto-save · help     │
-│  Depends on: hp41-core                              │
-└────────────────────────┬────────────────────────────┘
-                         │ calls core API only
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│                 hp41-core (library)                 │
-│  Calculator state · arithmetic · programming engine │
-│  No UI deps. No std I/O. Serializable.              │
-└─────────────────────────────────────────────────────┘
-                (future)
-┌─────────────────────────────────────────────────────┐
-│                hp41-gui (Tauri, v2.0)               │
-│  Also depends on hp41-core only                     │
-└─────────────────────────────────────────────────────┘
-```
-
-This mirrors the Free42 architecture (common/ core + per-platform UIs) and the WezTerm pattern
-(wezterm-term independent of wezterm-gui). Cargo enforces the dependency direction at compile time:
-hp41-core has zero dependency on hp41-cli, verified by `cargo check -p hp41-core` in CI.
+**Domain:** HP-41 Calculator Emulator — v1.1 Integration Architecture
+**Researched:** 2026-05-08
+**Focus:** Integration points for four v1.1 features into the existing v1.0 codebase
 
 ---
 
-## Component Boundaries
+## Existing Architecture (v1.0 Baseline)
 
-### hp41-core
+### Component Map
 
-| Sub-module | Responsibility | Communicates With |
-|---|---|---|
-| `state::CalcState` | Authoritative calculator state struct | All other core modules |
-| `stack` | X/Y/Z/T registers, LASTX, stack-lift flag | `CalcState` (owns it) |
-| `registers` | R00–R99 numeric storage, STO/RCL/STO+−×÷ | `CalcState` |
-| `display` | 12-char alphanumeric display string, annunciators | `CalcState` |
-| `arithmetic` | Basic ops, trig, log/exp, power; reads/writes stack | `stack`, `display` |
-| `math_modes` | FIX/SCI/ENG n, DEG/RAD/GRAD, angle conversion | `CalcState`, `display` |
-| `alpha` | ALPHA mode input buffer (12 chars), alpha key maps | `CalcState`, `display` |
-| `flags` | 30 user flags (0–29) + system flags (30+) | `CalcState` |
-| `program_memory` | Linear byte array of FOCAL instructions, labels index | `CalcState` |
-| `engine` | Program counter, return stack (4 levels), step executor | `program_memory`, all ops |
-| `conditionals` | IF tests, ISG, DSE — skip-next-step semantics | `engine`, `stack`, `registers` |
-| `persistence` | Serde-based save/load of full `CalcState` to JSON | `CalcState` |
-| `error` | `HpError` enum, no panics | All modules |
+```
+hp41-core (library crate — zero UI deps)
+  src/
+    lib.rs             — public API re-exports; #![deny(clippy::unwrap_used)]
+    state.rs           — CalcState (single source of truth for all mutable state)
+    stack.rs           — Stack, apply_lift_effect(), enter_number()
+    num.rs             — HpNum (rust_decimal newtype)
+    format.rs          — format_hpnum(), format_alpha()
+    error.rs           — HpError enum
+    ops/
+      mod.rs           — Op enum, dispatch(), flush_entry_buf()
+      arithmetic.rs    — op_add/sub/mul/div
+      math.rs          — trig, log, exp, ...
+      registers.rs     — op_sto, op_rcl, op_sto_arith, op_clreg
+      stack_ops.rs     — op_enter, op_clx, op_chs, ...
+      alpha.rs         — op_alpha_toggle, op_alpha_append, ...
+      program.rs       — run_program(), run_loop(), execute_op(), parse_counter()
+      stats.rs         — sigma, mean, sdev, lr, ...
+      hms.rs           — HMS conversions
 
-### hp41-cli
+hp41-cli (binary crate — depends on hp41-core)
+  src/
+    main.rs            — entry point
+    app.rs             — App struct, handle_key(), handle_pending_input(), event loop
+    keys.rs            — key_to_op(), KEY_REF_TABLE
+    ui.rs              — render_ui() (ratatui)
+    persistence.rs     — save_state(), load_state()
+    help_data.rs       — HELP_DATA (? overlay content)
+    prgm_display.rs    — program listing formatter
+    programs.rs        — sample_programs()
+```
 
-| Sub-module | Responsibility | Communicates With |
-|---|---|---|
-| `tui::app` | `App` struct holding `CalcState` + UI state | `hp41-core` |
-| `tui::ui` | Ratatui render functions (view layer, side-effect-free) | `App` (read-only) |
-| `tui::events` | Crossterm event polling; translates keys → `Message` | `App` via `update()` |
-| `tui::layout` | Widget placement: stack panel, display, keyboard grid | `ui` |
-| `keymap` | Physical key → HP-41 key translation table | `events` |
-| `autosave` | Tokio timer task; calls `persistence::save` every 30s | `CalcState` (shared ref) |
-| `help` | Static built-in function reference rendered in TUI | `ui` |
-| `cli` | Clap argument parsing, entry point, `run()` orchestration | All of the above |
+### Key Invariants (must not be violated by v1.1)
+
+1. `hp41-core` has zero UI/CLI dependencies — enforced at compile time.
+2. All state lives in `CalcState`. No module-level globals.
+3. `#![deny(clippy::unwrap_used)]` — production code uses `.expect("reason")` or `?`.
+4. `dispatch()` calls `flush_entry_buf()` first, then checks `prgm_mode` gate.
+5. `execute_op()` inside `run_loop()` does NOT call `flush_entry_buf()`.
+6. `Op` derives `Serialize, Deserialize` — adding Op variants breaks existing JSON state files if not handled with `#[serde(default)]` on new CalcState fields.
+
+### Data Flow (existing)
+
+```
+crossterm KeyEvent
+  → app.handle_key()            [hp41-cli/src/app.rs]
+    → entry_buf append          (digit/./e keys — no dispatch)
+    → handle_pending_input()    (modal states)
+    → handle_alpha_mode_key()   (alpha mode)
+    → keys::key_to_op()         → hp41_core::ops::dispatch()
+                                    → flush_entry_buf()
+                                    → prgm_mode gate
+                                    → op_xxx() implementations
+```
 
 ---
 
-## Data Flow
+## Feature 1: STO Arithmetic Keyboard Modals
 
-### Interactive keystroke (normal mode)
+### Current State
 
-```
-Physical key press
-  → crossterm KeyEvent (in event task)
-  → keymap::translate() → Option<HpKey>
-  → Message::KeyPress(HpKey)
-  → update(app, msg)
-      → hp41-core::CalcState::handle_key(key)
-          → stack-lift check
-          → dispatch to arithmetic / stack / display / alpha
-          → update display string
-          → return Ok(())
-      → app.state modified in place
-  → terminal.draw(|f| ui::render(f, &app))
-  → user sees updated TUI
-```
+`PendingInput::StoAdd/StoSub/StoMul/StoDiv(String)` variants already exist in `app.rs` but are marked `#[allow(dead_code)]` with a comment "deferred to v1.1". The `handle_pending_input()` match arms for these four variants are already implemented and call `handle_reg_modal()` with the correct `Op::StoArith` constructor. The core dispatch (`Op::StoArith`) and the underlying `op_sto_arith()` function in `registers.rs` are fully implemented.
 
-### Program execution (PRGM running mode)
+### What Is Missing
 
-```
-XEQ / R/S key
-  → engine::run_program(&mut calc_state)
-      loop:
-        fetch instruction at program_counter
-        engine::execute_step()
-          → dispatch on Instruction enum variant
-          → arithmetic / stack / conditionals / control flow
-        if conditional skip: advance PC by 2
-        if GTO/XEQ: resolve label → set PC
-        if RTN / return stack empty: stop
-        check for STOP / interactive key interrupt
-  → display updated after each step
-  → return to idle state
+The trigger is missing. Currently pressing `S` unconditionally sets `PendingInput::StoRegister`. There is no way for the user to reach `PendingInput::StoAdd/Sub/Mul/Div`.
+
+### Integration Points
+
+**File: `hp41-cli/src/app.rs`**
+
+The `handle_key()` function contains this block:
+```rust
+if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+    self.pending_input = Some(PendingInput::StoRegister(String::new()));
+    ...
+    return;
+}
 ```
 
-### Save/load
+This must become a two-step modal. Step 1 waits for an arithmetic key (+/-/*//) or a digit. Step 1 needs a new `PendingInput` variant:
 
-```
-CalcState (in memory)
-  ← serde::Deserialize ← serde_json::from_str ← file on disk
-  → serde::Serialize → serde_json::to_string → file on disk
+```rust
+StoDispatch,  // waiting for: digit (StoRegister), + (StoAdd), - (StoSub), * (StoMul), / (StoDiv)
 ```
 
-All state lives inside `CalcState`. No global mutable state anywhere in hp41-core.
+Step 2 is already implemented for all four arithmetic variants.
+
+**File: `hp41-cli/src/app.rs` — `handle_pending_input()`**
+
+Add a match arm for `PendingInput::StoDispatch`:
+- Digit → set `PendingInput::StoRegister(digit_string)`
+- `+` → set `PendingInput::StoAdd(String::new())`
+- `-` → set `PendingInput::StoSub(String::new())`
+- `*` → set `PendingInput::StoMul(String::new())`
+- `/` → set `PendingInput::StoDiv(String::new())`
+- `Esc` → clear
+
+**File: `hp41-cli/src/keys.rs` — `KEY_REF_TABLE`**
+
+Add entries documenting the two-step STO modal flow.
+
+**File: `hp41-cli/src/help_data.rs`**
+
+Update `HELP_DATA` to document the new STO arithmetic modal flow.
+
+### New Data Structures
+
+None in `CalcState`. One new `PendingInput` variant (`StoDispatch`) in `app.rs`.
+
+### New Op Variants
+
+None. `Op::StoArith { reg: u8, kind: StoArithKind }` is already defined.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `hp41-cli/src/app.rs` | Add `PendingInput::StoDispatch`; change `S` key handler to set `StoDispatch` instead of `StoRegister`; add match arm in `handle_pending_input()` |
+| `hp41-cli/src/keys.rs` | Update `KEY_REF_TABLE` |
+| `hp41-cli/src/help_data.rs` | Update help text |
+
+### No hp41-core changes required.
 
 ---
 
-## Key Design Decisions
+## Feature 2: EEX Trailing-e-Without-Exponent Hardware Lock
 
-### 1. CalcState as the Single Source of Truth
+### Current State
 
-Model everything the calculator "is" in one owned struct:
+The existing behavior when a user presses a non-digit key while `entry_buf` ends with `'e'` (e.g., `"1.5e"`) is: `flush_entry_buf()` returns `Err(HpError::InvalidOp)`, the error is shown in the status bar, and `entry_buf` is cleared. This behavior is tested and documented in `mod flush_eex_tests::test_flush_trailing_e_without_exponent_returns_err`.
 
+The real HP-41 hardware behavior is different: pressing a non-numeric key when the exponent field is pending but empty locks the entry — the calculator waits for exponent digits and does not execute the attempted operation. The EEX key has been pressed; the hardware is in "exponent entry mode" and will not commit an incomplete number.
+
+### What Changes
+
+**The behavior to implement:** When `entry_buf` ends with `'e'` (exponent pending), any key that would trigger a non-digit operation must be blocked. The entry buf stays in place; the status bar shows a message like "EEX: enter exponent". The lock is cleared only by a digit (extends the exponent) or Backspace (cancels the EEX and removes the `e`).
+
+**File: `hp41-core/src/error.rs`**
+
+Add a new error variant:
 ```rust
-pub struct CalcState {
-    pub stack: Stack,           // X, Y, Z, T, LAST_X, stack_lift_enabled
-    pub registers: [f64; 100],  // R00–R99
-    pub display: Display,       // 12-char string + annunciators bitfield
-    pub flags: Flags,           // [bool; 56]  (30 user + 26 system)
-    pub alpha_buffer: String,   // current ALPHA mode accumulation
-    pub mode: CalcMode,         // Normal / Alpha / Prgm
-    pub angle_mode: AngleMode,  // Deg / Rad / Grad
-    pub number_format: NumberFormat, // Fix(n) / Sci(n) / Eng(n)
-    pub program_memory: ProgramMemory,
-    pub user_key_assignments: HashMap<HpKey, String>,
-    pub stats_registers: StatsRegisters,  // Σ accumulators
-    // Internal engine state (not user-visible, but serialized)
-    pub engine: EngineState,    // program_counter, return_stack
-}
+#[error("enter exponent")]
+IncompleteEntry,
 ```
 
-Rationale: Rust's ownership model works best when one struct owns all state. Borrowing rules
-prevent split borrows across modules if state is scattered. A single `&mut CalcState` passed to
-each operation avoids lifetime gymnastics. (HIGH confidence pattern — aligns with how rscalc
-and Free42's common/core_globals handle calculator state.)
+**File: `hp41-core/src/ops/mod.rs` — `flush_entry_buf()`**
 
-### 2. Stack-Lift Semantics as a Boolean Flag
+Currently clears `entry_buf` and returns `Err` on a trailing `e`. The new behavior: detect trailing `e`, return `Err(HpError::IncompleteEntry)` WITHOUT clearing `entry_buf`. The buffer must survive the error so the user can continue typing exponent digits.
 
-The `stack_lift_enabled` boolean in `Stack` controls whether the next numeric entry lifts the stack:
+**File: `hp41-cli/src/app.rs` — digit-entry block in `handle_key()`**
 
-```rust
-pub struct Stack {
-    x: f64,
-    y: f64,
-    z: f64,
-    t: f64,
-    last_x: f64,
-    lift_enabled: bool,  // the "push flag"
-}
+Add a Backspace handler for "EEX backspace": when `entry_buf` ends with `'e'`, Backspace pops the `e` (returning to plain mantissa), rather than routing through to `Op::Clx`. This is the correct HP-41 behavior (Backspace undoes the EEX key).
 
-impl Stack {
-    pub fn enter_number(&mut self, value: f64) {
-        if self.lift_enabled {
-            self.t = self.z;
-            self.z = self.y;
-            self.y = self.x;
-        }
-        self.x = value;
-        self.lift_enabled = true;
-    }
+**File: `hp41-cli/src/app.rs` — `call_dispatch()`**
 
-    pub fn enter_key(&mut self) {
-        self.y = self.x;
-        self.lift_enabled = false;  // ENTER disables lift for next entry
-    }
+When `dispatch()` returns `Err(HpError::IncompleteEntry)`, display "EEX: enter exponent" in the status bar but do NOT clear `entry_buf`. All other errors: existing behavior (show error, clear nothing).
 
-    pub fn binary_op<F: Fn(f64, f64) -> f64>(&mut self, f: F) {
-        self.last_x = self.x;
-        self.x = f(self.x, self.y);
-        self.y = self.z;
-        self.z = self.t;
-        // T stays (duplicates on pop — HP RPN rule)
-        self.lift_enabled = true;
-    }
-}
-```
+### New Data Structures
 
-Stack-lift rules (MEDIUM confidence — verified across multiple HP sources):
-- **Disables** lift: ENTER, CLX, CHS (sign change after fresh entry), digit key after result
-- **Enables** lift: all arithmetic ops, RCL, functions that produce a result
-- **Neutral** (no change to flag): STO, flag ops, display format changes, mode switches
+None in `CalcState`.
 
-### 3. Instruction Enum for the Programming Engine
+### New Op Variants
 
-Use a closed-world `Instruction` enum, not `dyn Trait`. The HP-41's instruction set is fixed
-and known at compile time. Enum dispatch is faster (no vtable) and lets the compiler exhaustively
-verify all instructions are handled:
+None.
 
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Instruction {
-    // Entry / stack
-    EnterNumber(f64),
-    Enter,
-    Clx,
-    Chs,
-    // Arithmetic
-    Plus, Minus, Times, Divide, Reciprocal, Sqrt, Square, YpowX,
-    // Logs
-    Ln, Log, Exp, TenPowX,
-    // Trig
-    Sin, Cos, Tan, Asin, Acos, Atan,
-    // Stack ops
-    RollDown, RollUp, SwapXY, LastX,
-    // Storage
-    Sto(u8), Rcl(u8), StoAdd(u8), StoSub(u8), StoMul(u8), StoDiv(u8),
-    // Modes
-    Fix(u8), Sci(u8), Eng(u8), Deg, Rad, Grad,
-    // Program control
-    Lbl(LabelRef), Gto(LabelRef), Xeq(LabelRef), Rtn, End,
-    // Conditionals (skip-next-step on FALSE)
-    IfXgtY, IfXltY, IfXgeY, IfXleY, IfXeqY, IfXneY,
-    IfXgt0, IfXlt0, IfXeq0, IfXne0,
-    Isg(u8), Dse(u8),
-    IfFlagSet(u8), IfFlagClear(u8),
-    // Alpha
-    AlphaLiteral(String), AlphaView,
-    // Flags
-    Sf(u8), Cf(u8),
-    // Statistics
-    SigmaPlus, SigmaMinus, Mean, Sdev, LinearRegression,
-    // HMS
-    HmsToHr, HrToHms, HmsPlus,
-}
+### Files Changed
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum LabelRef {
-    Local(u8),        // 00–99
-    Global(String),   // ALPHA label (up to 7 chars)
-}
-```
+| File | Change |
+|------|--------|
+| `hp41-core/src/error.rs` | Add `HpError::IncompleteEntry` |
+| `hp41-core/src/ops/mod.rs` | `flush_entry_buf()`: detect trailing `e`, return `IncompleteEntry` without clearing buf |
+| `hp41-cli/src/app.rs` | Backspace handling in digit-entry block (EEX backspace); `call_dispatch()` special-case for `IncompleteEntry` |
 
-### 4. Programming Engine: Return Stack (4 levels)
+### Test Impact
 
-The HP-41 hardware supports exactly 4 subroutine nesting levels (verified: the Nut CPU return
-stack is 4 deep). Model this as a fixed-size array:
-
-```rust
-pub struct EngineState {
-    pub program_counter: usize,       // index into program_memory.instructions
-    pub return_stack: [usize; 4],     // up to 4 nested XEQ/GSB calls
-    pub return_stack_depth: u8,       // 0..=4
-    pub running: bool,
-    pub prgm_mode: bool,
-}
-```
-
-RTN/END behavior:
-- If `return_stack_depth > 0`: pop return address, continue running
-- If `return_stack_depth == 0`: stop execution (program complete)
-- XEQ when return stack is full (depth == 4): HP-41 shows "TRY AGAIN" error
-
-### 5. Conditional Tests: Skip-Next-Step Model
-
-The HP-41 uses a "skip-if-false" conditional model. When a condition is TRUE, the next step
-executes normally. When FALSE, the next step is skipped:
-
-```rust
-fn execute_step(state: &mut CalcState) -> Result<StepResult, HpError> {
-    let instr = state.program_memory.get(state.engine.program_counter)?;
-    state.engine.program_counter += 1;
-    match instr {
-        Instruction::IfXgtY => {
-            if !(state.stack.x > state.stack.y) {
-                state.engine.program_counter += 1;  // skip next step
-            }
-            Ok(StepResult::Continue)
-        }
-        // ...
-    }
-}
-```
-
-ISG/DSE register format: `±ccccccc.fffii` where `ccccccc` = current value,
-`fff` = final/limit value (3 decimal digits), `ii` = increment (2 decimal digits).
-
-### 6. Error Handling: thiserror in Core, anyhow in CLI
-
-```rust
-// hp41-core/src/error.rs
-#[derive(Debug, thiserror::Error)]
-pub enum HpError {
-    #[error("Division by zero")]
-    DivisionByZero,
-    #[error("Square root of negative number")]
-    SqrtNegative,
-    #[error("Logarithm of non-positive number")]
-    LogNonPositive,
-    #[error("Overflow: result exceeds 9.999999999e99")]
-    Overflow,
-    #[error("Underflow")]
-    Underflow,
-    #[error("Subroutine nesting too deep (max 4)")]
-    ReturnStackFull,
-    #[error("Label '{0}' not found")]
-    LabelNotFound(String),
-    #[error("Program counter out of bounds")]
-    PcOutOfBounds,
-    #[error("Invalid register index {0}: must be 00–99")]
-    InvalidRegister(u8),
-    #[error("Invalid flag {0}: user flags are 0–29")]
-    InvalidFlag(u8),
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-}
-```
-
-No panics in hp41-core (NFR-3). All operations return `Result<T, HpError>`.
-hp41-cli uses `anyhow::Result` at the application boundary and converts HpError via `?`.
-
-### 7. TUI Architecture: Elm Architecture (TEA) Pattern
-
-Ratatui recommends the Elm Architecture as the most scalable pattern for complex TUI apps:
-
-```rust
-// hp41-cli/src/app.rs
-pub struct App {
-    pub calc: CalcState,          // the calculator (from hp41-core)
-    pub running: bool,
-    pub ui_mode: UiMode,          // Normal, Help, PrgmList, ...
-    pub prgm_cursor: usize,       // for PRGM mode display
-}
-
-// hp41-cli/src/events.rs
-pub enum Message {
-    KeyPress(HpKey),
-    Tick,                         // 30s autosave timer
-    Resize(u16, u16),
-    Quit,
-    SaveState,
-    LoadState(PathBuf),
-    ShowHelp,
-    HideHelp,
-}
-
-// update function: pure state transition
-fn update(app: &mut App, msg: Message) -> Option<Message> {
-    match msg {
-        Message::KeyPress(key) => {
-            match app.calc.handle_key(key) {
-                Ok(_) => None,
-                Err(e) => { app.last_error = Some(e.to_string()); None }
-            }
-        }
-        Message::Tick => Some(Message::SaveState),
-        Message::SaveState => {
-            let _ = persistence::save(&app.calc, &app.state_path);
-            None
-        }
-        // ...
-    }
-}
-
-// Main event loop
-fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow::Result<()> {
-    let (event_tx, event_rx) = mpsc::unbounded_channel::<Message>();
-    // spawn event task: crossterm events → Message::KeyPress
-    // spawn tick task: 30s timer → Message::Tick
-    let mut app = App::new(load_or_default_state()?);
-    loop {
-        terminal.draw(|f| ui::render(f, &app))?;
-        let msg = event_rx.recv()?;
-        if matches!(msg, Message::Quit) { break; }
-        let mut current = Some(msg);
-        while let Some(m) = current {
-            current = update(&mut app, m);
-        }
-    }
-    Ok(())
-}
-```
-
-### 8. Display and Annunciators
-
-```rust
-pub struct Display {
-    pub text: String,            // up to 12 chars (alphanumeric)
-    pub annunciators: Annunciators,
-}
-
-pub struct Annunciators {
-    pub user: bool,   // USER mode active
-    pub prgm: bool,   // PRGM mode active
-    pub alpha: bool,  // ALPHA mode active
-    pub shift: bool,  // shift key pending
-    pub rad: bool,    // Radians mode
-    pub grad: bool,   // Grads mode (neither = DEG)
-    pub run: bool,    // program running
-    pub low_bat: bool, // (cosmetic only — always false in emulator)
-}
-```
-
-The `display.text` string is what hp41-cli renders in the display widget. hp41-core is
-responsible for formatting numbers per the current FIX/SCI/ENG setting and writing them into
-`display.text` after each operation. The CLI reads this string — no number formatting in CLI.
-
-### 9. Program Memory Layout
-
-```rust
-pub struct ProgramMemory {
-    pub instructions: Vec<Instruction>,  // linear program store
-    pub labels: HashMap<LabelRef, usize>, // pre-indexed label positions
-    pub end_positions: Vec<usize>,        // positions of END instructions (program separators)
-}
-```
-
-Labels are re-indexed on any program edit (insert/delete step). The `end_positions` vector
-marks program boundaries for GTO's downward-then-wrap search semantics.
-
-For numeric labels (LBL 00–99): search starts at current PC, scans forward to END, wraps to
-start of current program. For global alpha labels: searches all programs.
-
-### 10. Persistence: Versioned JSON
-
-```rust
-#[derive(Serialize, Deserialize)]
-pub struct SaveFile {
-    pub version: u32,         // schema version; current = 1
-    pub saved_at: String,     // ISO 8601
-    pub calc: CalcState,
-}
-```
-
-On load, check `version` field first. Unknown future versions: fail with a clear error message.
-Past versions: migration functions keyed on version number. Use `#[serde(default)]` on all new
-fields so v1 files load cleanly in v2 without migration code for purely additive changes.
+`mod flush_eex_tests::test_flush_trailing_e_without_exponent_returns_err` must be updated: the asserted error changes to `HpError::IncompleteEntry`, and the assertion `state.entry_buf.is_empty()` inverts to assert that the buf is NOT cleared.
 
 ---
 
-## Suggested Build Order
+## Feature 3: Print Emulation (PRX / PRA / PRSTK)
 
-This is the dependency-first order for implementation. Each item can only be built after
-all items it depends on are complete. Cargo enforces this at the crate level; within hp41-core,
-the module ordering is a team convention.
+### HP-41 Hardware Behavior
+
+On the real HP-41 with the 82143A printer module:
+- `PRX` prints the X register formatted per the current display mode
+- `PRA` prints the ALPHA register string
+- `PRSTK` prints all five registers: T, Z, Y, X, LASTX (and optionally the ALPHA register)
+
+Flag 26 when set suppresses printer output on hardware — emulator support for this flag is a v1.2+ refinement.
+
+### Architecture Decision: Print Sink
+
+`hp41-core` must remain UI-agnostic. The print operations cannot write to stdout or a file directly from within the library. Two options were considered:
+
+**Option A — Callback/trait sink:** Add `print_sink: Option<Box<dyn FnMut(String)>>` to `CalcState` or as a separate `dispatch()` parameter. Avoids storing output in state, but introduces trait objects, complicates serde, and changes the `dispatch()` signature.
+
+**Option B — Print buffer in CalcState (recommended):** Add `print_buffer: Vec<String>` to `CalcState`. Print ops append lines to the buffer. `hp41-cli` drains the buffer after each `dispatch()` call and writes to stdout. No trait objects, no signature changes, fully serde-compatible with `#[serde(default)]`.
+
+**Recommendation: Option B.** It avoids trait objects, is serde-compatible without special handling, keeps `dispatch()` signature unchanged, and lets tests inspect the buffer directly without stdout capture. The drain-after-dispatch pattern is a clean boundary.
+
+### New Fields in CalcState
+
+```rust
+/// Lines accumulated by PRX/PRA/PRSTK. hp41-cli drains after each dispatch().
+/// Intentionally not persisted between sessions: #[serde(default)] returns empty vec.
+#[serde(default)]
+pub print_buffer: Vec<String>,
+```
+
+### New Op Variants
+
+```rust
+/// PRX — print X register (formatted per display_mode). LiftEffect: Neutral.
+Prx,
+/// PRA — print ALPHA register string. LiftEffect: Neutral.
+Pra,
+/// PRSTK — print all stack registers (T/Z/Y/X/LASTX) + ALPHA. LiftEffect: Neutral.
+Prstk,
+```
+
+### New Source File
+
+`hp41-core/src/ops/print.rs` — contains `op_prx()`, `op_pra()`, `op_prstk()`. Each pushes one or more formatted lines onto `state.print_buffer` using `format_hpnum()` and `format_alpha()` from `hp41-core/src/format.rs`.
+
+### Integration Points
+
+**File: `hp41-core/src/state.rs`**
+
+Add `print_buffer: Vec<String>` to `CalcState` with `#[serde(default)]`. Initialize as `Vec::new()` in `CalcState::new()`.
+
+**File: `hp41-core/src/ops/mod.rs`**
+
+Add `pub mod print;` declaration and use imports. Add three Op variants. Add three match arms in `dispatch()`.
+
+**File: `hp41-core/src/ops/program.rs` — `execute_op()`**
+
+Add match arms for `Op::Prx`, `Op::Pra`, `Op::Prstk` so print ops work inside programs. This is mandatory — see the execute_op mirror requirement below.
+
+**File: `hp41-cli/src/app.rs` — `call_dispatch()`**
+
+After `dispatch()` returns `Ok(())`, drain `self.state.print_buffer` and write each line to stdout (or a configured output file). Use `std::mem::take(&mut self.state.print_buffer)` to drain atomically.
+
+**File: `hp41-cli/src/keys.rs`**
+
+Add key bindings. Candidate uppercase letters currently unmapped:
+- `KeyCode::Char('P')` (Shift+p) → `Op::Prx`  (lowercase `p` is PrgmMode)
+- `KeyCode::Char('A')` (Shift+a) → `Op::Pra`  (lowercase `a` is Asin)
+- `KeyCode::Char('K')` (Shift+k) → `Op::Prstk` (lowercase `k` is Atan)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `hp41-core/src/state.rs` | Add `print_buffer: Vec<String>` with `#[serde(default)]` |
+| `hp41-core/src/ops/print.rs` | New file — `op_prx()`, `op_pra()`, `op_prstk()` |
+| `hp41-core/src/ops/mod.rs` | `pub mod print;`, 3 new Op variants, 3 match arms in `dispatch()` |
+| `hp41-core/src/ops/program.rs` | 3 match arms in `execute_op()` |
+| `hp41-cli/src/app.rs` | Drain `print_buffer` after `call_dispatch()` |
+| `hp41-cli/src/keys.rs` | 3 key bindings and KEY_REF_TABLE entries |
+| `hp41-cli/src/help_data.rs` | Help text for print ops |
+
+---
+
+## Feature 4: Synthetic Programming
+
+### HP-41 Hardware Context
+
+Synthetic programming on the real HP-41 exploits the multi-byte FOCAL instruction encoding to inject byte sequences not accessible from the normal keyboard. The byte codes are raw FOCAL virtual machine opcodes (0x00–0xEF range). Users historically used "byte jumper" and "byte grabber" techniques to compose byte sequences that access hidden functions, null characters in ALPHA, and extended operations.
+
+### Architecture Decision: Scope for v1.1
+
+A full faithful FOCAL byte-code interpreter would require a complete FOCAL VM — this contradicts the project's settled "behavioral emulation, not cycle-accurate Nut CPU" decision. The appropriate v1.1 scope is:
+
+**Raw byte injection into program memory as a new `Op` variant.** The byte is stored in the flat `program: Vec<Op>` as `Op::RawByte(u8)`. When the interpreter encounters `Op::RawByte`, it executes a best-effort behavioral mapping: known codes map to existing behaviors; unknown codes return `HpError::InvalidOp`. This gives users access to the synthetic programming workflow without a full FOCAL VM.
+
+This is explicitly a behavioral emulation of synthetic programming's effects, not a bit-faithful FOCAL byte interpreter. The initial implementation covers the ~15–20 most commonly used synthetic operations.
+
+### New Fields in CalcState
+
+None. Raw byte codes are stored as `Op::RawByte(u8)` in the existing `program: Vec<Op>`. No new top-level fields required.
+
+### New Op Variants
+
+```rust
+/// RawByte(b) — synthetic programming: raw FOCAL byte injection.
+/// In prgm_mode recording: stored verbatim in program Vec like any op.
+/// In execute_op(): dispatched to op_raw_byte() behavioral mapping.
+/// Unknown byte codes return HpError::InvalidOp.
+/// LiftEffect: depends on byte code semantics.
+RawByte(u8),
+```
+
+### New Source File
+
+`hp41-core/src/ops/synthetic.rs` — contains:
+
+- `pub fn op_raw_byte(state: &mut CalcState, byte: u8) -> Result<(), HpError>` — behavioral dispatch table for known FOCAL byte codes.
+- `pub fn focal_byte_name(byte: u8) -> &'static str` — returns the conventional mnemonic for a byte code (e.g., `"NULL"`, `"TONE 1"`) for use in program display formatting.
+
+### Integration Points
+
+**File: `hp41-core/src/ops/mod.rs`**
+
+Add `pub mod synthetic;`, add `Op::RawByte(u8)` variant, add match arm in `dispatch()`.
+
+**File: `hp41-core/src/ops/program.rs` — `execute_op()`**
+
+Add match arm for `Op::RawByte(b)` calling `synthetic::op_raw_byte(state, b)`.
+
+**File: `hp41-cli/src/app.rs`**
+
+Add `PendingInput::SyntheticByte(String)` — a two-digit hex accumulator. Trigger: e.g., `Ctrl+B`. On two hex digits received, dispatch `Op::RawByte(parsed_byte)`. Esc cancels. This reuses the accumulator pattern already established by `handle_reg_modal()`.
+
+**File: `hp41-cli/src/prgm_display.rs`**
+
+Add formatting for `Op::RawByte(b)` — display as `"BYTE xx"` (hex) in the program listing, with the FOCAL mnemonic from `focal_byte_name()` appended where known.
+
+**File: `hp41-cli/src/keys.rs`**
+
+Add a trigger key for byte entry modal (KEY_REF_TABLE entry).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `hp41-core/src/ops/synthetic.rs` | New file — `op_raw_byte()`, `focal_byte_name()` |
+| `hp41-core/src/ops/mod.rs` | `pub mod synthetic;`, `Op::RawByte(u8)`, match arm in `dispatch()` |
+| `hp41-core/src/ops/program.rs` | Match arm in `execute_op()` |
+| `hp41-cli/src/app.rs` | `PendingInput::SyntheticByte(String)`, hex accumulator modal |
+| `hp41-cli/src/prgm_display.rs` | Format `Op::RawByte` in program listing |
+| `hp41-cli/src/keys.rs` | Trigger key + KEY_REF_TABLE entry |
+| `hp41-cli/src/help_data.rs` | Help text for byte entry |
+
+---
+
+## Dependency Graph and Build Order
+
+### Feature Dependencies
 
 ```
-1. hp41-core/error.rs          — HpError; no deps
-2. hp41-core/stack.rs          — Stack struct with lift semantics; depends on error
-3. hp41-core/registers.rs      — R00–R99 storage; depends on error
-4. hp41-core/flags.rs          — user/system flags; depends on error
-5. hp41-core/display.rs        — Display + Annunciators; depends on nothing
-6. hp41-core/math_modes.rs     — AngleMode, NumberFormat, formatting; depends on display
-7. hp41-core/state.rs          — CalcState (aggregates all above); depends on all above
-8. hp41-core/arithmetic.rs     — math ops on CalcState; depends on state, error
-9. hp41-core/alpha.rs          — ALPHA mode entry; depends on state
-10. hp41-core/program_memory.rs — Instruction enum, ProgramMemory; depends on error
-11. hp41-core/engine.rs         — step executor, return stack, conditionals; depends on state + program_memory
-12. hp41-core/persistence.rs    — save/load; depends on state (serde)
-13. hp41-core/lib.rs            — public API surface; re-exports
-    ──── hp41-core complete ────
-14. hp41-cli/error.rs           — anyhow integration
-15. hp41-cli/keymap.rs          — physical key → HpKey; depends on hp41-core public types
-16. hp41-cli/app.rs             — App, Message, update(); depends on hp41-core
-17. hp41-cli/tui/layout.rs      — widget geometry
-18. hp41-cli/tui/ui.rs          — ratatui render functions; depends on app
-19. hp41-cli/tui/events.rs      — crossterm event loop, autosave timer; depends on app
-20. hp41-cli/help.rs            — static help content
-21. hp41-cli/main.rs            — entry point, clap args, run()
+Feature 1 (STO arithmetic modals)   — independent; all core code exists; only app.rs changes
+Feature 2 (EEX hardware lock)       — independent; self-contained flush_entry_buf change
+Feature 3 (Print emulation)         — independent; new Op variants, new CalcState field
+Feature 4 (Synthetic programming)   — independent of 1-3, but benefits from Feature 3
+                                      existing first (synthetic printer byte codes can
+                                      call op_prx/op_pra rather than stub to InvalidOp)
 ```
+
+No feature is a hard prerequisite for another. Soft coupling:
+
+- Feature 4's `op_raw_byte()` behavioral map may want to call `op_prx()`/`op_pra()` for the printer byte codes (FOCAL bytes 0x00–0x0F include print functions). Building Feature 3 before Feature 4 allows direct reuse. Building Feature 4 first requires stubbing those bytes as `InvalidOp` initially.
+
+### Recommended Build Order
+
+**Phase 1: Feature 1 (STO arithmetic modals)**
+
+Lowest risk, smallest surface area. No `hp41-core` changes required. The implementation is already scaffolded in `app.rs` — only `PendingInput::StoDispatch` and its handler are missing. `handle_reg_modal()` is proven by the existing STO/RCL implementation. Delivers immediately visible UX value and establishes confidence for the more complex modal pattern in Feature 4.
+
+**Phase 2: Feature 2 (EEX hardware lock)**
+
+Small, focused change touching two files in `hp41-core` and one in `hp41-cli`. Must be done carefully to avoid regressions in the `entry_buf` guards already present in `app.rs`. Completing this before Feature 3 keeps the `flush_entry_buf()` change isolated and the diff history clean.
+
+**Phase 3: Feature 3 (Print emulation)**
+
+Medium surface area. New `CalcState` field, new `Op` variants, new source file, drain logic in `app.rs`. Establishes the `#[serde(default)]` pattern for backward-compatible persistence — this is the template for any future CalcState additions. After this phase, Feature 4's `op_raw_byte()` can call `op_prx()`/`op_pra()` directly for printer byte codes.
+
+**Phase 4: Feature 4 (Synthetic programming)**
+
+Largest research and implementation surface. The behavioral byte-code table requires research into which FOCAL byte codes to implement at what fidelity. Build last to benefit from the established modal patterns (Feature 1), the refined `execute_op()` extension workflow (Feature 3), and the program display formatting established in Feature 3's integration work. Start with a minimal curated set (NULL character insertion, extended alpha characters, printer byte codes) and expand incrementally.
+
+---
+
+## Cross-Cutting Concerns
+
+### execute_op() Mirror Requirement
+
+`execute_op()` in `program.rs` is a MIRROR of `dispatch()` in `ops/mod.rs`. Every Op variant that works interactively must also work inside programs. Any new Op variant added to `dispatch()`'s match must also appear in `execute_op()`. Failing to do this causes a runtime `HpError::InvalidOp` when the op is encountered during program execution — no compile-time warning, because `execute_op()` ends with a catch-all arm for programming-specific ops.
+
+For Features 3 and 4: after adding match arms to `dispatch()`, immediately add corresponding arms to `execute_op()` in the same change.
+
+### Serde Backward Compatibility
+
+Every new `CalcState` field must use `#[serde(default)]`. This ensures v1.0 JSON state files deserialize without error after upgrading to v1.1. Test pattern: deserialize a JSON blob that lacks the new field and verify the field takes its default value. `Vec<String>` defaults to `vec![]` via `Vec::default()`. Feature 3 is the only feature that adds a new `CalcState` field.
+
+### #![deny(clippy::unwrap_used)] Compliance
+
+All new `hp41-core` production code must use `.expect("reason")` or `?`-propagation. The `#[allow(clippy::unwrap_used)]` exemption applies to test modules only. New source files (`print.rs`, `synthetic.rs`) must not contain `.unwrap()` in non-test code.
+
+### Coverage Gate
+
+`just coverage` enforces at least 80% coverage on `hp41-core` (currently 94.87%). Each new `ops/` submodule must include unit tests sufficient to keep coverage above 80%. The print ops are simple (push formatted string to buffer) and easy to test. The synthetic byte dispatch table requires a test per implemented byte code mapping.
+
+### Key Binding Space Available
+
+Uppercase letters (Shift+letter) still unmapped as of v1.0: `B`, `M`, `N`, `P`, `Q`, `U`, `X`. Feature 3 needs 3 bindings; Feature 4 needs 1 trigger. `P/A/K` for print ops and `Ctrl+B` for byte entry are the recommended choices, leaving `B/M/N/Q/U/X` available for v1.2+.
+
+---
+
+## Architecture Patterns to Follow
+
+### Pattern: New Op Submodule
+
+When adding new operations (Features 3 and 4):
+
+1. Create `hp41-core/src/ops/new_module.rs`.
+2. Declare `pub mod new_module;` in `hp41-core/src/ops/mod.rs`.
+3. Add Op variants to the `Op` enum.
+4. Add match arms to `dispatch()`.
+5. Add match arms to `execute_op()` in `program.rs`.
+6. Add unit tests inside the new module (`#[allow(clippy::unwrap_used)]` on the test mod).
+
+### Pattern: New CalcState Field
+
+When adding persistent state (Feature 3):
+
+1. Add field to `CalcState` struct with `#[serde(default)]`.
+2. Initialize in `CalcState::new()`.
+3. The `impl Default for CalcState` delegates to `new()` — no separate change needed.
+4. Write a test that deserializes a JSON blob missing the field and verifies the default.
+
+### Pattern: New PendingInput Modal
+
+When adding a multi-key input flow (Features 1 and 4):
+
+1. Add variant to `PendingInput` enum in `app.rs`.
+2. Set the variant from the trigger key handler in `handle_key()` (before `key_to_op()` is called).
+3. Add a match arm in `handle_pending_input()`.
+4. For numeric accumulators (register numbers, hex bytes), reuse `handle_reg_modal()` via a closure that constructs the target Op.
+5. Document the trigger key in `KEY_REF_TABLE` and `help_data.rs`.
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Global Calculator State
+### Anti-Pattern: Print Directly from hp41-core
 
-**What:** `static mut CALC: Mutex<CalcState>` or thread-local state.
-**Why bad:** Makes hp41-core impossible to test in parallel; prevents multiple instances; breaks the core/UI separation contract.
-**Instead:** Pass `&mut CalcState` through the call stack. One `CalcState` per `App`.
+**What:** `op_prx()` calls `println!()` or writes to a file inside `hp41-core`.
+**Why bad:** Breaks the zero-UI-deps invariant. Makes the library untestable without capturing stdout. Incompatible with a future GUI adapter.
+**Instead:** Push formatted strings to `state.print_buffer`; drain in `hp41-cli/src/app.rs` after `dispatch()` returns.
 
-### Anti-Pattern 2: Number Formatting in the Stack
+### Anti-Pattern: Skipping the execute_op() Mirror
 
-**What:** Storing formatted strings in X/Y/Z/T instead of f64.
-**Why bad:** Arithmetic on formatted strings is wrong; FIX/SCI/ENG changes require re-formatting all registers.
-**Instead:** Store raw f64 in stack. Format only when writing `display.text`. Keep formatting in `math_modes.rs::format_number(value: f64, fmt: NumberFormat) -> String`.
+**What:** Adding Op variants to `dispatch()` without adding them to `execute_op()`.
+**Why bad:** The op silently fails during program execution (`HpError::InvalidOp`) with no compile-time warning.
+**Instead:** Always update both match statements in the same commit/plan.
 
-### Anti-Pattern 3: dyn Trait for Instructions
+### Anti-Pattern: New CalcState Field Without serde(default)
 
-**What:** `Box<dyn Executable>` for each instruction stored in program memory.
-**Why bad:** Heap allocation per step; no exhaustive match verification; harder to serialize/deserialize; ~10x slower dispatch.
-**Instead:** `Instruction` enum with exhaustive `match`. The HP-41 instruction set is closed and fixed.
+**What:** Adding a field to `CalcState` without `#[serde(default)]`.
+**Why bad:** Users with v1.0 state files get a deserialization error on first v1.1 launch, losing their calculator state.
+**Instead:** Every new field uses `#[serde(default)]`. Verify with a deserialization test.
 
-### Anti-Pattern 4: Parsing FOCAL Syntax at Runtime
+### Anti-Pattern: Full FOCAL VM for Synthetic Programming
 
-**What:** Storing programs as text strings and parsing them during execution.
-**Why bad:** Parsing overhead per step; error reporting is harder; editing individual steps requires re-parsing.
-**Instead:** Represent programs as `Vec<Instruction>` (already parsed). Keystroke entry adds one `Instruction` at a time.
+**What:** Implementing a cycle-accurate FOCAL byte interpreter for all 256 byte codes.
+**Why bad:** Contradicts the settled "behavioral emulation, not cycle-accurate Nut CPU" decision. Requires HP ROM knowledge (legal risk). 500+ LOC for negligible user-visible value above a curated behavioral subset.
+**Instead:** Behavioral dispatch table in `synthetic.rs` covering the ~15–20 most commonly used synthetic operations (NULL, extended ALPHA characters, printer byte codes).
 
-### Anti-Pattern 5: Blocking the TUI Render Thread
+### Anti-Pattern: Clearing Entry Buffer on IncompleteEntry
 
-**What:** Running a long program synchronously inside the event loop, blocking rendering.
-**Why bad:** TUI becomes unresponsive; user cannot press R/S to stop a running program.
-**Instead:** Run programs in a Tokio task. Use a shared `AtomicBool` running flag. Send display updates back via mpsc channel to the render loop. (This is the main async complexity in the architecture — flag for phase-specific research.)
-
-### Anti-Pattern 6: Panics in hp41-core
-
-**What:** Using `unwrap()`, `expect()`, `panic!()` in hp41-core for expected calculator errors like divide-by-zero.
-**Why bad:** NFR-3 requires crash-free sessions; panics crash the process.
-**Instead:** Return `Err(HpError::DivisionByZero)`. hp41-cli catches and displays "DIVIDE BY 0" in the display widget.
-
----
-
-## Scalability Considerations
-
-| Concern | v1.0 approach | v2.0 concern |
-|---|---|---|
-| Program execution speed | Synchronous step-by-step with Tokio task | Same — behavioral emulation is fast enough |
-| State sharing (CLI → GUI) | Not needed; GUI replaces CLI | Tauri uses Rust backend directly, same `CalcState` |
-| Memory size | `Vec<Instruction>` is trivially small (HP-41 max ~2200 bytes of program) | No concern |
-| Serialization compatibility | v1 JSON + version field | Migration functions keyed on version number |
-| Test isolation | `CalcState::default()` per test; no shared state | Same pattern scales |
+**What:** `flush_entry_buf()` clears `entry_buf` when returning `HpError::IncompleteEntry`.
+**Why bad:** The user loses their mantissa and must re-enter it from scratch.
+**Instead (Feature 2):** Return `IncompleteEntry` WITHOUT clearing `entry_buf`. The CLI displays the "EEX: enter exponent" message and keeps the entry alive. The buffer is only cleared by Backspace (removes trailing `e`) or by a valid subsequent operation.
 
 ---
 
 ## Sources
 
-- [Free42 Source Code (Codeberg)](https://codeberg.org/thomasokken/free42) — core/ vs platform/ separation pattern (HIGH confidence)
-- [Ratatui Elm Architecture](https://ratatui.rs/concepts/application-patterns/the-elm-architecture/) — Model/Message/update/view pattern (HIGH confidence)
-- [Ratatui Event Handling](https://ratatui.rs/concepts/event-handling/) — centralized catch + message passing (HIGH confidence)
-- [Ratatui Tui.rs Template](https://ratatui.rs/templates/component/tui-rs/) — Tui struct, async event loop, Drop cleanup (HIGH confidence)
-- [HP-41C Programming Guide](https://www.hpmuseum.org/prog/hp41prog.htm) — FOCAL execution model, conditional skip semantics (MEDIUM confidence — 403 on fetch but corroborated by multiple sources)
-- [HP-41C Wikipedia](https://en.wikipedia.org/wiki/HP-41C) — memory layout, register structure (MEDIUM confidence)
-- [FOCAL Language (Academic Kids)](https://academickids.com/encyclopedia/index.php/Focal_(HP-41)) — instruction model, linear program store (MEDIUM confidence)
-- [HP Museum — GSB/XEQ/GTO/LBL/RTN quirks](https://www.hpmuseum.org/forum/thread-15118-post-132721.html) — return stack behavior, RTN vs END (MEDIUM confidence — 403 on fetch but content referenced in search result)
-- [HP-41 Info](http://dan.pfeiffer.net/hp41/hp41info.htm) — stack lift rules, flags, annunciators (attempted fetch — connection refused; content referenced from other sources)
-- [ISG/DSE format — HP 35s Manual (ManualsLib)](https://www.manualslib.com/manual/257003/Hp-35s.html?page=228) — ccccccc.fffii counter format; identical on HP-41 (MEDIUM confidence)
-- [enum_dispatch vs dyn Trait](https://docs.rs/enum_dispatch/latest/enum_dispatch/) — closed-world enum preferred for fixed instruction sets (HIGH confidence)
-- [thiserror](https://github.com/dtolnay/thiserror) — library error types (HIGH confidence)
-- [Cargo Workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) — crate dependency direction, build order (HIGH confidence)
-- [WezTerm DeepWiki](https://deepwiki.com/wezterm/wezterm) — terminal emulator workspace pattern, UI-agnostic core (MEDIUM confidence)
-- [rscalc (D0ntPanic)](https://github.com/D0ntPanic/rscalc) — RPN stack calculator Rust source structure (MEDIUM confidence)
-- [SwissMicros Forum — Stack Lift Rules](https://forum.swissmicros.com/viewtopic.php?t=2699) — stack lift enable/disable/neutral classification (MEDIUM confidence — 403 on fetch; content summary from search result)
+- Codebase direct read: `hp41-core/src/ops/mod.rs`, `program.rs`, `registers.rs`, `state.rs`, `error.rs`, `lib.rs` (2026-05-08)
+- Codebase direct read: `hp41-cli/src/app.rs`, `keys.rs`, `ui.rs` (2026-05-08)
+- HP-41 synthetic programming: [HP Museum Synthetic Programming Guide](https://www.hpmuseum.org/prog/synth41.htm), [Wikipedia: Synthetic Programming (HP-41)](https://en.wikipedia.org/wiki/Synthetic_Programming_(HP-41))
+- HP-41 print commands: [forum.hp41.org — printer differences](https://forum.hp41.org/viewtopic.php?f=5&t=492)
+- PROJECT.md and STATE.md (2026-05-08)

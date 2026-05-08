@@ -1,413 +1,659 @@
-# Domain Pitfalls: HP-41 Calculator Emulator (Rust CLI)
+# Domain Pitfalls: HP-41 Emulator v1.1 Feature Set
 
-**Domain:** RPN calculator emulator / keystroke programming engine / terminal TUI
-**Researched:** 2026-05-06
-**Applies to project:** hp41-calculator-emulator (behavioral emulation, not cycle-accurate)
+**Domain:** HP-41 behavioral emulation — v1.1 additions to a hardened v1.0 Rust codebase
+**Researched:** 2026-05-08
+**Applies to:** STO arithmetic keyboard modals, EEX lock behavior, Print emulation, Synthetic programming
+
+---
+
+## Context: The v1.0 Foundation
+
+v1.0 shipped with `#![deny(clippy::unwrap_used)]` (zero panics in core), 94.87% test coverage,
+and all ~130 ops explicitly declaring `LiftEffect::Enable / Disable / Neutral`. The two
+hardest behavioral features were ISG/DSE counter parsing (string-split, never `floor()`/`fmod()`)
+and stack-lift semantics — both are now correct. Every new feature must slot into this
+existing correctness model without loosening it.
+
+The pitfalls below are specific to the four v1.1 features. They assume v1.0 architecture is
+unchanged: `op_sto_arith()` exists in `registers.rs`, the modal `PendingInput` enum lives in
+`app.rs`, and `flush_entry_buf()` in `ops/mod.rs` handles EEX.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, user-visible fidelity failures, or hard-to-debug corruption.
-
----
-
-### Pitfall C1: Binary f64 arithmetic breaks HP-41 decimal fidelity
+### Pitfall C1: STO arithmetic applied to stack registers — not just R00-R99
 
 **What goes wrong:**
-Using Rust `f64` as the internal number representation causes well-known binary floating-point representation errors. HP-41 uses BCD (Binary-Coded Decimal) internally: a 10-digit decimal mantissa, 2-digit decimal exponent, and two sign nibbles. With `f64`, innocuous operations diverge from hardware: `0.1 + 0.2` does not equal `0.3`, repeated accumulation drifts, and round-trip display formatting produces wrong last digits.
+The current `op_sto_arith()` validates `reg >= 100` and returns `InvalidOp`. On the HP-41
+hardware, `STO+` and `STO-` (and `×` and `÷`) accept not just data registers R00–R99 but also the
+stack registers: X, Y, Z, T, and LASTX (L). For example, `STO+ Y` adds X to the Y register in
+place. This is accessed on the hardware keyboard via `STO` then `+` then `.` then the stack
+register letter.
+
+An implementation that only exposes the R00–R99 path misses a documented HP-41 feature. More
+dangerously, if a `u8` register number scheme is extended to encode stack registers (e.g. 100–104
+for X/Y/Z/T/L), and the existing `reg >= 100 → InvalidOp` guard is not updated, valid stack
+register operations silently fail.
 
 **Why it happens:**
-IEEE 754 double-precision stores numbers in base-2. Most decimal fractions (0.1, 0.3, etc.) are non-terminating in binary, so they are approximated. Free42 ships two builds explicitly because "numbers such as 0.1 cannot be represented exactly in binary, and this inexactness can cause some HP-42S programs to fail."
+The v1.0 `StoArith { reg: u8, kind: StoArithKind }` encoding assumes `reg` is a data register
+index. Stack registers have no natural index in 0–99. The guard `reg >= 100 → InvalidOp` was
+correct for v1.0 data-register-only STO arithmetic but is wrong if the feature is extended.
 
 **Consequences:**
-NFR-7 requires ≥98% numerical agreement with HP-41 reference across a 500-case test suite. `f64` alone will fail many of those cases at the last digit. Display formatting will show rounding artifacts (e.g., `3.9999999999` instead of `4.0000000000`).
+Stack register arithmetic silently returns `InvalidOp` when the user tries `STO+ Z`, which is
+valid HP-41 behavior. Users copying HP-41 programs that use `STO+ Z` or `STO- T` see error
+messages with no explanation.
 
 **Prevention:**
-Use a decimal arithmetic crate (`rust_decimal`, `bigdecimal`, or a custom BCD struct) for the register values. The internal representation should mirror the HP-41 hardware: 10-digit BCD mantissa with a signed 2-digit exponent. Maintain 13-digit extended precision internally (matching the hardware's dual-register math routines) and round to 10 digits only at display time. `f64` is acceptable only for intermediate calculations in transcendental functions where it is then rounded back to 10 decimal digits.
+Before implementing keyboard modals, decide the register encoding. Two clean options:
 
-**Warning signs:**
-- Any unit test comparing `sin(45° DEG)` to the reference value with naive `f64` equality
-- Display formatter that converts via `f64::to_string()` rather than formatted BCD output
-- Trig results differing in digit 9 or 10 from HP-41 reference tables
+1. Keep `reg: u8` for data registers (0–99) and add a separate `StoArithStack` variant in `Op`
+   with an enum target `StackReg { X, Y, Z, T, L }`. Both map to `op_sto_arith_stack()` in
+   `registers.rs`.
+2. Use a `StoTarget` enum replacing `reg: u8` in `StoArith`: `StoTarget::DataReg(u8)` or
+   `StoTarget::StackReg(StackReg)`. Cleaner but requires touching all existing `StoArith` match arms.
 
-**Phase:** M1 (Core Arithmetic). Must be decided before any register code is written. Retrofitting is a full data model rewrite.
+The keyboard modal in `app.rs` then presents a second-level menu: after `STO+`, the user
+sees a prompt for register number **or** stack register letter (X/Y/Z/T/L).
+
+Update `op_sto_arith` to remove the blanket `reg >= 100 → InvalidOp` guard if the u8 encoding
+is extended to cover stack registers.
+
+**Detection:**
+Test: `STO+ Y` where X=5, Y=10 should produce Y=15 with X and stack lift unchanged. If this
+returns `InvalidOp`, the guard is not updated.
+
+**Phase:** STO arithmetic modal phase. Must be designed before keyboard modal wiring.
 
 ---
 
-### Pitfall C2: Stack-lift semantics implemented incorrectly
+### Pitfall C2: EEX trailing-e flush produces `InvalidOp` instead of hardware lock behavior
 
 **What goes wrong:**
-Stack-lift (the "push flag") is the most commonly mis-implemented HP-41 feature in third-party emulators. The rule is subtle: most operations *enable* stack lift (the next number entry will push a new value onto the stack, lifting X→Y→Z→T and dropping T). A small set of operations *disable* it (ENTER, CLX, CHS during number entry, and a few others). A separate set is *neutral* (does not change the lift flag either way, e.g., STO, RCL).
+On HP-41 hardware, pressing `EEX` without a preceding mantissa shows `1  00` in the display
+(the calculator inserts a default mantissa of 1). The user is then in "exponent entry mode":
+the next digits go into the 2-digit exponent field, and pressing an operation key before
+entering exponent digits commits the partial entry as `1E+00 = 1`. The key phrase is that
+the hardware **locks** you into this state — it doesn't error, it waits.
 
-**Specific invariants that are broken in naive implementations:**
+The current implementation in `flush_entry_buf()` (and the test `test_flush_trailing_e_without_exponent_returns_err`)
+explicitly documents that `"1.5e"` in `entry_buf` returns `Err(HpError::InvalidOp)`. This
+is partially correct: the **emulator** correctly blocks flushing a naked trailing `e`, but
+it must still be possible to commit the number. The hardware behavior is:
 
-1. `ENTER` disables stack lift. After pressing `3 ENTER ENTER`, the stack should be `3 / 3 / 3 / 3` not `3 / 3 / 0 / 0`.
-2. `CLX` disables stack lift (it is a delete operation, not a result). After `CLX`, typing a digit should overwrite X, not lift it.
-3. `RCL` enables stack lift. `3 RCL 00` lifts before placing register 00 into X.
-4. Arithmetic results enable stack lift. After `3 + 4 =`, X is 7 and lift is enabled, so the next digit entry lifts.
-5. Programs can inspect the lift flag (flag 22 = "numeric entry flag"). Misimplementation causes programs that test this flag to misbehave silently.
+- Pressing `EEX` with digits already in `entry_buf` (e.g. `"1.5"`) → appends `e`, display
+  shows `1.5  _` (waiting for exponent digits). Pressing an op key commits `1.5E+00`.
+- Pressing `EEX` with empty `entry_buf` → auto-populates `"1"` into entry_buf, then appends
+  `e`. Display shows `1  _`. Pressing an op key commits `1E+00 = 1`.
+
+**The real trap:** The current `entry_buf.contains('e') && !entry_buf.ends_with_digit()`
+case means `flush_entry_buf("1.5e")` returns `Err`. This is correct for parse-time rejection
+but wrong for the user experience: pressing `+` after `1.5 EEX` should commit `1.5E+00 = 1.5`,
+not show an error.
 
 **Why it happens:**
-Developers implement lift as "lift on every number entry" or "lift on ENTER only" — both are wrong. The real model is a per-operation flag that 30+ operations set/clear independently.
+`flush_entry_buf` tries `Decimal::from_str` then `Decimal::from_scientific`. Both reject `"1.5e"`
+because it lacks exponent digits. The function returns `Err` and clears `entry_buf`. The user
+sees an error flash and loses their number entry.
 
 **Consequences:**
-This is the single most common fidelity bug cited in HP emulator community discussions. Programs that use CLX as a programming idiom (frequent in HP-41 keystroke programs) silently compute wrong results.
+Any user who presses `EEX` and then immediately presses an operation key (intending to enter
+a number times 10^0 = the number itself) sees an `invalid operation` error instead of the
+number being committed. Programs that use `EEX` followed by `0` `0` work fine; casual use of
+`EEX` as a prefix followed by immediate operation is broken.
 
 **Prevention:**
-Create an explicit `StackLiftState` enum (`{ Enabled, Disabled, Neutral }` — neutral operations leave it unchanged). Every operation in `hp41-core` must declare its stack-lift effect. Add a look-up table (or match arm) covering all ~130 operations. Write a dedicated integration test suite for stack-lift semantics with at minimum 20 scenarios covering the known edge cases.
+Two-part fix:
 
-**Warning signs:**
-- `CLX` followed by digit entry pushes a new value instead of replacing X
-- `ENTER ENTER` on a number does not produce a full stack of that number
-- Any implementation where stack-lift is toggled by a boolean per keypress rather than per operation class
+1. In `app.rs` `handle_key`, when `entry_buf` ends with `e` and a non-digit operation key is
+   pressed, **normalize** `entry_buf` before calling `dispatch`. Either append `"00"` (making
+   `"1.5e00"`) or strip the trailing `e` (making `"1.5"`). Both produce the same result:
+   the number without a real exponent. The strip-trailing-e approach is simpler and matches
+   the "EEX with no exponent typed = E+00" semantics.
 
-**Phase:** M1. Must be correct before any keystroke programming tests can be meaningful.
+2. In `flush_entry_buf`, add normalization before parse:
+   ```rust
+   if s.ends_with('e') || s.ends_with('E') {
+       s.push_str("00"); // or strip the 'e'
+   }
+   ```
+
+3. The test `test_flush_trailing_e_without_exponent_returns_err` must be updated: it currently
+   asserts `Err`, which becomes wrong if normalization is added. This test will need to be
+   changed to assert `Ok` with the correct value.
+
+**The hardware "lock" aspect:**
+The HP-41 display shows a `_` (cursor) in the exponent field after EEX. It does not allow
+pressing the decimal point or alpha keys while in exponent mode. The current `app.rs` guards
+(`'.' blocked after 'e'`) already implement this. What is missing is the graceful fallback
+when no exponent digits are entered.
+
+**Detection:**
+Test sequence: push `"1.5"` into `entry_buf`, press `EEX`, then press `+`. Should commit
+`1.5E+00 = 1.5` and add to Y, not show error. Also test: empty `entry_buf`, press `EEX` →
+`entry_buf` should become `"1e"` (or `"1"` immediately), then press `5` → `entry_buf`
+should be `"1e5"`.
+
+**Phase:** EEX lock phase. Requires updating `flush_entry_buf`, `handle_key`, and the
+existing trailing-e test.
 
 ---
 
-### Pitfall C3: ISG/DSE counter format misread causes silent loop errors
+### Pitfall C3: Print commands bypass `hp41-core` boundary, introducing I/O into core
 
 **What goes wrong:**
-ISG (Increment and Skip if Greater) and DSE (Decrement and Skip if Equal or Less) use a packed decimal format stored in a register: `CCCCC.FFFDD` where `CCCCC` is the current counter (integer part), `FFF` is the final/test value (first 3 fractional digits), and `DD` is the step size (next 2 fractional digits). Example: `5.01002` means current=5, final=10, step=2.
+`PRX`, `PRA`, and `PRSTK` produce output (to stdout or a file). There is a strong temptation
+to implement this by adding `println!` calls or file I/O inside `hp41-core`'s `dispatch()`
+or a new `op_prx()` function. This violates the core architectural invariant:
+`hp41-core` must have zero I/O dependencies.
 
-There is an **asymmetry** between ISG and DSE: DSE was derived from DSZ (decrement and skip if zero) and skips when counter ≤ final. ISG skips when counter > final. The boundary conditions differ. Specifically for DSE with no fractional part, behavior degrades to DSZ-compatible (skip when counter = 0), which is different from how ISG behaves at its boundary.
+If `std::io::stdout()` or any file path appears in `hp41-core`, the crate can no longer be
+reused as-is by the v2.0 GUI (Tauri), which has its own output mechanism. It also breaks
+the `#![deny(clippy::unwrap_used)]` guarantee indirectly (file I/O `unwrap()`s are
+the first thing developers reach for).
+
+**Why it happens:**
+Print operations feel like they belong to the compute layer — they read the stack and format
+output. The formatting step is core logic; the I/O step is not. Conflating them is natural
+but wrong.
 
 **Consequences:**
-Loop off-by-one errors. Programs that use ISG/DSE for iteration counts produce one too many or one too few iterations. This is silent — no error is thrown.
+- `hp41-core` gains a dependency on `std::io::Write` or `std::fs::File`.
+- The v2.0 GUI cannot reuse `hp41-core` without also taking the file I/O behavior.
+- Coverage measurement becomes unreliable (file I/O in tests requires temp file setup).
+- `#![deny(clippy::unwrap_used)]` violations appear in the print path.
 
 **Prevention:**
-Implement ISG and DSE by parsing the register value string-as-decimal, splitting at the decimal point, extracting substrings for each field, then performing integer arithmetic on those fields. Never use floating-point arithmetic to extract the fields — `floor()` and `fmod()` of `f64` will miscompute the field boundaries for values near power-of-10 boundaries. Test with reference values from HP-41 documentation including the boundary case where current equals final.
+Split print into two concerns:
 
-**Warning signs:**
-- Using `value.fract() * 100.0` to extract the `DD` step field
-- A single test for ISG that doesn't cover the counter-equals-final case
-- Missing test for DSE with an integer counter (zero fractional part)
+1. **Formatting (core):** Add `Op::PrX`, `Op::PrA`, `Op::PrStk` to the `Op` enum.
+   Dispatching them in `execute_op`/`dispatch` **formats** the output string using the
+   existing `format_hpnum()` from `format.rs` and pushes the string into a new
+   `print_buffer: Vec<String>` field on `CalcState`. The core never writes to any I/O handle.
 
-**Phase:** M3 (Keystroke Programming Engine).
+2. **Output (CLI):** After `call_dispatch()` in `app.rs`, drain `state.print_buffer` and
+   write each line to stdout (or a file configured via CLI flag). The CLI owns all I/O.
+
+`CalcState::print_buffer` is a `Vec<String>` that the core only appends to. The CLI drains it
+after each dispatch. Tests assert the buffer contents without any I/O.
+
+```rust
+// In CalcState::new():
+print_buffer: Vec::new(),
+
+// In op_prx():
+let formatted = format_hpnum(&state.stack.x, &state.display_mode);
+state.print_buffer.push(formatted);
+apply_lift_effect(state, LiftEffect::Neutral);
+Ok(())
+
+// In app.rs call_dispatch():
+hp41_core::ops::dispatch(&mut self.state, op)?;
+for line in self.state.print_buffer.drain(..) {
+    println!("{}", line);  // or write to configured output
+}
+```
+
+**Detection:**
+`grep -r "use std::io" hp41-core/src/` — any match is a violation. Also: `cargo check` in
+`hp41-core` without `hp41-cli` in the build.
+
+**Phase:** Print emulation phase. Architecture decision must be made before any `Op::PrX` code.
 
 ---
 
-### Pitfall C4: GTO label lookup ignores HP-41 scan order, breaking programs
+### Pitfall C4: Synthetic programming allows arbitrary `Op` variants as direct byte injection, corrupting `is_running` and call stack
 
 **What goes wrong:**
-HP-41 label lookup is not a simple dictionary lookup. The rules are:
+"Synthetic programming" in the HP-41 hardware exploits a firmware bug to inject non-standard
+byte sequences. In a behavioral emulator that uses a `Vec<Op>` as program storage, the
+conceptual equivalent is inserting `Op` variants that the normal keyboard recording path
+would never produce. The most dangerous case: inserting `Op::PrgmMode` directly into a
+running program's `Vec<Op>`.
 
-- **Numeric labels (00–99)** are local. GTO nn searches *forward* from the current PC to END, then wraps to the beginning of the current program only. It does NOT search other programs.
-- **Alpha labels** are global. GTO "MYPROG" searches from the *beginning of program memory* forward through all programs.
-- **A program that starts with a local (numeric) label and has no preceding global (alpha) LBL** becomes unreachable: GTO to it fails with NONEXISTENT, and it cannot even be deleted with CLP. Recovery requires CATALOG 1 to relocate it.
+In `run_loop()`, `Op::PrgmMode` is not handled in the `match op { ... }` arms of `execute_op()`
+— it falls through to the `Err(HpError::InvalidOp)` arm that handles "Programming ops
+handled by run_loop directly". If byte injection can produce a `PrgmMode` in the middle of a
+running program, the program halts with `InvalidOp` and `is_running` is reset to `false`.
+That alone is safe. But if byte injection can produce an unbalanced `Op::Xeq` (call without
+matching RTN), the 4-deep call stack fills and `HpError::CallDepth` is returned — but
+any state mutations made before that point are not rolled back.
 
-**Consequences:**
-Programs that use numeric labels in ways that assume forward-only search will jump to the wrong label when another program with the same numeric label exists in memory. This is a hard-to-debug failure because the program runs but computes wrong results.
+The deeper risk: the HP-41's real dangerous bytes modify OS flags and internal registers
+(the equivalent of writing to `state.is_running`, `state.prgm_mode`, or `state.pc` directly).
+In a Rust `Op` enum emulator, this translates to allowing Op variants that set those fields
+directly without going through the normal guards.
 
-**Prevention:**
-Implement two separate label resolution paths: local numeric (forward scan within current program, wrapping within program) and global alpha (full scan from start of memory). Validate this behavior against the HP-41 owner's manual. Reject or warn when a program sequence produces an unreachable local-label-only global program during load.
-
-**Warning signs:**
-- Label lookup implemented as a `HashMap<label, pc>` without considering scan order
-- No distinction between local and global label types in the instruction representation
-- GTO tests only cover the happy path (label found immediately after GTO)
-
-**Phase:** M3 (Keystroke Programming Engine).
-
----
-
-### Pitfall C5: Panic in TUI leaves terminal in raw mode (corrupted shell)
-
-**What goes wrong:**
-When a Rust panic occurs in a ratatui application using crossterm, the terminal is left in raw mode with the alternate screen active. The user's shell becomes unusable — no echo, no line buffering, stray escape sequences in prompt. This is the most common complaint in ratatui issue trackers. The older `Terminal::new()` API does not install a panic hook; only `ratatui::init()` (0.28+) does.
-
-**Consequences:**
-Any unhandled `unwrap()` or `expect()` in `hp41-cli` during development or in production leaves users with a broken terminal session. NFR-3 (crash-free ≥99.5%) means panics must be eliminated, but during development panics are frequent. A corrupted terminal requires the user to run `reset` or open a new terminal tab.
-
-**Prevention:**
-Always use `ratatui::init()` (not `Terminal::new()`) to get automatic panic hook installation. Additionally, wrap the TUI run function with a `std::panic::catch_unwind` and call `ratatui::restore()` before re-raising. Use `color_eyre` for ergonomic error reporting that also triggers terminal restoration. The `hp41-core` crate must be panic-free (NFR-3); all panics must be converted to `Result` before crossing the core/CLI boundary.
-
-**Warning signs:**
-- `Terminal::new(CrosstermBackend::new(stdout()))` used directly without a subsequent panic hook setup
-- `unwrap()` calls on `io::Result` operations inside the draw loop
-- No integration test that simulates a forced panic and checks terminal state
-
-**Phase:** M2 (TUI Shell). First commit of TUI code must include panic hook setup.
-
----
-
-### Pitfall C6: Windows generates duplicate key events; cross-platform input breaks
-
-**What goes wrong:**
-Crossterm on Windows generates two key events for every physical keypress: one for `KeyEventKind::Press` and one for `KeyEventKind::Release`. On Linux and macOS, only `Press` events are generated. Code that processes every key event without filtering by `kind` will execute every operation twice on Windows.
-
-Additional crossterm Windows issues:
-- SHIFT+TAB produces inconsistent `KeyCode` + `KeyModifiers` combinations across platforms.
-- `Ctrl+C` on the Windows Console immediately terminates the process; it cannot be intercepted the same way as on Unix.
-- WSL (Windows Subsystem for Linux) does not fire `crossterm::event::read` on keypress at all — raw mode in WSL outputs raw escape sequences instead.
+**Why it happens:**
+Synthetic programming is often implemented as "let the user push arbitrary `Op` variants into
+`state.program`." This seems safe because `Op` is a typed enum — you can't inject memory
+corruption. But the behavioral effects of certain Op sequences are still dangerous:
+- `Op::PrgmMode` mid-program: exits program recording state mid-run.
+- `Op::Gto("MISSING")`: `find_in_program` returns `Err(HpError::InvalidOp)`, but the
+  program has already been partially executed.
+- Nested `Op::Xeq` chains exceeding 4 levels: `HpError::CallDepth` with partial call stack.
 
 **Consequences:**
-Every calculator key press executes the operation twice on Windows. Number entry produces doubled digits. Stack operations fire twice. This makes the Windows build non-functional without a one-line fix.
+- `is_running` left in unexpected state if error handling is incomplete.
+- Half-executed programs leave `CalcState` in a partially mutated state.
+- `call_stack` not cleared on error (it is cleared by `run_program()` only at the start,
+  not on error in `run_loop`).
 
 **Prevention:**
-In the event loop, immediately filter: `if key.kind != KeyEventKind::Press { continue; }`. Add this to the very first iteration of the TUI event handler. Create a CI matrix that runs tests on Windows (GitHub Actions `windows-latest`), macOS (`macos-latest`), and Ubuntu (`ubuntu-latest`) to catch platform differences early. Document that WSL is not a supported target (use native Windows or a Linux VM instead).
+The existing `run_program()` already sets `state.is_running = false` on all paths (the
+`state.is_running = false` reset after `run_loop` is always executed). The `call_stack` is
+cleared at the start of `run_program()` but not on `run_loop` error. Add:
 
-**Warning signs:**
-- Event handler does not check `key.kind`
-- No Windows CI job
-- Manual test plan only covers macOS/Linux
+```rust
+// In run_program(), after result = run_loop():
+state.is_running = false;
+state.call_stack.clear(); // clear on both Ok and Err paths
+result
+```
 
-**Phase:** M2 (TUI Shell). Must be in the first working event handler.
+For synthetic programming specifically, define a safe insertion API:
+
+```rust
+pub fn insert_synthetic_op(program: &mut Vec<Op>, pos: usize, op: Op) -> Result<(), HpError> {
+    // Reject Op variants that only belong in the execution control path:
+    match &op {
+        Op::PrgmMode => return Err(HpError::InvalidOp),
+        // Op::Lbl, Op::Gto, Op::Xeq, Op::Rtn are valid synthetic ops
+        _ => {}
+    }
+    program.insert(pos, op);
+    Ok(())
+}
+```
+
+Do NOT expose raw `state.program.push(op)` to a synthetic programming UI without this guard.
+
+**The minimal safe implementation:**
+Limit synthetic programming in v1.1 to inserting/replacing `Op::Lbl`, `Op::Gto`, `Op::Xeq`,
+`Op::Rtn`, and `Op::PushNum` at arbitrary positions. This covers all documented legitimate
+HP-41 synthetic programming uses without enabling the OS-register class of operations.
+
+**The risky implementation to avoid:**
+Exposing a "raw byte insert" that accepts any `Op` variant including `Op::PrgmMode`,
+`Op::UserMode`, and future variants that directly mutate mode flags.
+
+**Detection:**
+Test: insert `Op::PrgmMode` at position 1 of a running program; assert the call returns
+`Err` and `state.is_running == false` and `state.call_stack.is_empty()`.
+
+**Phase:** Synthetic programming phase. The safe insertion API must be designed before
+any UI for byte injection is wired.
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause debugging time, user-visible bugs, or narrow correctness failures.
-
----
-
-### Pitfall M1: Trig functions ignore active angle mode at function call site
+### Pitfall M1: STO arithmetic modal — Esc during second-digit entry leaves orphaned modal state
 
 **What goes wrong:**
-The HP-41 has three angle modes: DEG, RAD, GRAD. All trig functions (SIN, COS, TAN, ASIN, ACOS, ATAN) must convert their input based on the *current* mode flag before calling the underlying math function. A naive implementation calls `f64::sin()` directly without conversion, producing wrong results in DEG mode (the most common user mode).
+The existing `handle_reg_modal()` in `app.rs` handles `StoRegister` and `RclRegister` modals
+with a 2-digit accumulator. The modal state machine is:
 
-Grad mode is particularly tricky: 400 grad = 360 degrees = 2π radians. `ATAN` in grad mode must also convert the output. Forgetting output conversion on inverse trig in DEG or GRAD mode is a separate, independent bug from forgetting input conversion on forward trig.
+1. Press `S` → `PendingInput::StoRegister("")`
+2. Press first digit → `PendingInput::StoRegister("0")`
+3. Press second digit → dispatch `Op::StoReg(reg)`, clear pending
 
-**Prevention:**
-Encapsulate all trig dispatch in a single module that takes `(value, AngleMode)` and applies the correct conversion. Cover DEG, RAD, and GRAD in the reference test suite (NFR-7). Include known HP-41 reference values: `sin(45 DEG) = 0.7071067812`, `sin(50 GRAD) = 0.7071067812`, `sin(π/4 RAD) = 0.7071067812`.
+Adding STO arithmetic modals (`StoAdd`, `StoSub`, `StoMul`, `StoDiv`) requires a **3-step**
+modal: `S` then arithmetic key (`+`/`-`/`×`/`÷`) then 2-digit register.
 
-**Warning signs:**
-- Trig functions that take only `f64` without an `AngleMode` parameter
-- Test suite only covers RAD mode
-- GRAD mode listed as "to be tested later"
-
-**Phase:** M1 (Core Arithmetic).
-
----
-
-### Pitfall M2: Display formatter does not reproduce HP-41 exact output
-
-**What goes wrong:**
-HP-41 has three display modes (FIX n, SCI n, ENG n) each with 0–9 decimal places. ENG mode is not the same as SCI mode — ENG forces the exponent to be a multiple of 3, shifting the mantissa accordingly. Number of displayed characters is capped at 12. Very large or very small numbers trigger automatic SCI display regardless of FIX mode (the HP-41 auto-switches at overflow or underflow).
-
-**Specific traps:**
-- `FIX 4` of `1234567.89` must display `1234567.8900` (10 digits total) not `1.2346E6`.
-- `SCI 3` of `0.000123` must display `1.230E-4` not `1.23E-4` (note trailing zero in mantissa).
-- ENG mode shifts mantissa to keep exponent as multiple of 3: `1230` in ENG 2 is `1.23E3`, not `1.230E3`.
-- Negative numbers consume one display character for the minus sign, reducing available mantissa digits.
-
-**Prevention:**
-Implement display formatting against the HP-41 Owner's Manual Appendix B reference table. Maintain a set of golden reference outputs for 50+ format/value combinations, tested against the formatter. Do not rely on Rust's `format!("{:.4}", value)` — it does not implement ENG mode or the HP-41's exact rounding behavior.
-
-**Phase:** M1 (Core Arithmetic / Display).
-
----
-
-### Pitfall M3: Save/load JSON breaks across emulator versions
-
-**What goes wrong:**
-The calculator state (stack, registers, flags, program memory, USER mode assignments) saved to JSON in v0.1.0 becomes unreadable when new fields are added in v0.2.0 if the deserializer uses strict field matching. Serde's default `derive(Deserialize)` fails on unknown fields by default in some configurations, or silently omits new required fields, leaving them at `Default::default()` with no warning.
-
-**Consequences:**
-Users who save state across an emulator update lose their programs. This is a show-stopper for any user with long-running stored programs.
-
-**Prevention:**
-- Tag every save file with a `schema_version: u32` field, checked on load.
-- Use `#[serde(default)]` on all new fields so old files deserialize without error.
-- Use `#[serde(deny_unknown_fields)]` only in test/validation mode, not production load.
-- Write a migration function for each schema version bump.
-- Test: serialize with v_n, load with v_(n+1) code, verify state is correct.
-- Consider `serde-evolve` or manual `match version {}` migration for non-trivial schema changes.
-
-**Warning signs:**
-- No `schema_version` field in the JSON root object
-- No test that loads a v1 fixture file with the current code
-- `#[derive(Deserialize)]` with no version gate and no `#[serde(default)]` on any field
-
-**Phase:** M4 (Persistence). Must be designed before the first state file is written to disk.
-
----
-
-### Pitfall M4: `hp41-core` acquires a TUI or I/O dependency
-
-**What goes wrong:**
-A developer adds a debug `println!` or imports `crossterm` into `hp41-core` for "convenience." The architectural invariant (zero UI dependencies in core) is silently violated. When v2.0 GUI reuses `hp41-core` via Tauri, the Tauri build fails or pulls in terminal dependencies.
-
-**Prevention:**
-Enforce in `hp41-core/Cargo.toml`: never add `crossterm`, `ratatui`, `tokio`, or any I/O crate as a dependency (even `dev-dependencies` should be scrutinized). Add a CI step that runs `cargo deny` or a custom script checking that `hp41-core`'s dependency tree does not include terminal or GUI crates. Use `tracing` (not `println!`) for diagnostics, and keep `tracing` as a feature-gated optional dependency.
-
-**Warning signs:**
-- `use std::io::stdout` anywhere in `hp41-core/src/`
-- Any `crossterm` or `ratatui` import in core
-- Debug output via `println!` that "will be removed later"
-
-**Phase:** M1 onward. Enforce from day one; a CI check prevents regression.
-
----
-
-### Pitfall M5: ALPHA register and mode state not fully decoupled from numeric state
-
-**What goes wrong:**
-The HP-41 has two entirely separate input modes: numeric and ALPHA. In ALPHA mode (flag 48 set), digit keys enter ASCII characters into the alpha register, not numeric digits into X. Number-entry functions (stack-lift, digit assembly) must be suppressed. Many emulators share a single "input buffer" and patch it for alpha mode rather than maintaining a clean state machine.
-
-Specific traps:
-- Pressing a digit in ALPHA mode must append the character encoding to the alpha register, not affect the stack.
-- `ALPHA` key toggles mode; SHIFT+alpha keys access alternate character sets.
-- The ALPHA register holds up to 24 characters — it is NOT the same as the X register.
-- `CLA` clears the alpha register; `ARCL nn` appends register nn as a string to the alpha register — both must leave X unchanged.
-
-**Prevention:**
-Model input mode as an explicit enum (`InputMode { Numeric, Alpha, ProgramEntry }`). Each mode has its own key dispatch table. The alpha register is a dedicated `AlphaRegister(String)` field, entirely separate from the stack. Use a state machine pattern with explicit transitions, not conditionals scattered through the key handler.
-
-**Phase:** M3 (ALPHA mode / FR-08). Design the input state machine before implementing any input handling.
-
----
-
-### Pitfall M6: Blocking event read starves the auto-save timer and halts redraws
-
-**What goes wrong:**
-Crossterm's `event::read()` blocks indefinitely. If used naively in the main loop, the TUI never redraws (no animation, no auto-save trigger) until a key is pressed. The auto-save requirement (NFR-6: every 30 s) cannot be met with a blocking event loop.
+The trap: the existing `handle_reg_modal()` is a 2-step modal. The 3-step modal needs to
+distinguish step 1 (arithmetic operator not yet selected) from step 2 (operator selected,
+awaiting register digits). If `Esc` is pressed during step 2 (operator selected, no digits
+yet), `pending_input` must be cleared — but if the code re-uses `handle_reg_modal` naively,
+it may instead loop back to step 1 instead of cancelling entirely.
 
 **Why it happens:**
-The simplest ratatui tutorial pattern uses `event::read()` in a loop. It works for toy apps with no background tasks. Adding a timer requires switching to `event::poll(Duration)` with a timeout, then handling the timeout case separately.
+`handle_reg_modal` is designed to be called from a `PendingInput` variant that already knows
+the target operation. The 3-step STO arithmetic modal adds an intermediate state
+(`StoArithOp` — operator chosen, register not yet entered). If this intermediate state is
+not a named variant, the `match` in `handle_pending_input` doesn't see it, and `Esc` at the
+wrong moment falls through to the `None` arm.
 
 **Prevention:**
-Use `crossterm::event::poll(Duration::from_millis(50))` with a timeout, then `event::read()` only if an event is available. In the timeout branch, check elapsed time for auto-save. Alternatively, use the `tokio` + `EventStream` async pattern, but only if there is genuine need for async concurrency (there is not for this project — synchronous polling is sufficient and simpler).
+Add an explicit intermediate `PendingInput` variant:
 
-**Warning signs:**
-- Main loop uses `event::read()` with no timeout
-- Auto-save implemented with a `thread::sleep` in a background thread (risks data races on state)
-- Any `tokio::main` annotation when all I/O is terminal-only
+```rust
+pub enum PendingInput {
+    // existing:
+    StoRegister(String),
+    RclRegister(String),
+    // new:
+    StoArithOp,            // waiting for +/-/×/÷
+    StoAdd(String),        // operator chosen; accumulating register digits
+    StoSub(String),
+    StoMul(String),
+    StoDiv(String),
+    // ...
+}
+```
 
-**Phase:** M2 (TUI Shell) and M4 (Auto-save, NFR-6).
+The `Esc` arm in `handle_pending_input` must unconditionally clear `pending_input` in every
+state. Add a test: press `S`, press `+`, press `Esc` → `pending_input` is `None`.
+
+**Detection:**
+Manually: `S` `+` `Esc` — the STO arithmetic prompt must disappear and not leave a stale modal.
+Test: `app.pending_input` is `None` after that sequence.
+
+**Phase:** STO arithmetic modal phase.
 
 ---
 
-### Pitfall M7: Ownership design forces `Arc<Mutex<>>` wrapping of calculator state
+### Pitfall M2: PRSTK print order — T is printed first, X last (top-to-bottom = top-of-stack first)
 
 **What goes wrong:**
-A common Rust TUI anti-pattern: the developer reaches for `Arc<Mutex<CalculatorState>>` to share state between the event handler and the render function, then fights the borrow checker, introduces lock contention, and makes the code harder to reason about. For a single-threaded TUI, this is unnecessary complexity.
+`PRSTK` on the HP-41 with the 82143A printer prints the stack in descending order from T to
+X. The physical paper shows T at the top (printed first), then Z, then Y, then X at the
+bottom. This matches how you would read a stack listing: the "bottom of the stack" (T) is
+at the top of the paper, and the "display register" (X) is at the bottom near the tear line.
+
+Naive implementations print X first (it's the "top" in a push-down stack) — this is the
+opposite of HP-41 behavior.
+
+Additionally, `PRSTK` prints the LASTX register and the ALPHA register after X. The full
+output order is: T, Z, Y, X, LASTX, ALPHA (if alpha_reg is non-empty).
+
+Format per line: the number is printed using the current display mode (FIX/SCI/ENG), using
+the full 24-character print width (not the 12-character display width). The HP-41's 82143A
+printer prints 24 characters per line. For emulation, pad/truncate to 24 characters.
 
 **Why it happens:**
-Developers come from multi-threaded backgrounds or follow async patterns that assume shared ownership. Ratatui's draw closure takes `&mut Frame`, which conflicts with simultaneously holding a `&mut App` unless the design is clean.
+Confusion between "stack top" (X, the most recently entered number) and "first to print"
+(T, the bottom of the 4-register stack). The natural Rust iteration order over `[x, y, z, t]`
+prints X first.
 
 **Prevention:**
-Keep `CalculatorState` as a single owned value in `main()`. Pass `&mut state` to the update function (event handler) and `&state` to the render function within the single-threaded event loop. The render closure and the update function never run concurrently — there is no need for `Arc` or `Mutex`. If background tasks are needed (e.g., auto-save), use `std::sync::mpsc` channels to send save requests to a dedicated thread, keeping the channel message type simple (e.g., a serialized snapshot).
+```rust
+fn op_prstk(state: &mut CalcState) -> Result<(), HpError> {
+    let lines = vec![
+        format!("{:>24}", format_hpnum(&state.stack.t, &state.display_mode)),
+        format!("{:>24}", format_hpnum(&state.stack.z, &state.display_mode)),
+        format!("{:>24}", format_hpnum(&state.stack.y, &state.display_mode)),
+        format!("{:>24}", format_hpnum(&state.stack.x, &state.display_mode)),
+        format!("{:>24}", format_hpnum(&state.stack.lastx, &state.display_mode)),
+    ];
+    // append ALPHA if non-empty
+    state.print_buffer.extend(lines);
+    if !state.alpha_reg.is_empty() {
+        state.print_buffer.push(
+            format!("{:>24}", &state.alpha_reg[..state.alpha_reg.len().min(24)])
+        );
+    }
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+```
 
-**Warning signs:**
-- `Arc<Mutex<App>>` in the struct definition
-- `state.lock().unwrap()` inside the draw closure
-- Multiple `&mut` borrows attempted in the same function scope
+**Detection:**
+Test: set T=1, Z=2, Y=3, X=4. Call `op_prstk`. Assert `print_buffer[0]` contains "1" and
+`print_buffer[3]` contains "4".
 
-**Phase:** M2 (TUI Shell). Establish ownership model before writing the event loop.
+**Phase:** Print emulation phase.
+
+---
+
+### Pitfall M3: PRX uses the current display mode, not a fixed format
+
+**What goes wrong:**
+`PRX` prints the X register. The trap: it prints X **in the current display mode**, not
+always in a fixed 10-digit scientific format. If the user is in `FIX 2` mode, `PRX` prints
+the rounded 2-decimal-place value, not the full precision value. This is correct HP-41
+behavior, but emulators sometimes hardcode 10-digit scientific output for "maximum precision."
+
+`PRA` prints the ALPHA register contents, not the X register. These are often confused.
+
+Format width: the 82143A prints 24 characters per line. A number shorter than 24 characters
+is right-aligned (the HP-41 right-aligns numbers, left-aligns alpha text).
+
+**Prevention:**
+- `op_prx`: `format_hpnum(&state.stack.x, &state.display_mode)` (uses current mode).
+  Right-align to 24 chars.
+- `op_pra`: Push `state.alpha_reg.clone()` (truncated to 24 chars, left-aligned) to
+  `print_buffer`. Alpha text is left-aligned.
+- `op_prstk`: See Pitfall M2.
+
+Test: set `display_mode = FIX(2)`, X = 3.14159. `PRX` output should be `"                  3.14"`,
+not `"             3.14159000E 00"`.
+
+**Phase:** Print emulation phase.
+
+---
+
+### Pitfall M4: Synthetic programming corrupts serde round-trip of `state.program`
+
+**What goes wrong:**
+`state.program: Vec<Op>` is serialized to JSON for persistence. The `Op` enum derives
+`Serialize/Deserialize`. Adding new `Op` variants for synthetic programming (e.g. a hypothetical
+`Op::RawByte(u8)` for byte-level injection) changes the serde representation. Old save files
+with `"RawByte"` JSON tokens fail to deserialize with the old binary.
+
+More subtly: if synthetic programming inserts `Op::PushNum(HpNum(...))` at unusual positions
+(not appended, but spliced), the JSON is still valid but the program semantics change on
+load. Programs that used absolute `pc` indices embedded in comments or test fixtures become
+wrong after insertion/deletion.
+
+**Why it happens:**
+The `Vec<Op>` program is a flat list — there is no line-number or address concept. Inserting
+at position 5 shifts all subsequent `pc` values. If any code caches absolute `pc` offsets
+(for example, the USER mode key assignments that store label names, not PCs, are safe — but
+any hypothetical "bookmark" that stores a `usize` offset is not).
+
+**Prevention:**
+- Do not add `Op::RawByte(u8)` as a persistent variant. Synthetic programming should inject
+  existing `Op` variants only. If truly novel behavior is needed, model it as a named `Op`
+  variant with defined semantics, not as an opaque byte.
+- After any insert/delete into `state.program`, reset `state.pc = 0` and clear `state.call_stack`.
+  Stale `pc` values after mutation are a silent corruption source.
+- Add a `#[serde(default)]` guard: any new `Op` variants should be non-breaking in
+  existing JSON (use `#[serde(skip_serializing_if = "is_default")]` patterns or add the
+  variant to the forward-compatibility list in `persistence.rs`).
+
+**Detection:**
+Test: record a program, save to JSON, insert a synthetic op at position 2, save again, load
+the first JSON, verify `pc` resets correctly. Load the second JSON with the old binary — verify
+graceful deserialization failure (not panic).
+
+**Phase:** Synthetic programming phase.
+
+---
+
+### Pitfall M5: Coverage gate degrades when new ops are added without tests
+
+**What goes wrong:**
+v1.0 achieved 94.87% core coverage. Each new `Op` variant added to `Op` enum adds new
+`match` arms in `dispatch()` and `execute_op()`. If those arms are not covered by tests,
+the coverage denominator increases but the numerator does not, causing the ≥80% gate to
+potentially fail.
+
+The four v1.1 features add at minimum:
+- `Op::PrX`, `Op::PrA`, `Op::PrStk` — 3 new dispatch arms
+- Synthetic programming insertion API — new code paths
+- EEX normalization — new branch in `flush_entry_buf`
+- STO arithmetic modal — new `PendingInput` variants in `app.rs` (CLI coverage, not core)
+
+**Prevention:**
+For each new `Op` variant, write at minimum:
+1. A unit test that dispatches it and asserts `print_buffer` or stack state.
+2. A test that dispatches it **inside a running program** via `run_program()` (covers the
+   `execute_op` path, which is separate from the interactive `dispatch` path).
+
+The `execute_op()` function in `program.rs` is a separate match from `dispatch()`. Adding
+a new `Op` to `dispatch()` without adding it to `execute_op()` causes a compile error
+(non-exhaustive match) — but only if `execute_op` is `#[deny(unreachable_patterns)]`. Add
+that lint to `program.rs` to catch missing arms at compile time.
+
+For EEX normalization: add a test for `flush_entry_buf("1.5e")` returning `Ok` (this
+replaces the existing test that asserts `Err`).
+
+**Detection:**
+Run `just coverage` after adding each new Op variant. Coverage below 94% indicates a missing
+test. The CI coverage gate at ≥80% is a floor, not a target.
+
+**Phase:** Every v1.1 phase.
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause friction, confusion, or edge-case failures.
-
----
-
-### Pitfall m1: Legal — accidental inclusion of HP ROM bytes or copyrighted text
+### Pitfall m1: STO arithmetic divide-by-zero — existing `checked_div` guard is correct but error message is wrong
 
 **What goes wrong:**
-Despite the HP-41C microcode being in the public domain in the US (confirmed: the HP-41C/CV/CX lack copyright notices, predating the 1984 requirement), HP still asserts trademark over calculator model names and may assert rights over specific program listings in later manuals. Copying sample programs verbatim from HP manuals, or including ROM dump bytes in test fixtures, creates legal ambiguity.
+`op_sto_arith` with `StoArithKind::Div` calls `checked_div`, which returns
+`Err(HpError::DivideByZero)` when X is zero. This is correct. However, the error surfaces
+in `app.rs` as `self.message = Some(format!("{e}"))`, which shows "divide by zero" in the
+status bar. On the HP-41 hardware, `STO÷ n` with X=0 shows "DATA ERROR" not "divide by zero."
+
+This is a minor display fidelity issue (not a behavioral correctness issue) but may
+confuse users comparing emulator behavior to hardware.
 
 **Prevention:**
-- Never include raw ROM bytes anywhere in the codebase (already stated in PROJECT.md).
-- Write all sample programs independently; do not copy from HP manuals.
-- Reference HP-41 behavior from community documentation (hpmuseum.org, hp41.org) rather than from HP's copyrighted PDF manuals.
-- Before public release: run a license audit (`cargo deny check licenses`), verify no copyrighted HP text appears in source, README, or test fixtures.
-- The behavioral emulation approach (not cycle-accurate Nut CPU simulation) avoids ROM dependency entirely.
+Map `HpError::DivideByZero` in the `StoArith` context to a more specific message, or
+unify all arithmetic errors as `"DATA ERROR"` to match HP-41 annunciator behavior. Low
+priority for v1.1.
 
-**Warning signs:**
-- Test fixture files containing hex dumps with "HP" in the comments
-- Sample programs copied verbatim from HP-41 Owner's Handbook
-- Any `rom.bin` or `rom.hex` file in the repository
-
-**Phase:** Pre-release audit (before v1.0 tag). Flag should appear in M5 (Hardening) checklist.
+**Phase:** STO arithmetic modal phase (low priority).
 
 ---
 
-### Pitfall m2: Trig edge cases at exact multiples of 90 degrees
+### Pitfall m2: Print output to file — file handle not flushed on program termination
 
 **What goes wrong:**
-`f64::sin(π)` does not return exactly `0.0` — it returns `1.2246467991473532e-16`. On the HP-41, `sin(180 DEG)` displays as `0.0000000000`. The transcendental function implementations in hardware use CORDIC algorithms that produce exact results at cardinal angles; naive host-math implementations do not.
+If print emulation writes to a `BufWriter<File>`, and the program halts via
+`HpError::Overflow` (the infinite-loop guard) or `HpError::CallDepth`, the `BufWriter`
+may not be flushed before the error is returned. Last few print lines are lost.
 
 **Prevention:**
-After computing trig results, apply a final rounding step to 10 significant decimal digits (matching HP-41 display precision). Do not apply a hard-coded special case for each cardinal angle — proper rounding to 10 digits is sufficient to match HP-41 behavior for all cardinal angles.
+Use `std::io::LineWriter` instead of `BufWriter` for file output, so each line is flushed
+immediately. Or, since `print_buffer` in `CalcState` accumulates all output before the CLI
+drains it, ensure the CLI flushes after draining even on error paths:
 
-**Phase:** M1 (Core Arithmetic). Part of the trig function implementation.
+```rust
+// In app.rs call_dispatch():
+let result = hp41_core::ops::dispatch(&mut self.state, op);
+for line in self.state.print_buffer.drain(..) {
+    if let Some(ref mut writer) = self.print_writer {
+        let _ = writeln!(writer, "{}", line);
+    } else {
+        println!("{}", line);
+    }
+}
+if let Some(ref mut writer) = self.print_writer {
+    let _ = writer.flush();
+}
+result.map_err(|e| { self.message = Some(format!("{e}")); });
+```
+
+**Phase:** Print emulation phase (file output sub-feature).
 
 ---
 
-### Pitfall m3: `cargo test` passes but `hp41-core` unit tests do not run in isolation
+### Pitfall m3: EEX with empty entry_buf — hardware shows "1  _" (implicit 1 mantissa)
 
 **What goes wrong:**
-When tests are run only with `cargo test` from the workspace root, feature flags from sibling crates (e.g., `hp41-cli`) can bleed into `hp41-core` compilation, masking dependency violations. A dependency that is only reachable through a feature flag appears absent in normal CI but present in production builds.
+On HP-41 hardware, pressing `EEX` with no digits yet entered (display shows `0.0000`) puts
+`1  _` in the display — it enters exponent mode with an implicit mantissa of 1. The user
+then types exponent digits. Pressing `5` produces `1  05` = `1E+05 = 100000`.
+
+The current guard in `app.rs`:
+```rust
+if c == 'e' {
+    if self.state.entry_buf.is_empty() || self.state.entry_buf.contains('e') {
+        return; // silently ignore
+    }
+    self.state.entry_buf.push('e');
+    ...
+}
+```
+
+This blocks `EEX` when `entry_buf` is empty, preventing the "implicit 1" behavior. The
+hardware does allow this — it is a legitimate entry mode.
+
+**Consequences:**
+Users who try to type `EEX 6` (meaning `1E+06`) get no response. The `EEX` key silently
+does nothing. This is a usability gap, not a crash. Low severity.
 
 **Prevention:**
-Run `cargo test -p hp41-core` explicitly in CI, in addition to `cargo test --workspace`. Add `cargo deny check` for license and dependency policy. Use `cargo check --no-default-features` on `hp41-core` to verify the core is self-contained.
+Change the guard:
+```rust
+if c == 'e' {
+    if self.state.entry_buf.contains('e') {
+        return; // already have 'e' — block duplicate
+    }
+    if self.state.entry_buf.is_empty() {
+        self.state.entry_buf.push('1'); // implicit mantissa of 1
+    }
+    self.state.entry_buf.push('e');
+    ...
+}
+```
 
-**Phase:** M1. Set up in the initial CI configuration.
+This matches HP-41 hardware: `EEX` with no mantissa inserts `1` as the implicit mantissa.
+
+The existing test `test_eex_blocked_when_entry_buf_empty` must be updated to assert that
+`entry_buf` becomes `"1e"`, not that it remains empty.
+
+**Phase:** EEX lock phase.
 
 ---
 
-### Pitfall m4: Number entry state machine drops leading zeros and sign
+### Pitfall m4: Synthetic programming — serde JSON program display in prgm_display.rs shows garbage for novel ops
 
 **What goes wrong:**
-The HP-41 number entry state machine handles: leading zeros (suppressed in display), decimal point (can be first character), sign toggle (CHS mid-entry changes the sign nibble without altering the mantissa), and exponent entry (EEX followed by digits builds the exponent). A naive implementation using string concatenation loses the sign state when CHS is pressed during mantissa entry, or corrupts the exponent when EEX is followed by CHS.
+`prgm_display.rs` formats `Vec<Op>` for the program listing TUI pane. If a new `Op` variant
+added for synthetic programming does not have a `Display` or format arm in `prgm_display.rs`,
+the program listing shows the raw Rust debug repr (`PrX` or `StoArithStack { reg: X, ... }`)
+instead of the HP-41 mnemonic (`PRX` or `ST+ X`).
+
+This is not a crash but breaks the fidelity of the program display for users reading their
+synthetic programs.
 
 **Prevention:**
-Model number entry as an explicit state machine: `{ Idle, MantissaPositive, MantissaNegative, ExponentEntry, AlphaEntry }`. Do not use a raw `String` buffer — use a structured type that tracks mantissa digits, decimal point position, exponent digits, and sign flags independently. Test: `5 EEX 3 CHS` should produce `5E-3 = 0.005`, not `−5E3`.
+For every new `Op` variant, add a corresponding arm to the format function in
+`prgm_display.rs`. The mnemonic must match the HP-41 keyboard label, not the Rust variant
+name. This is a compile-warning opportunity: if `prgm_display.rs` uses an exhaustive match
+over `Op` variants, missing arms cause a compile error.
 
-**Phase:** M1 (Core Arithmetic / Number Entry).
+Check: does `prgm_display.rs` currently use `match op { ... _ => format!("{:?}", op) }`
+(catch-all) or exhaustive match? A catch-all silently hides missing arms.
+
+**Phase:** Any phase that adds new `Op` variants.
 
 ---
 
-### Pitfall m5: Slow or incorrect rendering because `terminal.draw()` is called multiple times per frame
+## Phase-Specific Warnings for v1.1
 
-**What goes wrong:**
-Calling `terminal.draw()` more than once per frame renders only the last call's content, because ratatui uses double-buffering: the previous frame is diffed against the new frame to produce minimal terminal writes. Calling draw twice per event loses the first draw's content.
-
-**Prevention:**
-Render all widgets in a single `terminal.draw(|frame| { ... })` closure. Never call `draw` in a loop without a corresponding event. The ratatui FAQ explicitly identifies this as a common mistake.
-
-**Phase:** M2 (TUI Shell).
-
----
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| M1: BCD arithmetic foundation | C1 (f64 binary errors) | Choose decimal library before any register code |
-| M1: Stack operations | C2 (stack-lift semantics) | Implement lift table for all operations; 20+ lift tests |
-| M1: Trig functions | M1 (angle mode ignored) + m2 (cardinal angle rounding) | Angle-mode-aware dispatch; round to 10 digits |
-| M1: Number entry | m4 (entry state machine) | Explicit state machine; test EEX + CHS sequences |
-| M1: Display formatting | M2 (ENG mode, auto-SCI) | Golden reference table; do not rely on Rust format! |
-| M2: TUI event loop | C5 (panic/raw mode) | Use ratatui::init(); color_eyre hooks |
-| M2: Event handling | C6 (Windows key duplication) | Filter KeyEventKind::Press; CI on all 3 platforms |
-| M2: Ownership | M7 (Arc<Mutex> overuse) | Single-owned state; mpsc for background tasks |
-| M2: Rendering | m5 (multiple draw calls) | Single draw closure per frame |
-| M2: Auto-save timer | M6 (blocking event::read) | Use poll() with timeout |
-| M3: Keystroke programming | C3 (ISG/DSE format) | String-parse fields; boundary tests |
-| M3: Label resolution | C4 (GTO scan order) | Separate local vs global lookup; scan-order tests |
-| M3: ALPHA mode | M5 (alpha/numeric coupling) | Explicit InputMode enum; dedicated alpha register |
-| M4: Persistence | M3 (JSON schema versioning) | schema_version field; migration functions; fixture tests |
-| M4: Crate boundaries | M4 (core acquires TUI dep) | CI cargo deny check; no println! in core |
-| M5: Pre-release | m1 (HP copyright) | License audit; no HP ROM bytes; no verbatim HP text |
+| Phase Topic | Pitfall | Mitigation |
+|-------------|---------|------------|
+| STO arithmetic modals | C1: stack register addressing | Decide `StoTarget` encoding before wiring modals |
+| STO arithmetic modals | M1: Esc during 3-step modal | Add `StoArithOp` intermediate `PendingInput` variant |
+| STO arithmetic modals | m1: divide-by-zero message | Map to `DATA ERROR` for HP-41 fidelity |
+| EEX lock behavior | C2: trailing-e flush returns Err | Normalize `entry_buf` ending in `e` before parse |
+| EEX lock behavior | m3: empty entry_buf EEX | Insert implicit `"1"` into entry_buf on EEX with empty buf |
+| EEX lock behavior | C2: existing test must change | `test_flush_trailing_e_without_exponent_returns_err` → assert Ok |
+| Print emulation | C3: I/O in hp41-core | Use `print_buffer: Vec<String>` in CalcState; drain in CLI |
+| Print emulation | M2: PRSTK print order | T first, X last; include LASTX and ALPHA |
+| Print emulation | M3: PRX format | Use current `display_mode`, right-align to 24 chars |
+| Print emulation | m2: file handle not flushed | Flush after each drain, even on error |
+| Synthetic programming | C4: dangerous Op variants | Gating `insert_synthetic_op` to block `Op::PrgmMode` |
+| Synthetic programming | C4: call_stack not cleared on error | Add `state.call_stack.clear()` after `run_loop` returns Err |
+| Synthetic programming | M4: serde round-trip with new Op | Reset `pc` after any program mutation; no `RawByte` variant |
+| Synthetic programming | m4: prgm_display gaps | Exhaustive match in `prgm_display.rs`; no `_ =>` catch-all |
+| All phases | M5: coverage gate | Two tests per new Op variant: interactive dispatch + run_program |
 
 ---
 
 ## Sources
 
-- HP-41 stack-lift behavior: [Automatic stack lift enable/disable — SwissMicros Forum](https://forum.swissmicros.com/viewtopic.php?t=2699); [HP-41 stack behavior — narkive](https://comp.sys.hp48.narkive.com/hJidHxqw/hp41-help-me-understand-the-stack-behaviour)
-- ISG/DSE counter format: [ISG/DSE behavior — HPMuseum](https://www.hpmuseum.org/cgi-bin/archv017.cgi?read=118518); [HP-41 Commands PDF — Thimet](http://thimet.de/CalcCollection/Calculators/HP-41/HP-41-Commands.pdf)
-- GTO label lookup: [XEQ and GTO indirect — hp41.org forum](https://forum.hp41.org/viewtopic.php?f=20&t=385); [HP-41 Programming — HPMuseum](https://www.hpmuseum.org/prog/hp41prog.htm)
-- BCD number format: [13-digit OS routines — Fandom MCODE Wiki](https://mcode.fandom.com/wiki/13_digit_OS_routines); [HP CPU and Programming — HPMuseum](https://www.hpmuseum.org/techcpu.htm)
-- Free42 decimal vs binary precision: [Free42 homepage — Thomas Okken](https://thomasokken.com/free42/)
-- HP-41 microcode copyright: [HP Calculator Microcode Copyright Status — Nonpareil](https://nonpareil.brouhaha.com/microcode_copyright_status/)
-- ratatui panic hook: [Setup Panic Hooks — Ratatui](https://ratatui.rs/recipes/apps/panic-hooks/); [ratatui FAQ](https://ratatui.rs/faq/); [GitHub issue #1005](https://github.com/ratatui/ratatui/issues/1005)
-- crossterm Windows issues: [SHIFT+TAB inconsistency — crossterm #442](https://github.com/crossterm-rs/crossterm/issues/442); [Raw mode on Windows — crossterm #584](https://github.com/crossterm-rs/crossterm/issues/584); [WSL issue — crossterm #521](https://github.com/crossterm-rs/crossterm/issues/521)
-- Async TUI pitfalls: [Tokio blocking in ratatui — ratatui forum](https://forum.ratatui.rs/t/understanding-tokio-spawn-and-tokio-spawn-blocking/74)
-- Serde versioning: [Backward Compatible Serialization — Ivan Ermolaev/Medium](https://ivanbyte.medium.com/backward-compatible-data-de-serialization-with-serde-flow-in-rust-c87a2e8bc9ea); [serde_versioned — crates.io](https://crates.io/crates/serde_versioned_derive)
-- HP-41 known bugs: [HP-41 Documentation, List of Bugs — hp41.org](https://forum.hp41.org/viewtopic.php?f=14&t=494)
+- HP-41 STO arithmetic on stack registers: [Store and Recall on HP Calculators — Richard Nelson](http://h20331.www2.hp.com/hpsub/downloads/S04_Jul12_Store%20&%20Recall%20on%20HP%20CaLCS%20V5.pdf); [HP-41 Programming — hpmuseum.org](https://www.hpmuseum.org/prog/hp41prog.htm); [HP41 stack behavior — narkive](https://comp.sys.hp48.narkive.com/hJidHxqw/hp41-help-me-understand-the-stack-behaviour)
+- EEX normalization / implicit 1 mantissa: [HP-41C Synthetic Programming — hpmuseum.org](https://www.hpmuseum.org/prog/synth41.htm) (discusses EEX CHS normalization); [HP-41C Quick Reference Guide — hpcalc.org](https://literature.hpcalc.org/community/hp41c-qrg-en.pdf)
+- PRSTK print order (T–Z–Y–X–L–Alpha): [CC41 HP-41CX Emulator source — CraigBladow/cc41 on GitHub](https://github.com/CraigBladow/cc41)
+- PRX format (current display mode, 24-char width): [HP 82143A printer — 24 char width, per hpmuseum](https://www.hpmuseum.org/journals/hp41/41pr.htm); [Emu41 Documentation](https://www.jeffcalc.hp41.eu/emu41/files/emu41eng.pdf)
+- Synthetic programming safety: [HP-41C Synthetic Programming — hpmuseum.org](https://www.hpmuseum.org/prog/synth41.htm); [Synthetic programming — Wikipedia](https://en.wikipedia.org/wiki/Synthetic_programming_(HP-41)); [HP-41 Synthetic Quick Reference — hpcalc.org](https://literature.hpcalc.org/community/hp41-synthetic-qrg.pdf); [Forum: Synthetic on HP41CX — hp41.org](https://forum.hp41.org/viewtopic.php?f=20&t=214)
+- STO arithmetic LASTX behavior: [hp33s Register Arithmetic — hp.com](http://h20331.www2.hp.com/Hpsub/downloads/33sRegister.pdf); [Stack unchanged for STO arithmetic — narkive](https://comp.sys.hp48.narkive.com/hJidHxqw/hp41-help-me-understand-the-stack-behaviour)
+- hp41-core I/O boundary: Project CLAUDE.md (`hp41-core` must never depend on `hp41-cli` or `hp41-gui`); v1.0 codebase architecture

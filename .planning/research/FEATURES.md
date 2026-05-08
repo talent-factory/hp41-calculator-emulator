@@ -1,166 +1,537 @@
-# Feature Landscape: HP-41 Calculator Emulator
+# Feature Landscape: HP-41 Calculator Emulator v1.1
 
 **Domain:** Retro scientific/programmable calculator emulator (CLI/TUI)
-**Researched:** 2026-05-06
-**Scope:** v1.0 CLI — what to build, defer, and avoid
+**Researched:** 2026-05-08
+**Scope:** v1.1 — four new features added to the complete v1.0 base
+**Confidence:** MEDIUM (HP-41 hardware behavior verified from multiple community sources; some edge cases flagged LOW)
 
 ---
 
-## Table Stakes
+## Scope Note
 
-Features users expect. Missing = product feels incomplete or broken. These
-are non-negotiable for anyone who has used an HP-41 or a comparable HP
-RPN emulator.
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| 4-level RPN stack (X/Y/Z/T) + LASTX | Core HP identity; any deviation breaks every workflow | Low | Stack-lift semantics are subtle — disable/enable rules must match hardware exactly |
-| Correct stack-lift semantics | Distinguishes faithful emulator from toy; power users catch this immediately | Medium | ENTER, arithmetic ops, CLX, and function results each have distinct enable/disable rules |
-| Alphanumeric 12-char display + annunciators | Original hardware shows USER/PRGM/ALPHA/SHIFT/RAD/GRAD/DEG; users have muscle memory around these | Low | Annunciators are display state, not logic — but must be shown or workflow context is lost |
-| Core arithmetic (+ − × ÷, 1/x, √x, x², Y^X, LN, LOG, e^x, 10^x) | Any scientific calc expectation; omission makes product useless | Low | All standard; use f64 with careful rounding to HP-41's 10-digit mantissa behavior |
-| Trig (SIN/COS/TAN + inverses) + DEG/RAD/GRAD modes | HP-41 was used heavily in engineering; trig is a minimum | Low | Mode switching is simple; GRAD is rarely used but must be present |
-| Number formatting modes: FIX n, SCI n, ENG n | Engineering users rely on ENG; omission is conspicuous | Low | HP-41 FIX 0–9, SCI 0–9, ENG 0–9 |
-| Data registers (R00–R99) + STO/RCL/STO arithmetic | HP-41 programs depend on registers; also needed for statistics | Low | STO+/−/×/÷ must work identically to hardware |
-| Keystroke programming (LBL, GTO, XEQ, RTN, ISG, DSE, conditional tests) | HP-41's programmability is its identity; without it the product is just a calculator | High | ISG/DSE counter format (IIII.FFFSS) must match hardware; flag logic is subtle |
-| State save/restore (persist to disk, reload on restart) | Every mobile and desktop emulator does this; users expect their programs to survive restarts | Medium | Original HP-41 has "continuous memory" — this is the software equivalent |
-| Physical-keyboard input mapping | CLI product has no touchscreen; keyboard is the only input | Medium | Mapping 80+ HP-41 functions to PC keys requires careful design; must be discoverable |
-| ALPHA mode (enter/store alphanumeric strings in ALPHA register, 24-char) | HP-41 programs use ALPHA for prompts and output; omission breaks existing programs | Medium | PC keyboard mapping for ALPHA is non-trivial; Emu41 solves this with auto-shift |
-| Display update latency ≤ 50 ms | Users expect instant response; lag breaks flow | Low | Rust + ratatui is more than fast enough; only relevant if blocking calls exist in core |
-| Auto-save on shutdown + periodic auto-save | Users are terrified of losing programs; every real emulator does this | Low | JSON serialization is adequate; 30 s interval from NFR-6 is correct |
+v1.0 shipped all table-stakes HP-41 features (4-level RPN stack, arithmetic, registers,
+keystroke programming, ALPHA mode, TUI, persistence, statistics). This document covers
+only the four new v1.1 features. All v1.0 features are treated as given dependencies.
 
 ---
 
-## Differentiators
+## Feature 1: STO Arithmetic Keyboard Modals
 
-Features that set this product apart from existing HP-41 emulators. Not
-universally expected for v1.0, but meaningfully raise quality for the
-target audience.
+### What the hardware does (HIGH confidence)
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Cross-platform native CLI (macOS + Linux + Windows) | No decent HP-41 emulator exists for macOS or Linux; V41 is Windows-only; users run Wine/VMs — this is the primary gap this project fills | Low (Rust + crossterm) | Verified gap: hp41.org forum explicitly calls out macOS absence; Linux users have zero options |
-| TUI stack/display panel (ratatui) | Existing CLI RPN tools (CC41, rpncalc) show no live stack context; users lose orientation | Medium | Show X/Y/Z/T, LASTX, annunciators, and current display in a persistent panel — this is the killer UX differentiator for a CLI product |
-| Built-in function reference / help (`?` or `HELP` command) | HP-41 has 130+ functions; users cannot memorize keyboard mappings without reference; no CLI HP-41 emulator ships a built-in reference | Low | Searchable table of all commands with syntax and brief description; inline `? SIN` style is ideal |
-| Bundled sample program library (≥10 programs with documentation) | Users want to see the emulator "do something" immediately; programs demonstrate programmability and serve as templates | Low | Engineering classics: RPN unit converters, quadratic solver, statistics, navigation — sourced from public domain HP solutions books |
-| USER mode with custom key assignments | Power-user feature; original hardware USER mode is frequently broken or absent in emulators (go41cx's card reader partial, V41 has it only via Windows UI) | High | Key assignment table saved to state; toggling USER mode live must flip display |
-| Statistics functions (Σ+, Σ−, MEAN, SDEV, linear regression) | Engineers who used HP-41 in labs expect statistical capability; it was in the original firmware | Medium | Σ registers (R01–R06 by convention), two-variable stats including correlation coefficient |
-| HMS/H conversion functions (time/angle) | Navigation, surveying, and astronomy use cases that HP-41 served; these are in the CX time module | Low | →HMS, HMS→, HMS+, HMS− — straightforward arithmetic |
-| Versioned JSON state format with forward compatibility | Users need confidence their programs survive version upgrades; no existing emulator documents this | Medium | Embed schema version field; migration layer for v1 → v2 state |
-| Numerical agreement ≥98% with hardware across 500-case suite | Published accuracy commitment differentiates from emulators that silently diverge | Medium | HP-41 uses 10-digit BCD internally; f64 IEEE 754 diverges in edge cases; test suite catches this |
+HP-41 storage arithmetic (`STO+`, `STO-`, `STO×`, `STO÷`) computes `R[n] ← R[n] OP X`
+and writes the result back into the target register. X and the rest of the stack are
+completely unchanged. LASTX is not saved (this is not a stack arithmetic operation).
+LiftEffect: Neutral.
+
+**Target registers:** Any primary register R00–R99. Also stack registers X, Y, Z, T, and
+LASTX (L) — on real HP-41 hardware, pressing STO+ then the decimal point then a stack
+register letter works. R00–R99 is the overwhelming practical use case.
+
+**Keyboard sequence on real hardware:** Press `STO`, then the arithmetic key (`+`, `-`,
+`×`, or `÷`), then the two-digit register number. The display shows `ST+` (or `ST-` etc.)
+as a prompt while waiting for the register digits. This is a two-step prefix sequence,
+not a single key.
+
+**Stack effects (confirmed from multiple HP-41 sources):**
+- X register: unchanged
+- Y, Z, T registers: unchanged
+- LASTX: unchanged (not saved)
+- R[n]: receives new value
+- lift_enabled: unchanged (Neutral)
+
+### Current v1.0 state
+
+The core operation `op_sto_arith()` in `hp41-core/src/ops/registers.rs` is fully
+implemented and correct — it performs `R[n] ← R[n] OP X` with Neutral lift, does not
+touch LASTX, and guards against reg >= 100.
+
+The TUI modal infrastructure is partially built: `PendingInput::StoAdd/StoSub/StoMul/StoDiv`
+enum variants exist in `hp41-cli/src/app.rs`, and `handle_pending_input()` correctly routes
+them through `handle_reg_modal()`. The `Op::StoArith` dispatch path in `dispatch()` is wired.
+
+**What is missing:** No keyboard trigger sets `pending_input = Some(PendingInput::StoAdd(...))`.
+The `'S'` key only opens `PendingInput::StoRegister` (plain STO). There is no way for the
+user to initiate `STO+`, `STO-`, `STO×`, or `STO÷` from the keyboard.
+
+### Table stakes (must implement)
+
+| Behavior | Detail |
+|----------|--------|
+| Keyboard trigger for STO+ modal | `'S'` → show sub-prompt: `+`, `-`, `×`, `÷`, `Esc` |
+| Keyboard trigger for STO- | Same sub-prompt flow |
+| Keyboard trigger for STO× | Same sub-prompt flow |
+| Keyboard trigger for STO÷ | Same sub-prompt flow |
+| Display prompt while waiting | Show `ST+` / `ST-` / `ST×` / `ST÷` in TUI status |
+| Register entry (two digits) | Reuse existing `handle_reg_modal()` accumulator logic |
+| Esc cancels at any step | Already handled by `handle_reg_modal` |
+| Help overlay entry | Add `STO+/-/×/÷` to `HELP_DATA` in `help_data.rs` |
+
+### Differentiators (nice but not required for v1.1)
+
+| Behavior | Detail |
+|----------|--------|
+| STO arithmetic to stack registers X/Y/Z/T/L | Low practical value; omit in v1.1 |
+| Indirect addressing STO+ IND | Very advanced; omit in v1.1 |
+
+### Anti-features
+
+**Do not** change the core `op_sto_arith()` — it is already correct.
+**Do not** add a separate two-key prefix sequence `S` then `+`; instead add a
+sub-prompt after `S` that lets the user pick the arithmetic variant. This avoids
+key conflicts with normal number entry.
+
+### Dependencies on v1.0
+
+- `PendingInput` enum in `hp41-cli/src/app.rs` (exists)
+- `handle_reg_modal()` in `hp41-cli/src/app.rs` (exists)
+- `Op::StoArith` and `StoArithKind` in `hp41-core/src/ops/mod.rs` (exists)
+- `op_sto_arith()` in `hp41-core/src/ops/registers.rs` (exists, correct)
+- `HELP_DATA` in `hp41-cli/src/help_data.rs` (needs new entries)
+
+### Complexity: LOW
+
+The core logic exists. This is a TUI key-binding wiring task, not an algorithmic task.
+Estimated effort: add one new `PendingInput::StoArithOp` state, handle `+/-/×/÷` keystrokes
+in it to transition to `StoAdd/StoSub/StoMul/StoDiv`, update `HELP_DATA`. Existing
+`handle_reg_modal()` does the rest.
 
 ---
 
-## Anti-Features
+## Feature 2: EEX Trailing-E Without Exponent
 
-Features to deliberately NOT build in v1.0. These consume disproportionate
-effort, introduce legal risk, or actively harm the product's coherence.
+### What the hardware does (MEDIUM confidence)
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Cycle-accurate Nut CPU emulation | Enormous effort (full CPU microarchitecture); zero user-visible benefit vs. behavioral emulation; users cannot tell the difference in outputs | Behavioral emulation: implement the HP-41's observable behavior (stack, registers, display, programming model) without emulating the underlying Nut processor |
-| HP ROM image redistribution | HP-copyrighted material; legal risk ends the project before v1.0 ships | Clean-room behavioral reimplementation; all function behavior documented in public HP manuals and community resources (hpmuseum.org, hp41.org) |
-| Synthetic programming (byte-code injection, FOCAL internals) | Requires Nut CPU internals knowledge; only used by a small minority of HP-41 power users; V41 supports it but it's a v1.1+ differentiator at best | Defer to v1.1+; document as a known gap |
-| Module emulation (.MOD files, CCD ROM, HEPAX, Advantage ROM) | Each module adds significant surface area; V41 ships with ~100 MOD files; correct behavior requires ROM content that may be copyrighted | Defer to v1.1+; design the core architecture to accept pluggable module interface later |
-| .raw HP-41 program file import/export | Useful for V41 compatibility but format has no metadata, no checksum, no reliable type detection — can silently corrupt state | Defer to v1.1+; ship with own versioned JSON format first; add .raw as optional import when stable |
-| HP-IL peripheral emulation (printer, disk drive, card reader) | HP-IL is a complex bus protocol; printer and card reader emulation are niche use cases; no CLI product needs this | Defer to v2.0+ or never; PRX/PRA/PRSTK (print emulation) deferred to v1.1 per PRD |
-| Graphical skin / pixel-perfect hardware appearance | Not relevant to CLI product; the TUI display panel is the UI; skin work belongs to v2.0 Tauri GUI | Design TUI to be clean, information-dense, keyboard-friendly — not a visual replica of the hardware |
-| Cloud sync / network calls | Privacy risk; infrastructure cost; zero users have requested this; HP-41 community is local-first by culture | Local file system only; users can sync the state file via their own tools (iCloud, Dropbox, git) |
-| Telemetry / crash reporting | Privacy expectation in retro computing community is extremely conservative; any network call triggers distrust | No network calls in MVP; local-only crash logs if needed |
-| Animations / cosmetic transitions | Forum users explicitly call out "unnecessary animations that waste time"; HP-41 community values speed and directness | Instant display updates; no transition delays |
-| Wand/barcode reader emulation | Requires physical hardware (IR wand); purely historical curiosity; no modern workflow uses this | Explicitly out of scope |
-| iOS/Android mobile port | Different UI paradigm; mobile keyboard mapping is impossible without virtual layout | v2.0 desktop GUI first; mobile is v3.0 if ever |
+On real HP-41 hardware, if the user presses `EEX` during number entry (starting exponent
+input) and then presses `ENTER` without having typed any exponent digits, the calculator
+**treats the trailing `E` as exponent 00** — the number is committed as if the exponent
+were zero. The display shows the mantissa followed by a space where the exponent would be
+(the cursor indicating the exponent position), and ENTER completes the number.
+
+Example: User types `3`, then `EEX`, then `ENTER` — result pushed to X is `3.0E00 = 3`.
+The entry is not an error; it is treated as a valid complete number.
+
+**Confidence note:** The exact display rendering during the `3 E__` state (what cursor
+placeholder the hardware shows) could not be confirmed from available sources. The
+functional behavior (ENTER commits the number with exponent 0) is consistent across
+multiple emulator community sources. The HP-11C and HP-41 are confirmed to share this
+behavioral pattern. MEDIUM confidence.
+
+**A second variant:** If the user presses `EEX` without any preceding mantissa (empty
+entry buffer), the HP-41 inserts an implicit mantissa of 1, resulting in `1.0E00 = 1`
+if ENTER is pressed immediately. However, the v1.0 codebase already **blocks** EEX when
+`entry_buf` is empty (correct behavior per `app.rs` line 287). This block is correct and
+should be retained.
+
+### Current v1.0 state
+
+In `flush_entry_buf()` (`hp41-core/src/ops/mod.rs`), the string `"1.5e"` (trailing `e`
+with no exponent digits) fails both `Decimal::from_str()` and `Decimal::from_scientific()`,
+causing `flush_entry_buf()` to return `Err(HpError::InvalidOp)`. There is a test named
+`test_flush_trailing_e_without_exponent_returns_err` that explicitly asserts this error
+path — meaning the error is intentional but represents the v1.0 gap.
+
+When this error occurs, `entry_buf` is cleared, so the partial number is silently dropped.
+The user sees no result pushed to X. This diverges from hardware behavior.
+
+Additionally, `app.rs` line 287 blocks `EEX` when `entry_buf.is_empty()` — this is
+**correct** and should remain. The v1.1 fix is only for the "has mantissa, no exponent
+digits" case.
+
+### Table stakes (must implement)
+
+| Behavior | Detail |
+|----------|--------|
+| Trailing-E completion | If `entry_buf` ends with `'e'` (no digit after it), strip the trailing `'e'` and parse the remainder as a plain decimal — equivalent to exponent 00 |
+| No error on partial exponent | ENTER after `EEX` without exponent digits must push a valid number, not return `InvalidOp` |
+| Update/remove failing test | `test_flush_trailing_e_without_exponent_returns_err` must become `test_flush_trailing_e_without_exponent_treats_as_zero_exponent` |
+| Display state during entry | While `entry_buf` ends with `'e'`, render the display as `"<mantissa> E "` — show the partial exponent state visually (cursor in exponent position) |
+
+### Differentiators (nice but not required for v1.1)
+
+| Behavior | Detail |
+|----------|--------|
+| CHS on partial exponent (EEX then CHS then digits) | Hardware-accurate negative exponent entry; research Bug #6 from HP-41 docs mentions a translation issue with EEX+CHS sequences in card programs | Defer |
+| Partial exponent backspace | Delete typed exponent digit; if zero digits remain, return to mantissa entry mode | Low priority |
+
+### Anti-features
+
+**Do not** change the `entry_buf.is_empty()` EEX block in `app.rs` — blocking EEX with
+no mantissa is correct behavior.
+
+**Do not** special-case this in `app.rs` — fix it in `flush_entry_buf()` in `hp41-core`
+so the behavior is correct for both keyboard and programmatic use.
+
+### Implementation approach
+
+In `flush_entry_buf()`, before the parse attempt:
+
+```rust
+// Strip trailing 'e' with no exponent — hardware treats as exponent 00.
+let s = if s.ends_with('e') || s.ends_with('E') {
+    s[..s.len() - 1].to_string()
+} else {
+    s
+};
+```
+
+Then proceed to parse the (now clean) string normally.
+
+### Dependencies on v1.0
+
+- `flush_entry_buf()` in `hp41-core/src/ops/mod.rs` (modify)
+- `test_flush_trailing_e_without_exponent_returns_err` test (replace with passing case)
+- Display rendering for `entry_buf` in `hp41-cli/src/ui.rs` or equivalent (add EEX state display)
+
+### Complexity: LOW
+
+Single-function change in `hp41-core`, one test update, and optional display polish.
+The fix is a 3-line change. The display state rendering is slightly more work but still
+contained in the TUI rendering path.
+
+---
+
+## Feature 3: Print Emulation (PRX, PRA, PRSTK)
+
+### What the hardware does (HIGH confidence)
+
+The HP-41 supported two thermal printer peripherals: the **HP 82143A** (direct plug-in)
+and the **HP 82162A** (HP-IL connected). Both share the same printer ROM (XROM 29) and
+support the same core print functions. The 82162A adds barcode and escape sequences.
+
+**PRX (XROM 29,20):** Prints the X register using the current display format (FIX/SCI/ENG
+setting and digit count). Output is one line of text in the format the display would show.
+Stack is not modified. LASTX is not saved.
+
+**PRA (XROM 29,8):** Prints the contents of the ALPHA register (up to 24 characters) as
+a text string. Stack and ALPHA register are not modified.
+
+**PRSTK (XROM 29,19):** Prints all stack registers plus LASTX and ALPHA. From the HP-42S
+manual (which inherits from HP-41 conventions): "Print the contents of the stack registers
+(x, y, z and t)". Community sources add LASTX and ALPHA to the output. The canonical
+format is T-Z-Y-X printed top-to-bottom (T first), then LASTX, then ALPHA. Each register
+is printed on its own line using the current display format for numeric values. Stack is
+not modified.
+
+**Output routing:** On real hardware, output goes to the thermal printer. In a software
+emulator, the standard pattern (confirmed from HP-IL emulator documentation) is to route
+output to `stdout` (for console viewing) and optionally to a text file (`PRINTER.TXT` or
+similar). Output can be suppressed by clearing flag 26 on real hardware; in the emulator,
+a simpler approach is appropriate.
+
+**Format:** Numbers are formatted using the calculator's current display mode (FIX/SCI/ENG
+with the current digit count), identical to what would appear on the 12-char HP-41 display.
+No padding or justification beyond what the display format produces.
+
+**Printer ROM (XROM 29) other functions:** The full printer ROM includes PRREG, PRREGX,
+PRFLAGS, PRKEYS, PRP, PRPLOT, LIST, TRACE, NORM, MAN, ADV, DELAY, and more. Only PRX,
+PRA, and PRSTK are in v1.1 scope.
+
+### Table stakes (must implement)
+
+| Function | Output | Stack Effect | LASTX |
+|----------|--------|--------------|-------|
+| `PRX` | X register formatted per current display mode, one line | Neutral | Not saved |
+| `PRA` | ALPHA register contents (up to 24 chars), one line | Neutral | Not saved |
+| `PRSTK` | T register (line 1), Z (line 2), Y (line 3), X (line 4), LASTX (line 5), ALPHA (line 6) | Neutral | Not saved |
+
+**Output routing:**
+- Print lines go to a dedicated in-memory `Vec<String>` in `CalcState` named `print_buf`
+  (or similar) — this keeps `hp41-core` UI-agnostic (no stdout in the core library)
+- `hp41-cli` drains `print_buf` each render tick and displays lines in a print panel
+  in the TUI, or routes them to stdout if no TUI (e.g., during testing)
+- A `--print-file <path>` CLI flag (or just append to `~/hp41-print.txt`) could be added
+  as a differentiator but is not required for table stakes
+
+**TUI rendering:** Add a scrollable print output panel to the TUI layout. Print lines
+accumulate (cap at e.g. 200 lines to bound memory). The panel is visible when non-empty.
+
+### Differentiators (nice but not required for v1.1)
+
+| Feature | Value |
+|---------|-------|
+| Output to `PRINTER.TXT` file | Familiar to V41 users; easy to add |
+| ADV (paper advance — blank line) | Very simple; one-liner |
+| PRREG n (print register n) | Useful; low complexity |
+| Flag 26 suppression | Hardware-accurate; low complexity |
+| TRACE mode (auto-print each step) | Useful for debugging programs; moderate complexity |
+
+### Anti-features
+
+**Do not** implement the full XROM 29 printer ROM in v1.1 — PRPLOT, PRKEYS, LIST,
+PRFLAGS, MAN, NORM, TRACE mode are all v1.2+ territory.
+
+**Do not** put `println!()` inside `hp41-core` — the core must remain UI-agnostic.
+All output routing must happen in `hp41-cli`.
+
+### Architecture decision: print buffer in CalcState
+
+Because `hp41-core` must not depend on `hp41-cli`, print output cannot go directly to
+stdout from the core. The correct pattern is:
+
+```rust
+// In CalcState (hp41-core/src/state.rs):
+pub print_buf: Vec<String>,
+```
+
+`op_prx()`, `op_pra()`, `op_prstk()` in `hp41-core` push formatted strings to
+`state.print_buf`. `hp41-cli` renders the panel and clears the buffer.
+
+The `print_buf` must be included in serde serialization to survive auto-save/load,
+or explicitly excluded (ephemeral — cleared on startup). Ephemeral is simpler and
+correct (printed output does not need to persist).
+
+### Dependencies on v1.0
+
+- `CalcState` in `hp41-core/src/state.rs` (add `print_buf: Vec<String>`)
+- `Op` enum in `hp41-core/src/ops/mod.rs` (add `Op::PrintX`, `Op::PrintAlpha`, `Op::PrintStack`)
+- `dispatch()` in `hp41-core/src/ops/mod.rs` (add match arms)
+- Display formatting logic in `hp41-core` (reuse `format_display()` for number formatting)
+- TUI layout in `hp41-cli/src/ui.rs` (add print panel widget)
+- `HELP_DATA` in `hp41-cli/src/help_data.rs` (add PRX/PRA/PRSTK entries)
+- `key_to_op()` in `hp41-cli/src/keys.rs` (add keyboard bindings)
+
+### Complexity: MEDIUM
+
+The hp41-core logic (push to `print_buf`) is LOW complexity. The TUI rendering (new panel
+widget, scrolling, sizing) is MEDIUM. The number formatting reuse requires verifying that
+the existing display format function is accessible from the new ops module.
+
+---
+
+## Feature 4: Synthetic Programming
+
+### What the hardware does (HIGH confidence for definition; MEDIUM for emulator scope)
+
+HP-41 synthetic programming is a technique that exploits a firmware bug to inject raw
+FOCAL byte codes into program memory — byte sequences that cannot be entered through
+normal keyboard operations but that the Nut CPU will execute. The technique was discovered
+by HP-41 users (notably Keith Jarett, "HP-41 Synthetic Programming Made Easy") and
+tacitly supported by HP.
+
+**The byte grabber:** The foundational hardware technique uses a specific sequence of
+keystrokes that exploits a ROM scanning bug to step partially through a multi-byte
+instruction, causing the calculator to misinterpret the second byte as a new instruction's
+prefix. This is a physical firmware hack — it literally cannot be replicated in a
+behavioral emulator without executing actual ROM code.
+
+**What synthetic programming enables:**
+1. Access to hidden registers: STO M, STO N, STO O, RCL M, RCL N, RCL O — synthetic
+   names for status registers not exposed via normal STO/RCL
+2. Over 100 additional TONE variants (different durations and frequencies)
+3. Additional ALPHA editing commands and special characters
+4. Direct access to system flags and control registers
+5. NULL instruction (no-operation byte, 0x00 — useful for alignment)
+6. WROM (write to ROM/RAM at address) — only on models with writable RAM
+7. GETKEY — read the last key pressed as a number (very useful for programs)
+8. Synthetic key assignments (GASN — Generalized Assign): assign multi-keystroke
+   sequences to a single key
+
+**Critical emulator constraint:** Cycle-accurate Nut CPU synthetic programming is
+explicitly out of scope per PROJECT.md ("Cycle-accurate Nut CPU simulation — high
+effort, low user value"). The byte grabber technique itself cannot be replicated
+in a behavioral emulator.
+
+**What "synthetic programming emulation" means at the behavioral level:**
+A behavioral emulator can support the *results* of synthetic programming — the
+byte codes that synthetic programs produce — by accepting raw byte sequences as
+program steps and mapping known synthetic byte codes to their behavioral effects.
+This is how HP-41X handles it ("All synthetic programs are working without problems").
+
+**The viable approach for v1.1:** Implement a subset of the most-used synthetic
+instructions as first-class `Op` variants, accessible via a new program-entry mechanism
+(e.g., a dedicated "byte code entry" mode). The byte grabber hardware exploit is
+replaced by a deliberate software interface.
+
+### HP-41 FOCAL byte code structure (MEDIUM confidence)
+
+The HP-41 FOCAL instruction set uses variable-length 1–3 byte encodings. Key structure:
+
+- Byte `0x00`: NULL (no-operation)
+- Bytes `0x01`–`0x0F`: Short-form numeric literals (0 through 9, decimal point, CHS, EEX)
+- Byte `0x10`–`0x1F`: Long-form double-byte instructions (with second byte as parameter)
+- Bytes for STO: prefix `0x41`–`0x44` + register byte = STO variants
+- Bytes for RCL: prefix `0x51`–`0x54` + register byte = RCL variants
+- "Synthetic" instructions: byte combinations whose prefix+suffix normally can't be combined
+  but are valid to execute (e.g., RCL prefix + LBL suffix byte = "RCL b")
+
+The hidden registers M, N, O correspond to system register addresses (e.g., M = reg `0x6F`,
+N = `0x70`, O = `0x71` in the hardware address space). These are accessible as STO/RCL
+targets only via synthetic byte codes.
+
+**GETKEY (confirmed):** A real FOCAL instruction (`XROM 25,17` in some ROM versions, or
+a synthetic byte code in others) that reads the last key pressed as a number (row×10+col).
+Extremely useful in interactive programs. This is the single most requested synthetic
+instruction among emulator users.
+
+### Table stakes for v1.1 (MEDIUM confidence — scoped conservatively)
+
+Given that the full byte-code injection model is complex and the PROJECT.md explicitly
+defers cycle-accurate CPU emulation, the v1.1 table stakes are a conservative subset:
+
+| Feature | Priority | Rationale |
+|---------|----------|-----------|
+| `GETKEY` as a first-class Op | High | Most useful synthetic instruction; appears in many real HP-41 programs; pure behavioral — read last key as X value |
+| `NULL` (no-op) instruction | High | Very simple; useful for program alignment; commonly appears in synthetic programs |
+| Hidden register access: STO/RCL M, N, O | Medium | Enables a class of programs that use status registers for scratch space; behaviorally: 3 extra read/write registers named M/N/O |
+| Program byte-code viewer/editor | Low | Advanced; lets users inspect raw byte codes of program steps; needed to round-trip `.raw` files (v1.2) |
+
+### Differentiators (explicitly v1.2+ scope)
+
+| Feature | Why Defer |
+|---------|-----------|
+| Full FOCAL byte code injection via byte grabber simulation | Complex; requires a byte-level program representation; conflicts with current `Vec<Op>` model |
+| WROM / ROM write | Requires memory map model; very advanced |
+| Synthetic TONE variants | Low user value without audio support |
+| GASN (Generalized Assign) | Complex; v1.2 when `.raw` import is added |
+| Full synthetic QRC coverage | 100+ instructions; substantial scope |
+
+### Anti-features
+
+**Do not** attempt to replicate the byte grabber firmware exploit — this requires
+cycle-accurate ROM execution and is explicitly out of scope.
+
+**Do not** redesign `program: Vec<Op>` to `program: Vec<u8>` for v1.1 — this is a
+major architectural change that affects persistence, display, and all program logic.
+GETKEY and NULL can be added as `Op` variants without this change.
+
+**Do not** allow synthetic instructions to write to arbitrary memory addresses — this
+would create security and stability issues in the emulator.
+
+### Implementation approach for GETKEY
+
+On real hardware, GETKEY is a function that returns the row-column code of the last key
+pressed as a number in X. In the TUI emulator:
+
+```rust
+// Op variant:
+Op::GetKey,
+
+// CalcState field:
+pub last_key: u8, // row*10 + col code of last key press
+
+// In handle_key() before routing:
+self.state.last_key = encode_key(key); // set before dispatch
+
+// op_getkey():
+// Push state.last_key as HpNum onto X (with lift).
+```
+
+This is a clean behavioral emulation of GETKEY — no firmware required.
+
+### Implementation approach for NULL
+
+```rust
+Op::Null,
+// dispatch: apply LiftEffect::Neutral; return Ok(())
+// In PRGM mode: recorded as Op::Null, displayed as "NULL"
+```
+
+### Implementation approach for hidden registers M/N/O
+
+Extend `CalcState` with three additional named registers:
+
+```rust
+pub reg_m: HpNum,
+pub reg_n: HpNum,
+pub reg_o: HpNum,
+```
+
+Add `Op::StoM`, `Op::StoN`, `Op::StoO`, `Op::RclM`, `Op::RclN`, `Op::RclO`.
+These behave identically to STO/RCL but target the named registers instead of `regs[n]`.
+
+### Dependencies on v1.0
+
+- `CalcState` in `hp41-core/src/state.rs` (add `last_key: u8`, `reg_m/n/o`)
+- `Op` enum in `hp41-core/src/ops/mod.rs` (add `GetKey`, `Null`, `StoM/N/O`, `RclM/N/O`)
+- `dispatch()` in `hp41-core/src/ops/mod.rs` (add match arms)
+- Key encoding in `hp41-cli/src/app.rs` (set `state.last_key` on every keypress)
+- `HELP_DATA` in `hp41-cli/src/help_data.rs` (add entries)
+- Persistence: serde for new state fields
+
+### Complexity: MEDIUM (scoped to GETKEY + NULL + M/N/O registers)
+
+GETKEY, NULL, and the three hidden registers are each individually LOW complexity but
+together constitute a MEDIUM effort when accounting for persistence, TUI display, help
+data, and test coverage. The full synthetic programming model (byte injection) is HIGH
+complexity and deferred.
 
 ---
 
 ## Feature Dependencies
 
 ```
-Stack-lift semantics (FR-02)
-  └── All arithmetic operations (FR-04)
-  └── Keystroke programming (FR-09) — conditional tests, ISG/DSE use stack
+STO arithmetic keyboard modals
+  → PendingInput::StoAdd/Sub/Mul/Div (v1.0, already in enum — WIRING ONLY)
+  → Op::StoArith + op_sto_arith() (v1.0, complete)
 
-ALPHA mode (FR-08)
-  └── Keystroke programming (FR-09) — PROMPT, AVIEW, ASTO/ARCL use ALPHA register
-  └── User-defined labels (LBL uses alphanumeric names)
+EEX trailing-E fix
+  → flush_entry_buf() (v1.0, modify)
+  → entry_buf display rendering (v1.0, polish)
 
-Data registers (FR-07)
-  └── Statistics functions (FR-15) — Σ registers stored in R01–R06 by convention
-  └── Keystroke programming (FR-09) — STO/RCL in programs
+Print emulation (PRX/PRA/PRSTK)
+  → CalcState.print_buf (new field)
+  → Op::PrintX/PrintAlpha/PrintStack (new)
+  → TUI print panel (new widget)
+  → Number formatting function (v1.0, reuse)
 
-Keystroke programming (FR-09)
-  └── USER mode (FR-14) — key assignments trigger labeled programs
-  └── Sample program library (FR-19) — programs exercise all programming features
-
-State save/load (FR-10)
-  └── Auto-save (NFR-6)
-  └── Sample program library (FR-19) — users load bundled programs
-
-TUI display panel (FR-12)
-  └── Keyboard input mapping (FR-11) — TUI captures all keystrokes
-  └── Display + annunciators (FR-03) — rendered in TUI panel
-
-Built-in help (FR-13)
-  └── Keyboard input mapping (FR-11) — help is accessed from the TUI
+Synthetic programming subset (GETKEY + NULL + M/N/O)
+  → CalcState.last_key, reg_m/n/o (new fields)
+  → Op::GetKey, Null, StoM, RclM, etc. (new)
+  → Key encoding in app.rs (new, set on every keypress)
 ```
+
+**Feature ordering for v1.1 phases:**
+
+1. **EEX trailing-E fix** — smallest, safest, touches flush_entry_buf only. Do first.
+2. **STO arithmetic modals** — wiring-only, no core changes. Second (quick win).
+3. **Print emulation** — new CalcState field + new Ops + TUI widget. Third.
+4. **Synthetic programming subset** — new CalcState fields + new Ops + key encoding. Fourth.
 
 ---
 
 ## MVP Recommendation
 
-Prioritize in this order for v1.0:
+**Ship v1.1 with all four features.** They are all independent with no cross-dependencies.
+Suggested phase sequencing (smallest/most confident first):
 
-1. **Stack + stack-lift semantics** (FR-01, FR-02) — foundation; everything else breaks without this
-2. **Arithmetic + trig + number formatting** (FR-04, FR-05, FR-06) — makes the product usable as a calculator
-3. **Data registers + STO/RCL** (FR-07) — prerequisite for any meaningful program
-4. **ALPHA mode** (FR-08) — required for labeled programs and prompts
-5. **Keystroke programming** (FR-09) — HP-41's identity; largest implementation effort; ISG/DSE/flags are subtle
-6. **TUI display panel** (FR-12) — differentiator vs. all existing CLI options; implement early to validate UX
-7. **Keyboard input mapping** (FR-11) — must be designed alongside TUI, not after
-8. **State save/load + auto-save** (FR-10, NFR-6) — users will not tolerate losing programs
-9. **Display + annunciators** (FR-03) — can be delivered with TUI panel in same phase
-10. **Built-in help** (FR-13) — low effort, high discoverability value; prevents user abandonment
-11. **USER mode** (FR-14) — power-user differentiator; correct design required upfront even if implemented later
-12. **Statistics functions** (FR-15) — well-defined; implement once register model is stable
-13. **HMS functions** (FR-16) — low effort, add in same phase as statistics
-14. **Sample program library** (FR-19) — last; validates everything else works end-to-end
-
-**Defer from v1.0:**
-- `.raw` file import/export (FR-22) — format has no reliable detection; too risky to ship without testing
-- Synthetic programming (FR-20) — needs Nut CPU internals
-- Module emulation (FR-21) — each module is a sub-project
+| Phase | Feature | Confidence | Effort |
+|-------|---------|------------|--------|
+| v1.1-Phase 1 | EEX trailing-E fix | HIGH | 0.5 day |
+| v1.1-Phase 2 | STO arithmetic keyboard modals | HIGH | 1 day |
+| v1.1-Phase 3 | Print emulation (PRX/PRA/PRSTK) | HIGH | 2 days |
+| v1.1-Phase 4 | Synthetic programming subset (GETKEY + NULL + M/N/O) | MEDIUM | 2 days |
 
 ---
 
-## Existing Emulator Landscape (Competitive Context)
+## Confidence Assessment
 
-| Emulator | Platform | Key Strengths | Key Gaps |
-|----------|----------|---------------|----------|
-| V41 (Giesselink) | Windows only | GPL, comprehensive MOD support, HP-IL virtual devices, LIF disk images, MODEdit tool | Windows-only (Wine required on Mac/Linux); GUI-heavy; no CLI mode |
-| go41cx (Olivier) | Android (gone from Play Store) | Full CX emulation, MOD support, HEPAX, speed control, skin overlays | Android-only, disappeared from store, timer accuracy unverified, partial card reader |
-| i41CX+ | iOS | Long-lived (7+ years of use reported), comprehensive documentation bundled | iOS-only, paid, developer site went down |
-| CC41 (Bladow) | CLI / all platforms | Text-editor workflow for programs, watchpoints, trace/debug | Not an HP-41 faithful emulator — different UX model; no live TUI stack display; no state persistence documented; printer unimplemented |
-| HP-41X/E (Hrastprogrammer) | HP-48GX/49G calculator | MicroCode-accurate, 4096-register address space, timer, printer | Runs only on another HP calculator — not a PC emulator |
-| Nonpareil | Linux/GTK | Uses original HP-41 byte codes for exact behavior | Abandoned; GTK-only; no packaging for modern distros |
-| x11-calc | Linux/macOS | Open source, broad HP model support | No HP-41 in the model list; X11 dependency |
-
-**The gap this project fills:** A cross-platform (macOS + Linux + Windows) native CLI/TUI HP-41 emulator with faithful behavioral fidelity, persistent state, built-in help, and keyboard-driven workflow. No current option satisfies this combination.
+| Feature | Confidence | Reason |
+|---------|------------|--------|
+| STO arithmetic behavior | HIGH | Multiple HP-41 sources confirm; v1.0 core already correct; only keyboard wiring missing |
+| STO arithmetic keyboard sequence | HIGH | "STO then arithmetic key then register" confirmed in community sources and existing modal infrastructure |
+| EEX trailing-E hardware behavior | MEDIUM | Functional behavior (treat as exponent 0) consistent across sources; exact display rendering during partial entry not confirmed from primary source |
+| PRX output format | HIGH | HP-42S manual p.32 confirms "Print x-register"; format uses current display mode |
+| PRA output format | HIGH | "Print Alpha register" — unambiguous |
+| PRSTK register order and contents | MEDIUM | T/Z/Y/X order confirmed; LASTX and ALPHA inclusion confirmed by community but not primary manual page |
+| Synthetic programming table stakes | MEDIUM | GETKEY behavioral semantics are clear; NULL is trivial; M/N/O hidden registers confirmed in rskey.org source |
+| Synthetic full byte codes | LOW | PDF sources not extractable; full table not retrieved in this research session |
 
 ---
 
 ## Sources
 
-- HP-41.org emulation page: http://www.hp41.org/Emulation.cfm
-- HP-41.org forum, macOS gap thread: https://forum.hp41.org/viewtopic.php?f=20&t=560
-- HP-41.org forum, iPad/iPhone discussion: https://forum.hp41.org/viewtopic.php?f=13&t=421
-- V41 by Christoph Giesselink: https://hp.giesselink.com/v41.htm
-- Free42 (HP-42S reference): https://thomasokken.com/free42/
-- go41cx Android emulator: https://sites.google.com/site/olivier2smet2/home/go41cx
-- CC41 CLI emulator (GitHub): https://github.com/CraigBladow/cc41
-- hpcalc.org V41 detail: https://www.hpcalc.org/details/3695
-- HP-41X MicroCode Emulator: https://www.hrastprogrammer.com/hp41x/
-- MoHPC HP-41 Software Library: https://www.hpmuseum.org/software/soft41.htm
-- HP-41C Wikipedia: https://en.wikipedia.org/wiki/HP-41C
-- Emu41 Documentation (ALPHA keyboard): https://www.jeffcalc.hp41.eu/emu41/files/emu41eng.pdf
-- Free42 program import/export: https://thomasokken.com/free42/importexport.html
-- RAW/P41 format discussion: https://www.hrastprogrammer.com/hp42x/rawfiles.htm
-- Confidence: MEDIUM-HIGH (multiple sources for all critical claims; user forums corroborate platform gaps; Free42 and CC41 verified directly)
+- HP-42S Owner's Manual p.32 via ManualsLib (PRX, PRA, PRSTK descriptions): https://www.manualslib.com/manual/801798/Hp-Hp-42s.html?page=32
+- HP-42S Owner's Manual p.33 (STO+/STO-/STO×/STO÷ descriptions): https://www.manualslib.com/manual/801798/Hp-Hp-42s.html?page=33
+- rskey.org Synthetic Programming: https://www.rskey.org/gene/calcgene/sp.htm
+- HP Museum HP-41C Synthetic Programming page: https://www.hpmuseum.org/prog/synth41.htm
+- Wikipedia HP-41 Synthetic Programming: https://en.wikipedia.org/wiki/Synthetic_Programming_(HP-41)
+- HP41.org Synthetic Programming on HP-41CX forum thread: https://forum.hp41.org/viewtopic.php?f=20&t=214
+- HP41.org 82143A vs 82162A printer differences: https://forum.hp41.org/viewtopic.php?f=5&t=492
+- HP41.org HP-41 Bugs list: https://forum.hp41.org/viewtopic.php?f=14&t=494
+- HP-41CX Emulator (cc41) README (PRSTK behavior): https://github.com/CraigBladow/cc41
+- HP-41X emulator synthetic programming support: https://www.hrastprogrammer.com/hp41x/
+- Eddie's Math Blog STO arithmetic on HP-41: https://edspi31415.blogspot.com/2025/04/rpn-with-hp-15c-dm32-stack-register.html
+- HP-41C/41CV Operating Manual online: https://archived.hpcalc.org/greendyk/hp41c-manual/
+- HP-41 XROM numbers (printer XROM 29): https://www.hpmuseum.org/software/xroms.htm
+- v1.0 codebase: hp41-cli/src/app.rs (PendingInput, EEX guards), hp41-core/src/ops/registers.rs (op_sto_arith), hp41-core/src/ops/mod.rs (flush_entry_buf)

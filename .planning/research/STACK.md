@@ -1,206 +1,179 @@
 # Technology Stack
 
-**Project:** HP-41 Calculator Emulator
-**Researched:** 2026-05-06
+**Project:** HP-41 Calculator Emulator — v1.1 Stack Delta
+**Researched:** 2026-05-08
+**Scope:** NEW dependencies or version changes needed for v1.1 features only. The existing v1.0 stack is validated and unchanged.
 
 ---
 
-## Recommended Stack
+## Verdict: No New Runtime Dependencies Required
 
-### Rust Toolchain
+All four v1.1 features can be built on the existing stack. The analysis below explains why for each feature, then documents the one version bump worth applying.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Rust stable | 1.85+ | Language | 2024 edition required for async closures, let-chains, improved temporary scoping. Matches clap 4.6 and proptest 1.11 MSRV. PROJECT.md specifies 1.78+ minimum; bumping to 1.85 costs nothing for a greenfield project. |
-| Cargo workspace | resolver v3 (2024 edition) | Monorepo | Enforces `hp41-core` / `hp41-cli` / `hp41-gui` boundary at the build system level. Dependency deduplication cuts clean build time 40-60% on medium projects. |
-| Edition | 2024 | Language semantics | Stabilised in Rust 1.85 (2025-02-20). Use it from day one — migrating later is painful. |
+---
 
-### TUI Framework
+## Feature-by-Feature Analysis
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **ratatui** | 0.30.0 | Terminal UI rendering | The de-facto successor to the abandoned `tui-rs`. Immediate-mode rendering with intermediate buffers. Rich widget set (Block, Paragraph, Table, List, Gauge, Sparkline). 30-40% less memory and 15% lower CPU vs. equivalent Go Bubbletea apps. Actively maintained with a large ecosystem (awesome-ratatui). CrosstermBackend is the default. |
+### Feature 1: STO Arithmetic Keyboard Modals
 
-**Confidence: HIGH** — verified against crates.io (released 2025-12-26), official docs at ratatui.rs, and ecosystem research.
+**Question:** Does the multi-step modal flow (STO+ → register number prompt → dispatch) need a new crate?
 
-Do NOT use: `tui-rs` (unmaintained, archived), `cursive` (retained-mode, harder to adapt to HP-41 frame-by-frame redraw pattern).
+**No.** The infrastructure is already in place:
 
-### Terminal Backend / Input Handling
+- `op_sto_arith()` in `hp41-core/src/ops/registers.rs` is fully implemented and tested.
+- `PendingInput::StoAdd/StoSub/StoMul/StoDiv(String)` variants are already declared in `hp41-cli/src/app.rs` (lines 29-34), gated with `#[allow(dead_code)]`. They were stubbed in v1.0 Phase 8 with an explicit comment: "Keyboard binding deferred to v1.1."
+- The existing `PendingInput::StoRegister` flow (two-digit accumulation → dispatch) is the exact same pattern. The STO arithmetic variants extend it with one extra step: select the operation (triggered by `+/-/×/÷` after pressing `STO`), then accumulate the register number.
+- The modal UI is built from ratatui 0.30's `Clear` + `Block` + `Paragraph` widgets — all present in the current dependency. `Clear` exists precisely for this use case: render it before the popup to erase the underlying display region.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **crossterm** | 0.29.0 | Terminal raw mode, keyboard events, cursor, color | Default and recommended backend for ratatui. The only backend with full Windows 10+ support (termion is Unix-only). Ratatui's own docs flowchart says "choose Crossterm if Windows matters." Consistent API across Windows, macOS, Linux. |
+**Confidence: HIGH** — verified in codebase and ratatui 0.30 docs (docs.rs/ratatui/0.30.0).
 
-**Confidence: HIGH** — confirmed by ratatui.rs/concepts/backends/comparison/, crates.io (released 2025-04-05).
+---
 
-Do NOT use: `termion` (Unix-only, would break NFR-5 Windows 10+ requirement), `termwiz` (WezTerm-specific; over-engineered for this use case).
+### Feature 2: EEX Trailing-e-Without-Exponent Hardware Lock
 
-Note on version pinning: Ratatui 0.30 warns against pulling in semver-incompatible crossterm versions in the same binary (causes race conditions and raw-mode restore failures). Use `crossterm = "0.29"` and let ratatui re-export what it needs.
+**Question:** Does locking input when `entry_buf` ends with `'e'` and no exponent has been typed require a new crate?
 
-### CLI Argument Parsing
+**No.** This is pure state machine logic in `app.rs::handle_key()`.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **clap** | 4.6.1 | `--help`, `--version`, `--state-file`, `--program` flags | The standard Rust CLI parser. Derive macro (`#[derive(Parser)]`) keeps arg definitions next to structs. Excellent shell-completion generation via `clap_complete`. No realistic alternative with the same ecosystem maturity. |
+Current behavior: when `'e'` is in `entry_buf` and a non-digit key arrives, `dispatch()` calls `flush_entry_buf()`, which tries `Decimal::from_str("1.5e")` then `Decimal::from_scientific("1.5e")`, both fail, and `HpError::InvalidOp` is returned — the number is discarded. The HP-41 hardware instead locks: the display shows "1.5  00" (mantissa + blank exponent field) and only accepts digits (for the exponent), `CHS` (to negate the exponent), or `EEX` again (to cancel the EEX entry). No non-EEX op fires until the exponent is complete or EEX is cancelled.
 
-**Confidence: HIGH** — verified against crates.io (released 2026-04-15).
+**Implementation:** Add an `eex_locked: bool` field to `CalcState` (or detect the condition inline from `entry_buf.contains('e') && last char is 'e'`), and in `handle_key()` before the normal dispatch path, check that condition and restrict which key codes are accepted. No new crates. The `entry_buf` `String` type already stores the state.
 
-Do NOT use: `structopt` (merged into clap 3+, deprecated), `pico-args` (too minimal for the help/completion story).
+**Confidence: HIGH** — analysis based on direct reading of `ops/mod.rs:flush_entry_buf()` and `app.rs` handle_key() digit-entry block.
 
-Use features: `derive` (required), `env` (for `HP41_STATE_FILE` env var override), `wrap_help` (nicer terminal wrapping).
+---
 
-### Serialization
+### Feature 3: Print Emulation (PRX / PRA / PRSTK)
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **serde** | 1.0.228 | Derive `Serialize`/`Deserialize` on all state types | Industry standard. Zero-copy deserialization where needed. |
-| **serde_json** | 1.0.149 | State files, program files, save/load (FR-10) | Human-readable format is non-negotiable for a calculator emulator — users share programs as text files. JSON is universally understood. The format must be versioned (`"schema_version": 1` field) for forward-compatible migration. |
+**Question:** Do print-to-console and print-to-file require new I/O crates?
 
-**Confidence: HIGH** — verified against crates.io.
+**No.** Rust's `std::io` and `std::fs` cover everything needed.
 
-Do NOT use: `bincode`/`postcard` as the primary format — binary formats are unreadable, complicating the program-sharing use case. Fine as a secondary fast-path cache if ever needed.
+The HP-41 printer (HP 82143A) outputs ASCII text — no binary protocol, no graphics. The three operations:
 
-Consider: wrapping the JSON schema version in a top-level envelope so `serde_json::from_value` can branch on version before full deserialization (avoids breaking existing save files on schema changes).
+- `PRX` — print X register formatted as the current display string
+- `PRA` — print the ALPHA register contents
+- `PRSTK` — print all four stack registers (T, Z, Y, X) as formatted strings
 
-### Async Runtime
+Print targets:
+1. Console (stdout): `std::io::stdout()` with `writeln!()` — zero dependencies.
+2. File: `std::fs::OpenOptions::new().append(true).open(path)` + `std::io::BufWriter` — zero dependencies. Path can be set via a `--print-log` clap flag.
 
-**Verdict: Do NOT add tokio for v1.0.**
+**Design recommendation:** Add a `PrintSink` enum to `hp41-cli` (not `hp41-core`):
 
-Ratatui's own FAQ states: "Ratatui isn't a native async library." For a keyboard-driven calculator emulator, the event loop is:
-
-```
-poll crossterm event (blocking, timeout = 30 s auto-save interval)
-→ update hp41-core state (pure, synchronous, < 1 ms)
-→ render frame (ratatui draw, < 1 ms)
+```rust
+pub enum PrintSink {
+    Stdout,
+    File(std::io::BufWriter<std::fs::File>),
+}
+impl std::io::Write for PrintSink { ... }
 ```
 
-There are no concurrent background operations in v1.0. Auto-save can run in the same thread after a poll timeout. Adding tokio for this use case imposes compile-time overhead (adds ~3 s to cold builds on CI), binary size overhead (~500 KB), and async function coloring complexity with zero payoff.
+The print operations themselves live in `hp41-core` as `Op::PrintX`, `Op::PrintAlpha`, `Op::PrintStack` — they format the string and return it as `Ok(String)` (or via a trait object). The `hp41-cli` layer writes it to the sink. This preserves the `hp41-core` zero-UI-dependency invariant.
 
-**If v2.0 Tauri requires async channels** between the Rust backend and web frontend, tokio enters via the Tauri dependency — but that stays in `hp41-gui`, not `hp41-core` or `hp41-cli`.
+**No new crates.** `std::io::Write` + `std::io::BufWriter` + `std::fs::File` + existing `clap` for the `--print-log` flag.
 
-**Confidence: HIGH** — ratatui FAQ explicitly confirmed, event model analysis matches the HP-41 interaction model.
-
-### Error Handling
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **thiserror** | 2.0.18 | Error types in `hp41-core` | Derive macro for `std::error::Error`. Keeps core error types ergonomic without pulling in heavy dependencies. |
-| `anyhow` | (if needed) | Top-level error propagation in `hp41-cli` | For `main()` and CLI glue code where detailed error types are less important than useful messages. Evaluate at implementation time — may not be needed. |
-
-**Confidence: HIGH** — thiserror 2.x verified against crates.io (released 2026-01-18).
+**Confidence: HIGH** — stdlib-only solution, no ecosystem dependency needed.
 
 ---
 
-## Testing Stack
+### Feature 4: Synthetic Programming (Byte-Code Injection, FOCAL Internals)
 
-### Unit and Integration Testing
+**Question:** Does a FOCAL byte-code lookup table require a new crate (e.g., `phf` for perfect hash maps)?
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| Rust built-in `#[test]` | stdlib | Unit tests in `hp41-core` | All pure computation tests: stack operations, arithmetic, trig, register operations, stack-lift semantics |
-| **proptest** | 1.11.0 | Property-based testing for numerical correctness | Testing that HP-41 arithmetic invariants hold across arbitrary f64 inputs (e.g., `sin(x)^2 + cos(x)^2 ≈ 1.0`); regression to NFR-7 (≥98% numerical agreement with 500 reference cases) |
-| **insta** | 1.47.2 | Snapshot testing | Testing display formatting (FIX/SCI/ENG modes), annunciator state strings, program listing output — any "string that should look exactly like this" scenario |
-| **approx** (0.5.1) or `float-cmp` (0.10.0) | stable | Floating-point approximate equality | Asserting results within HP-41's 10-digit BCD precision tolerance. Use `assert_relative_eq!` from `approx` or `assert_approx_eq!` from `float-cmp`. |
-| `ratatui::backend::TestBackend` | 0.30.0 | TUI widget rendering tests | Rendering `Stack`, `Display`, `Annunciator` widgets to a buffer and asserting cell content — avoids needing a real terminal in CI |
+**No.** A `match` on `u8` in Rust compiles to a jump table — identical performance to a perfect hash map for a 256-entry lookup. `phf` adds a proc-macro build dependency for zero runtime benefit here.
 
-**Why proptest over quickcheck:** proptest 1.11 requires Rust 1.85, has better shrinking, and is more actively maintained than quickcheck 1.1. For the 500-case HP-41 reference test suite (NFR-7), proptest's strategy combinators let you express "any valid HP-41 number" precisely.
+The synthetic programming feature maps FOCAL byte values (`0x00`–`0xFF`) to `Op` variants (or to raw byte sequences for byte-code injection). This is a 256-entry static mapping:
 
-**Confidence: HIGH for proptest/insta** — verified against crates.io. **MEDIUM for approx** — 0.5.1 is the stable release but 0.6.0-rc2 exists; 0.5.1 is safe to pin.
-
-### Coverage
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **cargo-llvm-cov** | 0.8.5 | LLVM source-based coverage, targeting ≥80% on `hp41-core` (NFR-4) |
-
-Run in CI with:
-```bash
-cargo llvm-cov --workspace --exclude hp41-cli --lcov --output-path lcov.info
+```rust
+pub fn focal_byte_to_op(byte: u8) -> Option<Op> {
+    match byte {
+        0x40 => Some(Op::Add),
+        0x41 => Some(Op::Sub),
+        // ...
+        _ => None, // unimplemented / reserved
+    }
+}
 ```
 
-Note: `x86_64-pc-windows-gnu` target does not work with cargo-llvm-cov — use `x86_64-pc-windows-msvc` on Windows CI runners.
+The FOCAL byte-code table itself is research/domain data (HP-41 FOCAL internals documentation), not a Rust crate. The byte-code injection mechanism extends `CalcState::program: Vec<Op>` — the existing data structure. If raw byte sequences need to be stored (for roundtrip fidelity of synthetic instructions that have no `Op` equivalent), a new `Op::RawByte(u8)` variant handles it.
+
+**No new crates.** The `Op` enum extension + `match`-based lookup is purely in `hp41-core`.
+
+**Confidence: HIGH** — verified by reading the existing `Op` enum and `dispatch()` structure.
 
 ---
 
-## CI and Release Tooling
+## Version Bump: rust_decimal 1.41 → 1.42
 
-| Tool | Purpose | Why |
-|------|---------|-----|
-| GitHub Actions | CI runner | Native Windows, macOS, Linux runners; matrix strategy for cross-platform |
-| `dtolnay/rust-toolchain` action | Pin Rust stable | Reproducible builds |
-| `houseabsolute/actions-rust-cross` | Cross-compilation | ARM Linux targets (aarch64-unknown-linux-musl) if desired; native cargo for Windows/macOS |
-| **cargo-dist** 0.31.0 | Release packaging | Automated GitHub Release creation with .tar.gz (Linux/macOS) and .zip (Windows) artifacts; installer scripts; designed for Rust CLI tools |
-| `taiki-e/install-action@cargo-llvm-cov` | Install coverage tool in CI | Fastest way to get cargo-llvm-cov on runners |
+| Crate | Current | Latest | MSRV | Bump? | Rationale |
+|-------|---------|--------|------|-------|-----------|
+| `rust_decimal` | 1.41 | 1.42.0 | 1.67.1 | YES | Minor version; released 2026-05-06. Patch bug fixes. No breaking changes in semver minor. Low-risk. |
+| `ratatui` | 0.30 | 0.30.0 | — | No | Already at latest stable. |
+| `crossterm` | 0.29 | 0.29.0 | — | No | Already at latest stable. |
+| `clap` | `"4"` | 4.6.1 | 1.85 | No (see note) | 4.6.1 requires Rust 1.85; project MSRV is 1.78+. Pinning `"4"` already resolves to 4.6.1 on new installs — this is a latent v1.0 discrepancy, not introduced by v1.1. Address separately by either bumping MSRV to 1.85 or pinning `"4.5"`. |
+| `proptest` | 1.11 | 1.11.0 | — | No | Already at latest stable. |
+| `insta` | 1.47 | 1.47.2 | — | No | Already at latest patch. |
+| `criterion` | 0.5 | 0.8.2 | — | No (advisory) | Major version jump; not a v1.1 blocker. Benchmarks are advisory-only (not CI-gated). Keep at 0.5 for now. |
+| `dirs` | 6 | 6.0.0 | — | No | Already at latest. |
 
-**Confidence: MEDIUM** — cargo-dist 0.31.0 verified; cross-compilation matrix pattern verified via multiple 2025 blog posts. Exact workflow YAML requires validation against runner images at implementation time.
+**Confidence for version data: HIGH** — verified against crates.io API for all crates on 2026-05-08.
 
 ---
 
-## Cargo.toml Dependency Summary
+## MSRV Note: clap 4.6.1 vs Rust 1.78+
+
+`clap = "4"` in the workspace resolves to 4.6.1 (released 2026-04-15), which declares `rust_version = "1.85"`. The project's stated MSRV in `CLAUDE.md` and `PROJECT.md` is "Rust stable 1.78+". This is a latent inconsistency introduced before v1.1 — clap 4.5.x had MSRV 1.74. v1.1 does not introduce any new clap usage (the existing `--state-file` flag and `--help`/`--version` are unchanged). The options are:
+
+1. Bump project MSRV to 1.85 (recommended — Rust 1.85 is the 2024 edition release, CI should already be tracking stable).
+2. Pin `clap = "~4.5"` to stay on 1.74-compatible releases.
+
+This decision belongs to the requirements phase, not stack research.
+
+---
+
+## What NOT to Add
+
+| Crate | Reason to Exclude |
+|-------|-------------------|
+| `phf` | Compile-time perfect hash maps — unnecessary for a 256-entry `u8` lookup; `match` compiles identically. |
+| `tokio` | No async operations in v1.1. Print-to-file is synchronous. |
+| `crossterm::execute!` / `style` extensions | Print emulation outputs to a file/stdout, not the terminal widget area. No new terminal control needed. |
+| `tui-popup` / any ratatui widget crate | The `Clear` + `Block` + `Paragraph` modal pattern is sufficient for the STO arithmetic prompt; no third-party widget library needed. |
+| `tracing` / `log` | Print output is user-visible data (simulated HP-41 printer), not a logging concern. `std::io::Write` is the right abstraction. |
+| `unicode-width` / `textwrap` | Printer output is 24-column ASCII (HP-41 printer hardware spec). No Unicode layout needed. |
+
+---
+
+## Final Dependency Delta for v1.1
 
 ```toml
-# hp41-core/Cargo.toml
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
+# Cargo.toml (workspace) — CHANGE
+[workspace.dependencies]
+rust_decimal = "1.42"   # was 1.41; minor bump, released 2026-05-06
 
-[dev-dependencies]
-proptest = "1.11"
-approx = "0.5"
-insta = { version = "1.47", features = ["json"] }
-
-# hp41-cli/Cargo.toml
-[dependencies]
-hp41-core = { path = "../hp41-core" }
-ratatui = { version = "0.30", default-features = true }   # pulls in crossterm 0.29 backend
-crossterm = "0.29"
-clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }
-serde_json = "1.0"
-thiserror = "2.0"
-
-[dev-dependencies]
-insta = "1.47"
+# All other workspace dependencies: UNCHANGED
+# All crate-level dependencies: UNCHANGED
+# No new [dependencies] entries in any crate
 ```
 
-Do NOT add `tokio` to either crate for v1.0.
-
----
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| TUI | ratatui 0.30 | cursive | Retained-mode; less suited to HP-41's fixed-frame layout; smaller ecosystem |
-| TUI | ratatui 0.30 | tui-rs | Archived/unmaintained; ratatui is its direct successor |
-| TUI | ratatui 0.30 | iocraft | Experimental React-like model; immature, no production track record |
-| Backend | crossterm | termion | Unix-only; breaks Windows support (NFR-5) |
-| Backend | crossterm | termwiz | WezTerm-specific; no meaningful advantage here |
-| CLI args | clap 4 | structopt | Merged into clap 3+; use clap directly |
-| CLI args | clap 4 | pico-args | Too minimal; no help generation or shell completion |
-| Serialization | serde_json | bincode | Binary format; users can't inspect/share program files |
-| Serialization | serde_json | ron | Rust-centric; lower tool support for non-Rust users |
-| Async | none (sync) | tokio | Zero benefit for synchronous keyboard-driven emulator; adds compile overhead |
-| Error handling | thiserror | anyhow in core | anyhow erases error types; unacceptable in a library crate |
-| Property testing | proptest | quickcheck | proptest has better shrinking and is more actively maintained |
-| Coverage | cargo-llvm-cov | tarpaulin | tarpaulin is Linux-only; cargo-llvm-cov works on all three target platforms |
+That is the complete change. One version number.
 
 ---
 
 ## Sources
 
+- rust_decimal crates.io: https://crates.io/crates/rust_decimal (v1.42.0, released 2026-05-06)
 - ratatui crates.io: https://crates.io/crates/ratatui (v0.30.0, released 2025-12-26)
 - crossterm crates.io: https://crates.io/crates/crossterm (v0.29.0, released 2025-04-05)
-- clap crates.io: https://crates.io/crates/clap (v4.6.1, released 2026-04-15)
-- serde crates.io: https://crates.io/crates/serde (v1.0.228)
-- serde_json crates.io: https://crates.io/crates/serde_json (v1.0.149)
-- thiserror crates.io: https://crates.io/crates/thiserror (v2.0.18)
-- proptest crates.io: https://crates.io/crates/proptest (v1.11.0, released 2026-03-24)
+- clap crates.io: https://crates.io/crates/clap (v4.6.1, MSRV 1.85, released 2026-04-15)
+- clap 4.5.37 MSRV: https://crates.io/crates/clap/4.5.37 (rust_version: 1.74)
+- criterion crates.io: https://crates.io/crates/criterion (v0.8.2, released 2026-02-04)
 - insta crates.io: https://crates.io/crates/insta (v1.47.2, released 2026-03-30)
-- approx crates.io: https://crates.io/crates/approx (v0.5.1 stable)
-- cargo-llvm-cov crates.io: https://crates.io/crates/cargo-llvm-cov (v0.8.5, released 2026-03-20)
-- cargo-dist crates.io: https://crates.io/crates/cargo-dist (v0.31.0, released 2026-02-23)
-- ratatui backend comparison: https://ratatui.rs/concepts/backends/comparison/
-- ratatui FAQ (async): https://ratatui.rs/faq/
-- Rust 1.85 / 2024 edition: https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/
-- ratatui vs tui-rs ecosystem: https://github.com/ratatui/ratatui
-- Cross-platform CI patterns: https://ahmedjama.com/blog/2025/12/cross-platform-rust-pipeline-github-actions/
+- proptest crates.io: https://crates.io/crates/proptest (v1.11.0, released 2026-03-24)
+- dirs crates.io: https://crates.io/crates/dirs (v6.0.0)
+- ratatui Clear widget: https://docs.rs/ratatui/0.30.0/ratatui/widgets/struct.Clear.html
+- ratatui popup recipe: https://ratatui.rs/recipes/render/overwrite-regions/
+- hp41-cli/src/app.rs: PendingInput enum (lines 22-38) — STO arithmetic variants already stubbed
+- hp41-core/src/ops/registers.rs: op_sto_arith() fully implemented
+- hp41-core/src/ops/mod.rs: flush_entry_buf() — EEX parse failure path identified
