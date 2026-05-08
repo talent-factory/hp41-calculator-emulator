@@ -121,5 +121,9 @@ fn op_display_name(op: &Op) -> String {
         Op::HToHms => "\u{2192}HMS".to_string(),
         Op::HmsAdd => "HMS+".to_string(),
         Op::HmsSub => "HMS-".to_string(),
+        // Phase 11: Print operations
+        Op::PRX => "PRX".to_string(),
+        Op::PRA => "PRA".to_string(),
+        Op::PRSTK => "PRSTK".to_string(),
     }
 }

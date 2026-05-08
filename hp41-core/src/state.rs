@@ -86,6 +86,12 @@ pub struct CalcState {
     /// User key assignments: maps key char → program label name.
     /// BTreeMap for deterministic JSON serialization order (D-25, D-29).
     pub key_assignments: BTreeMap<char, String>,
+    // ── Phase 11: Print emulation ─────────────────────────────────────────────
+    /// Buffer of formatted print lines from PRX/PRA/PRSTK.
+    /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
+    /// #[serde(default)] preserves backward compatibility with v1.0 save files.
+    #[serde(default)]
+    pub print_buffer: Vec<String>,
 }
 
 impl CalcState {
@@ -105,6 +111,7 @@ impl CalcState {
             is_running: false,
             user_mode: false,
             key_assignments: BTreeMap::new(),
+            print_buffer: Vec::new(),
         }
     }
 }
