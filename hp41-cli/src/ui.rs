@@ -129,8 +129,14 @@ fn render_display(app: &App, frame: &mut Frame, area: Rect) {
 fn get_display_string(app: &App) -> String {
     let st = &app.state;
     if !st.entry_buf.is_empty() {
-        // Live digit preview while user is typing a number.
-        st.entry_buf.clone()
+        // Phase 9 D-01..D-04: when entry_buf is in exponent-entry mode, render
+        // placeholder slots for unfilled exponent digits. Plain numeric entry
+        // (no 'e') is unchanged — return verbatim.
+        if st.entry_buf.contains('e') {
+            format_entry_buf_display(&st.entry_buf)
+        } else {
+            st.entry_buf.clone()
+        }
     } else if st.prgm_mode {
         // D-14: PRGM mode shows step number + op name.
         prgm_display::format_step(st)
@@ -141,6 +147,45 @@ fn get_display_string(app: &App) -> String {
         // Normal mode: format X register per current display mode.
         format_hpnum(&st.stack.x, &st.display_mode)
     }
+}
+
+/// Format an entry_buf string for display when it contains 'e' (exponent entry mode).
+/// Implements D-01..D-04 from Phase 9 CONTEXT:
+///   "1.5e"   → "1.5E_ _"   (no exponent digits typed yet)
+///   "1.5e2"  → "1.5E2_"    (1 exponent digit typed, 1 underscore for pending slot)
+///   "1.5e23" → "1.5E23"    (both slots filled — no underscores)
+///   "1e"     → "1E_ _"     (empty-buffer EEX implicit "1" mantissa)
+/// A negative exponent sign is preserved before the digits:
+///   "1.5e-2"  → "1.5E-2_"
+///   "1.5e-23" → "1.5E-23"
+/// If the input does not contain 'e', it is returned verbatim (defensive fallback;
+/// callers normally pre-check with `entry_buf.contains('e')` before calling).
+fn format_entry_buf_display(s: &str) -> String {
+    let Some(e_pos) = s.find('e') else {
+        return s.to_string();
+    };
+    let mantissa = &s[..e_pos];
+    let after_e = &s[e_pos + 1..];
+
+    // Split off optional leading '-' (or '+') from the exponent part.
+    let (sign, digits) = if let Some(rest) = after_e.strip_prefix('-') {
+        ("-", rest)
+    } else if let Some(rest) = after_e.strip_prefix('+') {
+        ("+", rest)
+    } else {
+        ("", after_e)
+    };
+
+    // Render exactly 2 slots: each typed digit fills one slot; remaining slots are "_".
+    // Slots are space-separated when an underscore is present, per D-01 ("1.5E_ _").
+    let typed: Vec<char> = digits.chars().take(2).collect();
+    let slot_render = match typed.len() {
+        0 => "_ _".to_string(),
+        1 => format!("{}_", typed[0]),
+        _ => format!("{}{}", typed[0], typed[1]),
+    };
+
+    format!("{mantissa}E{sign}{slot_render}")
 }
 
 fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
@@ -323,5 +368,53 @@ mod tests {
         app.programs_table_state.borrow_mut().select_next();
         app.programs_table_state.borrow_mut().select_next();
         app.programs_table_state.borrow_mut().select_previous();
+    }
+}
+
+#[cfg(test)]
+mod entry_buf_display_tests {
+    use super::format_entry_buf_display;
+
+    #[test]
+    fn test_d01_trailing_e_no_digits() {
+        // D-01: "1.5e" -> "1.5E_ _"
+        assert_eq!(format_entry_buf_display("1.5e"), "1.5E_ _");
+    }
+
+    #[test]
+    fn test_d02_one_exponent_digit() {
+        // D-02: "1.5e2" -> "1.5E2_"
+        assert_eq!(format_entry_buf_display("1.5e2"), "1.5E2_");
+    }
+
+    #[test]
+    fn test_d03_two_exponent_digits_no_underscores() {
+        // D-03: "1.5e23" -> "1.5E23"
+        assert_eq!(format_entry_buf_display("1.5e23"), "1.5E23");
+    }
+
+    #[test]
+    fn test_d04_implicit_one_mantissa() {
+        // D-04: "1e" -> "1E_ _"
+        assert_eq!(format_entry_buf_display("1e"), "1E_ _");
+    }
+
+    #[test]
+    fn test_negative_exponent_one_digit() {
+        // Negative exponent + 1 digit: sign preserved, second slot is underscore.
+        assert_eq!(format_entry_buf_display("1.5e-2"), "1.5E-2_");
+    }
+
+    #[test]
+    fn test_negative_exponent_two_digits() {
+        // Negative exponent + 2 digits: sign preserved, no underscores.
+        assert_eq!(format_entry_buf_display("1.5e-23"), "1.5E-23");
+    }
+
+    #[test]
+    fn test_no_e_returns_verbatim() {
+        // Defensive fallback: no 'e' in input -> verbatim.
+        assert_eq!(format_entry_buf_display("1.5"), "1.5");
+        assert_eq!(format_entry_buf_display("12"), "12");
     }
 }
