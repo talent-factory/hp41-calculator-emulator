@@ -33,6 +33,10 @@ struct Cli {
     /// Used by `just bench-startup` to measure cold-start time without a real terminal.
     #[arg(long, hide = true)]
     bench_startup: bool,
+
+    /// Append all PRX/PRA/PRSTK output to this file (created if absent, appended if exists).
+    #[arg(long, value_name = "FILE")]
+    print_log: Option<std::path::PathBuf>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -63,7 +67,7 @@ fn main() -> std::io::Result<()> {
 
     let terminal = ratatui::init();
 
-    let mut app = App::new(initial_state, state_path, None);
+    let mut app = App::new(initial_state, state_path, cli.print_log);
     if let Some(msg) = load_message {
         app.message = Some(msg);
     }

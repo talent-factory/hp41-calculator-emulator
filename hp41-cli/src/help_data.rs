@@ -246,6 +246,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "HMS\u{2212}",
         "Subtract H.MMSS values: Y \u{2212} X \u{2192} X (base-60 borrow)",
     ),
+    // ── Print ─────────────────────────────────────────────────────────────────
+    ("", "", "=== Print ==="),
+    ("P X", "PRX", "Print X register to console (right-aligned, 24 chars)"),
+    ("P A", "PRA", "Print ALPHA register to console (left-aligned, 24 chars)"),
+    ("P S", "PRSTK", "Print full stack T/Z/Y/X/LASTX/ALPHA (6 lines) to console"),
     // ── Help ──────────────────────────────────────────────────────────────────
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),
@@ -275,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_all_thirteen_categories_present() {
+    fn test_all_fourteen_categories_present() {
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",
@@ -288,6 +293,7 @@ mod tests {
             "=== Persistence ===",
             "=== USER Mode ===",
             "=== Science & Engineering ===",
+            "=== Print ===",
             "=== Help ===",
             "=== Quit ===",
         ];
