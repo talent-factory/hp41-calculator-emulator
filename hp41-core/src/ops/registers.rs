@@ -64,3 +64,46 @@ pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod stack_arith_tests {
+    use super::*;
+    use crate::num::HpNum;
+    use crate::ops::StackReg;
+    use crate::state::CalcState;
+    use rust_decimal_macros::dec;
+
+    fn make_state(x: rust_decimal::Decimal, y: rust_decimal::Decimal) -> CalcState {
+        let mut s = CalcState::default();
+        s.stack.x = HpNum::from(x);
+        s.stack.y = HpNum::from(y);
+        s
+    }
+
+    #[test]
+    fn sto_arith_stack_add_y() {
+        let mut s = make_state(dec!(3), dec!(10));
+        op_sto_arith_stack(&mut s, StackReg::Y, StoArithKind::Add).unwrap();
+        assert_eq!(s.stack.y, HpNum::from(dec!(13)));
+        assert_eq!(s.stack.x, HpNum::from(dec!(3))); // X unchanged
+    }
+
+    #[test]
+    fn sto_arith_stack_sub_lastx() {
+        let mut s = CalcState::default();
+        s.stack.x = HpNum::from(dec!(4));
+        s.stack.lastx = HpNum::from(dec!(10));
+        op_sto_arith_stack(&mut s, StackReg::LastX, StoArithKind::Sub).unwrap();
+        assert_eq!(s.stack.lastx, HpNum::from(dec!(6)));
+    }
+
+    #[test]
+    fn sto_arith_stack_div_by_zero_returns_err() {
+        let mut s = make_state(dec!(0), dec!(5));
+        let result = op_sto_arith_stack(&mut s, StackReg::Y, StoArithKind::Div);
+        assert!(result.is_err());
+        // Y must be unchanged on error (atomicity)
+        assert_eq!(s.stack.y, HpNum::from(dec!(5)));
+    }
+}
