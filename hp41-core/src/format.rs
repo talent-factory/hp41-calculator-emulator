@@ -157,7 +157,8 @@ fn format_eng(d: Decimal, digits: usize) -> String {
 /// Compute the base-10 exponent for SCI notation: floor(log10(|d|)).
 /// d must be positive and non-zero.
 fn compute_sci_exp(abs_d: Decimal) -> i32 {
-    let f = abs_d.to_f64().unwrap_or(1.0);
+    // All valid HpNum values fit in f64 (max ~7.9e28 vs f64 max ~1.8e308).
+    let f = abs_d.to_f64().expect("HpNum is always within f64 range");
     f.log10().floor() as i32
 }
 
@@ -175,7 +176,7 @@ fn decimal_pow10(exp: i32) -> Decimal {
         let abs_exp = (-exp) as usize;
         "0.".to_string() + &"0".repeat(abs_exp - 1) + "1"
     };
-    Decimal::from_str(&s).unwrap_or(Decimal::ONE)
+    Decimal::from_str(&s).expect("string built from known-valid exp always parses")
 }
 
 /// Scale a Decimal by 10^exp_shift: returns d * 10^exp_shift.
@@ -185,7 +186,8 @@ fn scale_decimal(d: Decimal, exp_shift: i32) -> Decimal {
         return d;
     }
     let scale = decimal_pow10(exp_shift);
-    d.checked_mul(scale).unwrap_or(d)
+    d.checked_mul(scale)
+        .expect("scale_decimal: mantissa and bounded scale must not overflow")
 }
 
 /// Ensure that a formatted number string has a decimal point.

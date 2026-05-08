@@ -1,8 +1,8 @@
 //! Key → Op mapping for the HP-41 TUI.
 //!
 //! key_to_op() is the sole translation layer between crossterm KeyEvents and
-//! hp41-core Op variants. The function signature receives &App for future
-//! context-sensitivity (USER mode in Phase 5) without changing call sites.
+//! hp41-core Op variants. The `_app` parameter is kept for potential context-sensitivity
+//! (USER mode state checks) without breaking call sites.
 //!
 //! Digit keys (0-9, '.', 'e'), quit keys ('q', Ctrl+C), mode-cycle keys ('d', 'f'),
 //! and F5/F7/F8 are handled directly in app.handle_key() and MUST NOT appear here.
@@ -75,7 +75,7 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('S') | KeyCode::Char('R') => None,
         // F5/F7/F8 handled in app.handle_key — return None here.
         KeyCode::F(5) | KeyCode::F(7) | KeyCode::F(8) => None,
-        // F1-F4: Phase 5 stubs (user-assignable keys).
+        // F1-F4: intercepted in app.handle_key() for USER mode dispatch — not routed through key_to_op().
         KeyCode::F(1) | KeyCode::F(2) | KeyCode::F(3) | KeyCode::F(4) => None,
         // All other keys (including digits 0-9, '.', 'e', 'd', 'f', 'q') — handled elsewhere.
         _ => None,
@@ -83,8 +83,7 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
 }
 
 /// Key-reference table for the TUI right panel (INPUT-01 discoverability).
-/// Shown verbatim in ui.rs render_right_panel(). 33 entries.
-/// STO/RCL/ALPHA ops deferred to Phase 5 (require address-entry dialog or mode routing).
+/// Shown verbatim in ui.rs render_right_panel().
 pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("0-9 .", "digit entry"),
     ("e", "EEX (sci notation entry)"),

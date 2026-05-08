@@ -52,7 +52,7 @@ pub struct App {
     // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
     pub show_help: bool,
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
-    /// Single-threaded, non-reentrant draw — borrow_mut() will never panic. (RESEARCH Pitfall 1)
+    /// Single-threaded, non-reentrant draw — borrow_mut() will never panic at runtime.
     pub help_table_state: RefCell<TableState>,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
@@ -80,7 +80,7 @@ impl App {
     pub fn check_autosave(&mut self) {
         if self.last_save.elapsed() >= Duration::from_secs(30) {
             if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
-                // One-time warning; retry on next 30s tick (Claude's Discretion)
+                // One-time warning; timer resets so the next 30s tick retries
                 self.message = Some(format!("Auto-save failed: {e}"));
             }
             self.last_save = Instant::now(); // reset even on failure
@@ -105,7 +105,9 @@ impl App {
             self.check_autosave();
         }
         // D-05: save on graceful exit before ratatui::restore()
-        let _ = persistence::save_state(&self.state_path, &self.state);
+        if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
+            eprintln!("Warning: failed to save state on exit: {e}");
+        }
         Ok(())
     }
 
@@ -463,13 +465,12 @@ impl App {
                 let mut new_acc = acc;
                 new_acc.push(c);
                 if new_acc.len() == 2 {
-                    // Auto-dispatch on second digit (D-09)
-                    let reg: u8 = new_acc.parse().unwrap_or(0);
-                    if reg < 100 {
-                        self.call_dispatch(op_fn(reg));
-                    } else {
-                        self.message = Some(format!("Invalid register: {new_acc}"));
-                    }
+                    // Auto-dispatch on second digit (D-09).
+                    // Two ASCII digit chars always parse as u8 in 0–99 — no fallback needed.
+                    let reg: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    self.call_dispatch(op_fn(reg));
                     self.pending_input = None;
                 } else {
                     self.pending_input = Some(pending_fn(new_acc));
@@ -547,6 +548,7 @@ impl App {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::time::Duration;

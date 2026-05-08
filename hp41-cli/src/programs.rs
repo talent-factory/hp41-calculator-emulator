@@ -413,6 +413,7 @@ fn countdown_ops() -> Vec<Op> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use hp41_core::CalcState;

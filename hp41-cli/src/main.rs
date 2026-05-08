@@ -3,6 +3,8 @@
 //! Entry point: parses CLI args, loads state, initialises ratatui terminal,
 //! runs App event loop, then saves state and restores terminal.
 
+#![deny(clippy::unwrap_used)]
+
 mod app;
 mod help_data;
 mod keys;

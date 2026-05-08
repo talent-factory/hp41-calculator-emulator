@@ -55,7 +55,10 @@ fn validate_hms(minutes: i64, seconds: i64) -> Result<(), HpError> {
 /// Convert H.MMSS fields to decimal hours using rust_decimal arithmetic.
 /// hours + minutes/60 + seconds/3600. No f64 intermediate.
 fn hms_fields_to_decimal(hours: i64, minutes: i64, seconds: i64) -> Result<HpNum, HpError> {
-    let h = HpNum::from(hours as i32);
+    // hours is parsed from HpNum's integer part; values near Decimal max (~7.9e9 hours)
+    // exceed i32::MAX — use try_from to surface overflow rather than wrap silently.
+    let hours_i32 = i32::try_from(hours).map_err(|_| HpError::Overflow)?;
+    let h = HpNum::from(hours_i32);
     let m = HpNum::from(minutes as i32).checked_div(&HpNum::from(60i32))?;
     let s = HpNum::from(seconds as i32).checked_div(&HpNum::from(3600i32))?;
     h.checked_add(&m)?.checked_add(&s)

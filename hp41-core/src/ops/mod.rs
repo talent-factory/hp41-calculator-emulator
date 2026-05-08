@@ -9,7 +9,6 @@ use std::str::FromStr;
 pub mod arithmetic;
 pub mod math;
 pub mod stack_ops;
-// Phase 2 modules — uncommented when their files are created:
 pub mod alpha;
 pub mod hms;
 pub mod program;
@@ -330,7 +329,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             // Discard the bool skip signal — skip semantics only apply inside run_loop.
             program::op_isg(state, reg).map(|_| ())
         }
-        Op::Dse(reg) => program::op_dse(state, reg).map(|_| ()),
+        Op::Dse(reg) => {
+            // Same as Isg: discard the bool skip signal — skip only applies inside run_loop.
+            program::op_dse(state, reg).map(|_| ())
+        }
         // ── Phase 6: Science & Engineering ───────────────────────────────────────
         Op::SigmaPlus => stats::op_sigma_plus(state),
         Op::SigmaMinus => stats::op_sigma_minus(state),

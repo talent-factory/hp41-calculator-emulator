@@ -52,13 +52,13 @@ fn bench_dispatch_mixed(c: &mut Criterion) {
 
 /// Benchmark a single dispatch() call for the most common op: Add.
 /// Useful for measuring the per-op overhead of dispatch() itself.
+/// State is re-created inside the closure so X stays bounded and timings are stationary.
 fn bench_dispatch_single_add(c: &mut Criterion) {
     c.bench_function("dispatch_single_add", |b| {
-        let mut state = CalcState::default();
-        // Pre-load stack so Add always has valid operands
-        let _ = dispatch(&mut state, Op::PushNum(HpNum::from(1i32)));
-        let _ = dispatch(&mut state, Op::Enter);
         b.iter(|| {
+            let mut state = CalcState::default();
+            let _ = dispatch(&mut state, Op::PushNum(HpNum::from(1i32)));
+            let _ = dispatch(&mut state, Op::Enter);
             let _ = dispatch(&mut state, Op::PushNum(HpNum::from(1i32)));
             let _ = dispatch(&mut state, Op::Add);
         });

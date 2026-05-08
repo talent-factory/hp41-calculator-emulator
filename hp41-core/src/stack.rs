@@ -30,7 +30,7 @@ pub fn apply_lift_effect(state: &mut CalcState, effect: LiftEffect) {
 /// NOTE: number entry does NOT modify lift_enabled (that is the op's responsibility).
 pub fn enter_number(state: &mut CalcState, value: HpNum) {
     if state.stack.lift_enabled {
-        // HP-41 hardware: T is duplicated (old T is lost), not rotated out
+        // HP-41 hardware: on stack lift, old T is discarded (overwritten by Z); there is no fifth register
         state.stack.t = state.stack.z.clone();
         state.stack.z = state.stack.y.clone();
         state.stack.y = state.stack.x.clone();

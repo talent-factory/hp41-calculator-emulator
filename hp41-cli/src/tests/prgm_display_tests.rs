@@ -1,4 +1,5 @@
 //! Unit tests for prgm_display::format_step().
+#![allow(clippy::unwrap_used)]
 
 use hp41_core::{
     ops::{dispatch, Op},

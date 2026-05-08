@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 #[cfg(test)]
 mod keys_tests;
 #[cfg(test)]

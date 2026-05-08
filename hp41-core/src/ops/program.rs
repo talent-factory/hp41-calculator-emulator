@@ -4,8 +4,10 @@
 //! run_program() is the public interpreter entry point exported via lib.rs.
 //!
 //! Key design constraints:
-//!   - run_program() clones state.program to avoid Rust borrow conflict (D-06, RESEARCH Pitfall 1)
-//!   - execute_op() is a private helper that does NOT call flush_entry_buf (RESEARCH Pitfall 2)
+//!   - run_program() clones state.program to avoid a borrow conflict: dispatch() needs &mut CalcState
+//!     while iterating over state.program (D-06)
+//!   - execute_op() is a private helper that does NOT call flush_entry_buf — the entry buffer
+//!     must not be reset mid-execution
 //!   - ISG/DSE parse counters by string-split, never floor()/fmod() (ADR-001, D-10)
 
 use rust_decimal::Decimal;
@@ -38,7 +40,8 @@ pub fn op_prgm_mode(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 /// GTO: unconditional branch to label. Only meaningful when is_running.
-/// Interactive GTO (not running, not recording) → InvalidOp (Claude's Discretion / Pitfall 7).
+/// Interactive GTO outside a running program → InvalidOp; HP-41 supports interactive GTO,
+/// but this emulator keeps the interactive dispatch path simple by not implementing it.
 /// LiftEffect: Neutral.
 pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
@@ -66,7 +69,7 @@ pub fn op_xeq(state: &mut CalcState, _label: &str) -> Result<(), HpError> {
 }
 
 /// RTN: return from subroutine. If call_stack is empty, terminates run (top-level RTN).
-/// Interactive RTN when not running: no-op (Claude's Discretion).
+/// Interactive RTN when not running: no-op (call_stack is empty, nothing to pop).
 /// LiftEffect: Neutral.
 pub fn op_rtn(state: &mut CalcState) -> Result<(), HpError> {
     if let Some(return_pc) = state.call_stack.pop() {
@@ -444,6 +447,7 @@ mod program_tests {
     #[test]
     fn test_run_program_is_running_reset_on_error() {
         let mut state = CalcState::default();
+        // Error result intentionally discarded — this test only checks the is_running side-effect.
         let _ = crate::ops::program::run_program(&mut state, "A");
         assert!(!state.is_running, "is_running must be false after run_program error");
     }
@@ -532,6 +536,29 @@ mod program_tests {
         assert_eq!(final_val, 5);
         assert_eq!(step, 1);
         assert_eq!(&frac_padded, "00500");
+    }
+
+    #[test]
+    fn test_parse_counter_integer_only_register() {
+        // A register with no decimal part (e.g. initialised to 5 without ISG setup):
+        // frac = "" → padded = "00000" → final=0, step 00 → 1
+        let n = HpNum(Decimal::from_str("5").unwrap());
+        let (current, final_val, step, frac_padded) = parse_counter(&n).unwrap();
+        assert_eq!(current, 5);
+        assert_eq!(final_val, 0, "no decimal → final=0");
+        assert_eq!(step, 1, "no decimal → step 00 → 1");
+        assert_eq!(&frac_padded, "00000");
+    }
+
+    #[test]
+    fn test_parse_counter_step_99_max_step() {
+        // counter = 1.00099 → current=1, final=000=0, step=99
+        let n = HpNum(Decimal::from_str("1.00099").unwrap());
+        let (current, final_val, step, frac_padded) = parse_counter(&n).unwrap();
+        assert_eq!(current, 1);
+        assert_eq!(final_val, 0);
+        assert_eq!(step, 99, "step field '99' must parse as 99");
+        assert_eq!(&frac_padded, "00099");
     }
 
     #[test]

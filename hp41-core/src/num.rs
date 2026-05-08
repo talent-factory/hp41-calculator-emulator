@@ -15,7 +15,7 @@ impl HpNum {
     pub fn rounded(d: Decimal) -> Self {
         HpNum(
             d.round_sf_with_strategy(10, RoundingStrategy::MidpointAwayFromZero)
-                .unwrap_or(d),
+                .expect("round_sf_with_strategy(10) must succeed for valid finite Decimal"),
         )
     }
 

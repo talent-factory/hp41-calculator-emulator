@@ -64,6 +64,7 @@ pub fn load_state(path: &Path) -> Result<CalcState, Box<dyn std::error::Error>> 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use hp41_core::CalcState;
