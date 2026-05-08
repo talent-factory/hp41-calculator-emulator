@@ -319,6 +319,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::HToHms => super::hms::op_h_to_hms(state),
         Op::HmsAdd => super::hms::op_hms_add(state),
         Op::HmsSub => super::hms::op_hms_sub(state),
+        // ── Phase 11: Print operations ───────────────────────────────────────────────
+        Op::PRX => super::print::op_prx(state),
+        Op::PRA => super::print::op_pra(state),
+        Op::PRSTK => super::print::op_prstk(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

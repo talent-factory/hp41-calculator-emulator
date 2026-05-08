@@ -10,6 +10,7 @@ pub mod alpha;
 pub mod arithmetic;
 pub mod hms;
 pub mod math;
+pub mod print;
 pub mod program;
 pub mod registers;
 pub mod stack_ops;
@@ -206,6 +207,13 @@ pub enum Op {
     HmsAdd,
     /// HMS− — subtract H.MMSS values (Y − X), result in X with stack drop. LiftEffect: Enable.
     HmsSub,
+    // ── Print operations (Phase 11) ─────────────────────────────────────────────
+    /// PRX — print X register in current display format, right-aligned to 24 chars. LiftEffect: Neutral.
+    PRX,
+    /// PRA — print ALPHA register, left-aligned to 24 chars. LiftEffect: Neutral.
+    PRA,
+    /// PRSTK — print full stack T/Z/Y/X/LASTX/ALPHA, 6 lines, 24 chars each. LiftEffect: Neutral.
+    PRSTK,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -373,6 +381,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::HToHms => hms::op_h_to_hms(state),
         Op::HmsAdd => hms::op_hms_add(state),
         Op::HmsSub => hms::op_hms_sub(state),
+        // ── Phase 11: Print operations ───────────────────────────────────────────────
+        Op::PRX => print::op_prx(state),
+        Op::PRA => print::op_pra(state),
+        Op::PRSTK => print::op_prstk(state),
     }
 }
 
