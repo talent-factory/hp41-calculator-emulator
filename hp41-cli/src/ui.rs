@@ -167,11 +167,9 @@ fn format_entry_buf_display(s: &str) -> String {
     let mantissa = &s[..e_pos];
     let after_e = &s[e_pos + 1..];
 
-    // Split off optional leading '-' (or '+') from the exponent part.
+    // Only '-' (negative exponent) is a possible sign; '+' is never appended to entry_buf.
     let (sign, digits) = if let Some(rest) = after_e.strip_prefix('-') {
         ("-", rest)
-    } else if let Some(rest) = after_e.strip_prefix('+') {
-        ("+", rest)
     } else {
         ("", after_e)
     };
