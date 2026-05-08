@@ -4,12 +4,12 @@ milestone: v1.1
 milestone_name: CLI Feature Completeness
 current_phase: 9
 current_plan: Not started
-status: context_gathered
-last_updated: "2026-05-08T12:00:00.000Z"
+status: planned
+last_updated: "2026-05-08T13:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -34,8 +34,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 Phase: 9 of 12 (Infrastructure & EEX Fix)
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-08 — Roadmap created; v1.1 phases 9–12 defined
+Status: Ready to execute (3 plans)
+Last activity: 2026-05-08 — Phase 9 planned (3 plans in 2 waves)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -88,8 +88,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** v1.1 roadmap created — 4 phases (9–12), 15 requirements mapped
-**Next action:** `/gsd-plan-phase 9`
+**Last action:** Phase 9 planned — 3 plans (09-01 MSRV/CI, 09-02 flush_entry_buf core, 09-03 EEX guards + display) in 2 waves
+**Next action:** `/gsd-execute-phase 9`
 
 ---
 *State initialized: 2026-05-06*
