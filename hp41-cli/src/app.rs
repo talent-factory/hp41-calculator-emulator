@@ -125,7 +125,7 @@ impl App {
             return;
         }
 
-        // Quit: Ctrl+C only (D-16, D-22). Phase 8: 'q' reassigned to SIN (D-01).
+        // Quit: Ctrl+C only (D-16, D-22). 'q' was reassigned to SIN in Phase 8; quit is Ctrl+C only.
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
             return;
@@ -799,6 +799,36 @@ mod tests {
         assert_eq!(
             app.state.entry_buf, "1.5e",
             "'e' must append when entry_buf is non-empty and has no 'e'"
+        );
+    }
+
+    #[test]
+    fn test_delete_outside_alpha_mode_is_noop() {
+        // Delete is only routed to Op::AlphaClear inside handle_alpha_mode_key.
+        // Outside ALPHA mode it must not modify the stack X register.
+        let mut app = make_app();
+        // alpha_mode is false by default
+        app.state.stack.x = hp41_core::HpNum::from(7);
+        app.handle_key(make_key(KeyCode::Delete));
+        assert_eq!(
+            format!("{}", app.state.stack.x),
+            "7",
+            "Delete outside ALPHA mode must not modify stack X"
+        );
+    }
+
+    #[test]
+    fn test_q_close_help_does_not_dispatch_sin() {
+        // 'q' closes the help overlay via an early-return guard. Op::Sin must NOT fire.
+        let mut app = make_app();
+        app.show_help = true;
+        app.state.stack.x = hp41_core::HpNum::from(30);
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.show_help, "'q' must close the help overlay");
+        assert_eq!(
+            format!("{}", app.state.stack.x),
+            "30",
+            "'q' closing help must not dispatch Op::Sin (x must remain 30, not become 0.5)"
         );
     }
 }

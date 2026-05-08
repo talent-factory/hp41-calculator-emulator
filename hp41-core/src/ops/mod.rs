@@ -394,7 +394,8 @@ mod flush_eex_tests {
     #[test]
     fn test_flush_trailing_e_without_exponent_returns_err() {
         // "1.5e" has no exponent digits — both from_str and from_scientific reject it.
-        // Current behavior: InvalidOp + entry_buf cleared (number is silently lost).
+        // Current behavior: InvalidOp returned + entry_buf cleared (partial number is
+        // unrecoverable; call_dispatch() surfaces the error in self.message).
         // This test documents the behavior so any future change is intentional.
         let mut state = make_state_with_entry("1.5e");
         let result = flush_entry_buf(&mut state);

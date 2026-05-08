@@ -69,8 +69,8 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('j') => Some(Op::HmsAdd),
         KeyCode::Char('J') => Some(Op::HmsSub),
         // Phase 8: Tech Debt Cleanup — previously unmapped keys
-        KeyCode::Char('q') => Some(Op::Sin), // 'q' reassigned from quit to SIN (D-01)
-        KeyCode::Char('g') => Some(Op::Clreg), // 'g' free key assigned to CLREG (D-02)
+        KeyCode::Char('q') => Some(Op::Sin), // 'q' was quit before Phase 8; reassigned to SIN — quit is Ctrl+C only
+        KeyCode::Char('g') => Some(Op::Clreg), // 'g' was unbound; assigned to CLREG in Phase 8
         // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
         // They do NOT return an Op here — the modal is intercepted in app.handle_key()
         // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
@@ -239,4 +239,30 @@ mod tests {
             "KEY_REF_TABLE must not list 'q' as a quit key after reassignment to SIN"
         );
     }
+
+    #[test]
+    fn test_q_dispatches_sin() {
+        // 'q' maps to Op::Sin — verify the op produces the correct result: sin(30 DEG) = 0.5
+        let mut state = CalcState::new(); // angle_mode is DEG by default
+        state.stack.x = hp41_core::HpNum::from(30);
+        hp41_core::ops::dispatch(&mut state, Op::Sin).unwrap();
+        assert_eq!(
+            format!("{}", state.stack.x),
+            "0.5000000000",
+            "sin(30 DEG) must equal 0.5 (10 significant digits)"
+        );
+    }
+
+    #[test]
+    fn test_g_dispatches_clreg() {
+        // 'g' maps to Op::Clreg — verify all storage registers are zeroed
+        let mut state = CalcState::new();
+        state.regs[5] = hp41_core::HpNum::from(42);
+        hp41_core::ops::dispatch(&mut state, Op::Clreg).unwrap();
+        assert!(
+            state.regs.iter().all(|r| r.is_zero()),
+            "CLREG must zero all storage registers"
+        );
+    }
+
 }

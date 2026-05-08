@@ -5,9 +5,9 @@
 //!
 //! This is the SINGLE SOURCE OF TRUTH for key-to-operation descriptions.
 //! Keys derived from KEY_REF_TABLE in keys.rs; descriptions added here.
-//! ≥50 entries covering all keyboard-accessible HP-41 operations.
+//! ≥83 entries covering all keyboard-accessible HP-41 operations.
 
-/// (key_binding, hp41_op_name, description) — ≥50 entries, 13 categories.
+/// (key_binding, hp41_op_name, description) — ≥83 entries, 13 categories.
 pub const HELP_DATA: &[(&str, &str, &str)] = &[
     // ── Stack ─────────────────────────────────────────────────────────────────
     ("", "", "=== Stack ==="),
@@ -94,7 +94,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ),
     (
         "Del",
-        "ALPHA CLR",
+        "CLRALPHA",
         "While in ALPHA mode: clear entire ALPHA register",
     ),
     (
@@ -245,10 +245,10 @@ mod tests {
 
     #[test]
     fn test_help_data_has_minimum_entries() {
-        // At least 50 entries (all keyboard-accessible ops including category headers)
+        // At least 80 entries (all keyboard-accessible ops including category headers)
         assert!(
-            HELP_DATA.len() >= 50,
-            "HELP_DATA must have at least 50 entries, got {}",
+            HELP_DATA.len() >= 80,
+            "HELP_DATA must have at least 80 entries, got {}",
             HELP_DATA.len()
         );
     }
