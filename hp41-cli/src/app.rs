@@ -11,7 +11,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use ratatui::widgets::TableState;
 use ratatui::DefaultTerminal;
 
-use hp41_core::ops::Op;
+use hp41_core::ops::{Op, StoArithKind, StackReg};
 use hp41_core::{AngleMode, CalcState, DisplayMode};
 
 use crate::{keys, persistence, ui};
@@ -391,47 +391,113 @@ impl App {
         let pending = self.pending_input.take();
         match pending {
             Some(PendingInput::StoRegister(ref acc)) => {
-                self.handle_reg_modal(key, acc.clone(), Op::StoReg, PendingInput::StoRegister)
+                // Step 2: intercept arithmetic op keys before delegating to digit accumulator.
+                match key.code {
+                    KeyCode::Char('+') => {
+                        self.pending_input = Some(PendingInput::StoAdd(String::new()));
+                    }
+                    KeyCode::Char('-') => {
+                        self.pending_input = Some(PendingInput::StoSub(String::new()));
+                    }
+                    KeyCode::Char('*') => {
+                        self.pending_input = Some(PendingInput::StoMul(String::new()));
+                    }
+                    KeyCode::Char('/') => {
+                        self.pending_input = Some(PendingInput::StoDiv(String::new()));
+                    }
+                    _ => {
+                        self.handle_reg_modal(key, acc.clone(), Op::StoReg, PendingInput::StoRegister)
+                    }
+                }
             }
             Some(PendingInput::RclRegister(ref acc)) => {
                 self.handle_reg_modal(key, acc.clone(), Op::RclReg, PendingInput::RclRegister)
             }
-            Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Add,
-                },
-                PendingInput::StoAdd,
-            ),
-            Some(PendingInput::StoSub(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Sub,
-                },
-                PendingInput::StoSub,
-            ),
-            Some(PendingInput::StoMul(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Mul,
-                },
-                PendingInput::StoMul,
-            ),
-            Some(PendingInput::StoDiv(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Div,
-                },
-                PendingInput::StoDiv,
-            ),
+            Some(PendingInput::StoAdd(ref acc)) => {
+                // Step 3: Y/Z/T/L dispatch to stack registers immediately.
+                match key.code {
+                    KeyCode::Char('Y') | KeyCode::Char('y') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Add, stack_reg: StackReg::Y });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('Z') | KeyCode::Char('z') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Add, stack_reg: StackReg::Z });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('T') | KeyCode::Char('t') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Add, stack_reg: StackReg::T });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('L') | KeyCode::Char('l') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Add, stack_reg: StackReg::LastX });
+                        self.pending_input = None;
+                    }
+                    _ => self.handle_reg_modal(key, acc.clone(), |reg| Op::StoArith { reg, kind: StoArithKind::Add }, PendingInput::StoAdd),
+                }
+            }
+            Some(PendingInput::StoSub(ref acc)) => {
+                match key.code {
+                    KeyCode::Char('Y') | KeyCode::Char('y') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::Y });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('Z') | KeyCode::Char('z') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::Z });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('T') | KeyCode::Char('t') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::T });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('L') | KeyCode::Char('l') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::LastX });
+                        self.pending_input = None;
+                    }
+                    _ => self.handle_reg_modal(key, acc.clone(), |reg| Op::StoArith { reg, kind: StoArithKind::Sub }, PendingInput::StoSub),
+                }
+            }
+            Some(PendingInput::StoMul(ref acc)) => {
+                match key.code {
+                    KeyCode::Char('Y') | KeyCode::Char('y') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Mul, stack_reg: StackReg::Y });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('Z') | KeyCode::Char('z') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Mul, stack_reg: StackReg::Z });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('T') | KeyCode::Char('t') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Mul, stack_reg: StackReg::T });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('L') | KeyCode::Char('l') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Mul, stack_reg: StackReg::LastX });
+                        self.pending_input = None;
+                    }
+                    _ => self.handle_reg_modal(key, acc.clone(), |reg| Op::StoArith { reg, kind: StoArithKind::Mul }, PendingInput::StoMul),
+                }
+            }
+            Some(PendingInput::StoDiv(ref acc)) => {
+                match key.code {
+                    KeyCode::Char('Y') | KeyCode::Char('y') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Div, stack_reg: StackReg::Y });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('Z') | KeyCode::Char('z') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Div, stack_reg: StackReg::Z });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('T') | KeyCode::Char('t') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Div, stack_reg: StackReg::T });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('L') | KeyCode::Char('l') => {
+                        self.call_dispatch(Op::StoArithStack { kind: StoArithKind::Div, stack_reg: StackReg::LastX });
+                        self.pending_input = None;
+                    }
+                    _ => self.handle_reg_modal(key, acc.clone(), |reg| Op::StoArith { reg, kind: StoArithKind::Div }, PendingInput::StoDiv),
+                }
+            }
             Some(PendingInput::AssignKey) => {
                 // D-27 step 1: waiting for any printable char
                 match key.code {
