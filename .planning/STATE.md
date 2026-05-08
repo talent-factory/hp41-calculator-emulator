@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 Phase: 10 of 12 (STO Arithmetic Modals)
 Plan: All 3 plans executed
 Status: Pending verification
-Last activity: 2026-05-08 — Phase 10 executed (3/3 plans complete, all tests pass)
+Last activity: 2026-05-08 — Completed quick task 260508-06h: FIX/SCI/ENG digit-count modal via F key
 
 Progress: [████░░░░░░] 50%
 
@@ -95,6 +95,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260508-y30 | CHS during EEX entry: toggle minus sign in exponent | 2026-05-08 | aa0904b | [260508-y30-eex-chs-exponent-sign-toggle](./quick/260508-y30-eex-chs-exponent-sign-toggle/) |
+| 260508-06h | FIX/SCI/ENG digit-count modal via F key (0–9) | 2026-05-08 | 7ff792c | [260508-06h-fix-sci-eng-digit-input](./quick/260508-06h-fix-sci-eng-digit-input/) |
 
 ---
 
