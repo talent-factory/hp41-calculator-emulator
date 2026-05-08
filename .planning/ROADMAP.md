@@ -89,13 +89,15 @@
   3. Executing PRSTK writes the full stack in hardware order (T, Z, Y, X, LASTX, ALPHA), one line per register, to the console
   4. Starting `hp41-cli` with `--print-log <path>` causes all PRX/PRA/PRSTK output to be appended to the specified file in addition to the console
   5. Existing v1.0 JSON save files load without error after CalcState gains the `print_buffer` field (the field carries `#[serde(default)]`)
-**Plans**: 3 plans
+**Plans**: 4 plans (3 original + 1 gap closure)
   **Wave 0**
   - [x] 11-00-PLAN.md — PRNT-01/02/03/04: test scaffold (print_tests.rs with RED failing tests)
   **Wave 1** *(blocked on Wave 0)*
   - [x] 11-01-PLAN.md — PRNT-01/02/03 (core): print_buffer on CalcState, ops/print.rs module, Op::PRX/PRA/PRSTK variants, dispatch() + execute_op() arms
   **Wave 2** *(blocked on Wave 1)*
   - [x] 11-02-PLAN.md — PRNT-01/02/03/04 (cli): PrintModal keyboard modal, 'P' interceptor, call_dispatch_and_drain, print_log_writer, --print-log arg, PRNT: _ display, help entries
+  **Wave 3** *(blocked on Wave 2 completion — gap closure)*
+  - [ ] 11-03-PLAN.md — CR-01/CR-03: drain_and_show_print_output() helper + 3 run_program call sites + serde(skip) on print_buffer
   **Cross-cutting constraints:**
   - `Op::PRX/PRA/PRSTK` variants from 11-01 must be visible before 11-02 can compile
   - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new core code uses `?`-propagation
@@ -129,5 +131,5 @@
 | 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
 | 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 11. Print Emulation | v1.1 | 0/3 | Not started | - |
+| 11. Print Emulation | v1.1 | 0/4 | Not started | - |
 | 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
