@@ -53,7 +53,7 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - [x] EEX trailing-e-without-exponent behavior (HP-41 hardware lock on partial exponent) — Validated in Phase 9 (2026-05-08)
 - [x] MSRV 1.85 enforcement + rust_decimal 1.42 — Validated in Phase 9 (2026-05-08)
 - [x] STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding) — Validated in Phase 10 (2026-05-08)
-- [ ] FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file
+- [x] FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file — Validated in Phase 11 (2026-05-08)
 - [ ] FR-20: Synthetic programming (byte-code injection, FOCAL internals)
 
 ### Out of Scope
@@ -76,6 +76,8 @@ v1.0 shipped in 3 days (2026-05-06 → 2026-05-08) with 8 phases, 45 plans, and 
 v1.1 Phase 9 (2026-05-08): MSRV formally declared at 1.85 with workspace inheritance in member crates; CI MSRV job added; EEX hardware behavior corrected — trailing-e commits as exponent 00, empty-buffer EEX inserts implicit mantissa, TUI shows placeholder cursor. 461 tests pass; 5/5 success criteria verified.
 
 v1.1 Phase 10 (2026-05-08): STO arithmetic keyboard modal complete — S→op→register 3-step flow for R00–R99 and stack registers Y/Z/T/LASTX. `StackReg` enum + `Op::StoArithStack` + `op_sto_arith_stack()` added to hp41-core; step-2 routing and Y/Z/T/L dispatch wired in app.rs; help overlay corrected. 10/10 must-haves verified; human TUI tests approved.
+
+v1.1 Phase 11 (2026-05-08): Print emulation complete — `print_buffer: Vec<String>` on `CalcState` keeps hp41-core I/O-free; `Op::PRX/PRA/PRSTK` in `ops/print.rs` format output into the buffer; `hp41-cli` drains via `call_dispatch_and_drain()` (interactive) and `drain_and_show_print_output()` (programmatic run_program paths); `--print-log` appends to a file. 5/5 must-haves verified; 94.00% hp41-core coverage. Gap closure plan 11-03 fixed serde(skip) on print_buffer (CR-03) and wired 3 run_program call sites (CR-01).
 
 Key codebase facts: `hp41-core` is a UI-agnostic library with zero CLI dependencies; `hp41-cli` uses ratatui 0.30 + crossterm 0.29; all tests use `just ci` (lint + test + coverage); `#![deny(clippy::unwrap_used)]` enforces zero panics at compile time.
 
