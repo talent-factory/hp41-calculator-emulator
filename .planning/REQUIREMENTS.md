@@ -13,7 +13,7 @@
 ### Math & Formatting
 
 - [x] **MATH-01**: User can perform core arithmetic (`+ − × ÷`, `1/x`, `√x`, `x²`, `Y^X`, `LN`, `LOG`, `e^x`, `10^x`) with HP-41-accurate 10-digit results
-- [x] **MATH-02**: User can perform trig (SIN/COS/TAN + inverses) in DEG, RAD, and GRAD modes *(note: SIN reachable via programs; keyboard binding deferred to v1.1)*
+- [x] **MATH-02**: User can perform trig (SIN/COS/TAN + inverses) in DEG, RAD, and GRAD modes *(Phase 8: SIN now on 'q' key)*
 - [x] **MATH-03**: User can switch number formatting between FIX n, SCI n, and ENG n (n = 0–9)
 
 ### Registers
@@ -45,7 +45,7 @@
 
 ### User Experience
 
-- [x] **UX-01**: User can access a built-in function reference/help from within the TUI (`?` or `HELP` command) *(note: help_data.rs SIN entry stale — deferred to v1.1)*
+- [x] **UX-01**: User can access a built-in function reference/help from within the TUI (`?` or `HELP` command) *(Phase 8: help_data.rs corrected — q→SIN, g→CLREG, Del→AlphaClear documented)*
 - [x] **UX-02**: User can enable USER mode with custom key assignments that are persisted in state
 - [x] **UX-03**: User can run ≥10 bundled, documented sample programs that demonstrate core programming features
 
