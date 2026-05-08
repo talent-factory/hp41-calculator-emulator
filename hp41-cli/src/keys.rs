@@ -63,9 +63,9 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('O') => Some(Op::Corr),
         KeyCode::Char('V') => Some(Op::ClSigmaStat),
         // Phase 6: HMS bindings
-        // Note: 'f' is intercepted in app.rs for format mode; use 'F' for →HMS.
+        // Note: 'f' is intercepted in app.rs for format mode.
+        // Note: 'F' is intercepted in app.rs for FmtDigits modal — HToHms is unbound.
         KeyCode::Char('h') => Some(Op::HmsToH),
-        KeyCode::Char('F') => Some(Op::HToHms),
         KeyCode::Char('j') => Some(Op::HmsAdd),
         KeyCode::Char('J') => Some(Op::HmsSub),
         // Phase 8: Tech Debt Cleanup — previously unmapped keys
@@ -118,7 +118,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("Y", "y^x  (Shift+y)"),
     ("p", "PRGM toggle"),
     ("d", "cycle DEG/RAD/GRAD"),
-    ("f", "cycle FIX/SCI/ENG"),
+    ("f", "cycle FIX/SCI/ENG (keeps digit count)"),
     ("F5", "R/S (run program A)"),
     ("F7", "SST (step forward)"),
     ("F8", "BST (step back)"),
@@ -158,8 +158,8 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
         "V",
         "CL\u{03A3} (clear \u{03A3} stats registers R01-R06 to zero)",
     ),
+    ("F", "FIX/SCI/ENG n modal (set exact digit count 0\u{2013}9)"),
     ("h", "HMS\u{2192} (H.MMSS to decimal hours)"),
-    ("F", "\u{2192}HMS (decimal hours to H.MMSS format)"),
     ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
     ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),
 ];

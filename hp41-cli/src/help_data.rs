@@ -134,7 +134,12 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     (
         "f",
         "FIX/SCI/ENG",
-        "Cycle display format: FIX 4 → SCI 4 → ENG 4 → FIX 4",
+        "Cycle display format (FIX/SCI/ENG), keeps current digit count",
+    ),
+    (
+        "F",
+        "FIX/SCI/ENG n",
+        "Open digit-count modal: enter 0\u{2013}9 to set digits; f cycles format",
     ),
     ("0-9", "digit", "Digit entry (append to X entry buffer)"),
     (".", "decimal", "Decimal point in entry buffer"),
@@ -226,7 +231,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "HMS\u{2192}",
         "Convert H.MMSS (hours.minutesseconds) to decimal hours",
     ),
-    ("F", "\u{2192}HMS", "Convert decimal hours to H.MMSS format"),
+    ("(none)", "\u{2192}HMS", "Convert decimal hours to H.MMSS format (key unbound; use dispatch)"),
     (
         "j",
         "HMS+",

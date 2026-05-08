@@ -30,6 +30,7 @@ pub enum PendingInput {
     AssignKey,                 // D-27 step 1: waiting for key char to assign
     AssignLabel(char, String), // D-27 step 2: char received; accumulating label name
     ConfirmLoad(usize),        // D-22: awaiting Y/n before overwriting program
+    FmtDigits(hp41_core::DisplayMode), // digit-count modal for FIX/SCI/ENG (opened by 'F')
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -166,6 +167,13 @@ impl App {
         }
         if key.code == KeyCode::Char('R') && !key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::RclRegister(String::new()));
+            self.message = None;
+            return;
+        }
+        // 'F' (Shift+f) opens the digit-count modal for the current display mode.
+        // The modal lets the user set an exact digit count for FIX/SCI/ENG via 0–9.
+        if key.code == KeyCode::Char('F') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::FmtDigits(self.state.display_mode.clone()));
             self.message = None;
             return;
         }
@@ -550,6 +558,39 @@ impl App {
                         // Any other key (including 'n', Esc) = cancel
                         self.message = Some("Load cancelled".to_string());
                         self.pending_input = None;
+                    }
+                }
+            }
+            Some(PendingInput::FmtDigits(mode)) => {
+                // Digit-count modal: 0–9 dispatches FmtFix/Sci/Eng(n), 'f' cycles mode,
+                // Esc cancels. Any other key silently restores the modal.
+                match key.code {
+                    KeyCode::Char(c) if c.is_ascii_digit() => {
+                        let n = c as u8 - b'0';
+                        let op = match mode {
+                            hp41_core::DisplayMode::Fix(_) => Op::FmtFix(n),
+                            hp41_core::DisplayMode::Sci(_) => Op::FmtSci(n),
+                            hp41_core::DisplayMode::Eng(_) => Op::FmtEng(n),
+                        };
+                        self.call_dispatch(op);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('f') => {
+                        // Cycle the pending format type: Fix → Sci → Eng → Fix.
+                        // The digit count in the stored mode is irrelevant — only the variant matters.
+                        let new_mode = match mode {
+                            hp41_core::DisplayMode::Fix(n) => hp41_core::DisplayMode::Sci(n),
+                            hp41_core::DisplayMode::Sci(n) => hp41_core::DisplayMode::Eng(n),
+                            hp41_core::DisplayMode::Eng(n) => hp41_core::DisplayMode::Fix(n),
+                        };
+                        self.pending_input = Some(PendingInput::FmtDigits(new_mode));
+                    }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Restore modal silently for unrecognized keys
+                        self.pending_input = Some(PendingInput::FmtDigits(mode));
                     }
                 }
             }

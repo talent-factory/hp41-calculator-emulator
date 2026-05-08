@@ -253,6 +253,14 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
                 .unwrap_or("program");
             format!("Load '{name}'? Current program will be lost. [Y/n]")
         }
+        PendingInput::FmtDigits(mode) => {
+            let label = match mode {
+                hp41_core::DisplayMode::Fix(_) => "FIX",
+                hp41_core::DisplayMode::Sci(_) => "SCI",
+                hp41_core::DisplayMode::Eng(_) => "ENG",
+            };
+            format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
+        }
     }
 }
 
