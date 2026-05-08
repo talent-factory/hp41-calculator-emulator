@@ -89,8 +89,9 @@ pub struct CalcState {
     // ── Phase 11: Print emulation ─────────────────────────────────────────────
     /// Buffer of formatted print lines from PRX/PRA/PRSTK.
     /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
-    /// #[serde(default)] preserves backward compatibility with v1.0 save files.
-    #[serde(default)]
+    /// #[serde(default, skip)] — default enables backward-compat deserialization of v1.0
+    /// save files that lack this field; skip prevents serialization of transient state.
+    #[serde(default, skip)]
     pub print_buffer: Vec<String>,
 }
 
