@@ -248,9 +248,21 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ),
     // ── Print ─────────────────────────────────────────────────────────────────
     ("", "", "=== Print ==="),
-    ("P X", "PRX", "Print X register to console (right-aligned, 24 chars)"),
-    ("P A", "PRA", "Print ALPHA register to console (left-aligned, 24 chars)"),
-    ("P S", "PRSTK", "Print full stack T/Z/Y/X/LASTX/ALPHA (6 lines) to console"),
+    (
+        "P X",
+        "PRX",
+        "Print X register to console (right-aligned, 24 chars)",
+    ),
+    (
+        "P A",
+        "PRA",
+        "Print ALPHA register to console (left-aligned, 24 chars)",
+    ),
+    (
+        "P S",
+        "PRSTK",
+        "Print full stack T/Z/Y/X/LASTX/ALPHA (6 lines) to console",
+    ),
     // ── Help ──────────────────────────────────────────────────────────────────
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),

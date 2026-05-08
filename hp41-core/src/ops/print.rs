@@ -41,7 +41,11 @@ pub fn op_prstk(state: &mut CalcState) -> Result<(), HpError> {
         format!("{:<7}{:>17}", "Z:", format_hpnum(&state.stack.z, mode)),
         format!("{:<7}{:>17}", "Y:", format_hpnum(&state.stack.y, mode)),
         format!("{:<7}{:>17}", "X:", format_hpnum(&state.stack.x, mode)),
-        format!("{:<7}{:>17}", "LASTX:", format_hpnum(&state.stack.lastx, mode)),
+        format!(
+            "{:<7}{:>17}",
+            "LASTX:",
+            format_hpnum(&state.stack.lastx, mode)
+        ),
         {
             // ALPHA line is left-aligned value (not right-aligned), max 17 chars.
             let alpha = state.alpha_reg.chars().take(17).collect::<String>();

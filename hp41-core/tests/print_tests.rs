@@ -185,12 +185,30 @@ fn test_prstk_all_lines_are_24_chars() {
 fn test_prstk_line_order_and_labels() {
     let mut s = CalcState::new();
     dispatch(&mut s, Op::PRSTK).unwrap();
-    assert!(s.print_buffer[0].starts_with("T:"), "Line 0 must start with T:");
-    assert!(s.print_buffer[1].starts_with("Z:"), "Line 1 must start with Z:");
-    assert!(s.print_buffer[2].starts_with("Y:"), "Line 2 must start with Y:");
-    assert!(s.print_buffer[3].starts_with("X:"), "Line 3 must start with X:");
-    assert!(s.print_buffer[4].starts_with("LASTX:"), "Line 4 must start with LASTX:");
-    assert!(s.print_buffer[5].starts_with("ALPHA:"), "Line 5 must start with ALPHA:");
+    assert!(
+        s.print_buffer[0].starts_with("T:"),
+        "Line 0 must start with T:"
+    );
+    assert!(
+        s.print_buffer[1].starts_with("Z:"),
+        "Line 1 must start with Z:"
+    );
+    assert!(
+        s.print_buffer[2].starts_with("Y:"),
+        "Line 2 must start with Y:"
+    );
+    assert!(
+        s.print_buffer[3].starts_with("X:"),
+        "Line 3 must start with X:"
+    );
+    assert!(
+        s.print_buffer[4].starts_with("LASTX:"),
+        "Line 4 must start with LASTX:"
+    );
+    assert!(
+        s.print_buffer[5].starts_with("ALPHA:"),
+        "Line 5 must start with ALPHA:"
+    );
 }
 
 /// PRSTK ALPHA line when alpha_reg is empty: "ALPHA:                  " ("ALPHA:" (6) + 18 spaces = 24).

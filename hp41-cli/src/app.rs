@@ -59,18 +59,32 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(state: CalcState, state_path: PathBuf, print_log: Option<std::path::PathBuf>) -> Self {
+    pub fn new(
+        state: CalcState,
+        state_path: PathBuf,
+        print_log: Option<std::path::PathBuf>,
+    ) -> Self {
         let (print_log_writer, initial_message) = match print_log {
             None => (None, None),
             Some(path) => {
-                match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+                match std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                {
                     Ok(file) => (Some(std::io::BufWriter::new(file)), None),
                     Err(e) => {
                         // Surface the error in the TUI status bar via app.message.
                         // Also write to stderr as a fallback for contexts where the TUI
                         // may not yet be visible (e.g., early startup errors).
                         eprintln!("Warning: cannot open print log '{}': {e}", path.display());
-                        (None, Some(format!("Warning: cannot open print log '{}': {e}", path.display())))
+                        (
+                            None,
+                            Some(format!(
+                                "Warning: cannot open print log '{}': {e}",
+                                path.display()
+                            )),
+                        )
                     }
                 }
             }
@@ -1407,7 +1421,10 @@ mod print_modal_tests {
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
         app.handle_key(esc_key);
         assert!(app.pending_input.is_none(), "Esc must clear pending_input");
-        assert!(app.state.print_buffer.is_empty(), "Esc must not dispatch any print op");
+        assert!(
+            app.state.print_buffer.is_empty(),
+            "Esc must not dispatch any print op"
+        );
         assert_eq!(app.state.stack.x, x_before, "Esc must not modify stack");
     }
 

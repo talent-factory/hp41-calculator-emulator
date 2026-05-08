@@ -352,7 +352,11 @@ mod tests {
     use std::path::PathBuf;
 
     fn make_app() -> crate::app::App {
-        crate::app::App::new(CalcState::new(), PathBuf::from("/tmp/hp41_ui_test.json"), None)
+        crate::app::App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41_ui_test.json"),
+            None,
+        )
     }
 
     /// BLOCKER 1: test_help_scroll — help_table_state.select_next() must not panic.
