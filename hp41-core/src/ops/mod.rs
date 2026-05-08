@@ -208,8 +208,15 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     if state.entry_buf.is_empty() {
         return Ok(());
     }
-    let s = state.entry_buf.clone();
+    let mut s = state.entry_buf.clone();
     state.entry_buf.clear();
+    // D-09 (Phase 9): trailing 'e' with no exponent digits is HP-41 hardware-faithful
+    // shorthand for "exponent 00". Normalize by appending "00" so from_scientific accepts it.
+    // We check both 'e' and 'E' for safety even though entry_buf is always lowercase per
+    // app.rs; this also makes the normalization robust to future case-folding changes.
+    if s.ends_with('e') || s.ends_with('E') {
+        s.push_str("00");
+    }
     let d = Decimal::from_str(&s)
         .or_else(|_| Decimal::from_scientific(&s))
         .map_err(|_| HpError::InvalidOp)?;
@@ -392,20 +399,38 @@ mod flush_eex_tests {
     }
 
     #[test]
-    fn test_flush_trailing_e_without_exponent_returns_err() {
-        // "1.5e" has no exponent digits — both from_str and from_scientific reject it.
-        // Current behavior: InvalidOp returned + entry_buf cleared (partial number is
-        // unrecoverable; call_dispatch() surfaces the error in self.message).
-        // This test documents the behavior so any future change is intentional.
+    fn test_flush_trailing_e_without_exponent_commits_zero_exponent() {
+        // HP-41 hardware: trailing 'e' with no exponent digits commits as exponent 00.
+        // "1.5e" + ENTER pushes 1.5 to the stack (exponent treated as 00), not a parse error.
+        // Per D-09 (Phase 9 CONTEXT): flush_entry_buf normalizes by appending "00" before parsing.
         let mut state = make_state_with_entry("1.5e");
         let result = flush_entry_buf(&mut state);
         assert!(
-            result.is_err(),
-            "trailing 'e' with no exponent must return Err"
+            result.is_ok(),
+            "trailing 'e' with no exponent must commit as exponent 00, not Err"
+        );
+        assert_eq!(
+            state.stack.x.0,
+            Decimal::from_str("1.5").unwrap(),
+            "1.5e must commit as 1.5 (exponent 00)"
         );
         assert!(
             state.entry_buf.is_empty(),
-            "entry_buf must be cleared on error"
+            "entry_buf must be cleared after successful commit"
+        );
+    }
+
+    #[test]
+    fn test_flush_implicit_one_with_trailing_e_commits_one() {
+        // HP-41 hardware: empty-buffer EEX inserts implicit "1" mantissa (D-07 in app.rs).
+        // After app.rs sets entry_buf = "1e", flush must commit as 1.0 (1 * 10^0).
+        let mut state = make_state_with_entry("1e");
+        let result = flush_entry_buf(&mut state);
+        assert!(result.is_ok(), "1e must commit successfully");
+        assert_eq!(
+            state.stack.x.0,
+            Decimal::from(1),
+            "1e must commit as 1 (1 * 10^0)"
         );
     }
 }
