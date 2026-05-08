@@ -69,9 +69,14 @@
   3. Pressing Esc at any modal step (after `S`, after the arithmetic op key, or after the first register digit) cancels the operation with no state change
   4. The TUI shows the current modal step (e.g., `STO _` after `S`, `STO+ _` after the op key) so the user always knows which step they are on
 **Plans**: 3 plans
+  **Wave 1** *(parallel)*
   - [ ] 10-01-PLAN.md — STOA-03 (core): StackReg enum, Op::StoArithStack variant, op_sto_arith_stack function, dispatch() + execute_op() arms
-  - [ ] 10-02-PLAN.md — STOA-01/02 (cli): step-2 routing in StoRegister arm, Y/Z/T/L stack-reg dispatch in StoAdd/Sub/Mul/Div arms, remove dead_code
   - [ ] 10-03-PLAN.md — STOA-01/02/03 (help): fix 4 placeholder entries in help_data.rs
+  **Wave 2** *(blocked on Wave 1 Plan 10-01 completion)*
+  - [ ] 10-02-PLAN.md — STOA-01/02 (cli): step-2 routing in StoRegister arm, Y/Z/T/L stack-reg dispatch in StoAdd/Sub/Mul/Div arms, remove dead_code
+  **Cross-cutting constraints:**
+  - `Op::StoArithStack` variant from 10-01 must be visible before 10-02 can compile
+  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new code uses `?`-propagation
 **UI hint**: yes
 
 ### Phase 11: Print Emulation

@@ -4,12 +4,12 @@ milestone: v1.1
 milestone_name: CLI Feature Completeness
 current_phase: 10
 current_plan: Not started
-status: context-gathered
-last_updated: "2026-05-08T16:00:00.000Z"
+status: ready-to-execute
+last_updated: "2026-05-08T17:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
+  total_plans: 6
   completed_plans: 3
   percent: 25
 ---
@@ -34,8 +34,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 Phase: 10 of 12 (STO Arithmetic Modals)
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-08 — Phase 9 complete (3/3 plans, verification passed 5/5)
+Status: Ready to execute
+Last activity: 2026-05-08 — Phase 10 planned (3/3 plans, verification passed)
 
 Progress: [██░░░░░░░░] 25%
 
@@ -81,8 +81,8 @@ Progress: [██░░░░░░░░] 25%
 
 - Every new Op variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`
 - New CalcState fields need `#[serde(default)]` for backward compatibility with v1.0 save files
-- STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 is TUI wiring only
-- Phase 10 has no hp41-core changes; all work is in hp41-cli (modal state machine in app.rs)
+- STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 adds StackReg enum + Op::StoArithStack variant + op_sto_arith_stack() function (core) and TUI routing (cli)
+- Phase 10 hp41-core changes: StackReg enum in ops/mod.rs, Op::StoArithStack variant, op_sto_arith_stack() in registers.rs, dispatch()/execute_op() arms
 - `pending_input` routing block must remain ABOVE modal-opening interceptors (S/R/Ctrl+A) to prevent modal interruption
 
 ### Blockers
@@ -94,9 +94,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** Phase 10 context gathered — Op::StoArithStack + StackReg enum decided, step-2 modal routing design locked, help overlay format resolved
-**Next action:** `/gsd-plan-phase 10`
+**Last action:** Phase 10 planned — 3 plans in 2 waves, verification passed (all 11 decisions + 3 requirements covered)
+**Next action:** `/gsd-execute-phase 10`
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after Phase 10 context gathering*
+*Last updated: 2026-05-08 after Phase 10 planning*
