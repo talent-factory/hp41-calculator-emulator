@@ -67,13 +67,25 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "Store X to register nn (00–99) — press S then 2 digits",
     ),
     (
-        "Shift+R+",
+        "S +",
         "STO+ [nn]",
-        "Add X to register nn — press Shift+R+, then 2 digits",
+        "Add X to register nn or stack Y/Z/T/L — press S then +, then nn or Y/Z/T/L",
     ),
-    ("Shift+R-", "STO- [nn]", "Subtract X from register nn"),
-    ("Shift+R*", "STO× [nn]", "Multiply register nn by X"),
-    ("Shift+R/", "STO÷ [nn]", "Divide register nn by X"),
+    (
+        "S -",
+        "STO- [nn]",
+        "Subtract X from register nn or stack Y/Z/T/L — press S then -, then nn or Y/Z/T/L",
+    ),
+    (
+        "S *",
+        "STO× [nn]",
+        "Multiply register nn or stack Y/Z/T/L by X — press S then *, then nn or Y/Z/T/L",
+    ),
+    (
+        "S /",
+        "STO÷ [nn]",
+        "Divide register nn or stack Y/Z/T/L by X — press S then /, then nn or Y/Z/T/L",
+    ),
     ("g", "CLREG", "Clear all storage registers R00-R99 to zero"),
     // ── ALPHA ─────────────────────────────────────────────────────────────────
     ("", "", "=== ALPHA Mode ==="),
