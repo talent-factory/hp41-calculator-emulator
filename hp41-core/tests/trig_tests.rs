@@ -212,7 +212,11 @@ fn test_acos_half_is_60_deg() {
     set_deg(&mut s);
     push_dec(&mut s, "0.5");
     dispatch(&mut s, Op::Acos).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(60), "ACOS(0.5) in DEG = 60");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(60),
+        "ACOS(0.5) in DEG = 60"
+    );
 }
 
 #[test]

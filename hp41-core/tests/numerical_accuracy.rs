@@ -16,12 +16,12 @@
 //!
 //! Gate: passes >= 490 (98% of 500, D-08). Failing cases printed as diagnostics.
 
-use hp41_core::ops::program::op_isg;
 use hp41_core::ops::program::op_dse;
+use hp41_core::ops::program::op_isg;
 use hp41_core::ops::{dispatch, Op};
 use hp41_core::{CalcState, HpNum};
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::str::FromStr;
 
 const TOLERANCE: f64 = 1e-9;
@@ -127,121 +127,156 @@ fn test_numerical_accuracy_suite() {
     // Cases 1–20: Addition
     {
         let mut s = CalcState::new();
-        push(&mut s, "2"); push(&mut s, "3");
+        push(&mut s, "2");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "2+3=5", 5.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.1"); push(&mut s, "0.2");
+        push(&mut s, "0.1");
+        push(&mut s, "0.2");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "0.1+0.2=0.3", 0.3, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-5"); push(&mut s, "5");
+        push(&mut s, "-5");
+        push(&mut s, "5");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "-5+5=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "999999999"); push(&mut s, "1");
+        push(&mut s, "999999999");
+        push(&mut s, "1");
         dispatch(&mut s, Op::Add).unwrap();
-        case!("arithmetic", "999999999+1=1000000000", 1_000_000_000.0, get_x(&s));
+        case!(
+            "arithmetic",
+            "999999999+1=1000000000",
+            1_000_000_000.0,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.000000001"); push(&mut s, "0.000000001");
+        push(&mut s, "0.000000001");
+        push(&mut s, "0.000000001");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1e-9+1e-9=2e-9", 2e-9, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100"); push(&mut s, "-100");
+        push(&mut s, "100");
+        push(&mut s, "-100");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "100+(-100)=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "3.14159265"); push(&mut s, "2.71828182");
+        push(&mut s, "3.14159265");
+        push(&mut s, "2.71828182");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "pi_approx+e_approx", 5.85987447, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-3.14159265"); push(&mut s, "-2.71828182");
+        push(&mut s, "-3.14159265");
+        push(&mut s, "-2.71828182");
         dispatch(&mut s, Op::Add).unwrap();
-        case!("arithmetic", "-pi_approx+(-e_approx)", -5.85987447, get_x(&s));
+        case!(
+            "arithmetic",
+            "-pi_approx+(-e_approx)",
+            -5.85987447,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1234567.89"); push(&mut s, "9876543.21");
+        push(&mut s, "1234567.89");
+        push(&mut s, "9876543.21");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1234567.89+9876543.21", 11111111.1, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.5"); push(&mut s, "0.5");
+        push(&mut s, "0.5");
+        push(&mut s, "0.5");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "0.5+0.5=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100000000"); push(&mut s, "100000000");
+        push(&mut s, "100000000");
+        push(&mut s, "100000000");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1e8+1e8=2e8", 2e8, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.23456789"); push(&mut s, "0.00000001");
+        push(&mut s, "1.23456789");
+        push(&mut s, "0.00000001");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1.23456789+0.00000001", 1.23456790, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-0.5"); push(&mut s, "1.5");
+        push(&mut s, "-0.5");
+        push(&mut s, "1.5");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "-0.5+1.5=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "9999999999"); push(&mut s, "0");
+        push(&mut s, "9999999999");
+        push(&mut s, "0");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "9999999999+0", 9_999_999_999.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.1"); push(&mut s, "2.2");
+        push(&mut s, "1.1");
+        push(&mut s, "2.2");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1.1+2.2=3.3", 3.3, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.333333333"); push(&mut s, "0.666666667");
+        push(&mut s, "0.333333333");
+        push(&mut s, "0.666666667");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "0.333+0.667=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "42"); push(&mut s, "0");
+        push(&mut s, "42");
+        push(&mut s, "0");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "42+0=42", 42.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-1"); push(&mut s, "1");
+        push(&mut s, "-1");
+        push(&mut s, "1");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "-1+1=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1000000"); push(&mut s, "0.000001");
+        push(&mut s, "1000000");
+        push(&mut s, "0.000001");
         dispatch(&mut s, Op::Add).unwrap();
-        case!("arithmetic", "1000000+0.000001", 1_000_000.000001, get_x(&s));
+        case!(
+            "arithmetic",
+            "1000000+0.000001",
+            1_000_000.000001,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.5"); push(&mut s, "-0.5");
+        push(&mut s, "1.5");
+        push(&mut s, "-0.5");
         dispatch(&mut s, Op::Add).unwrap();
         case!("arithmetic", "1.5+(-0.5)=1", 1.0, get_x(&s));
     }
@@ -249,121 +284,146 @@ fn test_numerical_accuracy_suite() {
     // Cases 21–40: Subtraction
     {
         let mut s = CalcState::new();
-        push(&mut s, "10"); push(&mut s, "3");
+        push(&mut s, "10");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "10-3=7", 7.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0"); push(&mut s, "5");
+        push(&mut s, "0");
+        push(&mut s, "5");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "0-5=-5", -5.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "3.14159265"); push(&mut s, "1.41421356");
+        push(&mut s, "3.14159265");
+        push(&mut s, "1.41421356");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "pi-sqrt2", 1.72737909, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1000000000"); push(&mut s, "999999999");
+        push(&mut s, "1000000000");
+        push(&mut s, "999999999");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "1e9-999999999=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.1"); push(&mut s, "0.1");
+        push(&mut s, "0.1");
+        push(&mut s, "0.1");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "0.1-0.1=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-5"); push(&mut s, "-3");
+        push(&mut s, "-5");
+        push(&mut s, "-3");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "-5-(-3)=-2", -2.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.23456789"); push(&mut s, "0.23456789");
+        push(&mut s, "1.23456789");
+        push(&mut s, "0.23456789");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "1.23456789-0.23456789=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100"); push(&mut s, "200");
+        push(&mut s, "100");
+        push(&mut s, "200");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "100-200=-100", -100.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.999999999"); push(&mut s, "0.000000001");
+        push(&mut s, "0.999999999");
+        push(&mut s, "0.000000001");
         dispatch(&mut s, Op::Sub).unwrap();
-        case!("arithmetic", "0.999999999-0.000000001", 0.999999998, get_x(&s));
+        case!(
+            "arithmetic",
+            "0.999999999-0.000000001",
+            0.999999998,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "50"); push(&mut s, "50");
+        push(&mut s, "50");
+        push(&mut s, "50");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "50-50=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.5"); push(&mut s, "0.5");
+        push(&mut s, "1.5");
+        push(&mut s, "0.5");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "1.5-0.5=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "7"); push(&mut s, "3");
+        push(&mut s, "7");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "7-3=4", 4.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1000000000"); push(&mut s, "1");
+        push(&mut s, "1000000000");
+        push(&mut s, "1");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "1e9-1=999999999", 999_999_999.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-10"); push(&mut s, "10");
+        push(&mut s, "-10");
+        push(&mut s, "10");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "-10-10=-20", -20.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "3.33333333"); push(&mut s, "1.33333333");
+        push(&mut s, "3.33333333");
+        push(&mut s, "1.33333333");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "3.333-1.333=2", 2.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.000000005"); push(&mut s, "0.000000004");
+        push(&mut s, "0.000000005");
+        push(&mut s, "0.000000004");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "5e-9-4e-9=1e-9", 1e-9, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "0.000000001");
+        push(&mut s, "1");
+        push(&mut s, "0.000000001");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "1-1e-9=0.999999999", 0.999999999, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "200"); push(&mut s, "100");
+        push(&mut s, "200");
+        push(&mut s, "100");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "200-100=100", 100.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "5.5"); push(&mut s, "2.5");
+        push(&mut s, "5.5");
+        push(&mut s, "2.5");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "5.5-2.5=3", 3.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0"); push(&mut s, "0");
+        push(&mut s, "0");
+        push(&mut s, "0");
         dispatch(&mut s, Op::Sub).unwrap();
         case!("arithmetic", "0-0=0", 0.0, get_x(&s));
     }
@@ -371,121 +431,141 @@ fn test_numerical_accuracy_suite() {
     // Cases 41–60: Multiplication
     {
         let mut s = CalcState::new();
-        push(&mut s, "3"); push(&mut s, "4");
+        push(&mut s, "3");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "3*4=12", 12.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.5"); push(&mut s, "2");
+        push(&mut s, "0.5");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "0.5*2=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-3"); push(&mut s, "4");
+        push(&mut s, "-3");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "-3*4=-12", -12.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "7"); push(&mut s, "7");
+        push(&mut s, "7");
+        push(&mut s, "7");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "7*7=49", 49.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.5"); push(&mut s, "1.5");
+        push(&mut s, "1.5");
+        push(&mut s, "1.5");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "1.5*1.5=2.25", 2.25, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100"); push(&mut s, "0.01");
+        push(&mut s, "100");
+        push(&mut s, "0.01");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "100*0.01=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "3.14159265"); push(&mut s, "2");
+        push(&mut s, "3.14159265");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "pi*2=6.2831853", 6.2831853, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-0.5"); push(&mut s, "-2");
+        push(&mut s, "-0.5");
+        push(&mut s, "-2");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "-0.5*-2=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1000"); push(&mut s, "1000");
+        push(&mut s, "1000");
+        push(&mut s, "1000");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "1000*1000=1e6", 1_000_000.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.23456789"); push(&mut s, "10");
+        push(&mut s, "1.23456789");
+        push(&mut s, "10");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "1.23456789*10", 12.3456789, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.1"); push(&mut s, "0.1");
+        push(&mut s, "0.1");
+        push(&mut s, "0.1");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "0.1*0.1=0.01", 0.01, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "9"); push(&mut s, "9");
+        push(&mut s, "9");
+        push(&mut s, "9");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "9*9=81", 81.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.414213562"); push(&mut s, "1.414213562");
+        push(&mut s, "1.414213562");
+        push(&mut s, "1.414213562");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "sqrt2*sqrt2~2", 2.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0"); push(&mut s, "9999999");
+        push(&mut s, "0");
+        push(&mut s, "9999999");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "0*9999999=0", 0.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-1"); push(&mut s, "-1");
+        push(&mut s, "-1");
+        push(&mut s, "-1");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "-1*-1=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "2.5"); push(&mut s, "4");
+        push(&mut s, "2.5");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "2.5*4=10", 10.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "0.333333333"); push(&mut s, "3");
+        push(&mut s, "0.333333333");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "0.333333333*3", 0.999999999, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1.1"); push(&mut s, "1.1");
+        push(&mut s, "1.1");
+        push(&mut s, "1.1");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "1.1*1.1=1.21", 1.21, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "5"); push(&mut s, "0.2");
+        push(&mut s, "5");
+        push(&mut s, "0.2");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "5*0.2=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "10000"); push(&mut s, "10000");
+        push(&mut s, "10000");
+        push(&mut s, "10000");
         dispatch(&mut s, Op::Mul).unwrap();
         case!("arithmetic", "10000*10000=1e8", 1e8, get_x(&s));
     }
@@ -493,121 +573,151 @@ fn test_numerical_accuracy_suite() {
     // Cases 61–80: Division
     {
         let mut s = CalcState::new();
-        push(&mut s, "10"); push(&mut s, "2");
+        push(&mut s, "10");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "10/2=5", 5.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "3");
+        push(&mut s, "1");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/3=0.3333333333", 0.333_333_333_3, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "22"); push(&mut s, "7");
+        push(&mut s, "22");
+        push(&mut s, "7");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "22/7=3.142857143", 3.142_857_143, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-10"); push(&mut s, "2");
+        push(&mut s, "-10");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "-10/2=-5", -5.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100"); push(&mut s, "100");
+        push(&mut s, "100");
+        push(&mut s, "100");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "100/100=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "7");
+        push(&mut s, "1");
+        push(&mut s, "7");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/7=0.1428571429", 0.142_857_142_9, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "9");
+        push(&mut s, "1");
+        push(&mut s, "9");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/9=0.1111111111", 0.111_111_111_1, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "2"); push(&mut s, "3");
+        push(&mut s, "2");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "2/3=0.6666666667", 0.666_666_666_7, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "355"); push(&mut s, "113");
+        push(&mut s, "355");
+        push(&mut s, "113");
         dispatch(&mut s, Op::Div).unwrap();
-        case!("arithmetic", "355/113=3.141592920", 3.141_592_920, get_x(&s));
+        case!(
+            "arithmetic",
+            "355/113=3.141592920",
+            3.141_592_920,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "1000000");
+        push(&mut s, "1");
+        push(&mut s, "1000000");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/1e6=1e-6", 1e-6, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "7"); push(&mut s, "2");
+        push(&mut s, "7");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "7/2=3.5", 3.5, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "-6"); push(&mut s, "-3");
+        push(&mut s, "-6");
+        push(&mut s, "-3");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "-6/-3=2", 2.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "4");
+        push(&mut s, "1");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/4=0.25", 0.25, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "5"); push(&mut s, "5");
+        push(&mut s, "5");
+        push(&mut s, "5");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "5/5=1", 1.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "8");
+        push(&mut s, "1");
+        push(&mut s, "8");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/8=0.125", 0.125, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "9"); push(&mut s, "4");
+        push(&mut s, "9");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "9/4=2.25", 2.25, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "6");
+        push(&mut s, "1");
+        push(&mut s, "6");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "1/6=0.1666666667", 0.166_666_666_7, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "100"); push(&mut s, "3");
+        push(&mut s, "100");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "100/3=33.33333333", 33.333_333_33, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "11");
+        push(&mut s, "1");
+        push(&mut s, "11");
         dispatch(&mut s, Op::Div).unwrap();
-        case!("arithmetic", "1/11=0.09090909091", 0.090_909_090_91, get_x(&s));
+        case!(
+            "arithmetic",
+            "1/11=0.09090909091",
+            0.090_909_090_91,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "8"); push(&mut s, "4");
+        push(&mut s, "8");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Div).unwrap();
         case!("arithmetic", "8/4=2", 2.0, get_x(&s));
     }
@@ -659,7 +769,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "2");
         dispatch(&mut s, Op::Sqrt).unwrap();
-        case!("arithmetic", "sqrt(2)=1.414213562", 1.414_213_562, get_x(&s));
+        case!(
+            "arithmetic",
+            "sqrt(2)=1.414213562",
+            1.414_213_562,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
@@ -705,31 +820,36 @@ fn test_numerical_accuracy_suite() {
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "2"); push(&mut s, "10");
+        push(&mut s, "2");
+        push(&mut s, "10");
         dispatch(&mut s, Op::YPow).unwrap();
         case!("arithmetic", "2^10=1024", 1024.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "2"); push(&mut s, "0.5");
+        push(&mut s, "2");
+        push(&mut s, "0.5");
         dispatch(&mut s, Op::YPow).unwrap();
         case!("arithmetic", "2^0.5=sqrt2", 1.414_213_562, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "3"); push(&mut s, "3");
+        push(&mut s, "3");
+        push(&mut s, "3");
         dispatch(&mut s, Op::YPow).unwrap();
         case!("arithmetic", "3^3=27", 27.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "10"); push(&mut s, "3");
+        push(&mut s, "10");
+        push(&mut s, "3");
         dispatch(&mut s, Op::YPow).unwrap();
         case!("arithmetic", "10^3=1000", 1000.0, get_x(&s));
     }
     {
         let mut s = CalcState::new();
-        push(&mut s, "4"); push(&mut s, "0.5");
+        push(&mut s, "4");
+        push(&mut s, "0.5");
         dispatch(&mut s, Op::YPow).unwrap();
         case!("arithmetic", "4^0.5=2", 2.0, get_x(&s));
     }
@@ -772,7 +892,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_deg", &format!("sin({}deg)", deg), *expected, get_x(&s));
+        case!(
+            "trig_deg",
+            &format!("sin({}deg)", deg),
+            *expected,
+            get_x(&s)
+        );
     }
 
     // COS DEG cases 131–155
@@ -806,7 +931,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_deg", &format!("cos({}deg)", deg), *expected, get_x(&s));
+        case!(
+            "trig_deg",
+            &format!("cos({}deg)", deg),
+            *expected,
+            get_x(&s)
+        );
     }
 
     // TAN DEG cases 156–175
@@ -835,7 +965,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Tan).unwrap();
-        case!("trig_deg", &format!("tan({}deg)", deg), *expected, get_x(&s));
+        case!(
+            "trig_deg",
+            &format!("tan({}deg)", deg),
+            *expected,
+            get_x(&s)
+        );
     }
 
     // ASIN/ACOS/ATAN DEG cases 176–195
@@ -1093,7 +1228,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, grad);
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_grad", &format!("sin({}grad)", grad), *expected, get_x(&s));
+        case!(
+            "trig_grad",
+            &format!("sin({}grad)", grad),
+            *expected,
+            get_x(&s)
+        );
     }
     for (grad, expected) in &[
         ("0", 1.0_f64),
@@ -1105,7 +1245,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, grad);
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_grad", &format!("cos({}grad)", grad), *expected, get_x(&s));
+        case!(
+            "trig_grad",
+            &format!("cos({}grad)", grad),
+            *expected,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
@@ -1129,13 +1274,23 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, "50");
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_grad", "sin(50grad)=sqrt2/2", 0.707_106_781_2, get_x(&s));
+        case!(
+            "trig_grad",
+            "sin(50grad)=sqrt2/2",
+            0.707_106_781_2,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "50");
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_grad", "cos(50grad)=sqrt2/2", 0.707_106_781_2, get_x(&s));
+        case!(
+            "trig_grad",
+            "cos(50grad)=sqrt2/2",
+            0.707_106_781_2,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
@@ -1147,7 +1302,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, "33.33333333");
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_grad", "cos(33.33grad)=sqrt3/2", 0.866_025_403_8, get_x(&s));
+        case!(
+            "trig_grad",
+            "cos(33.33grad)=sqrt3/2",
+            0.866_025_403_8,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
@@ -1207,7 +1367,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, "66.66666667");
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_grad", "sin(66.67grad)=sqrt3/2", 0.866_025_403_8, get_x(&s));
+        case!(
+            "trig_grad",
+            "sin(66.67grad)=sqrt3/2",
+            0.866_025_403_8,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
@@ -1219,43 +1384,78 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_grad_state();
         push(&mut s, "66.66666667");
         dispatch(&mut s, Op::Tan).unwrap();
-        case!("trig_grad", "tan(66.67grad)=sqrt3", 1.732_050_808, get_x(&s));
+        case!(
+            "trig_grad",
+            "tan(66.67grad)=sqrt3",
+            1.732_050_808,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "16.66666667");
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_grad", "sin(16.67grad)=sin15deg", 0.258_819_045_1, get_x(&s));
+        case!(
+            "trig_grad",
+            "sin(16.67grad)=sin15deg",
+            0.258_819_045_1,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "16.66666667");
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_grad", "cos(16.67grad)=cos15deg", 0.965_925_826_3, get_x(&s));
+        case!(
+            "trig_grad",
+            "cos(16.67grad)=cos15deg",
+            0.965_925_826_3,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "83.33333333");
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("trig_grad", "sin(83.33grad)=cos15deg", 0.965_925_826_3, get_x(&s));
+        case!(
+            "trig_grad",
+            "sin(83.33grad)=cos15deg",
+            0.965_925_826_3,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "83.33333333");
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("trig_grad", "cos(83.33grad)=sin15deg", 0.258_819_045_1, get_x(&s));
+        case!(
+            "trig_grad",
+            "cos(83.33grad)=sin15deg",
+            0.258_819_045_1,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "33.33333333");
         dispatch(&mut s, Op::Tan).unwrap();
-        case!("trig_grad", "tan(33.33grad)=tan30deg", 0.577_350_269_2, get_x(&s));
+        case!(
+            "trig_grad",
+            "tan(33.33grad)=tan30deg",
+            0.577_350_269_2,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_grad_state();
         push(&mut s, "83.33333333");
         dispatch(&mut s, Op::Tan).unwrap();
-        case!("trig_grad", "tan(83.33grad)=tan75deg", 3.732_050_808, get_x(&s));
+        case!(
+            "trig_grad",
+            "tan(83.33grad)=tan75deg",
+            3.732_050_808,
+            get_x(&s)
+        );
     }
 
     // ── Domain 3: Logs and Exponentials (cases 251–350) ──────────────────────
@@ -1427,66 +1627,316 @@ fn test_numerical_accuracy_suite() {
     };
 
     // Canonical 5-step ISG sequence (cases 351–355)
-    case!("isg_dse", "ISG(1.00500) skip=false", 0.0, if isg_bool("1.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(2.00500) skip=false", 0.0, if isg_bool("2.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(3.00500) skip=false", 0.0, if isg_bool("3.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(4.00500) skip=false", 0.0, if isg_bool("4.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(5.00500) skip=true", 1.0, if isg_bool("5.00500") { 1.0 } else { 0.0 });
+    case!(
+        "isg_dse",
+        "ISG(1.00500) skip=false",
+        0.0,
+        if isg_bool("1.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(2.00500) skip=false",
+        0.0,
+        if isg_bool("2.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(3.00500) skip=false",
+        0.0,
+        if isg_bool("3.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(4.00500) skip=false",
+        0.0,
+        if isg_bool("4.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(5.00500) skip=true",
+        1.0,
+        if isg_bool("5.00500") { 1.0 } else { 0.0 }
+    );
 
     // Step != 1 cases (356–360)
-    case!("isg_dse", "ISG(0.00502) skip=false", 0.0, if isg_bool("0.00502") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(3.00502) skip=false", 0.0, if isg_bool("3.00502") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(4.00502) skip=true", 1.0, if isg_bool("4.00502") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(1.01001) skip=false", 0.0, if isg_bool("1.01001") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(9.01001) skip=false", 0.0, if isg_bool("9.01001") { 1.0 } else { 0.0 });
+    case!(
+        "isg_dse",
+        "ISG(0.00502) skip=false",
+        0.0,
+        if isg_bool("0.00502") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(3.00502) skip=false",
+        0.0,
+        if isg_bool("3.00502") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(4.00502) skip=true",
+        1.0,
+        if isg_bool("4.00502") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(1.01001) skip=false",
+        0.0,
+        if isg_bool("1.01001") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(9.01001) skip=false",
+        0.0,
+        if isg_bool("9.01001") { 1.0 } else { 0.0 }
+    );
 
     // DSE cases (361–370)
-    case!("isg_dse", "DSE(5.00100) skip=false", 0.0, if dse_bool("5.00100") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(2.00100) skip=true", 1.0, if dse_bool("2.00100") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(1.00100) skip=true", 1.0, if dse_bool("1.00100") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(0.00100) skip=true", 1.0, if dse_bool("0.00100") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(3.00200) skip=true", 1.0, if dse_bool("3.00200") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(4.00200) skip=false", 0.0, if dse_bool("4.00200") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(5.00200) skip=false", 0.0, if dse_bool("5.00200") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(10.00500) skip=false", 0.0, if dse_bool("10.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(6.00500) skip=true", 1.0, if dse_bool("6.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(7.00500) skip=false", 0.0, if dse_bool("7.00500") { 1.0 } else { 0.0 });
+    case!(
+        "isg_dse",
+        "DSE(5.00100) skip=false",
+        0.0,
+        if dse_bool("5.00100") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(2.00100) skip=true",
+        1.0,
+        if dse_bool("2.00100") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(1.00100) skip=true",
+        1.0,
+        if dse_bool("1.00100") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(0.00100) skip=true",
+        1.0,
+        if dse_bool("0.00100") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(3.00200) skip=true",
+        1.0,
+        if dse_bool("3.00200") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(4.00200) skip=false",
+        0.0,
+        if dse_bool("4.00200") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(5.00200) skip=false",
+        0.0,
+        if dse_bool("5.00200") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(10.00500) skip=false",
+        0.0,
+        if dse_bool("10.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(6.00500) skip=true",
+        1.0,
+        if dse_bool("6.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(7.00500) skip=false",
+        0.0,
+        if dse_bool("7.00500") { 1.0 } else { 0.0 }
+    );
 
     // Counter format edge cases (371–375)
-    case!("isg_dse", "ISG(0.00000) skip=true", 1.0, if isg_bool("0.00000") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(-1.00500) skip=false", 0.0, if isg_bool("-1.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(99.99901) skip=false", 0.0, if isg_bool("99.99901") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(1000.00100) skip=false", 0.0, if dse_bool("1000.00100") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(0.00001) skip=true", 1.0, if isg_bool("0.00001") { 1.0 } else { 0.0 });
+    case!(
+        "isg_dse",
+        "ISG(0.00000) skip=true",
+        1.0,
+        if isg_bool("0.00000") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(-1.00500) skip=false",
+        0.0,
+        if isg_bool("-1.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(99.99901) skip=false",
+        0.0,
+        if isg_bool("99.99901") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(1000.00100) skip=false",
+        0.0,
+        if dse_bool("1000.00100") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(0.00001) skip=true",
+        1.0,
+        if isg_bool("0.00001") { 1.0 } else { 0.0 }
+    );
 
     // Register-value checks (376–380)
-    case!("isg_dse", "ISG(1.00500) reg=2.005", 2.005, isg_reg("1.00500"));
-    case!("isg_dse", "ISG(5.00500) reg=6.005", 6.005, isg_reg("5.00500"));
-    case!("isg_dse", "DSE(3.00100) reg=2.001", 2.001, dse_reg("3.00100"));
-    case!("isg_dse", "DSE(1.00100) reg=0.001", 0.001, dse_reg("1.00100"));
-    case!("isg_dse", "ISG(0.01002) reg new current=2", 2.01002, isg_reg("0.01002"));
+    case!(
+        "isg_dse",
+        "ISG(1.00500) reg=2.005",
+        2.005,
+        isg_reg("1.00500")
+    );
+    case!(
+        "isg_dse",
+        "ISG(5.00500) reg=6.005",
+        6.005,
+        isg_reg("5.00500")
+    );
+    case!(
+        "isg_dse",
+        "DSE(3.00100) reg=2.001",
+        2.001,
+        dse_reg("3.00100")
+    );
+    case!(
+        "isg_dse",
+        "DSE(1.00100) reg=0.001",
+        0.001,
+        dse_reg("1.00100")
+    );
+    case!(
+        "isg_dse",
+        "ISG(0.01002) reg new current=2",
+        2.01002,
+        isg_reg("0.01002")
+    );
 
     // ISG/DSE step=5 final=20 (381–400)
-    case!("isg_dse", "ISG(0.02005) skip=false", 0.0, if isg_bool("0.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(5.02005) skip=false", 0.0, if isg_bool("5.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(10.02005) skip=false", 0.0, if isg_bool("10.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(15.02005) skip=false", 0.0, if isg_bool("15.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(20.02005) skip=true", 1.0, if isg_bool("20.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(20.02005) skip=true", 1.0, if dse_bool("20.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(25.02005) skip=true", 1.0, if dse_bool("25.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(26.02005) skip=false", 0.0, if dse_bool("26.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(99.02005) skip=true", 1.0, if isg_bool("99.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(21.02005) skip=true", 1.0, if dse_bool("21.02005") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(1.00300) skip=false", 0.0, if isg_bool("1.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(0.00300) skip=false", 0.0, if isg_bool("0.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(4.00300) skip=true", 1.0, if dse_bool("4.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(3.00300) skip=true", 1.0, if dse_bool("3.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(6.00300) skip=false", 0.0, if dse_bool("6.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(7.00300) skip=false", 0.0, if dse_bool("7.00300") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(-5.00500) skip=false", 0.0, if isg_bool("-5.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(-4.00500) skip=true", 1.0, if dse_bool("-4.00500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "ISG(4.99500) skip=false", 0.0, if isg_bool("4.99500") { 1.0 } else { 0.0 });
-    case!("isg_dse", "DSE(5.00100) skip=false", 0.0, if dse_bool("5.00100") { 1.0 } else { 0.0 });
+    case!(
+        "isg_dse",
+        "ISG(0.02005) skip=false",
+        0.0,
+        if isg_bool("0.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(5.02005) skip=false",
+        0.0,
+        if isg_bool("5.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(10.02005) skip=false",
+        0.0,
+        if isg_bool("10.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(15.02005) skip=false",
+        0.0,
+        if isg_bool("15.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(20.02005) skip=true",
+        1.0,
+        if isg_bool("20.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(20.02005) skip=true",
+        1.0,
+        if dse_bool("20.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(25.02005) skip=true",
+        1.0,
+        if dse_bool("25.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(26.02005) skip=false",
+        0.0,
+        if dse_bool("26.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(99.02005) skip=true",
+        1.0,
+        if isg_bool("99.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(21.02005) skip=true",
+        1.0,
+        if dse_bool("21.02005") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(1.00300) skip=false",
+        0.0,
+        if isg_bool("1.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(0.00300) skip=false",
+        0.0,
+        if isg_bool("0.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(4.00300) skip=true",
+        1.0,
+        if dse_bool("4.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(3.00300) skip=true",
+        1.0,
+        if dse_bool("3.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(6.00300) skip=false",
+        0.0,
+        if dse_bool("6.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(7.00300) skip=false",
+        0.0,
+        if dse_bool("7.00300") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(-5.00500) skip=false",
+        0.0,
+        if isg_bool("-5.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(-4.00500) skip=true",
+        1.0,
+        if dse_bool("-4.00500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "ISG(4.99500) skip=false",
+        0.0,
+        if isg_bool("4.99500") { 1.0 } else { 0.0 }
+    );
+    case!(
+        "isg_dse",
+        "DSE(5.00100) skip=false",
+        0.0,
+        if dse_bool("5.00100") { 1.0 } else { 0.0 }
+    );
 
     // ── Domain 5: Transcendental accumulation (cases 401–450) ────────────────
 
@@ -1665,18 +2115,25 @@ fn test_numerical_accuracy_suite() {
         push(&mut sc, "45");
         dispatch(&mut sc, Op::Cos).unwrap();
         let cos45 = get_x(&sc);
-        case!("transcendental", "tan(45)=sin(45)/cos(45)", 1.0, sin45 / cos45);
+        case!(
+            "transcendental",
+            "tan(45)=sin(45)/cos(45)",
+            1.0,
+            sin45 / cos45
+        );
     }
 
     // Multi-step arithmetic chains (421–440)
     {
         // (3+4)*(5-2)=21
         let mut s = CalcState::new();
-        push(&mut s, "3"); push(&mut s, "4");
+        push(&mut s, "3");
+        push(&mut s, "4");
         dispatch(&mut s, Op::Add).unwrap();
         let sum = get_x(&s);
         let mut s2 = CalcState::new();
-        push(&mut s2, "5"); push(&mut s2, "2");
+        push(&mut s2, "5");
+        push(&mut s2, "2");
         dispatch(&mut s2, Op::Sub).unwrap();
         let diff = get_x(&s2);
         case!("transcendental", "(3+4)*(5-2)=21", 21.0, sum * diff);
@@ -1684,11 +2141,13 @@ fn test_numerical_accuracy_suite() {
     {
         // (10/2)+(3*4)=17
         let mut s = CalcState::new();
-        push(&mut s, "10"); push(&mut s, "2");
+        push(&mut s, "10");
+        push(&mut s, "2");
         dispatch(&mut s, Op::Div).unwrap();
         let q = get_x(&s);
         let mut s2 = CalcState::new();
-        push(&mut s2, "3"); push(&mut s2, "4");
+        push(&mut s2, "3");
+        push(&mut s2, "4");
         dispatch(&mut s2, Op::Mul).unwrap();
         let p = get_x(&s2);
         case!("transcendental", "(10/2)+(3*4)=17", 17.0, q + p);
@@ -1696,11 +2155,13 @@ fn test_numerical_accuracy_suite() {
     {
         // ((2^3)+(3^2))/2=8.5
         let mut sa = CalcState::new();
-        push(&mut sa, "2"); push(&mut sa, "3");
+        push(&mut sa, "2");
+        push(&mut sa, "3");
         dispatch(&mut sa, Op::YPow).unwrap();
         let a = get_x(&sa);
         let mut sb = CalcState::new();
-        push(&mut sb, "3"); push(&mut sb, "2");
+        push(&mut sb, "3");
+        push(&mut sb, "2");
         dispatch(&mut sb, Op::YPow).unwrap();
         let b = get_x(&sb);
         case!("transcendental", "((2^3)+(3^2))/2=8.5", 8.5, (a + b) / 2.0);
@@ -1708,15 +2169,18 @@ fn test_numerical_accuracy_suite() {
     {
         // 1/3 + 1/3 + 1/3 ~ 1
         let mut s = CalcState::new();
-        push(&mut s, "1"); push(&mut s, "3");
+        push(&mut s, "1");
+        push(&mut s, "3");
         dispatch(&mut s, Op::Div).unwrap();
         let a = get_x(&s);
         let mut s2 = CalcState::new();
-        push(&mut s2, "1"); push(&mut s2, "3");
+        push(&mut s2, "1");
+        push(&mut s2, "3");
         dispatch(&mut s2, Op::Div).unwrap();
         let b = get_x(&s2);
         let mut s3 = CalcState::new();
-        push(&mut s3, "1"); push(&mut s3, "3");
+        push(&mut s3, "1");
+        push(&mut s3, "3");
         dispatch(&mut s3, Op::Div).unwrap();
         let c = get_x(&s3);
         case!("transcendental", "1/3+1/3+1/3~1", 1.0, a + b + c);
@@ -1767,9 +2231,16 @@ fn test_numerical_accuracy_suite() {
     {
         // 1.0001^10000 ~ 2.718145927 (wide tolerance)
         let mut s = CalcState::new();
-        push(&mut s, "1.0001"); push(&mut s, "10000");
+        push(&mut s, "1.0001");
+        push(&mut s, "10000");
         dispatch(&mut s, Op::YPow).unwrap();
-        case!("transcendental", "1.0001^10000~e", 2.718_145_927, get_x(&s), wide);
+        case!(
+            "transcendental",
+            "1.0001^10000~e",
+            2.718_145_927,
+            get_x(&s),
+            wide
+        );
     }
     {
         let mut s = new_deg_state();
@@ -1821,19 +2292,34 @@ fn test_numerical_accuracy_suite() {
         let mut s2 = CalcState::new();
         push(&mut s2, "1.001");
         dispatch(&mut s2, Op::Ln).unwrap();
-        case!("transcendental", "ln(1.001)~0.0009995003", 0.000_999_500_3, get_x(&s2));
+        case!(
+            "transcendental",
+            "ln(1.001)~0.0009995003",
+            0.000_999_500_3,
+            get_x(&s2)
+        );
     }
     {
         let mut s = CalcState::new();
         push(&mut s, "0.001");
         dispatch(&mut s, Op::Exp).unwrap();
-        case!("transcendental", "exp(0.001)~1.001000500", 1.001_000_500, get_x(&s));
+        case!(
+            "transcendental",
+            "exp(0.001)~1.001000500",
+            1.001_000_500,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
         push(&mut s, "0.001");
         dispatch(&mut s, Op::TenPow).unwrap();
-        case!("transcendental", "10^0.001~1.002305238", 1.002_305_238, get_x(&s));
+        case!(
+            "transcendental",
+            "10^0.001~1.002305238",
+            1.002_305_238,
+            get_x(&s)
+        );
     }
 
     // Chained trig + inverse (441–450)
@@ -1870,14 +2356,24 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "0.866025403");
         dispatch(&mut s, Op::Asin).unwrap();
         dispatch(&mut s, Op::Sin).unwrap();
-        case!("transcendental", "sin(asin(0.866))=0.866", 0.866_025_403, get_x(&s));
+        case!(
+            "transcendental",
+            "sin(asin(0.866))=0.866",
+            0.866_025_403,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_deg_state();
         push(&mut s, "0.866025403");
         dispatch(&mut s, Op::Acos).unwrap();
         dispatch(&mut s, Op::Cos).unwrap();
-        case!("transcendental", "cos(acos(0.866))=0.866", 0.866_025_403, get_x(&s));
+        case!(
+            "transcendental",
+            "cos(acos(0.866))=0.866",
+            0.866_025_403,
+            get_x(&s)
+        );
     }
     {
         let mut s = new_deg_state();
@@ -1937,7 +2433,13 @@ fn test_numerical_accuracy_suite() {
             push(&mut s, input);
             dispatch(&mut s, Op::HmsToH).unwrap();
             if *wide {
-                case!("hms", &format!("HMS->H({})", input), *expected, get_x(&s), wide);
+                case!(
+                    "hms",
+                    &format!("HMS->H({})", input),
+                    *expected,
+                    get_x(&s),
+                    wide
+                );
             } else {
                 case!("hms", &format!("HMS->H({})", input), *expected, get_x(&s));
             }
@@ -1963,7 +2465,13 @@ fn test_numerical_accuracy_suite() {
             push(&mut s, input);
             dispatch(&mut s, Op::HToHms).unwrap();
             if *wide {
-                case!("hms", &format!("H->HMS({})", input), *expected, get_x(&s), wide);
+                case!(
+                    "hms",
+                    &format!("H->HMS({})", input),
+                    *expected,
+                    get_x(&s),
+                    wide
+                );
             } else {
                 case!("hms", &format!("H->HMS({})", input), *expected, get_x(&s));
             }
@@ -1990,9 +2498,20 @@ fn test_numerical_accuracy_suite() {
             dispatch(&mut s, Op::HmsToH).unwrap();
             dispatch(&mut s, Op::HToHms).unwrap();
             if *wide {
-                case!("hms", &format!("roundtrip HMS({})", input), *expected, get_x(&s), wide);
+                case!(
+                    "hms",
+                    &format!("roundtrip HMS({})", input),
+                    *expected,
+                    get_x(&s),
+                    wide
+                );
             } else {
-                case!("hms", &format!("roundtrip HMS({})", input), *expected, get_x(&s));
+                case!(
+                    "hms",
+                    &format!("roundtrip HMS({})", input),
+                    *expected,
+                    get_x(&s)
+                );
             }
         }
     }
@@ -2003,8 +2522,8 @@ fn test_numerical_accuracy_suite() {
     let sigma_x = |vals: &[&str]| -> CalcState {
         let mut s = CalcState::new();
         for v in vals {
-            push(&mut s, "0");  // Y=0
-            push(&mut s, v);    // X=value
+            push(&mut s, "0"); // Y=0
+            push(&mut s, v); // X=value
             dispatch(&mut s, Op::SigmaPlus).unwrap();
         }
         s
@@ -2013,12 +2532,22 @@ fn test_numerical_accuracy_suite() {
     // Case 481: n=1 after one Sigma+
     {
         let s = sigma_x(&["1"]);
-        case!("stats", "sigma+(1): n=1", 1.0, s.regs[3].inner().to_f64().unwrap_or(f64::NAN));
+        case!(
+            "stats",
+            "sigma+(1): n=1",
+            1.0,
+            s.regs[3].inner().to_f64().unwrap_or(f64::NAN)
+        );
     }
     // Case 482: n=2 after two Sigma+
     {
         let s = sigma_x(&["1", "2"]);
-        case!("stats", "sigma+(1,2): n=2", 2.0, s.regs[3].inner().to_f64().unwrap_or(f64::NAN));
+        case!(
+            "stats",
+            "sigma+(1,2): n=2",
+            2.0,
+            s.regs[3].inner().to_f64().unwrap_or(f64::NAN)
+        );
     }
     // Case 483: mean of [1,2,3]=2
     {
@@ -2049,7 +2578,13 @@ fn test_numerical_accuracy_suite() {
         let mut s = sigma_x(&["0", "0", "2", "2"]);
         dispatch(&mut s, Op::Sdev).unwrap();
         // sample sdev = sqrt(4/3) = 1.154700538
-        case!("stats", "sdev([0,0,2,2])=1.1547", 1.154_700_538, get_x(&s), wide);
+        case!(
+            "stats",
+            "sdev([0,0,2,2])=1.1547",
+            1.154_700_538,
+            get_x(&s),
+            wide
+        );
     }
     // Case 488: Sigma regs for [2,4,6]: R02=Σx=12, R01=Σx²=56
     {
@@ -2091,7 +2626,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = sigma_xy(&[("1", "1"), ("2", "2"), ("3", "3")]);
         dispatch(&mut s, Op::LR).unwrap();
         // LR: X=intercept, Y=slope
-        case!("stats", "LR([(1,1),(2,2),(3,3)]): intercept=0", 0.0, get_x(&s));
+        case!(
+            "stats",
+            "LR([(1,1),(2,2),(3,3)]): intercept=0",
+            0.0,
+            get_x(&s)
+        );
     }
     // Case 492: L.R. on [(0,1),(1,2),(2,3)]: slope=1, intercept=1 (X=x-coord, Y=y-coord)
     // Pairs (y,x): (0,1),(1,2),(2,3) => intercept=-1? Let's do y=x-based: Y is dependent
@@ -2131,7 +2671,12 @@ fn test_numerical_accuracy_suite() {
     {
         let mut s = sigma_x(&["1", "2", "3", "4", "5"]);
         dispatch(&mut s, Op::Sdev).unwrap();
-        case!("stats", "sdev([1..5])=1.581138830", 1.581_138_830, get_x(&s));
+        case!(
+            "stats",
+            "sdev([1..5])=1.581138830",
+            1.581_138_830,
+            get_x(&s)
+        );
     }
     // Case 498: L.R. on y=2x: (y=2,x=1),(y=4,x=2),(y=6,x=3) slope=2, intercept=0
     {
@@ -2167,7 +2712,11 @@ fn test_numerical_accuracy_suite() {
     }
 
     if !failures.is_empty() {
-        eprintln!("--- NUMERICAL ACCURACY FAILURES ({}/{}) ---", failures.len(), total);
+        eprintln!(
+            "--- NUMERICAL ACCURACY FAILURES ({}/{}) ---",
+            failures.len(),
+            total
+        );
         for f in &failures {
             eprintln!(
                 "  FAIL #{:03} [{:>14}] {}: expected={:.12}, actual={:.12}, rel_err={:.3e}",

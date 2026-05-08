@@ -6,13 +6,13 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-pub mod arithmetic;
-pub mod math;
-pub mod stack_ops;
 pub mod alpha;
+pub mod arithmetic;
 pub mod hms;
+pub mod math;
 pub mod program;
 pub mod registers;
+pub mod stack_ops;
 pub mod stats;
 
 use alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};

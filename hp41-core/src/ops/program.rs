@@ -449,7 +449,10 @@ mod program_tests {
         let mut state = CalcState::default();
         // Error result intentionally discarded — this test only checks the is_running side-effect.
         let _ = crate::ops::program::run_program(&mut state, "A");
-        assert!(!state.is_running, "is_running must be false after run_program error");
+        assert!(
+            !state.is_running,
+            "is_running must be false after run_program error"
+        );
     }
 
     #[test]
@@ -475,18 +478,23 @@ mod program_tests {
         ];
         let mut state = state_with_program(program);
         let result = crate::ops::program::run_program(&mut state, "A");
-        assert_eq!(result, Err(HpError::CallDepth), "5th XEQ must exceed 4-level limit");
+        assert_eq!(
+            result,
+            Err(HpError::CallDepth),
+            "5th XEQ must exceed 4-level limit"
+        );
     }
 
     #[test]
     fn test_max_steps_infinite_loop_guard() {
-        let program = vec![
-            Op::Lbl("A".to_string()),
-            Op::Gto("A".to_string()),
-        ];
+        let program = vec![Op::Lbl("A".to_string()), Op::Gto("A".to_string())];
         let mut state = state_with_program(program);
         let result = crate::ops::program::run_program(&mut state, "A");
-        assert_eq!(result, Err(HpError::Overflow), "Infinite loop must be caught by MAX_STEPS");
+        assert_eq!(
+            result,
+            Err(HpError::Overflow),
+            "Infinite loop must be caught by MAX_STEPS"
+        );
     }
 
     #[test]
@@ -519,10 +527,7 @@ mod program_tests {
 
     #[test]
     fn test_gto_label_not_found_during_run() {
-        let program = vec![
-            Op::Lbl("A".to_string()),
-            Op::Gto("MISSING".to_string()),
-        ];
+        let program = vec![Op::Lbl("A".to_string()), Op::Gto("MISSING".to_string())];
         let mut state = state_with_program(program);
         let result = crate::ops::program::run_program(&mut state, "A");
         assert_eq!(result, Err(HpError::InvalidOp));
@@ -566,7 +571,10 @@ mod program_tests {
         let mut state = CalcState::default();
         state.regs[0] = HpNum(Decimal::from_str("4.005").unwrap());
         let result1 = op_isg(&mut state, 0).unwrap();
-        assert!(!result1, "isg at current=4 (new=5 not > final=5): must NOT skip");
+        assert!(
+            !result1,
+            "isg at current=4 (new=5 not > final=5): must NOT skip"
+        );
         let result2 = op_isg(&mut state, 0).unwrap();
         assert!(result2, "isg at current=5 (new=6 > final=5): must skip");
     }
@@ -890,20 +898,14 @@ mod program_tests {
             Err(HpError::InvalidOp)
         );
 
-        let program_sci = vec![
-            Op::Lbl("A".to_string()),
-            Op::FmtSci(10),
-        ];
+        let program_sci = vec![Op::Lbl("A".to_string()), Op::FmtSci(10)];
         let mut state2 = state_with_program(program_sci);
         assert_eq!(
             crate::ops::program::run_program(&mut state2, "A"),
             Err(HpError::InvalidOp)
         );
 
-        let program_eng = vec![
-            Op::Lbl("A".to_string()),
-            Op::FmtEng(10),
-        ];
+        let program_eng = vec![Op::Lbl("A".to_string()), Op::FmtEng(10)];
         let mut state3 = state_with_program(program_eng);
         assert_eq!(
             crate::ops::program::run_program(&mut state3, "A"),
