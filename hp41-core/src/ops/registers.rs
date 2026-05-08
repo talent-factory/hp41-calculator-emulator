@@ -5,7 +5,7 @@
 //! RCL: Enable lift (like PushNum — places a value on the stack).
 
 use crate::error::HpError;
-use crate::ops::StoArithKind;
+use crate::ops::{StackReg, StoArithKind};
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
 
@@ -57,6 +57,41 @@ pub fn op_sto_arith(state: &mut CalcState, reg: u8, kind: StoArithKind) -> Resul
     Ok(())
 }
 
+/// STO+/−/×/÷ stack-reg: apply arithmetic to a stack register using X.
+/// stack_reg ← stack_reg OP X. Stack and X are unchanged (only target reg written).
+/// LiftEffect: Neutral. LASTX: not saved.
+///
+/// IMPORTANT: compute new value FIRST, write ONLY on success (atomicity guarantee).
+pub fn op_sto_arith_stack(
+    state: &mut CalcState,
+    stack_reg: StackReg,
+    kind: StoArithKind,
+) -> Result<(), HpError> {
+    // Snapshot current value of target register (before any write).
+    let current = match stack_reg {
+        StackReg::Y => state.stack.y.clone(),
+        StackReg::Z => state.stack.z.clone(),
+        StackReg::T => state.stack.t.clone(),
+        StackReg::LastX => state.stack.lastx.clone(),
+    };
+    // Compute first — do NOT write until we know the op succeeds.
+    let new_val = match kind {
+        StoArithKind::Add => current.checked_add(&state.stack.x)?,
+        StoArithKind::Sub => current.checked_sub(&state.stack.x)?,
+        StoArithKind::Mul => current.checked_mul(&state.stack.x)?,
+        StoArithKind::Div => current.checked_div(&state.stack.x)?,
+    };
+    // Write only after successful computation.
+    match stack_reg {
+        StackReg::Y => state.stack.y = new_val,
+        StackReg::Z => state.stack.z = new_val,
+        StackReg::T => state.stack.t = new_val,
+        StackReg::LastX => state.stack.lastx = new_val,
+    }
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
 /// CLREG: clear all storage registers to zero.
 /// LiftEffect: Neutral.
 pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
@@ -72,9 +107,14 @@ mod stack_arith_tests {
     use crate::num::HpNum;
     use crate::ops::StackReg;
     use crate::state::CalcState;
-    use rust_decimal_macros::dec;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
 
-    fn make_state(x: rust_decimal::Decimal, y: rust_decimal::Decimal) -> CalcState {
+    fn d(s: &str) -> Decimal {
+        Decimal::from_str(s).expect("test literal")
+    }
+
+    fn make_state(x: Decimal, y: Decimal) -> CalcState {
         let mut s = CalcState::default();
         s.stack.x = HpNum::from(x);
         s.stack.y = HpNum::from(y);
@@ -83,27 +123,27 @@ mod stack_arith_tests {
 
     #[test]
     fn sto_arith_stack_add_y() {
-        let mut s = make_state(dec!(3), dec!(10));
+        let mut s = make_state(d("3"), d("10"));
         op_sto_arith_stack(&mut s, StackReg::Y, StoArithKind::Add).unwrap();
-        assert_eq!(s.stack.y, HpNum::from(dec!(13)));
-        assert_eq!(s.stack.x, HpNum::from(dec!(3))); // X unchanged
+        assert_eq!(s.stack.y, HpNum::from(d("13")));
+        assert_eq!(s.stack.x, HpNum::from(d("3"))); // X unchanged
     }
 
     #[test]
     fn sto_arith_stack_sub_lastx() {
         let mut s = CalcState::default();
-        s.stack.x = HpNum::from(dec!(4));
-        s.stack.lastx = HpNum::from(dec!(10));
+        s.stack.x = HpNum::from(d("4"));
+        s.stack.lastx = HpNum::from(d("10"));
         op_sto_arith_stack(&mut s, StackReg::LastX, StoArithKind::Sub).unwrap();
-        assert_eq!(s.stack.lastx, HpNum::from(dec!(6)));
+        assert_eq!(s.stack.lastx, HpNum::from(d("6")));
     }
 
     #[test]
     fn sto_arith_stack_div_by_zero_returns_err() {
-        let mut s = make_state(dec!(0), dec!(5));
+        let mut s = make_state(d("0"), d("5"));
         let result = op_sto_arith_stack(&mut s, StackReg::Y, StoArithKind::Div);
         assert!(result.is_err());
         // Y must be unchanged on error (atomicity)
-        assert_eq!(s.stack.y, HpNum::from(dec!(5)));
+        assert_eq!(s.stack.y, HpNum::from(d("5")));
     }
 }
