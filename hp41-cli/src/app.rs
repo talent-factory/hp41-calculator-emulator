@@ -22,16 +22,11 @@ use crate::{keys, persistence, ui};
 pub enum PendingInput {
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
     RclRegister(String), // accumulating 2-digit register number for RCL [nn]
-    // STO arithmetic variants — handled in handle_pending_input() match arms.
-    // Keyboard binding deferred to v1.1 (multi-step modal flow out of scope for cleanup phase).
-    #[allow(dead_code)]
-    StoAdd(String), // STO+ [nn]
-    #[allow(dead_code)]
-    StoSub(String), // STO- [nn]
-    #[allow(dead_code)]
-    StoMul(String), // STO× [nn]
-    #[allow(dead_code)]
-    StoDiv(String), // STO÷ [nn]
+    // STO arithmetic step-3 variants (active in v1.1 modal flow — S → op-key → register).
+    StoAdd(String), // STO+ [nn or stack-reg]
+    StoSub(String), // STO- [nn or stack-reg]
+    StoMul(String), // STO× [nn or stack-reg]
+    StoDiv(String), // STO÷ [nn or stack-reg]
     AssignKey,                 // D-27 step 1: waiting for key char to assign
     AssignLabel(char, String), // D-27 step 2: char received; accumulating label name
     ConfirmLoad(usize),        // D-22: awaiting Y/n before overwriting program
