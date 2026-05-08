@@ -214,10 +214,8 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     // Normalize trailing exponent shorthand before parsing:
     // - "1e-"  → "1e-00"  (HP-41: CHS during EEX with no exponent digits = exponent -00 = 0)
     // - "1e"   → "1e00"   (HP-41: trailing 'e' with no exponent = exponent 00)
-    // Check the two-char suffix first so "e-" is not matched by the single-char 'e' branch.
-    if s.ends_with("e-") || s.ends_with("E-") {
-        s.push_str("00");
-    } else if s.ends_with('e') || s.ends_with('E') {
+    // Both cases append "00" — combined condition handles either trailing suffix.
+    if s.ends_with("e-") || s.ends_with("E-") || s.ends_with('e') || s.ends_with('E') {
         s.push_str("00");
     }
     let d = Decimal::from_str(&s)
