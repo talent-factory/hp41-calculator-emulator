@@ -264,5 +264,4 @@ mod tests {
             "CLREG must zero all storage registers"
         );
     }
-
 }
