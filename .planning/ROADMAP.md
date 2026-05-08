@@ -35,7 +35,7 @@
 
 **Milestone Goal:** Close remaining HP-41 behavioral gaps — correct EEX trailing-e hardware behavior, add STO arithmetic keyboard modals, print emulation (PRX/PRA/PRSTK), and a curated synthetic programming subset.
 
-- [ ] **Phase 9: Infrastructure & EEX Fix** - Bump MSRV + rust_decimal; correct EEX trailing-e-without-exponent to hardware behavior
+- [x] **Phase 9: Infrastructure & EEX Fix** - Bump MSRV + rust_decimal; correct EEX trailing-e-without-exponent to hardware behavior (completed 2026-05-08)
 - [ ] **Phase 10: STO Arithmetic Modals** - Wire the existing op_sto_arith core to a 3-step keyboard modal (S → op → register)
 - [ ] **Phase 11: Print Emulation** - Add PRX/PRA/PRSTK ops with print_buffer on CalcState; optional file log via --print-log
 - [ ] **Phase 12: Synthetic Programming** - GETKEY, NULL, hidden registers M/N/O, and a hex-byte insertion modal
@@ -57,7 +57,7 @@
 **Plans**: 3 plans
   - [x] 09-01-PLAN.md — INFRA-01: Bump workspace MSRV to 1.85, rust_decimal to 1.42, add MSRV CI job
   - [x] 09-02-PLAN.md — INPUT-01 (core): flush_entry_buf trailing-e normalization + invert wrong-behavior test
-  - [ ] 09-03-PLAN.md — INPUT-01/02/03 (cli): EEX guards + 2-digit cap + exponent placeholder rendering
+  - [x] 09-03-PLAN.md — INPUT-01/02/03 (cli): EEX guards + 2-digit cap + exponent placeholder rendering
 
 ### Phase 10: STO Arithmetic Modals
 **Goal**: Users can perform STO+, STO-, STO×, STO÷ to any numbered register (R00–R99) or stack register (Y/Z/T/LASTX) via a 3-step keyboard modal, with Esc cancellation at any step producing no side effects.
@@ -109,7 +109,7 @@
 | 6. Science & Engineering | v1.0 | 3/3 | Complete | 2026-05-07 |
 | 7. Hardening | v1.0 | 6/6 | Complete | 2026-05-07 |
 | 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
-| 9. Infrastructure & EEX Fix | v1.1 | 2/3 | In Progress | - |
+| 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 10. STO Arithmetic Modals | v1.1 | 0/TBD | Not started | - |
 | 11. Print Emulation | v1.1 | 0/TBD | Not started | - |
 | 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
