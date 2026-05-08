@@ -208,8 +208,9 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     if state.entry_buf.is_empty() {
         return Ok(());
     }
+    // Clone entry_buf for parsing — do NOT clear yet. Clearing happens only on success
+    // so that a parse error preserves the user's in-progress input (WR-02).
     let mut s = state.entry_buf.clone();
-    state.entry_buf.clear();
     // D-09 (Phase 9): trailing 'e' with no exponent digits is HP-41 hardware-faithful
     // shorthand for "exponent 00". Normalize by appending "00" so from_scientific accepts it.
     // We check both 'e' and 'E' for safety even though entry_buf is always lowercase per
@@ -220,6 +221,8 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     let d = Decimal::from_str(&s)
         .or_else(|_| Decimal::from_scientific(&s))
         .map_err(|_| HpError::InvalidOp)?;
+    // Parse succeeded — now clear the entry buffer.
+    state.entry_buf.clear();
     let n = HpNum::rounded(d);
     if state.prgm_mode {
         // Recording mode: PushNum goes to program Vec, not stack (D-03/D-04).

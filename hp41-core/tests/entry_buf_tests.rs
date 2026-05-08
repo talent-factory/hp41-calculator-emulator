@@ -144,9 +144,10 @@ fn test_entry_buf_invalid_content_returns_error() {
         "malformed entry_buf should yield InvalidOp error"
     );
     assert_eq!(result.unwrap_err(), HpError::InvalidOp);
-    // entry_buf must be cleared even on parse error
-    assert!(
-        s.entry_buf.is_empty(),
-        "entry_buf must be cleared even on parse error"
+    // WR-02: entry_buf is preserved on parse error so the user can see what went wrong.
+    // Previously it was cleared unconditionally; now it is only cleared on success.
+    assert_eq!(
+        s.entry_buf, "not_a_number",
+        "entry_buf must be preserved on parse error (WR-02: no silent data loss)"
     );
 }
