@@ -208,11 +208,23 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     if state.entry_buf.is_empty() {
         return Ok(());
     }
-    let s = state.entry_buf.clone();
-    state.entry_buf.clear();
+    // Clone entry_buf for parsing — do NOT clear yet. Clearing happens only on success
+    // so that a parse error preserves the user's in-progress input (WR-02).
+    let mut s = state.entry_buf.clone();
+    // Normalize trailing exponent shorthand before parsing:
+    // - "1e-"  → "1e-00"  (HP-41: CHS during EEX with no exponent digits = exponent -00 = 0)
+    // - "1e"   → "1e00"   (HP-41: trailing 'e' with no exponent = exponent 00)
+    // Check the two-char suffix first so "e-" is not matched by the single-char 'e' branch.
+    if s.ends_with("e-") || s.ends_with("E-") {
+        s.push_str("00");
+    } else if s.ends_with('e') || s.ends_with('E') {
+        s.push_str("00");
+    }
     let d = Decimal::from_str(&s)
         .or_else(|_| Decimal::from_scientific(&s))
         .map_err(|_| HpError::InvalidOp)?;
+    // Parse succeeded — now clear the entry buffer.
+    state.entry_buf.clear();
     let n = HpNum::rounded(d);
     if state.prgm_mode {
         // Recording mode: PushNum goes to program Vec, not stack (D-03/D-04).
@@ -392,20 +404,49 @@ mod flush_eex_tests {
     }
 
     #[test]
-    fn test_flush_trailing_e_without_exponent_returns_err() {
-        // "1.5e" has no exponent digits — both from_str and from_scientific reject it.
-        // Current behavior: InvalidOp returned + entry_buf cleared (partial number is
-        // unrecoverable; call_dispatch() surfaces the error in self.message).
-        // This test documents the behavior so any future change is intentional.
+    fn test_flush_trailing_e_without_exponent_commits_zero_exponent() {
+        // HP-41 hardware: trailing 'e' with no exponent digits commits as exponent 00.
+        // "1.5e" + ENTER pushes 1.5 to the stack (exponent treated as 00), not a parse error.
+        // flush_entry_buf normalizes "1.5e" → "1.5e00" before parsing.
         let mut state = make_state_with_entry("1.5e");
         let result = flush_entry_buf(&mut state);
         assert!(
-            result.is_err(),
-            "trailing 'e' with no exponent must return Err"
+            result.is_ok(),
+            "trailing 'e' with no exponent must commit as exponent 00, not Err"
+        );
+        assert_eq!(
+            state.stack.x.0,
+            Decimal::from_str("1.5").unwrap(),
+            "1.5e must commit as 1.5 (exponent 00)"
         );
         assert!(
             state.entry_buf.is_empty(),
-            "entry_buf must be cleared on error"
+            "entry_buf must be cleared after successful commit"
+        );
+    }
+
+    #[test]
+    fn test_flush_trailing_e_minus_parses_as_one() {
+        // HP-41 hardware: "1e-" + ENTER commits as 1.0 (exponent -00 = 0).
+        // flush_entry_buf normalizes "1e-" → "1e-00" before parsing.
+        let mut state = make_state_with_entry("1e-");
+        flush_entry_buf(&mut state).unwrap();
+        assert!(state.entry_buf.is_empty());
+        // "1e-00" == 1.0
+        use crate::num::HpNum;
+        assert_eq!(state.stack.x, HpNum::from(1i32));
+    }
+
+    #[test]
+    fn test_flush_entry_buf_negative_exponent() {
+        // "1e-2" is a complete negative exponent — parses directly as 0.01.
+        let mut state = make_state_with_entry("1e-2");
+        flush_entry_buf(&mut state).unwrap();
+        assert!(state.entry_buf.is_empty());
+        // 1e-2 == 0.01
+        assert_eq!(
+            state.stack.x.0,
+            Decimal::from_str("0.01").unwrap()
         );
     }
 }
