@@ -351,6 +351,47 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
+mod flush_eex_tests {
+    use super::*;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    fn make_state_with_entry(s: &str) -> CalcState {
+        let mut state = CalcState::new();
+        state.entry_buf = s.to_string();
+        state
+    }
+
+    #[test]
+    fn test_flush_scientific_lowercase_e() {
+        let mut state = make_state_with_entry("1.5e3");
+        flush_entry_buf(&mut state).unwrap();
+        assert_eq!(state.stack.x.0, Decimal::from(1500));
+    }
+
+    #[test]
+    fn test_flush_scientific_uppercase_e() {
+        let mut state = make_state_with_entry("2.5E-2");
+        flush_entry_buf(&mut state).unwrap();
+        assert_eq!(state.stack.x.0, Decimal::from_str("0.025").unwrap());
+    }
+
+    #[test]
+    fn test_flush_plain_decimal_still_works() {
+        let mut state = make_state_with_entry("1500");
+        flush_entry_buf(&mut state).unwrap();
+        assert_eq!(state.stack.x.0, Decimal::from(1500));
+    }
+
+    #[test]
+    fn test_flush_invalid_returns_err() {
+        let mut state = make_state_with_entry("notanumber");
+        assert!(flush_entry_buf(&mut state).is_err());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::state::CalcState;
