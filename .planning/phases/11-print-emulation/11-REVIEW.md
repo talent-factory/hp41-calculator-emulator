@@ -16,266 +16,197 @@ files_reviewed_list:
   - hp41-core/src/state.rs
   - hp41-core/tests/print_tests.rs
 findings:
-  critical: 3
+  critical: 1
   warning: 3
   info: 2
-  total: 8
+  total: 6
 status: issues_found
 ---
 
-# Phase 11: Code Review Report
+# Phase 11: Post-Gap-Closure Code Review (Plan 11-03)
 
 **Reviewed:** 2026-05-08
 **Depth:** standard
 **Files Reviewed:** 11
-**Status:** issues_found
+**Status:** issues_found — CR-01 and CR-03 fixed; CR-02 open
 
-## Summary
+This review covers the plan 11-03 gap-closure changes. The two critical blockers identified in
+the prior review (CR-01, CR-03) are verified correct. CR-02 (ENG 9 width overflow in op_prstk)
+is confirmed reachable and remains open. One warning (WR-01) was worsened by 11-03 by duplicating
+the per-line flush pattern into the new helper.
 
-Phase 11 adds `PRX`/`PRA`/`PRSTK` print operations to `hp41-core` using a buffer drain
-pattern that keeps the core I/O-free. The overall architecture is sound: `CalcState.print_buffer`
-is written by the core, drained by the CLI after interactive dispatches via
-`call_dispatch_and_drain()`. However, three correctness bugs were found:
+---
 
-1. The F5 (R/S) execution path and the USER-mode F1-F4 path call `run_program` directly and
-   never drain `print_buffer`, silently discarding all print output from programs.
-2. `op_prstk` claims lines are 24 chars wide, but ENG 9 mode can produce an 18-char numeric
-   value, making the label + value field 25 chars — breaking the fixed-width contract.
-3. `print_buffer` is missing `#[serde(skip)]` and will be serialized to the JSON state file
-   when an autosave fires before the buffer is drained, violating the stated invariant
-   "Never persisted across sessions."
+## Fix Verification
 
-Two warnings and two informational items round out the findings.
+### CR-01 — FIXED
+
+`drain_and_show_print_output()` added at `hp41-cli/src/app.rs:838`.
+Called at all three required sites:
+- F5/R/S handler: line ~409
+- F1-F4 USER handler: line ~242
+- `try_user_dispatch()`: line ~818
+
+The helper correctly drains `state.print_buffer`, writes to `print_log_writer` if present
+(best-effort, `let _ =`), and sets `self.message` to the single formatted line (1-line output)
+or a `"PRSTK → N lines"` summary (multi-line output). When `print_buffer` is empty the helper
+is a no-op, relying on the caller to have set `self.message = None` on the `Ok(())` branch.
+Fix is complete and correct.
+
+### CR-03 — FIXED
+
+`#[serde(default, skip)]` confirmed at `hp41-core/src/state.rs:94`. `skip` prevents
+serialization; `default` (resolves to `Vec::new()`) handles backward-compat deserialization of
+v1.0 save files that predate the field. Fix is complete and correct.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `print_buffer` never drained after `run_program` (F5 / USER-mode F1–F4)
+### CR-02: op_prstk ENG 9 mode produces 25-char lines (1 over 24-char contract)
 
-**File:** `hp41-cli/src/app.rs:402`
-**Issue:** The F5 (R/S) handler calls `hp41_core::run_program` directly and checks only
-`Ok/Err`. Any `PRX`/`PRA`/`PRSTK` ops executed inside the program accumulate in
-`state.print_buffer` but are never drained, never displayed in the status bar, and
-never written to the `--print-log` file. The same applies to USER-mode F1–F4 dispatch
-at line 239. This means print operations inside programs are silently no-ops from the
-user's perspective — the stated feature does not work for programmatic print.
+**File:** `hp41-core/src/ops/print.rs:38–44`
+**Confidence:** 88
+**Status:** OPEN — not addressed by 11-03
 
-The fix must drain and display `print_buffer` after `run_program` returns, mirroring
-`call_dispatch_and_drain`. A helper is the cleanest approach:
+The comment at line 38 states: "format_hpnum output for SCI 9 widest case is
+`-1.234567890E-99` = 16 chars → fits in :>17." This is correct for SCI mode only.
 
-```rust
-// app.rs — new private helper
-fn drain_and_show_print_output(&mut self) {
-    let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
-    if lines.is_empty() {
-        return;
-    }
-    for line in &lines {
-        if let Some(ref mut writer) = self.print_log_writer {
-            let _ = writeln!(writer, "{}", line);
-            let _ = writer.flush();
-        }
-    }
-    if lines.len() > 1 {
-        self.message = Some(format!("PRSTK \u{2192} {} lines", lines.len()));
-    } else {
-        self.message = lines.into_iter().next();
-    }
-}
+ENG mode allows 1–3 integer digits in the mantissa. The widest ENG 9 output is:
 
-// F5 handler (line 402):
-if key.code == KeyCode::F(5) {
-    match hp41_core::run_program(&mut self.state, "A") {
-        Ok(()) => {
-            self.drain_and_show_print_output();
-            if self.message.is_none() {
-                self.message = None; // already set by drain or stays None
-            }
-        }
-        Err(e) => self.message = Some(format!("{e}")),
-    }
-    return;
-}
-```
+    -999.999999999E-99
 
-Apply the same drain call at lines 239–243 (USER F1–F4) and 809–813 (`try_user_dispatch`).
+Character count: `-` (1) + `999` (3) + `.` (1) + `999999999` (9) + `E-` (2) + `99` (2) = 18 chars.
 
----
+The format `"{:<7}{:>17}"` places a 7-char label field + 17-char value field = 24 chars.
+Rust's `{:>17}` right-aligns but does NOT truncate when input exceeds the width.
+An 18-char formatted value produces a 7 + 18 = **25-char line**, breaking the contract.
 
-### CR-02: `op_prstk` numeric value field is 17 chars wide but ENG 9 produces 18 chars
+**Reachability:** Set `ENG 9` display mode via the `'F'` modal, then press `P S` (PRSTK) with
+any stack register containing a value whose ENG mantissa has 3 integer digits (e.g., X = -123456789000).
+Normal usage path.
 
-**File:** `hp41-core/src/ops/print.rs:38`
-**Issue:** The doc comment states "format_hpnum output for SCI 9 widest case is
-`-1.234567890E-99` = 16 chars → fits in :>17." This is correct for SCI 9.
-However, ENG mode allows mantissas with 1–3 digits before the decimal point.
-The widest ENG 9 output is `-999.999999999E-99` = 18 characters.
-With a 7-char label field (`"LASTX: "`) plus an 18-char value, the line total is
-25 chars — one over the mandated 24-char output width.
-The 24-char contract is checked by `test_prstk_all_lines_are_24_chars`, which does
-**not** test ENG 9 mode. Running the test suite against an ENG 9 state would fail.
+**Test gap:** `test_prstk_all_lines_are_24_chars` uses `push_val(&mut s, 1)` in default
+`DisplayMode::Fix(4)` — zero ENG 9 test coverage.
 
-The simplest correct fix is to truncate the formatted value to fit:
+**Fix — add a clamp helper in `hp41-core/src/ops/print.rs`:**
 
 ```rust
-// hp41-core/src/ops/print.rs — format_prstk_num helper
-fn format_prstk_num(val: &crate::num::HpNum, mode: &crate::state::DisplayMode) -> String {
+fn format_prstk_num(val: &HpNum, mode: &crate::state::DisplayMode) -> String {
     let s = format_hpnum(val, mode);
-    // Clamp to 17 chars to guarantee total line width = 7 + 17 = 24.
-    // ENG 9 can produce 18 chars; truncation matches HP-41 printer behavior
-    // of dropping the trailing digit when the value overflows the print column.
-    if s.len() > 17 {
-        s[..17].to_string()
-    } else {
+    if s.len() <= 17 {
         format!("{:>17}", s)
+    } else {
+        s[..17].to_string() // clamp to maintain 24-char line contract
     }
 }
 ```
 
-Replace the inline `format_hpnum` calls in `op_prstk` with `format_prstk_num`, and add
-a test that exercises ENG 9 with a large negative value.
-
----
-
-### CR-03: `print_buffer` persisted to JSON state file despite "never persisted" invariant
-
-**File:** `hp41-core/src/state.rs:93`
-**Issue:** The field comment states "Never persisted across sessions." The
-`#[serde(default)]` attribute only enables deserialization from old save files that
-lack the field — it does NOT prevent serialization. If the 30-second autosave fires
-while `print_buffer` is non-empty (possible for long-running programs containing many
-`PRX`/`PRSTK` calls), the buffer content is written to the JSON state file. On next
-startup it is deserialized and immediately visible, violating the stated invariant and
-potentially filling the status bar with stale output.
-
-Fix: add `#[serde(skip)]` alongside `#[serde(default)]`:
+Replace the four inline `format_hpnum` calls in `op_prstk` with `format_prstk_num`.
+Add a companion test:
 
 ```rust
-// hp41-core/src/state.rs:93
-#[serde(default, skip)]
-pub print_buffer: Vec<String>,
+#[test]
+fn test_prstk_all_lines_are_24_chars_eng9() {
+    let mut s = CalcState::new();
+    s.display_mode = DisplayMode::Eng(9);
+    dispatch(&mut s, Op::PushNum(HpNum::from(-123456789000i64))).unwrap();
+    dispatch(&mut s, Op::PRSTK).unwrap();
+    for (i, line) in s.print_buffer.iter().enumerate() {
+        assert_eq!(line.len(), 24,
+            "PRSTK line {} must be 24 chars in ENG 9, got {:?}", i, line);
+    }
+}
 ```
-
-`#[serde(skip)]` implies both `skip_serializing` and `skip_deserializing`. Since the
-field uses `Vec::new()` as its default, deserialization from old files already works
-correctly without the explicit `#[serde(default)]` attribute when `skip` is present,
-but keeping both makes the intent explicit.
 
 ---
 
 ## Warnings
 
-### WR-01: `call_dispatch_and_drain` flushed on every line — O(N) flushes for PRSTK
+### WR-01: Per-line flush pattern duplicated in new drain_and_show_print_output helper
 
-**File:** `hp41-cli/src/app.rs:839`
-**Issue:** For `PRSTK` (6 print lines), `call_dispatch_and_drain` calls
-`writer.flush()` once per line inside the loop. Each `flush()` call is a syscall.
-While not a performance issue in normal use, it is logically inconsistent with the
-drain-then-flush pattern described in the surrounding comment and could mask partial
-write failures: a `writeln!` error on line 4 of 6 is silently discarded (`let _ =`),
-but the 3 lines written before it are already flushed. The lines written after the
-error are also flushed as if nothing happened. A single flush after the loop would
-be more coherent.
+**File:** `hp41-cli/src/app.rs:844` (new) and `app.rs:877` (pre-existing in call_dispatch_and_drain)
+**Confidence:** 82
+**Status:** OPEN — worsened by 11-03 (was 1 location, now 2)
+
+`drain_and_show_print_output()` mirrors `call_dispatch_and_drain` line-for-line, including the
+`writer.flush()` call inside the line-iteration loop. Both methods perform O(N) syscalls for
+PRSTK (6 flushes instead of 1). Fix in both methods: move the single `flush()` after the loop.
 
 ```rust
-// Replace the per-line flush:
 for line in &lines {
     if let Some(ref mut writer) = self.print_log_writer {
         let _ = writeln!(writer, "{}", line);
     }
 }
-// Single flush after all lines are written:
 if let Some(ref mut writer) = self.print_log_writer {
     let _ = writer.flush();
 }
 ```
 
----
-
-### WR-02: `?` overlay toggle fires unconditionally before modal guard
+### WR-02: '?' help toggle fires before pending_input guard
 
 **File:** `hp41-cli/src/app.rs:160`
-**Issue:** The `'?'` key check at line 160 runs before the `pending_input.is_some()`
-guard at line 176. This means pressing `?` while a `PrintModal`, `StoRegister`, or any
-other modal is active immediately opens the help overlay and leaves `pending_input`
-set. The user's modal context is abandoned silently. The status bar still shows the
-modal prompt (because `pending_input` was not cleared), but all subsequent keys route
-to `handle_pending_input`, not to the help overlay navigation handlers. The result is
-a split-brain state: overlay is visible but un-navigable; modal is "active" but
-shadowed.
+**Confidence:** 80
+**Status:** OPEN — unchanged from prior review
 
-Fix: move the `'?'` check to after the `pending_input.is_some()` guard, or add
-`self.pending_input = None;` inside the `'?'` handler:
+The `'?'` check at line 160 runs before the `pending_input.is_some()` guard at line 176.
+Pressing `'?'` while PrintModal (or any modal) is active opens the help overlay while leaving
+`pending_input` set. Subsequent keys route to `handle_pending_input` instead of overlay
+navigation — a non-functional state. Same defect applies to `Ctrl+P` at line 167.
 
-```rust
-// hp41-cli/src/app.rs — inside the '?' handler
-if key.code == KeyCode::Char('?') {
-    self.pending_input = None; // close any active modal first
-    self.show_help = !self.show_help;
-    self.show_programs = false;
-    return;
-}
-```
+Fix: add `self.pending_input = None;` inside both the `'?'` and `Ctrl+P` handlers.
 
-The same issue applies to `Ctrl+P` at line 167 — it can open the programs overlay
-while a modal is active. Add `self.pending_input = None;` there too.
-
----
-
-### WR-03: `PrintModal` status prompt is under-specified (user discoverability)
+### WR-03: PrintModal status prompt shows no key choices
 
 **File:** `hp41-cli/src/ui.rs:264`
-**Issue:** The status bar prompt for `PrintModal` renders as `"PRNT: _"` — it does
-not show the available key choices (`X`, `A`, `S`). All other modals with multiple
-choices display their option set (e.g., `"STO [__]"`, `"FIX [_]  (0–9 set digits, f cycles, Esc cancel)"`). A user who has never read the help data has no way to know
-what key to press.
+**Confidence:** 80
+**Status:** OPEN — unchanged from prior review
 
-This is a quality defect, not a correctness bug — the modal works correctly.
-
-```rust
-// hp41-cli/src/ui.rs:264
-PendingInput::PrintModal => "PRNT: X=PRX  A=PRA  S=PRSTK  Esc=cancel".to_string(),
-```
+`"PRNT: _"` provides no discoverable options. Every other multi-choice modal displays its choices.
+Fix: `"PRNT: X=PRX  A=PRA  S=PRSTK  Esc=cancel"`.
 
 ---
 
 ## Info
 
-### IN-01: `KEY_REF_TABLE` missing `P` entry for PrintModal
+### IN-01: P key absent from KEY_REF_TABLE
 
-**File:** `hp41-cli/src/keys.rs:90`
-**Issue:** The `KEY_REF_TABLE` constant drives the right-panel key reference display.
-Phase 11 added the `P` (Shift+p) key to open the print modal, but no entry for `P`
-was added to `KEY_REF_TABLE`. The help overlay (`HELP_DATA` in `help_data.rs`) has the
-Print category entries, but those list `"P X"`, `"P A"`, `"P S"` — not the top-level
-`P` key. The right-panel key reference therefore has no visible entry for the print
-feature.
+**File:** `hp41-cli/src/keys.rs:168` (end of KEY_REF_TABLE)
+**Confidence:** 85
+**Status:** OPEN — unchanged from prior review
 
-Add an entry to `KEY_REF_TABLE` and update the test in `keys_tests.rs` that asserts
-the exact count of 54 entries (line 127):
+The right-panel key reference has no entry for `'P'` (PrintModal opener). The `keys_tests.rs:127`
+assertion `KEY_REF_TABLE.len() == 54` requires updating if an entry is added.
 
-```rust
-// hp41-cli/src/keys.rs — add after the 'F' entry
-("P", "PRX/PRA/PRSTK (print modal: X/A/S)"),
-```
+Add: `("P", "PRX/PRA/PRSTK print modal (X/A/S)")` to `KEY_REF_TABLE` and update the count to 55.
+
+### IN-02: Unnecessary .clone() on Copy type DisplayMode in op_prstk
+
+**File:** `hp41-core/src/ops/print.rs:36`
+**Confidence:** 90
+**Status:** OPEN — unchanged from prior review
+
+`let mode = &state.display_mode.clone();` — `DisplayMode` derives `Copy`. The `.clone()` is
+a no-op allocation. Fix: `let mode = state.display_mode;`.
 
 ---
 
-### IN-02: `op_prstk` creates an unnecessary `DisplayMode` clone
+## Summary
 
-**File:** `hp41-core/src/ops/print.rs:36`
-**Issue:** `let mode = &state.display_mode.clone();` clones a `Copy` type
-(`DisplayMode` derives `Clone` and `Copy`). The clone is unneeded; a direct reference
-or copy suffices:
-
-```rust
-let mode = state.display_mode; // DisplayMode is Copy
-```
-
-This is a trivial dead-clone producing slightly misleading code.
+| ID | Severity | Status | Location | Description |
+|----|----------|--------|----------|-------------|
+| CR-01 | Critical | FIXED | `app.rs:838` | drain helper + 3 call sites |
+| CR-03 | Critical | FIXED | `state.rs:94` | `#[serde(default, skip)]` |
+| CR-02 | Critical | OPEN | `ops/print.rs:38–44` | ENG 9 → 25-char line |
+| WR-01 | Warning | OPEN (worse) | `app.rs:844` + `:877` | per-line flush in 2 methods |
+| WR-02 | Warning | OPEN | `app.rs:160` | `?` before pending guard |
+| WR-03 | Warning | OPEN | `ui.rs:264` | PrintModal prompt missing choices |
+| IN-01 | Info | OPEN | `keys.rs:168` | `P` key not in KEY_REF_TABLE |
+| IN-02 | Info | OPEN | `ops/print.rs:36` | clone on Copy type |
 
 ---
 
 _Reviewed: 2026-05-08_
 _Reviewer: Claude (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: standard — post-gap-closure verification (plan 11-03)_
