@@ -210,7 +210,9 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     }
     let s = state.entry_buf.clone();
     state.entry_buf.clear();
-    let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
+    let d = Decimal::from_str(&s)
+        .or_else(|_| Decimal::from_scientific(&s))
+        .map_err(|_| HpError::InvalidOp)?;
     let n = HpNum::rounded(d);
     if state.prgm_mode {
         // Recording mode: PushNum goes to program Vec, not stack (D-03/D-04).
