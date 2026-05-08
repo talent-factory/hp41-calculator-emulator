@@ -188,6 +188,25 @@ Plans:
 **Wave 4** *(blocked on Wave 3)*
 - [x] 07-06-PLAN.md — Final just ci gate + planning document updates
 
+### Phase 8: Tech Debt Cleanup
+**Goal**: Close four keyboard coverage gaps and fix one EEX entry bug identified by the v1.0 milestone audit. Fix help_data.rs stale SIN entry. No new features — only fixing non-functional or misreported existing capabilities.
+**Depends on**: Phase 7
+**Requirements**: MATH-02, REGS-01, INPUT-01, UX-01
+**Success Criteria** (what must be TRUE):
+  1. User can enter scientific notation (e.g., 1.5e3) and have it pushed to the stack as 1500
+  2. User can press 'q' to compute SIN of X in the current angle mode
+  3. User can press 'g' to clear all storage registers R00-R99
+  4. User can press Delete in ALPHA mode to clear the ALPHA register
+  5. The ? help overlay shows 'q' -> SIN and 'g' -> CLREG (not the stale 'S' -> SIN)
+**Plans**: 3 plans
+
+Plans:
+**Wave 1** *(parallel — different files)*
+- [ ] 08-01-PLAN.md — EEX core fix: flush_entry_buf from_scientific fallback (hp41-core/src/ops/mod.rs)
+- [ ] 08-02-PLAN.md — Key bindings: q->Sin, g->Clreg, Delete->AlphaClear, entry_buf guards (hp41-cli/src/keys.rs, app.rs)
+**Wave 2** *(blocked on Wave 1 — help text must match live bindings)*
+- [ ] 08-03-PLAN.md — help_data.rs corrections: fix SIN key, add CLREG entry
+
 ---
 
 ## Progress Table
@@ -201,7 +220,7 @@ Plans:
 | 5. Persistence & UX | 10/11 | Gaps Found  | - |
 | 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
 | 7. Hardening | 6/6 | Complete | 2026-05-07 |
-| 8. Tech Debt Cleanup | 0/- | Not Started | - |
+| 8. Tech Debt Cleanup | 0/3 | Not Started | - |
 
 ---
 
@@ -234,4 +253,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-05-06*
-*Last updated: 2026-05-07 after Phase 7 completion (6 plans, 4 waves) — all 7 phases complete, v1.0 ready*
+*Last updated: 2026-05-08 after Phase 8 planning (3 plans, 2 waves) — keyboard coverage gaps and EEX bug*
