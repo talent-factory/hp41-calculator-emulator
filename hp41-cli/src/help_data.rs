@@ -29,7 +29,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("Y", "Yˣ", "Y raised to power X"),
     // ── Trig ──────────────────────────────────────────────────────────────────
     ("", "", "=== Trig ==="),
-    ("S", "SIN", "Sine of X (in current angle mode)"),
+    ("q", "SIN", "Sine of X (in current angle mode)"),
     ("C", "COS", "Cosine of X (in current angle mode)"),
     ("T", "TAN", "Tangent of X (in current angle mode)"),
     ("a", "ASIN", "Arc sine of X → result in current angle mode"),
@@ -74,6 +74,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("Shift+R-", "STO- [nn]", "Subtract X from register nn"),
     ("Shift+R*", "STO× [nn]", "Multiply register nn by X"),
     ("Shift+R/", "STO÷ [nn]", "Divide register nn by X"),
+    ("g", "CLREG", "Clear all storage registers R00-R99 to zero"),
     // ── ALPHA ─────────────────────────────────────────────────────────────────
     ("", "", "=== ALPHA Mode ==="),
     (
@@ -223,14 +224,13 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),
     (
-        "Esc/q/?",
+        "Esc/?",
         "HELP close",
-        "Close this overlay (Esc, q, or ? again)",
+        "Close this overlay (Esc or ? again)",
     ),
     ("↑/↓/j/k", "scroll", "Scroll this table up/down"),
     // ── Quit ──────────────────────────────────────────────────────────────────
     ("", "", "=== Quit ==="),
-    ("q", "QUIT", "Quit (saves state first)"),
     ("Ctrl+C", "QUIT", "Quit (saves state first)"),
 ];
 
