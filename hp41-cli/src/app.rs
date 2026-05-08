@@ -237,7 +237,10 @@ impl App {
             if let Some(c) = user_char {
                 if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                     match hp41_core::run_program(&mut self.state, &label) {
-                        Ok(()) => self.message = None,
+                        Ok(()) => {
+                            self.message = None;
+                            self.drain_and_show_print_output();
+                        }
                         Err(e) => self.message = Some(format!("{e}")),
                     }
                 }
@@ -401,7 +404,10 @@ impl App {
         // F5 is handled here directly, not routed through key_to_op().
         if key.code == KeyCode::F(5) {
             match hp41_core::run_program(&mut self.state, "A") {
-                Ok(()) => self.message = None,
+                Ok(()) => {
+                    self.message = None;
+                    self.drain_and_show_print_output();
+                }
                 Err(e) => self.message = Some(format!("{e}")),
             }
             return;
@@ -807,13 +813,45 @@ impl App {
         if let KeyCode::Char(c) = key.code {
             if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                 match hp41_core::run_program(&mut self.state, &label) {
-                    Ok(()) => self.message = None,
+                    Ok(()) => {
+                        self.message = None;
+                        self.drain_and_show_print_output();
+                    }
                     Err(e) => self.message = Some(format!("{e}")),
                 }
                 return true; // consumed
             }
         }
         false // not consumed — fall through to normal routing
+    }
+
+    /// Drain print_buffer after a run_program() Ok(()) return and surface output in the TUI.
+    ///
+    /// Mirrors the drain branch inside call_dispatch_and_drain but decoupled from dispatch —
+    /// called after run_program() has already returned successfully.
+    ///
+    /// For 1 line (PRX/PRA): sets app.message to the formatted line.
+    /// For N > 1 lines (PRSTK or multiple print ops in one program): sets app.message to
+    ///   "PRSTK → N lines" summary consistent with D-01.
+    /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
+    /// Clears print_buffer via drain(..).
+    fn drain_and_show_print_output(&mut self) {
+        let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+        if !lines.is_empty() {
+            for line in &lines {
+                if let Some(ref mut writer) = self.print_log_writer {
+                    let _ = writeln!(writer, "{}", line);
+                    let _ = writer.flush();
+                }
+            }
+            if lines.len() > 1 {
+                self.message = Some(format!("PRSTK \u{2192} {} lines", lines.len()));
+            } else {
+                self.message = lines.into_iter().next();
+            }
+        }
+        // If lines is empty, leave self.message as None (caller already set it to None
+        // on the Ok(()) branch before calling this helper).
     }
 
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
