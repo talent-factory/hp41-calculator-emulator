@@ -52,7 +52,7 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 - [x] EEX trailing-e-without-exponent behavior (HP-41 hardware lock on partial exponent) — Validated in Phase 9 (2026-05-08)
 - [x] MSRV 1.85 enforcement + rust_decimal 1.42 — Validated in Phase 9 (2026-05-08)
-- [ ] STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding)
+- [x] STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding) — Validated in Phase 10 (2026-05-08)
 - [ ] FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file
 - [ ] FR-20: Synthetic programming (byte-code injection, FOCAL internals)
 
@@ -74,6 +74,8 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 v1.0 shipped in 3 days (2026-05-06 → 2026-05-08) with 8 phases, 45 plans, and 13,399 lines of Rust across `hp41-core` and `hp41-cli`. The faithful stack-lift semantics and ISG/DSE counter logic (CCCCC.FFFDD string-split) were the most commonly mis-implemented HP-41 features — both are now correctly implemented and verified.
 
 v1.1 Phase 9 (2026-05-08): MSRV formally declared at 1.85 with workspace inheritance in member crates; CI MSRV job added; EEX hardware behavior corrected — trailing-e commits as exponent 00, empty-buffer EEX inserts implicit mantissa, TUI shows placeholder cursor. 461 tests pass; 5/5 success criteria verified.
+
+v1.1 Phase 10 (2026-05-08): STO arithmetic keyboard modal complete — S→op→register 3-step flow for R00–R99 and stack registers Y/Z/T/LASTX. `StackReg` enum + `Op::StoArithStack` + `op_sto_arith_stack()` added to hp41-core; step-2 routing and Y/Z/T/L dispatch wired in app.rs; help overlay corrected. 10/10 must-haves verified; human TUI tests approved.
 
 Key codebase facts: `hp41-core` is a UI-agnostic library with zero CLI dependencies; `hp41-cli` uses ratatui 0.30 + crossterm 0.29; all tests use `just ci` (lint + test + coverage); `#![deny(clippy::unwrap_used)]` enforces zero panics at compile time.
 
@@ -114,4 +116,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Audit Key Decisions with outcomes
 
 ---
-*Last updated: 2026-05-08 after v1.1 milestone planning start*
+*Last updated: 2026-05-08 after Phase 10 completion*
