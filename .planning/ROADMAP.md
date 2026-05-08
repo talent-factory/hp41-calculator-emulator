@@ -89,7 +89,13 @@
   3. Executing PRSTK writes the full stack in hardware order (T, Z, Y, X, LASTX, ALPHA), one line per register, to the console
   4. Starting `hp41-cli` with `--print-log <path>` causes all PRX/PRA/PRSTK output to be appended to the specified file in addition to the console
   5. Existing v1.0 JSON save files load without error after CalcState gains the `print_buffer` field (the field carries `#[serde(default)]`)
-**Plans**: TBD
+**Plans**: 3 plans
+  **Wave 0**
+  - [ ] 11-00-PLAN.md — PRNT-01/02/03/04: test scaffold (print_tests.rs with RED failing tests)
+  **Wave 1** *(blocked on Wave 0)*
+  - [ ] 11-01-PLAN.md — PRNT-01/02/03 (core): print_buffer on CalcState, ops/print.rs module, Op::PRX/PRA/PRSTK variants, dispatch() + execute_op() arms
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 11-02-PLAN.md — PRNT-01/02/03/04 (cli): PrintModal keyboard modal, 'P' interceptor, call_dispatch_and_drain, print_log_writer, --print-log arg, PRNT: _ display, help entries
 
 ### Phase 12: Synthetic Programming
 **Goal**: Users can use GETKEY, NULL, and the hidden registers M/N/O inside keystroke programs, and can insert a synthetic op via a 2-digit hex byte modal that enforces a curated safe subset, expanding programmable power without unsafe byte codes.
@@ -119,5 +125,5 @@
 | 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
 | 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 11. Print Emulation | v1.1 | 0/TBD | Not started | - |
+| 11. Print Emulation | v1.1 | 0/3 | Not started | - |
 | 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
