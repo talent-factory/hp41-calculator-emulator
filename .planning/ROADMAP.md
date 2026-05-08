@@ -1,256 +1,54 @@
 # Roadmap: HP-41 Calculator Emulator
 
-**Project:** HP-41 Calculator Emulator v1.0 CLI
-**Target release:** 2026-09-05
-**Milestone:** v1.0 CLI
-**Granularity:** Standard (8 phases)
-**Requirements coverage:** 25/25 v1 requirements mapped
+**Project:** HP-41 Calculator Emulator
+**Current milestone:** v1.1 (planning)
+
+---
+
+## Milestones
+
+- ✅ **v1.0 CLI** — Phases 1–8, shipped 2026-05-08 · [Archive](milestones/v1.0-ROADMAP.md)
+- 📋 **v1.1** — STO arithmetic modals, EEX polish, FR-17 print emulation (planned)
+- 📋 **v2.0 GUI** — Tauri desktop app (hp41-gui) reusing hp41-core unchanged (planned)
 
 ---
 
 ## Phases
 
-- [x] **Phase 1: Foundation** - Cargo workspace, CalcState, stack with HP-41-accurate stack-lift semantics, BCD/f64 decision (completed 2026-05-06)
-- [x] **Phase 2: Core Math** - Arithmetic, trig, number formatting, storage registers, ALPHA mode (completed 2026-05-07)
-- [x] **Phase 3: Programming Engine** - Keystroke programming, LBL/GTO/XEQ/RTN, conditional tests, ISG/DSE (completed 2026-05-07)
-- [x] **Phase 4: TUI & Input** - ratatui display panel, annunciators, physical keyboard mapping (completed 2026-05-07)
-- [x] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs (completed 2026-05-07)
-- [x] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions (completed 2026-05-07)
-- [x] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite (completed 2026-05-07)
-- [ ] **Phase 8: Tech Debt Cleanup** - EEX entry fix, SIN keyboard binding, STO arithmetic modals, help text accuracy
+<details>
+<summary>✅ v1.0 CLI (Phases 1–8) — SHIPPED 2026-05-08</summary>
 
----
+- [x] **Phase 1: Foundation** — Cargo workspace, CalcState, 4-level HP-41 stack with lift semantics (completed 2026-05-06)
+- [x] **Phase 2: Core Math** — Arithmetic, trig, formatting, registers, ALPHA mode (completed 2026-05-07)
+- [x] **Phase 3: Programming Engine** — LBL/GTO/XEQ/RTN/conditionals/ISG/DSE (completed 2026-05-07)
+- [x] **Phase 4: TUI & Input** — ratatui display, annunciators, keyboard mapping (completed 2026-05-07)
+- [x] **Phase 5: Persistence & UX** — JSON state, auto-save, USER mode, sample programs (completed 2026-05-07)
+- [x] **Phase 6: Science & Engineering** — Statistics, HMS/H conversions (completed 2026-05-07)
+- [x] **Phase 7: Hardening** — Zero panics, 94.87% coverage, 500-case accuracy, CI matrix (completed 2026-05-07)
+- [x] **Phase 8: Tech Debt Cleanup** — EEX fix, SIN/'q', CLREG/'g', AlphaClear/Delete, help accuracy (completed 2026-05-08)
 
-## Phase Details
+**Full phase details:** [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
-### Phase 1: Foundation
-**Goal**: A Cargo workspace exists with a `Justfile` covering all build/test/lint/run targets, a compiling `hp41-core` crate that models a correct 4-level HP-41 RPN stack with full stack-lift semantics, resolves the BCD vs f64 numeric representation, and returns typed errors with zero panics.
-**Depends on**: Nothing
-**Requirements**: CORE-01, CORE-02
-**Success Criteria** (what must be TRUE):
-  1. User can push values onto the 4-level stack (X/Y/Z/T) and the LASTX register captures the correct value after each operation
-  2. ENTER, arithmetic result, CLX, CHS, and RCL each produce the correct stack-lift enable/disable/neutral behavior as specified in HP-41 documentation
-  3. `cargo check -p hp41-core` passes with zero UI or CLI dependencies
-  4. The numeric representation decision (BCD struct or `rust_decimal` wrapping f64 with 10-digit rounding) is committed to code and documented in an ADR comment in `state.rs`
-  5. `just --list` shows all standard recipes (build, test, lint, run, ci) and `just ci` passes on macOS
-**Plans**: 4 plans
+</details>
 
-Plans:
-- [x] 01-PLAN-01.md — Cargo workspace scaffold + Justfile + cargo-llvm-cov install
-- [x] 01-PLAN-02.md — HpError, HpNum, CalcState/Stack types + LiftEffect helpers + ADR comment
-- [x] 01-PLAN-03.md — Op enum, dispatch, arithmetic ops (add/sub/mul/div), stack ops (enter/clx/chs/rdn/xy_swap/lastx)
-- [x] 01-PLAN-04.md — CORE-01 unit tests, CORE-02 lift-effect tests, proptest suite, `just ci` gate
+### 📋 v1.1 (Planned)
 
-### Phase 2: Core Math
-**Goal**: Users can perform the complete HP-41 arithmetic, trigonometric, and formatting operation set, store and recall values in R00–R99 registers, and enter alphanumeric strings in ALPHA mode — all with HP-41-accurate 10-digit results.
-**Depends on**: Phase 1
-**Requirements**: MATH-01, MATH-02, MATH-03, REGS-01, ALPH-01
-**Success Criteria** (what must be TRUE):
-  1. User can compute `+ − × ÷`, `1/x`, `√x`, `x²`, `Y^X`, `LN`, `LOG`, `e^x`, `10^x` and see a 10-digit-accurate result in the display
-  2. User can press SIN/COS/TAN and their inverses after switching between DEG, RAD, and GRAD modes; a 90° input produces exactly 1 in SIN
-  3. User can cycle FIX 4 → SCI 2 → ENG 3 and the same number renders in the correct notation each time
-  4. User can STO a value into R00–R99, recall it with RCL, and perform STO+/−/×/÷ against a register — all matching HP-41 hardware behavior
-  5. User can activate ALPHA mode, type a 24-character string, and confirm it is stored in the ALPHA register
-**Plans**: 7 plans
-
-Plans:
-**Wave 1**
-- [x] 02-01-PLAN.md — CalcState expansion (AngleMode/DisplayMode enums, 6 new fields) + unary_result() + Op skeleton stubs
-**Wave 2** *(blocked on Wave 1)*
-- [x] 02-02-PLAN.md — HpNum math methods (14 methods: recip/sqrt/sq/ln/log10/exp/exp10/powd + trig with f64 bridge)
-- [x] 02-03-PLAN.md — Wave 0 test scaffolds (math_tests, trig_tests, format_tests, register_tests, alpha_tests, extend lift_tests)
-**Wave 3** *(blocked on Wave 2)*
-- [x] 02-04-PLAN.md — ops/math.rs with all 17 math/trig/angle ops + dispatch wiring
-- [x] 02-05-PLAN.md — ops/registers.rs (STO/RCL/STO-arith/CLREG) + format.rs (FIX/SCI/ENG) + dispatch wiring
-- [x] 02-06-PLAN.md — ops/alpha.rs (AlphaToggle/AlphaAppend/AlphaClear) + dispatch wiring
-**Wave 4** *(blocked on Wave 3)* — human checkpoint
-- [x] 02-07-PLAN.md — entry_buf flush in dispatch() + entry_buf_tests + just ci green gate
-
-**Cross-cutting constraints:**
-- All new Op variants must declare LiftEffect (Enable/Disable/Neutral) per Phase 1 convention
-- All ops in hp41-core must return `Result<(), HpError>` — zero panics, zero unwrap in non-test code
-
-### Phase 3: Programming Engine
-**Goal**: Users can record, store, and execute keystroke programs with labels, branches, subroutine calls, conditional tests, and loop control — with ISG/DSE counter-field behavior identical to HP-41 hardware.
-**Depends on**: Phase 2
-**Requirements**: PROG-01, PROG-02
-**Success Criteria** (what must be TRUE):
-  1. User can enter PRGM mode, key in a program with LBL, GTO, XEQ, RTN, and RTN terminates execution returning to the caller
-  2. User can run a program containing all conditional tests (x=0?, x<0?, x>y?, etc.) and observe correct skip-next-step behavior when the condition is false
-  3. User can write a counting loop using ISG with counter register value `1.00500` (current=1, final=5, step=1) and observe it increment exactly 4 times before falling through
-  4. User can nest XEQ calls up to 4 levels deep; a 5th nested XEQ produces a "TRY AGAIN" error without crashing
-**Plans**: 6 plans
-
-Plans:
-**Wave 1** *(parallel — no dependencies)*
-- [x] 03-01-PLAN.md — CalcState Phase 3 fields (program, prgm_mode, pc, call_stack, is_running)
-- [x] 03-02-PLAN.md — HpError::CallDepth variant ("try again")
-- [x] 03-03-PLAN.md — TestKind enum (12 variants) + Phase 3 Op variants (Lbl/Gto/Xeq/Rtn/PrgmMode/Test/Isg/Dse)
-**Wave 2** *(blocked on Wave 1 — parallel with each other)*
-- [x] 03-04-PLAN.md — dispatch() prgm_mode gate + flush_entry_buf() routing to program Vec
-- [x] 03-05-PLAN.md — ops/program.rs (run_program, run_loop, execute_op, ISG/DSE, TestKind eval) + program_tests.rs full suite
-**Wave 3** *(blocked on Wave 2)*
-- [x] 03-06-PLAN.md — dispatch() Phase 3 arms wiring + lib.rs run_program export + just ci gate
-
-### Phase 4: TUI & Input
-**Goal**: Users interact with the emulator entirely via keyboard in a persistent ratatui terminal panel that shows the 4-level stack, LASTX, 12-character HP-41 display, and all annunciators at all times.
-**Depends on**: Phase 3
-**Requirements**: DISP-01, DISP-02, INPUT-01
-**Success Criteria** (what must be TRUE):
-  1. The TUI renders a persistent panel showing X/Y/Z/T, LASTX, the 12-char alphanumeric display, and annunciators (USER, PRGM, ALPHA, SHIFT, RAD/DEG/GRAD) without requiring any user action
-  2. Annunciator state updates immediately when the calculator mode changes (e.g., toggling RAD vs DEG flips the annunciator in the same frame)
-  3. User can perform any documented calculator operation using only the physical keyboard without consulting an external reference — discoverable key labels are visible in the TUI
-  4. Any unhandled panic in hp41-core is caught at the CLI boundary and the terminal is restored to normal (not stuck in raw mode)
-**Plans**: 5 plans
-
-Plans:
-**Wave 1**
-- [x] 04-01-PLAN.md — Cargo.toml deps (ratatui 0.30 + crossterm 0.29 + clap 4.x) + App struct + module skeleton (compiling foundation)
-**Wave 2** *(parallel — different files)*
-- [x] 04-02-PLAN.md — ui.rs full widget layout: stack panel, display panel, annunciator bar, status bar, key-reference panel
-- [x] 04-03-PLAN.md — keys.rs (key_to_op() + KEY_REF_TABLE) + prgm_display.rs (format_step() + op_display_name()) + unit tests
-**Wave 3** *(blocked on Wave 2)*
-- [x] 04-04-PLAN.md — main.rs clap args wired + manual smoke test checkpoint (human verify)
-**Wave 4** *(blocked on Wave 3)*
-- [x] 04-05-PLAN.md — just ci gate: full workspace tests + coverage + clippy
-
-### Phase 5: Persistence & UX
-**Goal**: Users can save and reload complete calculator state between sessions, auto-save fires every 30 seconds, an inline help system is accessible from within the TUI, USER mode works with persisted key assignments, and a bundled sample program library is ready to load.
-**Depends on**: Phase 4
-**Requirements**: PERS-01, PERS-02, UX-01, UX-02, UX-03
-**Success Criteria** (what must be TRUE):
-  1. User can save the full calculator state (stack, registers, programs, flags, USER assignments) to a named JSON file and reload it in a fresh session with all state intact
-  2. If the process is killed without a manual save, at most 30 seconds of work is lost — confirmed by checking the auto-save timestamp in the state file
-  3. User can press `?` or type `HELP` in the TUI and see a searchable function reference covering all HP-41 operations with their keyboard mappings
-  4. User can assign a custom program label to a key in USER mode, toggle USER mode, and observe the key assignment activate; the assignment survives a save/reload cycle
-  5. User can load at least 10 bundled sample programs from within the TUI and run them to produce documented outputs
-**Plans**: 11 plans
-
-Plans:
-**Wave 1** *(parallel — different files)*
-- [x] 05-01-PLAN.md — Cargo deps (serde, serde_json, dirs) + HpNum serde derives + CalcState/Stack serde + regs Vec migration + user_mode/key_assignments fields
-- [x] 05-02-PLAN.md — Op/StoArithKind/TestKind serde derives + Op::UserMode + Op::AlphaBackspace variants + dispatch wiring
-**Wave 2** *(blocked on Wave 1)*
-- [x] 05-03-PLAN.md — persistence.rs (StateFile, save_state, load_state, default_state_path) + main.rs --state-file arg + App persistence fields + auto-save timer + Ctrl+S
-**Wave 3** *(blocked on Wave 2)*
-- [x] 05-04-PLAN.md — help_data.rs (HELP_DATA ≥50 entries, 10 categories, all keyboard-accessible ops) + programs.rs (SampleProgram + 10 programs via OnceLock)
-- [x] 05-05-PLAN.md — ui.rs overlays (help + programs) + annunciator USER wiring + status bar pending_prompt
-**Wave 4** *(blocked on Wave 3)*
-- [x] 05-06-PLAN.md — app.rs handle_pending_input (STO/RCL/STO-arith modal) + handle_alpha_mode_key + overlay navigation
-- [x] 05-07-PLAN.md — app.rs try_user_dispatch + F1-F4 USER keys + human smoke test checkpoint
-**Wave 5** *(blocked on Wave 4)*
-- [x] 05-08-PLAN.md — CalcState serde round-trip test + just ci gate (lint + test + coverage ≥80%)
-**Wave 6** *(blocked on Wave 5 — gap closure)*
-- [x] 05-09-PLAN.md — Fix sample program bugs: remove XySwap from prime_test_ops, replace mean_sdev_ops with 4-value stack mean, fix quadratic_ops comment
-- [x] 05-10-PLAN.md — Guard 'q' quit with overlay/modal context; add unit tests for help overlay routing
-**Wave 7** *(blocked on Wave 6 — gap closure)*
-- [ ] 05-11-PLAN.md — Fix gcd_ops (insert Op::Int for floor division CR-02) and stack_stats_ops (invert XGtY/XLtY comparisons CR-03); add behavioral tests for both
-
-### Phase 6: Science & Engineering
-**Goal**: Users can perform the HP-41's built-in statistics suite (Σ registers, mean, standard deviation, linear regression) and HMS/H time-and-angle conversion functions.
-**Depends on**: Phase 5
-**Requirements**: SCI-01, SCI-02
-**Success Criteria** (what must be TRUE):
-  1. User can enter a data set with Σ+ and compute MEAN, SDEV, and linear regression coefficients that match HP-41 hardware results for the same data set
-  2. User can remove an incorrect data point with Σ− and recompute statistics without re-entering the full data set
-  3. User can convert 1.3045 (1h 30m 45s in HMS format) to decimal hours with HMS→ and get 1.5125, and convert back to confirm round-trip accuracy
-**Plans**: 3 plans
-
-Plans:
-**Wave 1**
-- [x] 06-01-PLAN.md — HpError::InvalidInput variant + Op enum extension (12 new variants + module declarations)
-**Wave 2** *(blocked on Wave 1)*
-- [x] 06-02-PLAN.md — stats.rs (8 ops) + hms.rs (4 ops) + execute_op() arms + prgm_display.rs arms
-**Wave 3** *(blocked on Wave 2)*
-- [x] 06-03-PLAN.md — stats_tests.rs + hms_tests.rs + keys.rs bindings + help_data.rs entries + just ci gate
-
-### Phase 7: Hardening
-**Goal**: The v1.0 CLI meets all non-functional quality requirements: cold-start under 0.5 s, key latency under 50 ms, zero panics in core, 80%+ test coverage in `hp41-core`, single-codebase cross-platform builds, and 98%+ numerical agreement with HP-41 hardware across the 500-case test suite.
-**Depends on**: Phase 6
-**Requirements**: QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06
-**Success Criteria** (what must be TRUE):
-  1. `cargo build --release` produces a working binary on Windows 10+, macOS 12+, and Ubuntu 22.04+ from the same codebase — verified via CI matrix
-  2. Cold-start time measured with `hyperfine` on Apple M1 and Intel i5 8th gen is ≤ 0.5 s
-  3. Median key-press-to-display-update latency measured over 1000 keystrokes is ≤ 50 ms
-  4. `cargo test -p hp41-core` passes with zero panics and `cargo-llvm-cov` reports ≥ 80% line coverage
-  5. The 500-case numerical test suite (covering arithmetic, trig, logs, ISG/DSE edge cases, and transcendental function accumulation) passes with ≥ 98% agreement vs HP-41 reference values
-**Plans**: 6 plans
-
-Plans:
-**Wave 1**
-- [x] 07-01-PLAN.md — Phase 5 Plan 11 verification + panic audit (fix math.rs unwrap → expect, add deny(clippy::unwrap_used))
-**Wave 2** *(blocked on Wave 1 — parallel with each other)*
-- [x] 07-02-PLAN.md — CI matrix update (cargo build --release on all 3 platforms) + Justfile bench recipes
-- [x] 07-03-PLAN.md — Criterion benchmarks (benches/dispatch_bench.rs, [[bench]] entry, just bench recipe)
-- [x] 07-04-PLAN.md — Coverage gap closure (12 targeted tests for ops/program.rs error paths, 59% → ≥80%)
-**Wave 3** *(blocked on Wave 2)*
-- [x] 07-05-PLAN.md — 500-case numerical accuracy suite (tests/numerical_accuracy.rs, passes >= 490 gate)
-**Wave 4** *(blocked on Wave 3)*
-- [x] 07-06-PLAN.md — Final just ci gate + planning document updates
-
-### Phase 8: Tech Debt Cleanup
-**Goal**: Close four keyboard coverage gaps and fix one EEX entry bug identified by the v1.0 milestone audit. Fix help_data.rs stale SIN entry. No new features — only fixing non-functional or misreported existing capabilities.
-**Depends on**: Phase 7
-**Requirements**: MATH-02, REGS-01, INPUT-01, UX-01
-**Success Criteria** (what must be TRUE):
-  1. User can enter scientific notation (e.g., 1.5e3) and have it pushed to the stack as 1500
-  2. User can press 'q' to compute SIN of X in the current angle mode
-  3. User can press 'g' to clear all storage registers R00-R99
-  4. User can press Delete in ALPHA mode to clear the ALPHA register
-  5. The ? help overlay shows 'q' -> SIN and 'g' -> CLREG (not the stale 'S' -> SIN)
-**Plans**: 3 plans
-
-Plans:
-**Wave 1** *(parallel — different files)*
-- [ ] 08-01-PLAN.md — EEX core fix: flush_entry_buf from_scientific fallback (hp41-core/src/ops/mod.rs)
-- [ ] 08-02-PLAN.md — Key bindings: q->Sin, g->Clreg, Delete->AlphaClear, entry_buf guards (hp41-cli/src/keys.rs, app.rs)
-**Wave 2** *(blocked on Wave 1 — help text must match live bindings)*
-- [ ] 08-03-PLAN.md — help_data.rs corrections: fix SIN key, add CLREG entry
+- [ ] Phase 9: STO arithmetic keyboard modals + EEX exponent entry polish
+- [ ] Phase 10: Print emulation (FR-17: PRX/PRA/PRSTK to console/text)
 
 ---
 
 ## Progress Table
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation | 4/4 | Complete    | 2026-05-06 |
-| 2. Core Math | 7/7 | Gaps Found | - |
-| 3. Programming Engine | 6/6 | Complete    | 2026-05-07 |
-| 4. TUI & Input | 5/5 | Complete    | 2026-05-07 |
-| 5. Persistence & UX | 10/11 | Gaps Found  | - |
-| 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
-| 7. Hardening | 6/6 | Complete | 2026-05-07 |
-| 8. Tech Debt Cleanup | 0/3 | Not Started | - |
-
----
-
-## Coverage Map
-
-| Phase | Requirements |
-|-------|-------------|
-| 1. Foundation | CORE-01, CORE-02 |
-| 2. Core Math | MATH-01, MATH-02, MATH-03, REGS-01, ALPH-01 |
-| 3. Programming Engine | PROG-01, PROG-02 |
-| 4. TUI & Input | DISP-01, DISP-02, INPUT-01 |
-| 5. Persistence & UX | PERS-01, PERS-02, UX-01, UX-02, UX-03 |
-| 6. Science & Engineering | SCI-01, SCI-02 |
-| 7. Hardening | QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06 |
-| 8. Tech Debt Cleanup | MATH-02 (SIN key), REGS-01 (STO-arith key), INPUT-01 (EEX), UX-01 (help text) |
-
-**Total mapped: 25/25 (Phase 8 closes keyboard coverage gaps and documentation staleness)**
-
----
-
-## Key Decisions Baked In
-
-| Decision | Rationale |
-|----------|-----------|
-| BCD/f64 decision in Phase 1 | Retrofitting after register code exists is a full data model rewrite (SUMMARY.md critical pitfall) |
-| TUI built in Phase 4 (after programming engine) | Can't meaningfully test keystroke programming without display; but core must be complete first |
-| QUAL-* deferred to Phase 7 | Quality requirements are cross-cutting; addressed in a dedicated hardening phase to avoid premature optimization |
-| SCI-01/02 in Phase 6 (after Persistence) | Stats use R01–R06 Σ registers — registers and programs must be stable before adding higher-order math |
-| No async in core | Event loop is `poll → update → redraw`, single-threaded; tokio never enters `hp41-core` |
-
----
-*Roadmap created: 2026-05-06*
-*Last updated: 2026-05-08 after Phase 8 planning (3 plans, 2 waves) — keyboard coverage gaps and EEX bug*
+| Phase | Milestone | Plans | Status | Completed |
+|-------|-----------|-------|--------|-----------|
+| 1. Foundation | v1.0 | 4/4 | ✅ Complete | 2026-05-06 |
+| 2. Core Math | v1.0 | 7/7 | ✅ Complete | 2026-05-07 |
+| 3. Programming Engine | v1.0 | 6/6 | ✅ Complete | 2026-05-07 |
+| 4. TUI & Input | v1.0 | 5/5 | ✅ Complete | 2026-05-07 |
+| 5. Persistence & UX | v1.0 | 11/11 | ✅ Complete | 2026-05-07 |
+| 6. Science & Engineering | v1.0 | 3/3 | ✅ Complete | 2026-05-07 |
+| 7. Hardening | v1.0 | 6/6 | ✅ Complete | 2026-05-07 |
+| 8. Tech Debt Cleanup | v1.0 | 3/3 | ✅ Complete | 2026-05-08 |
+| 9. STO + EEX Polish | v1.1 | 0/- | 📋 Planned | — |
+| 10. Print Emulation | v1.1 | 0/- | 📋 Planned | — |

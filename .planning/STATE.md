@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 7
-current_plan: Complete
-status: All phases complete — ready for v1.0 release
-last_updated: "2026-05-07T22:00:00.000Z"
+milestone: v1.1
+milestone_name: planning
+current_phase: 9
+current_plan: Not started
+status: Milestone v1.0 complete — ready for v1.1 planning
+last_updated: "2026-05-08T10:00:00.000Z"
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 35
-  completed_plans: 35
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 45
+  completed_plans: 45
   percent: 100
 ---
 
@@ -20,8 +20,10 @@ progress:
 
 ## Project Reference
 
+See: .planning/PROJECT.md (updated 2026-05-08)
+
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
-**Target release:** 2026-09-05 (v1.0 CLI)
+**Shipped:** v1.0 CLI (2026-05-08)
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -29,12 +31,11 @@ progress:
 
 ## Current Position
 
-**Current phase:** 7
-**Current plan:** Not started
-**Status:** Ready to plan
+**Milestone v1.0:** Complete ✅
+**Current focus:** Planning v1.1
 
 ```
-Progress: [██████████████] 100% (all feature phases complete)
+Progress: [████████████████] 100% (all v1.0 phases complete)
 
 Phase 1: Foundation          [x] Complete (2026-05-06)
 Phase 2: Core Math           [x] Complete (2026-05-07)
@@ -43,19 +44,21 @@ Phase 4: TUI & Input         [x] Complete (2026-05-07)
 Phase 5: Persistence & UX    [x] Complete (2026-05-07)
 Phase 6: Science & Engineering [x] Complete (2026-05-07)
 Phase 7: Hardening           [x] Complete (2026-05-07)
+Phase 8: Tech Debt Cleanup   [x] Complete (2026-05-08)
 ```
 
 ---
 
-## Performance Metrics
+## Performance Metrics (v1.0 Shipped Values)
 
-| Metric | Target | Current |
+| Metric | Target | Achieved |
 |--------|--------|---------|
-| Cold-start latency | ≤ 0.5 s | Unmeasured (use hyperfine pre-release: just bench-startup) |
-| Key-press latency (median) | ≤ 50 ms | 65 ns/op (criterion: dispatch_mixed_20ops 1.301 µs / 20 ops) — well under gate |
-| `hp41-core` test coverage | ≥ 80% | 94.87% line coverage (GATE PASSED — ops/program.rs 95.23%) |
-| Numerical accuracy (500-case suite) | ≥ 98% | 495/500 (99.0%) — GATE PASSED |
-| Crash-free sessions | ≥ 99.5% | #![deny(clippy::unwrap_used)] enforced; zero panics in hp41-core |
+| Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
+| Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
+| `hp41-core` test coverage | ≥ 80% | 94.87% |
+| Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
+| Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
+| CI platforms | Win/macOS/Ubuntu | All green (run #25539003811) |
 
 ---
 
@@ -65,58 +68,49 @@ Phase 7: Hardening           [x] Complete (2026-05-07)
 
 | Decision | Rationale | Phase |
 |----------|-----------|-------|
-| BCD vs f64 | Must resolve before any register code; `rust_decimal` or custom BCD struct | Phase 1 |
-| Stack-lift as boolean flag | `lift_enabled: bool` in `Stack`; every op declares Enable/Disable/Neutral | Phase 1 |
-| `CalcState` as single source of truth | One `&mut CalcState` through all ops; no global mutable state | Phase 1 |
-| Instruction enum, not dyn Trait | HP-41 instruction set is fixed/closed; enum is faster, serializable, exhaustive | Phase 3 |
-| PushNum in execute_op enables lift | Without LiftEffect::Enable, sequential PushNums in a program overwrite X — critical for correct stack behavior | Phase 3 |
-| ISG body-before-check loop semantics | With Lbl/body/ISG/GTO structure, body runs on same pass as skipping ISG — 5 iterations with R00=1.00500 (current=1, final=5) | Phase 3 |
-| ISG/DSE discard bool in interactive dispatch | op_isg/op_dse return Result<bool>; dispatch() wraps with .map(|_| ()) — skip signal only meaningful in run_loop, not interactive keypress context | Phase 3 |
-| No async in hp41-core | Synchronous event loop; tokio only in hp41-cli if needed for autosave timer | All |
-| ratatui 0.30 + crossterm | Only backend with Windows 10+ support; crossterm fires Key::Press + Key::Release on Windows (filter!) | Phase 4 |
-| ratatui::init() returns DefaultTerminal | RestoreTerminalGuard does not exist in 0.30; ratatui::restore() must be called explicitly after run() | Phase 4 |
-| draw(&self) immutable in App | Avoids borrow conflict with &mut terminal inside terminal.draw() — required by Rust borrow checker | Phase 4 |
-| Digit entry appends to entry_buf directly | dispatch() auto-flushes on next non-digit op; calling dispatch per digit would push each as a separate PushNum | Phase 4 |
-| serde_json for persistence | Human-readable, shareable; users can diff/git state files | Phase 5 |
+| BCD vs f64 | `rust_decimal` with 10-digit rounding; avoid custom BCD struct | Phase 1 |
+| Stack-lift as `lift_enabled: bool` | Every op declares Enable/Disable/Neutral | Phase 1 |
+| `CalcState` as single source of truth | One `&mut CalcState` through all ops; no global state | Phase 1 |
+| ISG/DSE string-split counter fields | Never `floor()`/`fmod()` on f64 | Phase 3 |
+| `ratatui::init()` not `Terminal::new()` | Installs panic hook for terminal restore | Phase 4 |
+| Digit entry via `entry_buf` | Auto-flushed on next non-digit | Phase 4 |
+| `serde_json` for persistence | Human-readable, diff-able, versioned JSON | Phase 5 |
+| No async in `hp41-core` | Single-threaded event loop | All |
+| `#![deny(clippy::unwrap_used)]` | Compile-time zero-panic guarantee | Phase 7 |
 
 ### Critical Implementation Traps
 
 - ISG/DSE counter fields must be extracted by string-splitting at the decimal point — never with `floor()`/`fmod()` on f64
 - Windows crossterm fires both `KeyEventKind::Press` and `KeyEventKind::Release` — filter to Press only or every operation executes twice
-- Always use `ratatui::init()` (not `Terminal::new()`) to install the panic hook — without it, any unhandled panic leaves the terminal in raw mode
-- Use `event::poll(timeout)` not `event::read()` to support the 30-second auto-save timer without blocking redraws
+- Always use `ratatui::init()` (not `Terminal::new()`) to install the panic hook
+- Use `event::poll(timeout)` not `event::read()` to support the 30-second auto-save timer
+- `cargo llvm-cov` accumulates stale `.profraw` data in worktree runs — always `cargo llvm-cov clean --workspace` before measuring coverage
 
-### Open Questions
+---
 
-- [ ] BCD vs f64 with 10-digit rounding: evaluate `rust_decimal` vs a custom BCD struct for Phase 1 implementation decision
-- [ ] Program execution threading: short programs can run synchronously; long-running programs may need an `AtomicBool` interrupt flag and Tokio task to avoid blocking redraws (architecture note: keep this out of `hp41-core`)
-- [ ] ISG/DSE format interpretation: `CCCCC.FFFDD` (5-digit current, 3-digit final, 2-digit step increment) — verify exact field widths from HP-41 Owner's Handbook before Phase 3
+## Deferred Items
 
-### Todos
+Items acknowledged at v1.0 milestone close (2026-05-08):
 
-- [ ] Create Cargo workspace with `hp41-core` and `hp41-cli` crates (Phase 1)
-- [ ] Write license audit checklist before public release (before v1.0 tag)
-- [ ] Design keyboard mapping table for 80+ HP-41 functions → PC keys (Phase 4)
-- [ ] Curate 10+ bundled sample programs from public domain HP Solutions books (Phase 5)
+| Category | Item | Status |
+|----------|------|--------|
+| keyboard | STO arithmetic modals (STO+/-/×/÷) | Deferred to v1.1 |
+| behavior | EEX trailing-e-without-exponent discards silently | Documented with test; v1.1 |
 
-### Blockers
+---
+
+## Blockers
 
 None.
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260506-a1g | Add .gitignore for Rust/Cargo workspace | 2026-05-06 | f603a1b | [260506-a1g-add-gitignore](.planning/quick/260506-a1g-add-gitignore/) |
 
 ---
 
 ## Session Continuity
 
-**Last active:** 2026-05-07
-**Last action:** Phase 7 complete — 6 plans executed (panic audit, CI matrix, benchmarks, coverage gap, accuracy suite, final gate)
-**Next action:** v1.0 release — all 7 phases complete. Run just bench-startup on target hardware, tag v1.0.
+**Last active:** 2026-05-08
+**Last action:** v1.0 milestone complete — all phases done, REQUIREMENTS.md archived, tagged v1.0
+**Next action:** `/gsd-new-milestone` to plan v1.1
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-06 after roadmap creation*
+*Last updated: 2026-05-08 after v1.0 milestone completion*
