@@ -709,4 +709,82 @@ mod tests {
         app.handle_key(make_key(KeyCode::Char('q')));
         assert!(!app.exit, "'q' must not quit when programs overlay is open");
     }
+
+    // Phase 8: new behavior tests (RED — fail until implementation is added)
+
+    #[test]
+    fn test_q_no_longer_quits_in_normal_mode() {
+        // Phase 8: 'q' is now SIN, not quit. exit must stay false.
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.exit, "'q' must not quit after reassignment to SIN");
+    }
+
+    #[test]
+    fn test_delete_in_alpha_mode_clears_alpha_register() {
+        // Phase 8: Delete in ALPHA mode dispatches Op::AlphaClear
+        let mut app = make_app();
+        app.state.alpha_mode = true;
+        app.state.alpha_reg = "HELLO".to_string();
+        app.handle_key(make_key(KeyCode::Delete));
+        assert!(
+            app.state.alpha_reg.is_empty(),
+            "Delete in ALPHA mode must clear alpha_reg"
+        );
+    }
+
+    #[test]
+    fn test_eex_blocked_when_entry_buf_empty() {
+        let mut app = make_app();
+        assert!(app.state.entry_buf.is_empty());
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert!(
+            app.state.entry_buf.is_empty(),
+            "'e' must be blocked when entry_buf is empty"
+        );
+    }
+
+    #[test]
+    fn test_eex_blocked_when_already_present() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5e".to_string();
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e",
+            "'e' must not be appended when 'e' already present"
+        );
+    }
+
+    #[test]
+    fn test_decimal_blocked_when_already_present() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5".to_string();
+        app.handle_key(make_key(KeyCode::Char('.')));
+        assert_eq!(
+            app.state.entry_buf, "1.5",
+            "'.' must not be appended when '.' already present"
+        );
+    }
+
+    #[test]
+    fn test_decimal_blocked_after_eex() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5e2".to_string();
+        app.handle_key(make_key(KeyCode::Char('.')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e2",
+            "'.' must not be appended after 'e' already present"
+        );
+    }
+
+    #[test]
+    fn test_eex_appended_when_valid() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5".to_string();
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e",
+            "'e' must append when entry_buf is non-empty and has no 'e'"
+        );
+    }
 }
