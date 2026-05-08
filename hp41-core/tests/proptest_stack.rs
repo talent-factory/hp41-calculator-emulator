@@ -5,8 +5,8 @@
 //!   b) lift_enabled is always a valid bool after the sequence
 //!   c) CalcState fields are always finite/defined (no NaN from rust_decimal)
 
-use hp41_core::{CalcState, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpNum};
 use proptest::prelude::*;
 
 /// Generate a random Phase 1 Op (excluding PushNum variants that need arbitrary Decimal)

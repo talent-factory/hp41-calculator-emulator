@@ -3,8 +3,8 @@
 //! entry_buf holds pending digit characters. On any dispatch() call,
 //! flush_entry_buf() parses and pushes the buffered number before the op executes.
 
-use hp41_core::{CalcState, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -16,8 +16,15 @@ fn test_entry_buf_flushed_before_math_op() {
     let mut s = CalcState::new();
     s.entry_buf = "4".to_string();
     dispatch(&mut s, Op::Sqrt).unwrap();
-    assert_eq!(s.stack.x.inner(), Decimal::from(2), "entry_buf '4' must flush before Sqrt");
-    assert!(s.entry_buf.is_empty(), "entry_buf must be cleared after flush");
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(2),
+        "entry_buf '4' must flush before Sqrt"
+    );
+    assert!(
+        s.entry_buf.is_empty(),
+        "entry_buf must be cleared after flush"
+    );
 }
 
 #[test]
@@ -29,7 +36,10 @@ fn test_entry_buf_flushed_before_add() {
     s.entry_buf = "3".to_string();
     dispatch(&mut s, Op::Add).unwrap();
     assert_eq!(s.stack.x.inner(), Decimal::from(4));
-    assert!(s.entry_buf.is_empty(), "entry_buf must be cleared after flush");
+    assert!(
+        s.entry_buf.is_empty(),
+        "entry_buf must be cleared after flush"
+    );
 }
 
 // ── Flush on Enter ────────────────────────────────────────────────────────
@@ -101,7 +111,10 @@ fn test_flush_enables_lift() {
     s.stack.lift_enabled = false;
     // Dispatch a Neutral op (SetDeg) to trigger flush without changing stack
     dispatch(&mut s, Op::SetDeg).unwrap();
-    assert!(s.stack.lift_enabled, "flush must enable lift after pushing a number");
+    assert!(
+        s.stack.lift_enabled,
+        "flush must enable lift after pushing a number"
+    );
     assert_eq!(s.stack.x.inner(), Decimal::from(5));
 }
 
@@ -126,8 +139,14 @@ fn test_entry_buf_invalid_content_returns_error() {
     let mut s = CalcState::new();
     s.entry_buf = "not_a_number".to_string();
     let result = dispatch(&mut s, Op::Sqrt);
-    assert!(result.is_err(), "malformed entry_buf should yield InvalidOp error");
+    assert!(
+        result.is_err(),
+        "malformed entry_buf should yield InvalidOp error"
+    );
     assert_eq!(result.unwrap_err(), HpError::InvalidOp);
     // entry_buf must be cleared even on parse error
-    assert!(s.entry_buf.is_empty(), "entry_buf must be cleared even on parse error");
+    assert!(
+        s.entry_buf.is_empty(),
+        "entry_buf must be cleared even on parse error"
+    );
 }

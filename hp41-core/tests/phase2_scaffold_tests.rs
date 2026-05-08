@@ -9,10 +9,10 @@
 //!
 //! All tests in this file should FAIL before the Phase 2 scaffolding is in place.
 
-use hp41_core::{CalcState, HpNum};
-use hp41_core::state::{AngleMode, DisplayMode};
-use hp41_core::stack::unary_result;
 use hp41_core::ops::{Op, StoArithKind};
+use hp41_core::stack::unary_result;
+use hp41_core::state::{AngleMode, DisplayMode};
+use hp41_core::{CalcState, HpNum};
 
 // ── AngleMode enum ────────────────────────────────────────────────────────────
 
@@ -73,7 +73,10 @@ fn test_calcstate_has_regs_field_100_elements() {
 #[test]
 fn test_calcstate_has_alpha_reg_field() {
     let state = CalcState::new();
-    assert!(state.alpha_reg.is_empty(), "alpha_reg should be empty on init");
+    assert!(
+        state.alpha_reg.is_empty(),
+        "alpha_reg should be empty on init"
+    );
 }
 
 #[test]
@@ -85,19 +88,30 @@ fn test_calcstate_has_alpha_mode_field() {
 #[test]
 fn test_calcstate_angle_mode_defaults_to_deg() {
     let state = CalcState::new();
-    assert_eq!(state.angle_mode, AngleMode::Deg, "angle_mode must default to DEG");
+    assert_eq!(
+        state.angle_mode,
+        AngleMode::Deg,
+        "angle_mode must default to DEG"
+    );
 }
 
 #[test]
 fn test_calcstate_display_mode_defaults_to_fix4() {
     let state = CalcState::new();
-    assert_eq!(state.display_mode, DisplayMode::Fix(4), "display_mode must default to Fix(4)");
+    assert_eq!(
+        state.display_mode,
+        DisplayMode::Fix(4),
+        "display_mode must default to Fix(4)"
+    );
 }
 
 #[test]
 fn test_calcstate_entry_buf_field() {
     let state = CalcState::new();
-    assert!(state.entry_buf.is_empty(), "entry_buf should be empty on init");
+    assert!(
+        state.entry_buf.is_empty(),
+        "entry_buf should be empty on init"
+    );
 }
 
 #[test]
@@ -131,7 +145,11 @@ fn test_unary_result_saves_x_to_lastx() {
     state.stack.y = HpNum::from(10);
     unary_result(&mut state, HpNum::from(99));
     // lastx must be old X (5), not the result (99)
-    assert_eq!(state.stack.lastx, HpNum::from(5), "LASTX must be saved before overwrite");
+    assert_eq!(
+        state.stack.lastx,
+        HpNum::from(5),
+        "LASTX must be saved before overwrite"
+    );
 }
 
 #[test]
@@ -151,9 +169,21 @@ fn test_unary_result_does_not_modify_y_z_t() {
     state.stack.t = HpNum::from(4);
     unary_result(&mut state, HpNum::from(99));
     // Y, Z, T must be unchanged
-    assert_eq!(state.stack.y, HpNum::from(2), "Y must not be modified by unary_result");
-    assert_eq!(state.stack.z, HpNum::from(3), "Z must not be modified by unary_result");
-    assert_eq!(state.stack.t, HpNum::from(4), "T must not be modified by unary_result");
+    assert_eq!(
+        state.stack.y,
+        HpNum::from(2),
+        "Y must not be modified by unary_result"
+    );
+    assert_eq!(
+        state.stack.z,
+        HpNum::from(3),
+        "Z must not be modified by unary_result"
+    );
+    assert_eq!(
+        state.stack.t,
+        HpNum::from(4),
+        "T must not be modified by unary_result"
+    );
 }
 
 #[test]
@@ -169,7 +199,10 @@ fn test_unary_result_enables_lift_when_already_true() {
     let mut state = CalcState::new();
     state.stack.lift_enabled = true;
     unary_result(&mut state, HpNum::from(1));
-    assert!(state.stack.lift_enabled, "unary_result must keep lift enabled");
+    assert!(
+        state.stack.lift_enabled,
+        "unary_result must keep lift enabled"
+    );
 }
 
 // ── StoArithKind enum ─────────────────────────────────────────────────────────
@@ -285,7 +318,10 @@ fn test_op_enum_has_register_variants() {
     assert_ne!(sto, rcl);
     assert_ne!(Op::StoReg(0), Op::StoReg(1));
     // StoArith
-    let arith = Op::StoArith { reg: 5, kind: StoArithKind::Add };
+    let arith = Op::StoArith {
+        reg: 5,
+        kind: StoArithKind::Add,
+    };
     let _ = format!("{:?}", arith);
 }
 

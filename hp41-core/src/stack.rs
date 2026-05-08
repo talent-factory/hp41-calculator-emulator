@@ -1,5 +1,5 @@
-use crate::state::CalcState;
 use crate::num::HpNum;
+use crate::state::CalcState;
 
 /// Stack-lift effect that every operation must declare.
 ///
@@ -17,7 +17,7 @@ pub enum LiftEffect {
 /// This is the single authority for modifying lift_enabled.
 pub fn apply_lift_effect(state: &mut CalcState, effect: LiftEffect) {
     match effect {
-        LiftEffect::Enable  => state.stack.lift_enabled = true,
+        LiftEffect::Enable => state.stack.lift_enabled = true,
         LiftEffect::Disable => state.stack.lift_enabled = false,
         LiftEffect::Neutral => { /* intentional no-op */ }
     }
@@ -30,7 +30,7 @@ pub fn apply_lift_effect(state: &mut CalcState, effect: LiftEffect) {
 /// NOTE: number entry does NOT modify lift_enabled (that is the op's responsibility).
 pub fn enter_number(state: &mut CalcState, value: HpNum) {
     if state.stack.lift_enabled {
-        // HP-41 hardware: T is duplicated (old T is lost), not rotated out
+        // HP-41 hardware: on stack lift, old T is discarded (overwritten by Z); there is no fifth register
         state.stack.t = state.stack.z.clone();
         state.stack.z = state.stack.y.clone();
         state.stack.y = state.stack.x.clone();

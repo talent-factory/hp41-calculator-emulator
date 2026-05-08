@@ -5,9 +5,9 @@
 //! HP-41 display is 12 characters wide.
 //! FIX overflow: when integer part exceeds display capacity, falls back to SCI 9.
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal::RoundingStrategy;
-use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 
 use crate::num::HpNum;
@@ -85,10 +85,8 @@ fn format_sci(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -sci_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
-        digits as u32,
-        RoundingStrategy::MidpointAwayFromZero,
-    );
+    let mut mantissa_rounded =
+        mantissa.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
 
     // Carry: rounding can push mantissa from e.g. 9.9995 to 10.000
     let mut sci_exp = sci_exp;
@@ -131,10 +129,8 @@ fn format_eng(d: Decimal, digits: usize) -> String {
     let mantissa = scale_decimal(abs_d, -eng_exp);
 
     // Round mantissa to `digits` decimal places with HP-41 rounding
-    let mut mantissa_rounded = mantissa.round_dp_with_strategy(
-        digits as u32,
-        RoundingStrategy::MidpointAwayFromZero,
-    );
+    let mut mantissa_rounded =
+        mantissa.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
 
     // Carry: rounding can push the mantissa past the current power-of-10 boundary.
     // E.g. mantissa 999.9995 in ENG(3) rounds to 1000.000 → must become 1.000E+3 higher.
@@ -161,7 +157,8 @@ fn format_eng(d: Decimal, digits: usize) -> String {
 /// Compute the base-10 exponent for SCI notation: floor(log10(|d|)).
 /// d must be positive and non-zero.
 fn compute_sci_exp(abs_d: Decimal) -> i32 {
-    let f = abs_d.to_f64().unwrap_or(1.0);
+    // All valid HpNum values fit in f64 (max ~7.9e28 vs f64 max ~1.8e308).
+    let f = abs_d.to_f64().expect("HpNum is always within f64 range");
     f.log10().floor() as i32
 }
 
@@ -179,7 +176,7 @@ fn decimal_pow10(exp: i32) -> Decimal {
         let abs_exp = (-exp) as usize;
         "0.".to_string() + &"0".repeat(abs_exp - 1) + "1"
     };
-    Decimal::from_str(&s).unwrap_or(Decimal::ONE)
+    Decimal::from_str(&s).expect("string built from known-valid exp always parses")
 }
 
 /// Scale a Decimal by 10^exp_shift: returns d * 10^exp_shift.
@@ -189,7 +186,8 @@ fn scale_decimal(d: Decimal, exp_shift: i32) -> Decimal {
         return d;
     }
     let scale = decimal_pow10(exp_shift);
-    d.checked_mul(scale).unwrap_or(d)
+    d.checked_mul(scale)
+        .expect("scale_decimal: mantissa and bounded scale must not overflow")
 }
 
 /// Ensure that a formatted number string has a decimal point.

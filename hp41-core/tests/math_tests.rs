@@ -1,8 +1,8 @@
 //! Integration tests for MATH-01: unary math ops, binary YPow, 10-digit accuracy,
 //! LASTX save behavior, and stack-lift enable for all math ops.
 
-use hp41_core::{CalcState, HpError, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -76,7 +76,11 @@ fn test_ln_2_accuracy_10_digits() {
     push(&mut s, 2);
     dispatch(&mut s, Op::Ln).unwrap();
     let expected = Decimal::from_str("0.6931471806").unwrap();
-    assert_eq!(s.stack.x.inner(), expected, "LN(2) must equal 0.6931471806 at 10 sig digits");
+    assert_eq!(
+        s.stack.x.inner(),
+        expected,
+        "LN(2) must equal 0.6931471806 at 10 sig digits"
+    );
 }
 
 #[test]
@@ -128,9 +132,9 @@ fn test_tenpow_of_2_is_100() {
 #[test]
 fn test_ypow_2_to_10_is_1024() {
     let mut s = CalcState::new();
-    push(&mut s, 2);   // Y = 2
+    push(&mut s, 2); // Y = 2
     s.stack.lift_enabled = true;
-    push(&mut s, 10);  // X = 10
+    push(&mut s, 10); // X = 10
     dispatch(&mut s, Op::YPow).unwrap();
     assert_eq!(s.stack.x.inner(), Decimal::from(1024));
 }
@@ -153,15 +157,22 @@ fn test_ypow_2_to_0_5_is_sqrt_2() {
 fn test_unary_ops_save_lastx() {
     // For every unary op, X before the op must equal LASTX after the op
     let ops = vec![
-        Op::Recip, Op::Sqrt, Op::Sq, Op::Ln, Op::Log, Op::Exp, Op::TenPow,
+        Op::Recip,
+        Op::Sqrt,
+        Op::Sq,
+        Op::Ln,
+        Op::Log,
+        Op::Exp,
+        Op::TenPow,
     ];
     for op in ops {
         let mut s = CalcState::new();
-        push(&mut s, 2);  // X = 2 (valid domain for all these ops)
+        push(&mut s, 2); // X = 2 (valid domain for all these ops)
         let x_before = s.stack.x.inner();
         dispatch(&mut s, op.clone()).unwrap();
         assert_eq!(
-            s.stack.lastx.inner(), x_before,
+            s.stack.lastx.inner(),
+            x_before,
             "LASTX must be saved for {op:?}"
         );
     }
@@ -173,10 +184,14 @@ fn test_ypow_saves_lastx() {
     let mut s = CalcState::new();
     push(&mut s, 2);
     s.stack.lift_enabled = true;
-    push(&mut s, 3);  // X = 3 (exponent)
+    push(&mut s, 3); // X = 3 (exponent)
     let x_before = s.stack.x.inner();
     dispatch(&mut s, Op::YPow).unwrap();
-    assert_eq!(s.stack.lastx.inner(), x_before, "YPow must save X (exponent) to LASTX");
+    assert_eq!(
+        s.stack.lastx.inner(),
+        x_before,
+        "YPow must save X (exponent) to LASTX"
+    );
 }
 
 // ── Stack-lift enable for all math ops ───────────────────────────────────
@@ -184,12 +199,18 @@ fn test_ypow_saves_lastx() {
 #[test]
 fn test_math_ops_enable_lift() {
     let ops = vec![
-        Op::Recip, Op::Sqrt, Op::Sq, Op::Ln, Op::Log, Op::Exp, Op::TenPow,
+        Op::Recip,
+        Op::Sqrt,
+        Op::Sq,
+        Op::Ln,
+        Op::Log,
+        Op::Exp,
+        Op::TenPow,
     ];
     for op in ops {
         let mut s = CalcState::new();
         push(&mut s, 2);
-        s.stack.lift_enabled = false;  // force disable before op
+        s.stack.lift_enabled = false; // force disable before op
         dispatch(&mut s, op.clone()).unwrap();
         assert!(s.stack.lift_enabled, "{op:?} must enable stack lift");
     }
@@ -200,12 +221,14 @@ fn test_math_ops_enable_lift() {
 #[test]
 fn test_unary_op_does_not_modify_y_z_t() {
     let mut s = CalcState::new();
-    push(&mut s, 3); s.stack.lift_enabled = true;
-    push(&mut s, 2); s.stack.lift_enabled = true;
+    push(&mut s, 3);
+    s.stack.lift_enabled = true;
+    push(&mut s, 2);
+    s.stack.lift_enabled = true;
     push(&mut s, 1); // X=1, Y=2, Z=3, T=0
     let y_before = s.stack.y.inner();
     let z_before = s.stack.z.inner();
-    dispatch(&mut s, Op::Sq).unwrap();  // 1² = 1, Y/Z/T unchanged
+    dispatch(&mut s, Op::Sq).unwrap(); // 1² = 1, Y/Z/T unchanged
     assert_eq!(s.stack.y.inner(), y_before, "Sq must not modify Y");
     assert_eq!(s.stack.z.inner(), z_before, "Sq must not modify Z");
 }

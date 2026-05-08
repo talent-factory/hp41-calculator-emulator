@@ -17,7 +17,10 @@ fn press(code: KeyCode) -> KeyEvent {
 }
 
 fn make_app() -> App {
-    App::new(CalcState::new(), std::path::PathBuf::from("/tmp/hp41_test.json"))
+    App::new(
+        CalcState::new(),
+        std::path::PathBuf::from("/tmp/hp41_test.json"),
+    )
 }
 
 #[test]
@@ -49,7 +52,10 @@ fn stack_ops_lowercase() {
     assert_eq!(key_to_op(press(KeyCode::Char('x')), &app), Some(Op::XySwap));
     assert_eq!(key_to_op(press(KeyCode::Char('l')), &app), Some(Op::Lastx));
     assert_eq!(key_to_op(press(KeyCode::Char('s')), &app), Some(Op::Sqrt));
-    assert_eq!(key_to_op(press(KeyCode::Char('p')), &app), Some(Op::PrgmMode));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('p')), &app),
+        Some(Op::PrgmMode)
+    );
 }
 
 #[test]
@@ -65,8 +71,16 @@ fn trig_math_uppercase_shift() {
     let app = make_app();
     // Phase 5: 'S' is now intercepted in app.handle_key() BEFORE key_to_op() — it triggers
     // the STO [nn] modal. key_to_op must return None for 'S' and 'R' (D-10 routing).
-    assert_eq!(key_to_op(press(KeyCode::Char('S')), &app), None, "'S' must return None — STO modal is intercepted upstream");
-    assert_eq!(key_to_op(press(KeyCode::Char('R')), &app), None, "'R' must return None — RCL modal is intercepted upstream");
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('S')), &app),
+        None,
+        "'S' must return None — STO modal is intercepted upstream"
+    );
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('R')), &app),
+        None,
+        "'R' must return None — RCL modal is intercepted upstream"
+    );
     assert_eq!(key_to_op(press(KeyCode::Char('C')), &app), Some(Op::Cos));
     assert_eq!(key_to_op(press(KeyCode::Char('T')), &app), Some(Op::Tan));
     assert_eq!(key_to_op(press(KeyCode::Char('L')), &app), Some(Op::Ln));
@@ -77,7 +91,10 @@ fn trig_math_uppercase_shift() {
     assert_eq!(key_to_op(press(KeyCode::Char('W')), &app), Some(Op::Sq));
     assert_eq!(key_to_op(press(KeyCode::Char('Y')), &app), Some(Op::YPow));
     // Phase 5: 'u' maps to Op::UserMode
-    assert_eq!(key_to_op(press(KeyCode::Char('u')), &app), Some(Op::UserMode));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('u')), &app),
+        Some(Op::UserMode)
+    );
 }
 
 #[test]
@@ -104,10 +121,32 @@ fn unmapped_keys_return_none() {
 fn key_ref_table_has_33_entries() {
     // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
     // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
-    // Total is now 52. Test name preserved for history; count updated to 52.
+    // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
+    // Total is now 54. Test name preserved for history; count updated to 54.
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        52,
-        "KEY_REF_TABLE must have exactly 52 entries (40 Phase 1-5 + 12 Phase 6)"
+        54,
+        "KEY_REF_TABLE must have exactly 54 entries (52 Phase 1-6 + 2 Phase 8: q->SIN, g->CLREG)"
+    );
+}
+
+// Phase 8: key_to_op() bindings for SIN and CLREG
+#[test]
+fn q_maps_to_sin() {
+    let app = make_app();
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('q')), &app),
+        Some(Op::Sin),
+        "'q' must map to Op::Sin after Phase 8 reassignment"
+    );
+}
+
+#[test]
+fn g_maps_to_clreg() {
+    let app = make_app();
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('g')), &app),
+        Some(Op::Clreg),
+        "'g' must map to Op::Clreg"
     );
 }

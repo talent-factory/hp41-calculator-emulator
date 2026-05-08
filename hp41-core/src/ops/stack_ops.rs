@@ -1,7 +1,7 @@
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::state::CalcState;
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
+use crate::state::CalcState;
 
 /// ENTER: Duplicate X into Y, lift the stack, disable lift.
 ///

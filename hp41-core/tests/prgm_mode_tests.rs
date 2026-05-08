@@ -3,8 +3,8 @@
 //!
 //! Plan 03-04: Phase 3 wave 2 — prgm_mode gate in dispatch() + flush routing.
 
-use hp41_core::{CalcState, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpNum};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Task 1 tests: flush_entry_buf() prgm_mode routing
@@ -21,7 +21,10 @@ fn test_flush_execute_mode_pushes_to_stack() {
     // Number must be on X register
     assert_eq!(s.stack.x, HpNum::from(42));
     // Program must remain empty — nothing recorded
-    assert!(s.program.is_empty(), "execute mode must not record to program");
+    assert!(
+        s.program.is_empty(),
+        "execute mode must not record to program"
+    );
     // entry_buf must be cleared
     assert!(s.entry_buf.is_empty());
 }
@@ -35,7 +38,10 @@ fn test_flush_prgm_mode_records_pushnum_to_program() {
     // Dispatch a recording-mode-compatible op (Add is recorded, not executed)
     dispatch(&mut s, Op::Add).unwrap();
     // PushNum(7) must be the first entry in the program
-    assert!(!s.program.is_empty(), "program must contain PushNum after flush in prgm_mode");
+    assert!(
+        !s.program.is_empty(),
+        "program must contain PushNum after flush in prgm_mode"
+    );
     assert!(
         matches!(s.program[0], Op::PushNum(_)),
         "first program entry must be Op::PushNum"
@@ -81,7 +87,11 @@ fn test_flush_empty_buf_noop_in_prgm_mode() {
     // entry_buf is already empty — dispatch an op that would be recorded
     dispatch(&mut s, Op::Add).unwrap();
     // Program should have one entry: the Add op itself (not a PushNum from flush)
-    assert_eq!(s.program.len(), 1, "only the Add op should be recorded, no PushNum from empty flush");
+    assert_eq!(
+        s.program.len(),
+        1,
+        "only the Add op should be recorded, no PushNum from empty flush"
+    );
     assert_eq!(s.program[0], Op::Add);
 }
 
@@ -99,10 +109,21 @@ fn test_dispatch_prgm_mode_records_op() {
     s.stack.y = HpNum::from(5);
     dispatch(&mut s, Op::Add).unwrap();
     // Add must be recorded — not executed
-    assert!(s.program.contains(&Op::Add), "dispatch in prgm_mode must record Add");
+    assert!(
+        s.program.contains(&Op::Add),
+        "dispatch in prgm_mode must record Add"
+    );
     // Stack must be unchanged — Add was not executed
-    assert_eq!(s.stack.x, HpNum::from(3), "X must be unchanged — Add was recorded not executed");
-    assert_eq!(s.stack.y, HpNum::from(5), "Y must be unchanged — Add was recorded not executed");
+    assert_eq!(
+        s.stack.x,
+        HpNum::from(3),
+        "X must be unchanged — Add was recorded not executed"
+    );
+    assert_eq!(
+        s.stack.y,
+        HpNum::from(5),
+        "Y must be unchanged — Add was recorded not executed"
+    );
 }
 
 /// dispatch() with prgm_mode=false executes normally — existing behaviour unchanged.
@@ -114,8 +135,15 @@ fn test_dispatch_execute_mode_unchanged() {
     s.stack.y = HpNum::from(5);
     s.stack.lift_enabled = false;
     dispatch(&mut s, Op::Add).unwrap();
-    assert_eq!(s.stack.x, HpNum::from(8), "Add must execute in non-prgm mode");
-    assert!(s.program.is_empty(), "program must stay empty in execute mode");
+    assert_eq!(
+        s.stack.x,
+        HpNum::from(8),
+        "Add must execute in non-prgm mode"
+    );
+    assert!(
+        s.program.is_empty(),
+        "program must stay empty in execute mode"
+    );
 }
 
 /// In prgm_mode, dispatching Op::PrgmMode exits recording immediately (toggle, Pitfall 6).
@@ -125,7 +153,10 @@ fn test_dispatch_prgm_mode_toggle_exits_recording() {
     let mut s = CalcState::new();
     s.prgm_mode = true;
     dispatch(&mut s, Op::PrgmMode).unwrap();
-    assert!(!s.prgm_mode, "PrgmMode dispatch while recording must exit prgm_mode");
+    assert!(
+        !s.prgm_mode,
+        "PrgmMode dispatch while recording must exit prgm_mode"
+    );
     assert!(
         !s.program.contains(&Op::PrgmMode),
         "PrgmMode op must NOT be recorded — it executes immediately"
@@ -152,7 +183,11 @@ fn test_dispatch_record_then_exit_then_execute() {
     s.stack.y = HpNum::from(6);
     s.stack.lift_enabled = false;
     dispatch(&mut s, Op::Add).unwrap();
-    assert_eq!(s.stack.x, HpNum::from(10), "After exiting prgm_mode, Add must execute");
+    assert_eq!(
+        s.stack.x,
+        HpNum::from(10),
+        "After exiting prgm_mode, Add must execute"
+    );
     // Program grows by zero — the execute-mode Add is not recorded
     assert_eq!(s.program.len(), 2);
 }

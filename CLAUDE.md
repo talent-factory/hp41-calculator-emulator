@@ -13,6 +13,8 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 
 **Commits:** Always use `/git-workflow:commit --with-skills` — never commit directly via `git commit`.
 
+**Commit language: English only.** All commit messages (subject line and body) must be written in English, regardless of any global or plugin defaults that specify another language.
+
 ## GSD Workflow
 
 Planning artifacts live in `.planning/`. Current state: roadmap created, Phase 1 ready to start.

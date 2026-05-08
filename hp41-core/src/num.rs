@@ -1,16 +1,13 @@
-use rust_decimal::Decimal;
-use rust_decimal::RoundingStrategy;
-use rust_decimal::MathematicalOps;
-use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::prelude::FromPrimitive;
 use crate::error::HpError;
-use serde::{Serialize, Deserialize};
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
+use rust_decimal::MathematicalOps;
+use rust_decimal::RoundingStrategy;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct HpNum(
-    #[serde(with = "rust_decimal::serde::str")]
-    pub(crate) Decimal,
-);
+pub struct HpNum(#[serde(with = "rust_decimal::serde::str")] pub(crate) Decimal);
 
 impl HpNum {
     /// Enforce HP-41 10-significant-digit precision with round-half-away-from-zero.
@@ -18,7 +15,7 @@ impl HpNum {
     pub fn rounded(d: Decimal) -> Self {
         HpNum(
             d.round_sf_with_strategy(10, RoundingStrategy::MidpointAwayFromZero)
-                .unwrap_or(d)
+                .expect("round_sf_with_strategy(10) must succeed for valid finite Decimal"),
         )
     }
 
@@ -31,19 +28,22 @@ impl HpNum {
     }
 
     pub fn checked_add(&self, rhs: &HpNum) -> Result<HpNum, HpError> {
-        self.0.checked_add(rhs.0)
+        self.0
+            .checked_add(rhs.0)
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
 
     pub fn checked_sub(&self, rhs: &HpNum) -> Result<HpNum, HpError> {
-        self.0.checked_sub(rhs.0)
+        self.0
+            .checked_sub(rhs.0)
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
 
     pub fn checked_mul(&self, rhs: &HpNum) -> Result<HpNum, HpError> {
-        self.0.checked_mul(rhs.0)
+        self.0
+            .checked_mul(rhs.0)
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
@@ -52,7 +52,8 @@ impl HpNum {
         if rhs.0.is_zero() {
             return Err(HpError::DivideByZero);
         }
-        self.0.checked_div(rhs.0)
+        self.0
+            .checked_div(rhs.0)
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
@@ -73,9 +74,7 @@ impl HpNum {
             return Err(HpError::Domain);
         }
         // rust_decimal MathematicalOps provides sqrt() returning Option<Decimal>
-        self.0.sqrt()
-            .map(HpNum::rounded)
-            .ok_or(HpError::Overflow)
+        self.0.sqrt().map(HpNum::rounded).ok_or(HpError::Overflow)
     }
 
     /// x² — self multiplied by self.
@@ -90,7 +89,8 @@ impl HpNum {
         if self.0 <= Decimal::ZERO {
             return Err(HpError::Domain);
         }
-        self.0.checked_ln()
+        self.0
+            .checked_ln()
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
@@ -101,14 +101,16 @@ impl HpNum {
         if self.0 <= Decimal::ZERO {
             return Err(HpError::Domain);
         }
-        self.0.checked_log10()
+        self.0
+            .checked_log10()
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
 
     /// e^x — natural exponential of self.
     pub fn checked_exp(&self) -> Result<HpNum, HpError> {
-        self.0.checked_exp()
+        self.0
+            .checked_exp()
             .map(HpNum::rounded)
             .ok_or(HpError::Overflow)
     }
@@ -129,7 +131,8 @@ impl HpNum {
         if self.0.is_sign_negative() && !exp.0.fract().is_zero() {
             return Err(HpError::Domain);
         }
-        self.0.checked_powd(exp.0)
+        self.0
+            .checked_powd(exp.0)
             .map(HpNum::rounded)
             .ok_or(HpError::Domain)
     }
@@ -140,21 +143,24 @@ impl HpNum {
 
     /// sin(x) — x must be in radians. Uses rust_decimal MathematicalOps (Maclaurin series).
     pub fn checked_sin(&self) -> Result<HpNum, HpError> {
-        self.0.checked_sin()
+        self.0
+            .checked_sin()
             .map(HpNum::rounded)
             .ok_or(HpError::Domain)
     }
 
     /// cos(x) — x must be in radians. Uses rust_decimal MathematicalOps.
     pub fn checked_cos(&self) -> Result<HpNum, HpError> {
-        self.0.checked_cos()
+        self.0
+            .checked_cos()
             .map(HpNum::rounded)
             .ok_or(HpError::Domain)
     }
 
     /// tan(x) — x must be in radians. Returns Domain at tan(π/2) etc.
     pub fn checked_tan(&self) -> Result<HpNum, HpError> {
-        self.0.checked_tan()
+        self.0
+            .checked_tan()
             .map(HpNum::rounded)
             .ok_or(HpError::Domain)
     }
@@ -235,6 +241,7 @@ impl Default for HpNum {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -243,7 +250,10 @@ mod tests {
         let n = HpNum::from(3i32);
         let json = serde_json::to_string(&n).unwrap();
         // Must be a JSON string "3", not a float 3
-        assert!(json.starts_with('"'), "HpNum must serialize as JSON string, got: {json}");
+        assert!(
+            json.starts_with('"'),
+            "HpNum must serialize as JSON string, got: {json}"
+        );
         let back: HpNum = serde_json::from_str(&json).unwrap();
         assert_eq!(back, n, "round-trip must be lossless");
     }

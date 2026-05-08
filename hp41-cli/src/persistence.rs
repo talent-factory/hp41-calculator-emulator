@@ -47,8 +47,7 @@ pub fn save_state(path: &Path, state: &CalcState) -> std::io::Result<()> {
     }
     let file = fs::File::create(path)?;
     let wrapper = StateFile::current(state.clone());
-    serde_json::to_writer_pretty(file, &wrapper)
-        .map_err(std::io::Error::other)
+    serde_json::to_writer_pretty(file, &wrapper).map_err(std::io::Error::other)
 }
 
 /// Load CalcState from a state file.
@@ -65,12 +64,15 @@ pub fn load_state(path: &Path) -> Result<CalcState, Box<dyn std::error::Error>> 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use hp41_core::CalcState;
 
     fn temp_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("hp41_test_{name}")).join("state.json")
+        std::env::temp_dir()
+            .join(format!("hp41_test_{name}"))
+            .join("state.json")
     }
 
     #[test]
@@ -120,7 +122,10 @@ mod tests {
         save_state(&path, &state).unwrap();
         let loaded = load_state(&path).unwrap();
         assert!(loaded.user_mode);
-        assert_eq!(loaded.key_assignments.get(&'a').map(|s| s.as_str()), Some("FIBONACCI"));
+        assert_eq!(
+            loaded.key_assignments.get(&'a').map(|s| s.as_str()),
+            Some("FIBONACCI")
+        );
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -130,8 +135,14 @@ mod tests {
         let state = CalcState::new();
         save_state(&path, &state).unwrap();
         let content = fs::read_to_string(&path).unwrap();
-        assert!(content.contains("\"version\""), "JSON must contain version field");
-        assert!(content.contains("\"state\""), "JSON must contain state wrapper");
+        assert!(
+            content.contains("\"version\""),
+            "JSON must contain version field"
+        );
+        assert!(
+            content.contains("\"state\""),
+            "JSON must contain state wrapper"
+        );
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 }

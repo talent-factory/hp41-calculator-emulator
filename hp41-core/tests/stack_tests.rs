@@ -1,7 +1,7 @@
 //! Integration tests for CORE-01: 4-level stack and LASTX register behavior.
 
-use hp41_core::{CalcState, HpError, HpNum};
 use hp41_core::ops::{dispatch, Op};
+use hp41_core::{CalcState, HpError, HpNum};
 
 fn push(state: &mut CalcState, n: i32) {
     dispatch(state, Op::PushNum(HpNum::from(n))).unwrap();
@@ -112,7 +112,10 @@ fn test_chs_neutral_lift_when_enabled() {
     let mut state = CalcState::new();
     state.stack.lift_enabled = true;
     dispatch(&mut state, Op::Chs).unwrap();
-    assert!(state.stack.lift_enabled, "CHS must be Neutral — must not clear lift");
+    assert!(
+        state.stack.lift_enabled,
+        "CHS must be Neutral — must not clear lift"
+    );
 }
 
 #[test]
@@ -120,7 +123,10 @@ fn test_chs_neutral_lift_when_disabled() {
     let mut state = CalcState::new();
     state.stack.lift_enabled = false;
     dispatch(&mut state, Op::Chs).unwrap();
-    assert!(!state.stack.lift_enabled, "CHS must be Neutral — must not set lift");
+    assert!(
+        !state.stack.lift_enabled,
+        "CHS must be Neutral — must not set lift"
+    );
 }
 
 // ── LASTX after binary op ─────────────────────────────────────────────────────
@@ -134,8 +140,11 @@ fn test_lastx_captures_x_before_add() {
     push(&mut state, 2);
     dispatch(&mut state, Op::Add).unwrap();
     assert_eq!(state.stack.x, HpNum::from(3));
-    assert_eq!(state.stack.lastx, HpNum::from(2),
-        "LASTX should be 2 (X before add), not 3 (result)");
+    assert_eq!(
+        state.stack.lastx,
+        HpNum::from(2),
+        "LASTX should be 2 (X before add), not 3 (result)"
+    );
 }
 
 #[test]
@@ -161,7 +170,7 @@ fn test_add_consumes_y() {
     push(&mut state, 20); // Y=10, X=20
     state.stack.lift_enabled = true;
     push(&mut state, 30); // Z=10, Y=20, X=30
-    // Note: T=0 (default)
+                          // Note: T=0 (default)
     dispatch(&mut state, Op::Add).unwrap();
     // X = 20+30 = 50, Y = old Z = 10, Z = old T = 0
     assert_eq!(state.stack.x, HpNum::from(50));

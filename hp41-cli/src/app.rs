@@ -8,11 +8,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::DefaultTerminal;
 use ratatui::widgets::TableState;
+use ratatui::DefaultTerminal;
 
 use hp41_core::ops::Op;
-use hp41_core::{CalcState, AngleMode, DisplayMode};
+use hp41_core::{AngleMode, CalcState, DisplayMode};
 
 use crate::{keys, persistence, ui};
 
@@ -20,21 +20,21 @@ use crate::{keys, persistence, ui};
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
-    StoRegister(String),          // accumulating 2-digit register number for STO [nn]
-    RclRegister(String),          // accumulating 2-digit register number for RCL [nn]
+    StoRegister(String), // accumulating 2-digit register number for STO [nn]
+    RclRegister(String), // accumulating 2-digit register number for RCL [nn]
     // STO arithmetic variants — handled in handle_pending_input() match arms.
-    // Not yet wired to key bindings (Phase 7 polish); #[allow] suppresses premature dead-code lint.
+    // Keyboard binding deferred to v1.1 (multi-step modal flow out of scope for cleanup phase).
     #[allow(dead_code)]
-    StoAdd(String),               // STO+ [nn]
+    StoAdd(String), // STO+ [nn]
     #[allow(dead_code)]
-    StoSub(String),               // STO- [nn]
+    StoSub(String), // STO- [nn]
     #[allow(dead_code)]
-    StoMul(String),               // STO× [nn]
+    StoMul(String), // STO× [nn]
     #[allow(dead_code)]
-    StoDiv(String),               // STO÷ [nn]
-    AssignKey,                    // D-27 step 1: waiting for key char to assign
-    AssignLabel(char, String),    // D-27 step 2: char received; accumulating label name
-    ConfirmLoad(usize),           // D-22: awaiting Y/n before overwriting program
+    StoDiv(String), // STO÷ [nn]
+    AssignKey,                 // D-27 step 1: waiting for key char to assign
+    AssignLabel(char, String), // D-27 step 2: char received; accumulating label name
+    ConfirmLoad(usize),        // D-22: awaiting Y/n before overwriting program
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -52,7 +52,7 @@ pub struct App {
     // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
     pub show_help: bool,
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
-    /// Single-threaded, non-reentrant draw — borrow_mut() will never panic. (RESEARCH Pitfall 1)
+    /// Single-threaded, non-reentrant draw — borrow_mut() will never panic at runtime.
     pub help_table_state: RefCell<TableState>,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
@@ -80,7 +80,7 @@ impl App {
     pub fn check_autosave(&mut self) {
         if self.last_save.elapsed() >= Duration::from_secs(30) {
             if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
-                // One-time warning; retry on next 30s tick (Claude's Discretion)
+                // One-time warning; timer resets so the next 30s tick retries
                 self.message = Some(format!("Auto-save failed: {e}"));
             }
             self.last_save = Instant::now(); // reset even on failure
@@ -105,7 +105,9 @@ impl App {
             self.check_autosave();
         }
         // D-05: save on graceful exit before ratatui::restore()
-        let _ = persistence::save_state(&self.state_path, &self.state);
+        if let Err(e) = persistence::save_state(&self.state_path, &self.state) {
+            eprintln!("Warning: failed to save state on exit: {e}");
+        }
         Ok(())
     }
 
@@ -123,19 +125,7 @@ impl App {
             return;
         }
 
-        // Quit: 'q' — only when no overlay or modal is active (D-16, D-22).
-        // When show_help or show_programs is open, 'q' closes the overlay (handled below).
-        // When alpha_mode is active, 'q' is an alpha character (handled by handle_alpha_mode_key).
-        // When pending_input is Some, 'q' may cancel the modal (handled by handle_pending_input).
-        if key.code == KeyCode::Char('q')
-            && !self.show_help
-            && !self.show_programs
-            && !self.state.alpha_mode
-            && self.pending_input.is_none()
-        {
-            self.exit = true;
-            return;
-        }
+        // Quit: Ctrl+C only (D-16, D-22). 'q' was reassigned to SIN in Phase 8; quit is Ctrl+C only.
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
             return;
@@ -144,10 +134,7 @@ impl App {
         // D-04: Ctrl+S — manual save to active state file
         if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
             match persistence::save_state(&self.state_path, &self.state) {
-                Ok(()) => self.message = Some(format!(
-                    "Saved to {}",
-                    self.state_path.display()
-                )),
+                Ok(()) => self.message = Some(format!("Saved to {}", self.state_path.display())),
                 Err(e) => self.message = Some(format!("Save failed: {e}")),
             }
             return;
@@ -279,9 +266,28 @@ impl App {
         // D-11 / D-13: digit keys and 'e' (EEX) append directly to entry_buf.
         // dispatch() calls flush_entry_buf() automatically on the next non-digit op.
         // DO NOT call dispatch() here — that would push each digit as a separate PushNum.
+        // Phase 8 (T-08-03, T-08-04): guards prevent malformed strings reaching flush_entry_buf.
         if let KeyCode::Char(c) = key.code {
-            if c.is_ascii_digit() || c == '.' || c == 'e' {
+            if c.is_ascii_digit() {
                 self.state.entry_buf.push(c);
+                self.message = None;
+                return;
+            }
+            if c == '.' {
+                // Block duplicate decimal point, and '.' after 'e' (exponent is integer-only)
+                if self.state.entry_buf.contains('.') || self.state.entry_buf.contains('e') {
+                    return; // silently ignore malformed input
+                }
+                self.state.entry_buf.push('.');
+                self.message = None;
+                return;
+            }
+            if c == 'e' {
+                // Block EEX if entry is empty (no mantissa yet) or already has 'e'
+                if self.state.entry_buf.is_empty() || self.state.entry_buf.contains('e') {
+                    return; // silently ignore malformed input
+                }
+                self.state.entry_buf.push('e');
                 self.message = None;
                 return;
             }
@@ -290,8 +296,8 @@ impl App {
         // D-10: 'd' cycles angle mode DEG → RAD → GRAD
         if key.code == KeyCode::Char('d') {
             let next_op = match self.state.angle_mode {
-                AngleMode::Deg  => Op::SetRad,
-                AngleMode::Rad  => Op::SetGrad,
+                AngleMode::Deg => Op::SetRad,
+                AngleMode::Rad => Op::SetGrad,
                 AngleMode::Grad => Op::SetDeg,
             };
             self.call_dispatch(next_op);
@@ -345,50 +351,68 @@ impl App {
         // Take pending — we re-set it only if the modal continues.
         let pending = self.pending_input.take();
         match pending {
-            Some(PendingInput::StoRegister(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                Op::StoReg,
-                PendingInput::StoRegister,
-            ),
-            Some(PendingInput::RclRegister(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                Op::RclReg,
-                PendingInput::RclRegister,
-            ),
+            Some(PendingInput::StoRegister(ref acc)) => {
+                self.handle_reg_modal(key, acc.clone(), Op::StoReg, PendingInput::StoRegister)
+            }
+            Some(PendingInput::RclRegister(ref acc)) => {
+                self.handle_reg_modal(key, acc.clone(), Op::RclReg, PendingInput::RclRegister)
+            }
             Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Add },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Add,
+                },
                 PendingInput::StoAdd,
             ),
             Some(PendingInput::StoSub(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Sub },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Sub,
+                },
                 PendingInput::StoSub,
             ),
             Some(PendingInput::StoMul(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Mul },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Mul,
+                },
                 PendingInput::StoMul,
             ),
             Some(PendingInput::StoDiv(ref acc)) => self.handle_reg_modal(
-                key, acc.clone(),
-                |reg| Op::StoArith { reg, kind: hp41_core::ops::StoArithKind::Div },
+                key,
+                acc.clone(),
+                |reg| Op::StoArith {
+                    reg,
+                    kind: hp41_core::ops::StoArithKind::Div,
+                },
                 PendingInput::StoDiv,
             ),
             Some(PendingInput::AssignKey) => {
                 // D-27 step 1: waiting for any printable char
                 match key.code {
-                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
                     KeyCode::Char(c) => {
                         self.pending_input = Some(PendingInput::AssignLabel(c, String::new()));
                     }
-                    _ => { self.pending_input = Some(PendingInput::AssignKey); }
+                    _ => {
+                        self.pending_input = Some(PendingInput::AssignKey);
+                    }
                 }
             }
             Some(PendingInput::AssignLabel(c, ref acc)) => {
                 // D-27 step 2: accumulating label name
                 match key.code {
-                    KeyCode::Esc => { self.pending_input = None; }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
                     KeyCode::Enter => {
                         if !acc.is_empty() {
                             self.state.key_assignments.insert(c, acc.clone());
@@ -406,7 +430,9 @@ impl App {
                         new_acc.push(ch);
                         self.pending_input = Some(PendingInput::AssignLabel(c, new_acc));
                     }
-                    _ => { self.pending_input = Some(PendingInput::AssignLabel(c, acc.clone())); }
+                    _ => {
+                        self.pending_input = Some(PendingInput::AssignLabel(c, acc.clone()));
+                    }
                 }
             }
             Some(PendingInput::ConfirmLoad(idx)) => {
@@ -446,13 +472,12 @@ impl App {
                 let mut new_acc = acc;
                 new_acc.push(c);
                 if new_acc.len() == 2 {
-                    // Auto-dispatch on second digit (D-09)
-                    let reg: u8 = new_acc.parse().unwrap_or(0);
-                    if reg < 100 {
-                        self.call_dispatch(op_fn(reg));
-                    } else {
-                        self.message = Some(format!("Invalid register: {new_acc}"));
-                    }
+                    // Auto-dispatch on second digit (D-09).
+                    // Two ASCII digit chars always parse as u8 in 0–99 — no fallback needed.
+                    let reg: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    self.call_dispatch(op_fn(reg));
                     self.pending_input = None;
                 } else {
                     self.pending_input = Some(pending_fn(new_acc));
@@ -494,6 +519,10 @@ impl App {
                 // D-12: all printable chars route to AlphaAppend
                 self.call_dispatch(Op::AlphaAppend(c));
             }
+            KeyCode::Delete => {
+                // Phase 8: Delete key in ALPHA mode clears the entire ALPHA register (D-03)
+                self.call_dispatch(Op::AlphaClear);
+            }
             _ => {
                 // Other keys (arrows, F-keys, etc.) ignored in ALPHA mode
             }
@@ -530,6 +559,7 @@ impl App {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::time::Duration;
@@ -606,9 +636,15 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(result, "try_user_dispatch must return true when key is assigned");
+        assert!(
+            result,
+            "try_user_dispatch must return true when key is assigned"
+        );
         // Program should have run and pushed 42 onto stack
-        assert!(!app.state.stack.x.is_zero(), "program should have pushed 42 to X");
+        assert!(
+            !app.state.stack.x.is_zero(),
+            "program should have pushed 42 to X"
+        );
     }
 
     /// D-28: try_user_dispatch() returns false when user_mode is off — normal routing applies.
@@ -622,7 +658,10 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(!result, "try_user_dispatch must return false when user_mode is off");
+        assert!(
+            !result,
+            "try_user_dispatch must return false when user_mode is off"
+        );
     }
 
     /// D-28: try_user_dispatch() returns false when user_mode is on but key has no assignment.
@@ -636,7 +675,10 @@ mod tests {
             crossterm::event::KeyCode::Char('z'),
             crossterm::event::KeyModifiers::NONE,
         ));
-        assert!(!result, "try_user_dispatch must return false when key has no assignment");
+        assert!(
+            !result,
+            "try_user_dispatch must return false when key has no assignment"
+        );
     }
 
     // Helper — create a Press key event with no modifiers.
@@ -660,13 +702,16 @@ mod tests {
     }
 
     #[test]
-    fn test_q_quits_when_no_overlay_open() {
-        // Normal quit path must still work after the guard is applied.
+    fn test_ctrl_c_still_quits() {
+        // Phase 8: Ctrl+C remains the sole quit key after 'q' reassignment to SIN.
         let mut app = make_app();
-        assert!(!app.show_help);
-        assert!(!app.show_programs);
-        app.handle_key(make_key(KeyCode::Char('q')));
-        assert!(app.exit, "'q' must set exit=true when no overlay is open");
+        app.handle_key(KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        });
+        assert!(app.exit, "Ctrl+C must still quit the app");
     }
 
     #[test]
@@ -677,5 +722,113 @@ mod tests {
         app.show_programs = true;
         app.handle_key(make_key(KeyCode::Char('q')));
         assert!(!app.exit, "'q' must not quit when programs overlay is open");
+    }
+
+    // Phase 8: new behavior tests (RED — fail until implementation is added)
+
+    #[test]
+    fn test_q_no_longer_quits_in_normal_mode() {
+        // Phase 8: 'q' is now SIN, not quit. exit must stay false.
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.exit, "'q' must not quit after reassignment to SIN");
+    }
+
+    #[test]
+    fn test_delete_in_alpha_mode_clears_alpha_register() {
+        // Phase 8: Delete in ALPHA mode dispatches Op::AlphaClear
+        let mut app = make_app();
+        app.state.alpha_mode = true;
+        app.state.alpha_reg = "HELLO".to_string();
+        app.handle_key(make_key(KeyCode::Delete));
+        assert!(
+            app.state.alpha_reg.is_empty(),
+            "Delete in ALPHA mode must clear alpha_reg"
+        );
+    }
+
+    #[test]
+    fn test_eex_blocked_when_entry_buf_empty() {
+        let mut app = make_app();
+        assert!(app.state.entry_buf.is_empty());
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert!(
+            app.state.entry_buf.is_empty(),
+            "'e' must be blocked when entry_buf is empty"
+        );
+    }
+
+    #[test]
+    fn test_eex_blocked_when_already_present() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5e".to_string();
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e",
+            "'e' must not be appended when 'e' already present"
+        );
+    }
+
+    #[test]
+    fn test_decimal_blocked_when_already_present() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5".to_string();
+        app.handle_key(make_key(KeyCode::Char('.')));
+        assert_eq!(
+            app.state.entry_buf, "1.5",
+            "'.' must not be appended when '.' already present"
+        );
+    }
+
+    #[test]
+    fn test_decimal_blocked_after_eex() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5e2".to_string();
+        app.handle_key(make_key(KeyCode::Char('.')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e2",
+            "'.' must not be appended after 'e' already present"
+        );
+    }
+
+    #[test]
+    fn test_eex_appended_when_valid() {
+        let mut app = make_app();
+        app.state.entry_buf = "1.5".to_string();
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.entry_buf, "1.5e",
+            "'e' must append when entry_buf is non-empty and has no 'e'"
+        );
+    }
+
+    #[test]
+    fn test_delete_outside_alpha_mode_is_noop() {
+        // Delete is only routed to Op::AlphaClear inside handle_alpha_mode_key.
+        // Outside ALPHA mode it must not modify the stack X register.
+        let mut app = make_app();
+        // alpha_mode is false by default
+        app.state.stack.x = hp41_core::HpNum::from(7);
+        app.handle_key(make_key(KeyCode::Delete));
+        assert_eq!(
+            format!("{}", app.state.stack.x),
+            "7",
+            "Delete outside ALPHA mode must not modify stack X"
+        );
+    }
+
+    #[test]
+    fn test_q_close_help_does_not_dispatch_sin() {
+        // 'q' closes the help overlay via an early-return guard. Op::Sin must NOT fire.
+        let mut app = make_app();
+        app.show_help = true;
+        app.state.stack.x = hp41_core::HpNum::from(30);
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.show_help, "'q' must close the help overlay");
+        assert_eq!(
+            format!("{}", app.state.stack.x),
+            "30",
+            "'q' closing help must not dispatch Op::Sin (x must remain 30, not become 0.5)"
+        );
     }
 }

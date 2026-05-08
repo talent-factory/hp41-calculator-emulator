@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A faithful Rust-based software emulation of the HP-41C/CV/CX programmable RPN calculator, targeting engineers, scientists, hobbyists, and retro-computing enthusiasts who rely on — or want to learn — the HP-41 workflow. v1.0 delivers a fully keyboard-driven CLI (`hp41-cli`) backed by a UI-agnostic core library (`hp41-core`). v2.0 adds a Tauri-based graphical desktop app reusing `hp41-core` unchanged.
+A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN calculator, delivered as a keyboard-driven TUI CLI (`hp41-cli`) backed by a UI-agnostic core library (`hp41-core`). v1.0 shipped on 2026-05-08 with complete HP-41 arithmetic, keystroke programming, persistence, and cross-platform CI. v2.0 will add a Tauri-based graphical desktop app reusing `hp41-core` unchanged.
 
 ## Core Value
 
@@ -10,105 +10,95 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 ## Requirements
 
-### Validated
+### Validated (v1.0)
 
-- FR-01: RPN 4-level stack (X/Y/Z/T) and LASTX register — Validated in Phase 1: Foundation (2026-05-06)
-- FR-02: Correct stack-lift semantics — Validated in Phase 1: Foundation (2026-05-06)
+- ✓ CORE-01: 4-level RPN stack (X/Y/Z/T) and LASTX register — v1.0 Phase 1
+- ✓ CORE-02: Stack-lift semantics for all ~130 ops (Enable/Disable/Neutral) — v1.0 Phase 1
+- ✓ MATH-01: Core arithmetic with 10-digit accuracy — v1.0 Phase 2
+- ✓ MATH-02: Trig in DEG/RAD/GRAD; SIN on 'q' key — v1.0 Phases 2+8
+- ✓ MATH-03: FIX/SCI/ENG formatting with mantissa carry — v1.0 Phase 2
+- ✓ REGS-01: STO/RCL/CLREG; CLREG on 'g' key — v1.0 Phases 2+8
+- ✓ ALPH-01: 24-char ALPHA mode; AlphaClear on Delete — v1.0 Phases 2+8
+- ✓ PROG-01: Keystroke programming (LBL/GTO/XEQ/RTN/conditionals/ISG/DSE) — v1.0 Phase 3
+- ✓ PROG-02: ISG/DSE CCCCC.FFFDD counter (string-split, not float) — v1.0 Phase 3
+- ✓ DISP-01: 12-char HP-41 display + annunciators in TUI — v1.0 Phase 4
+- ✓ DISP-02: Persistent T/Z/Y/X/LASTX panel — v1.0 Phase 4
+- ✓ INPUT-01: All functions via keyboard; EEX functional — v1.0 Phases 4+8
+- ✓ PERS-01: JSON save/load with full CalcState serde — v1.0 Phase 5
+- ✓ PERS-02: 30s auto-save + exit save — v1.0 Phase 5
+- ✓ UX-01: '?' help overlay (accurate key reference) — v1.0 Phases 5+8
+- ✓ UX-02: USER mode + custom key assignments — v1.0 Phase 5
+- ✓ UX-03: 10 bundled sample programs — v1.0 Phase 5
+- ✓ SCI-01: Statistics (Σ+/−, MEAN, SDEV, L.R.) — v1.0 Phase 6
+- ✓ SCI-02: HMS↔H conversions — v1.0 Phase 6
+- ✓ QUAL-01: Cold-start 2.2ms (≤500ms) — v1.0 Phase 7
+- ✓ QUAL-02: ~65 ns/op dispatch (≤50ms) — v1.0 Phase 7
+- ✓ QUAL-03: Zero panics in hp41-core — v1.0 Phase 7
+- ✓ QUAL-04: 94.87% test coverage (≥80%) — v1.0 Phase 7
+- ✓ QUAL-05: CI green on Windows/macOS/Ubuntu — v1.0 Phase 7
+- ✓ QUAL-06: 495/500 accuracy cases (99% ≥ 98%) — v1.0 Phase 7
 
-### Active
+### Active (v1.1)
 
-**v1.0 CLI — Must-Have**
-- [ ] FR-01: RPN input model with 4-level stack (X/Y/Z/T) and LASTX register
-- [ ] FR-02: Correct stack-lift semantics (enable/disable per HP-41 rules)
-- [ ] FR-03: Alphanumeric 12-char display with annunciators (USER, PRGM, ALPHA, SHIFT, RAD/DEG/GRAD)
-- [ ] FR-04: Core arithmetic (`+ − × ÷`, `1/x`, `√x`, `x²`, `Y^X`, `LN`, `LOG`, `e^x`, `10^x`)
-- [ ] FR-05: Trig (SIN/COS/TAN + inverses) with DEG/RAD/GRAD modes
-- [ ] FR-06: Number formatting modes: FIX n, SCI n, ENG n
-- [ ] FR-07: Numeric storage registers (R00–R99) with STO, RCL, STO+/−/×/÷
-- [ ] FR-08: ALPHA mode for entering and storing alphanumeric strings
-- [ ] FR-09: Keystroke programming — LBL, GTO, XEQ, RTN, conditional tests, ISG, DSE
-- [ ] FR-10: Save/load programs and full calculator state to disk (JSON serialization)
-- [ ] FR-11: Physical-keyboard input mapping (terminal REPL/TUI)
-- [ ] FR-12: Interactive TUI showing stack, display, and annunciator state (ratatui)
-- [ ] FR-13: Built-in function reference / help command
-
-**v1.0 CLI — Should-Have (in scope)**
-- [ ] FR-14: USER mode with custom key assignments
-- [ ] FR-15: Statistics functions (Σ+, Σ−, MEAN, SDEV, linear regression)
-- [ ] FR-16: Time/date functions (HMS conversions)
-- [ ] FR-19: Bundled sample program library (≥10 well-documented programs)
-
-**Non-Functional**
-- [ ] NFR-1: Cold-start ≤ 0.5 s on Apple M1 / Intel i5 8th gen
-- [ ] NFR-2: Key-press → display update median latency ≤ 50 ms
-- [ ] NFR-3: Crash-free sessions ≥ 99.5%; all panics eliminated from `hp41-core`
-- [ ] NFR-4: ≥80% unit-test coverage in `hp41-core`; zero UI dependencies in core crate
-- [ ] NFR-5: Runs on Windows 10+, macOS 12+, Ubuntu 22.04+ from single codebase
-- [ ] NFR-6: Auto-save state every 30 s and on graceful shutdown
-- [ ] NFR-7: ≥98% numerical agreement with HP-41 reference across 500-case test suite
+- [ ] STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding)
+- [ ] EEX trailing-e-without-exponent behavior (HP-41 hardware lock on partial exponent)
+- [ ] FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file
+- [ ] FR-20: Synthetic programming (byte-code injection, FOCAL internals)
 
 ### Out of Scope
 
-- v2.0 GUI (Tauri, FR-G1–G5) — deferred until v1.0 CLI ships
-- FR-17 Print emulation (PRX/PRA/PRSTK) — deferred to v1.1
+- v2.0 GUI (Tauri, FR-G1–G5) — deferred until v1.1 CLI stable
 - FR-18 Multiple skin themes — GUI-only, v2.0
-- FR-20 Synthetic programming — could-have, deferred to v1.1+
-- FR-21 Module emulation (Math/Stat/Time/Advantage) — could-have, v1.1+
-- FR-22 `.raw` HP-41 program file import/export — could-have, v1.1+
+- FR-21 Module emulation (Math/Stat/Time/Advantage) — could-have, v1.2+
+- FR-22 `.raw` HP-41 program file import/export — could-have, v1.2+
 - FR-23 Mobile (iOS/Android) — defer until desktop stable
 - Cycle-accurate Nut CPU simulation — high effort, low user value vs. behavioral emulation
-- Redistribution of HP-copyrighted ROM images — legal risk, explicitly excluded forever
+- HP-copyrighted ROM image redistribution — legal risk, excluded permanently
 - HP-IL peripheral emulation — niche, complex
-- Wand/barcode reader — requires hardware, very niche
+- Wand/barcode reader emulation — requires hardware, very niche
 - Cloud sync — privacy and infrastructure cost
 
 ## Context
 
-The HP-41 series (1979–1990) remains beloved among engineers for its 4-level RPN stack, alphanumeric display, and keystroke programmability. Original units sell for USD 200–600+ on the second-hand market with common hardware failures. Existing emulators are platform-locked, closed-source/abandoned, low UI quality, or have fidelity gaps (USER mode, synthetic programming, stack-lift).
+v1.0 shipped in 3 days (2026-05-06 → 2026-05-08) with 8 phases, 45 plans, and 13,399 lines of Rust across `hp41-core` and `hp41-cli`. The faithful stack-lift semantics and ISG/DSE counter logic (CCCCC.FFFDD string-split) were the most commonly mis-implemented HP-41 features — both are now correctly implemented and verified.
 
-Free42 (HP-42S emulator) demonstrates strong demand for HP RPN emulators: hundreds of thousands of downloads. HP-41 ROM dumps and SDK41/V41 documentation make high-fidelity behavioral recreation technically feasible without ROM redistribution.
-
-This is a solo developer project (Daniel Senften) targeting a v1.0 CLI release on 2026-09-05.
+Key codebase facts: `hp41-core` is a UI-agnostic library with zero CLI dependencies; `hp41-cli` uses ratatui 0.30 + crossterm 0.29; all tests use `just ci` (lint + test + coverage); `#![deny(clippy::unwrap_used)]` enforces zero panics at compile time.
 
 ## Constraints
 
-- **Tech stack**: Rust stable 1.78+ — deterministic, GC-free execution ideal for emulation core
-- **Task runner**: `just` — all build/test/lint/run targets defined as recipes in a top-level `Justfile`; no bare `cargo` commands in CI or docs
-- **Architecture**: `hp41-core` must never depend on `hp41-cli` or `hp41-gui` — enforced by Cargo workspace
-- **Dependencies**: ratatui 0.28+, crossterm, clap 4.x, serde/serde_json for v1.0; Tauri v2 + Node.js for v2.0 only
-- **Timeline**: v1.0 CLI release 2026-09-05 (~17 weeks from 2026-05-12)
-- **Legal**: No HP-copyrighted ROM bytes anywhere in the codebase; license audit before public release
-- **Privacy**: No telemetry by default; local-only data storage; no network calls in MVP
-- **Compatibility**: Windows 10+, macOS 12+, Ubuntu 22.04+; file formats versioned with forward-compatible JSON schema
+- **Tech stack**: Rust stable 1.78+ — deterministic, GC-free, ideal for emulation core
+- **Task runner**: `just` — sole task runner; no bare `cargo` commands in CI or docs
+- **Architecture**: `hp41-core` must never depend on `hp41-cli` or `hp41-gui` — enforced at compile time
+- **Dependencies**: ratatui 0.30, crossterm 0.29, clap 4.x, serde/serde_json, rust_decimal, criterion (dev)
+- **Legal**: No HP-copyrighted ROM bytes; license audit before public release
+- **Privacy**: No telemetry; local-only data storage; no network calls
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Behavioral emulation, not cycle-accurate Nut CPU | High effort, low user value vs. behavioral fidelity | — Pending |
-| Cargo workspace with `hp41-core` / `hp41-cli` / `hp41-gui` crates | Enforces clean separation; GUI is a thin adapter over unchanged core | — Pending |
-| ratatui + crossterm for v1.0 TUI | Cross-platform, keyboard-driven, no GUI dep | — Pending |
-| Tauri v2 for v2.0 GUI | Rust backend + web frontend; pixel-perfect skin in HTML/CSS; deferred until v1.0 ships | — Pending |
-| GSD roadmap mirrors PRD milestones M0–M5 | Clean traceability; PRD already validated by author | — Pending |
-| Should-haves FR-14/15/16/19 included in v1.0 M4 hardening phase | Author confirmed all four in scope; FR-17 print emulation deferred | — Pending |
-| `just` as sole task runner | All build/test/lint/run/ci targets defined as `just` recipes; contributors and CI never call `cargo` directly | — Pending |
+| Behavioral emulation, not cycle-accurate Nut CPU | High effort, low user value | ✓ Good — users don't notice |
+| Cargo workspace `hp41-core` / `hp41-cli` | Enforces clean separation; GUI is thin adapter | ✓ Good — `hp41-core` reused unchanged |
+| `rust_decimal` for HpNum with 10-digit rounding | BCD-accurate without custom BCD struct | ✓ Good — 99% accuracy suite pass rate |
+| Stack-lift as `lift_enabled: bool` in Stack | Simplest correct model for 130+ ops | ✓ Good — every op explicitly declares effect |
+| ISG/DSE counter fields via string-split | Never use `floor()`/`fmod()` on f64 | ✓ Good — hardware-identical counter behavior |
+| ratatui + crossterm for TUI | Cross-platform, keyboard-driven, stable | ✓ Good — CI green on all 3 platforms |
+| `ratatui::init()` not `Terminal::new()` | Installs panic hook for terminal restore | ✓ Good — terminal never left in raw mode |
+| `just` as sole task runner | All targets as recipes; contributors never call bare `cargo` | ✓ Good — CI compliance enforced |
+| No async in hp41-core | Single-threaded event loop throughout v1.0 | ✓ Good — simpler, deterministic |
+| `serde_json` for persistence | Human-readable, diff-able, forward-compatible | ✓ Good — users can inspect/backup state files |
+| Digit entry appends to `entry_buf` directly | Auto-flushed on next non-digit; avoids per-digit PushNum | ✓ Good — correct HP-41 number entry behavior |
+| Phase 8 tech debt closure before v1.0 tag | EEX/SIN/CLREG gaps found in audit | ✓ Good — all keyboard gaps closed before release |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
 **After each milestone** (via `/gsd-complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
+1. Move shipped requirements from Active → Validated
+2. Add new requirements to Active for next milestone
+3. Update Context with current state
+4. Audit Key Decisions with outcomes
 
 ---
-*Last updated: 2026-05-06 after Phase 1: Foundation complete*
+*Last updated: 2026-05-08 after v1.0 milestone completion*

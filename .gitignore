@@ -39,3 +39,4 @@ src-tauri/target/
 
 # Claude Code local agent data
 .claude/
+.clone/

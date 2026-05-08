@@ -5,9 +5,9 @@
 //! RCL: Enable lift (like PushNum — places a value on the stack).
 
 use crate::error::HpError;
-use crate::state::CalcState;
-use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::ops::StoArithKind;
+use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
+use crate::state::CalcState;
 
 /// STO n: copy X register into storage register n. Stack unchanged.
 /// LiftEffect: Neutral. LASTX: not saved (STO is not an arithmetic operation).

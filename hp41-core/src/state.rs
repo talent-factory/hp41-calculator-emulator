@@ -24,8 +24,8 @@
 //   - No f64 arithmetic on HP-41 register values anywhere in hp41-core.
 
 use crate::num::HpNum;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
 
 /// Trigonometric angle mode — controls input/output units for SIN/COS/TAN/ASIN/ACOS/ATAN.
 /// Default: Deg (HP-41 hardware cold-start default).
@@ -117,7 +117,8 @@ impl Default for CalcState {
 
 /// The HP-41 4-level RPN stack with LASTX and stack-lift flag.
 ///
-/// Registers: X (visible), Y, Z, T (bottom). T is duplicated (not dropped) on lift.
+/// Registers: X (visible), Y, Z, T (bottom). T is dropped (overwritten by Z) on lift;
+/// T is duplicated (not consumed) on stack drop (binary result).
 /// lift_enabled: true means the next number entry will lift the stack before writing X.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stack {
@@ -127,7 +128,7 @@ pub struct Stack {
     pub y: HpNum,
     /// Z register
     pub z: HpNum,
-    /// T register (top/bottom depending on perspective; duplicated on lift)
+    /// T register — dropped (overwritten by Z) on lift; duplicated (not consumed) on stack drop
     pub t: HpNum,
     /// LASTX — captures X before it is consumed by a binary operation
     pub lastx: HpNum,
