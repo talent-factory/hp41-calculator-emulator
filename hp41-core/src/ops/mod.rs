@@ -398,8 +398,14 @@ mod flush_eex_tests {
         // This test documents the behavior so any future change is intentional.
         let mut state = make_state_with_entry("1.5e");
         let result = flush_entry_buf(&mut state);
-        assert!(result.is_err(), "trailing 'e' with no exponent must return Err");
-        assert!(state.entry_buf.is_empty(), "entry_buf must be cleared on error");
+        assert!(
+            result.is_err(),
+            "trailing 'e' with no exponent must return Err"
+        );
+        assert!(
+            state.entry_buf.is_empty(),
+            "entry_buf must be cleared on error"
+        );
     }
 }
 

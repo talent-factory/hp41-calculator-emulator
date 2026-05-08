@@ -69,8 +69,8 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('j') => Some(Op::HmsAdd),
         KeyCode::Char('J') => Some(Op::HmsSub),
         // Phase 8: Tech Debt Cleanup — previously unmapped keys
-        KeyCode::Char('q') => Some(Op::Sin),    // 'q' reassigned from quit to SIN (D-01)
-        KeyCode::Char('g') => Some(Op::Clreg),  // 'g' free key assigned to CLREG (D-02)
+        KeyCode::Char('q') => Some(Op::Sin), // 'q' reassigned from quit to SIN (D-01)
+        KeyCode::Char('g') => Some(Op::Clreg), // 'g' free key assigned to CLREG (D-02)
         // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
         // They do NOT return an Op here — the modal is intercepted in app.handle_key()
         // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
