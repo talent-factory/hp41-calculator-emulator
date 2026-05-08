@@ -62,7 +62,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "Recall register nn (00–99) to X — press R then 2 digits",
     ),
     (
-        "Shift+R",
+        "S",
         "STO [nn]",
         "Store X to register nn (00–99) — press S then 2 digits",
     ),
