@@ -208,8 +208,15 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     if state.entry_buf.is_empty() {
         return Ok(());
     }
-    let s = state.entry_buf.clone();
+    let mut s = state.entry_buf.clone();
     state.entry_buf.clear();
+    // D-09 (Phase 9): trailing 'e' with no exponent digits is HP-41 hardware-faithful
+    // shorthand for "exponent 00". Normalize by appending "00" so from_scientific accepts it.
+    // We check both 'e' and 'E' for safety even though entry_buf is always lowercase per
+    // app.rs; this also makes the normalization robust to future case-folding changes.
+    if s.ends_with('e') || s.ends_with('E') {
+        s.push_str("00");
+    }
     let d = Decimal::from_str(&s)
         .or_else(|_| Decimal::from_scientific(&s))
         .map_err(|_| HpError::InvalidOp)?;
