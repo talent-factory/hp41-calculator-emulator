@@ -4,7 +4,7 @@
 //! step string: "{pc:03} {op_name}" (D-14). Shown in the Display panel when
 //! CalcState::prgm_mode is true.
 
-use hp41_core::ops::{Op, StoArithKind};
+use hp41_core::ops::{Op, StackReg, StoArithKind};
 use hp41_core::CalcState;
 
 /// Format the current program step.
@@ -75,6 +75,21 @@ fn op_display_name(op: &Op) -> String {
                 StoArithKind::Div => "\u{00F7}",
             };
             format!("STO{op_sym} {reg:02}")
+        }
+        Op::StoArithStack { kind, stack_reg } => {
+            let op_sym = match kind {
+                StoArithKind::Add => "+",
+                StoArithKind::Sub => "-",
+                StoArithKind::Mul => "\u{00D7}",
+                StoArithKind::Div => "\u{00F7}",
+            };
+            let reg_name = match stack_reg {
+                StackReg::Y => "Y",
+                StackReg::Z => "Z",
+                StackReg::T => "T",
+                StackReg::LastX => "L",
+            };
+            format!("STO{op_sym} {reg_name}")
         }
         Op::Clreg => "CLREG".to_string(),
         // Phase 2: alpha
