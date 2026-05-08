@@ -3,7 +3,7 @@
 **Project:** HP-41 Calculator Emulator v1.0 CLI
 **Target release:** 2026-09-05
 **Milestone:** v1.0 CLI
-**Granularity:** Standard (7 phases)
+**Granularity:** Standard (8 phases)
 **Requirements coverage:** 25/25 v1 requirements mapped
 
 ---
@@ -17,6 +17,7 @@
 - [x] **Phase 5: Persistence & UX** - State save/load, auto-save, built-in help, USER mode, sample programs (completed 2026-05-07)
 - [x] **Phase 6: Science & Engineering** - Statistics functions, HMS/H conversions (completed 2026-05-07)
 - [x] **Phase 7: Hardening** - Performance, cross-platform, test coverage, numerical accuracy suite (completed 2026-05-07)
+- [ ] **Phase 8: Tech Debt Cleanup** - EEX entry fix, SIN keyboard binding, STO arithmetic modals, help text accuracy
 
 ---
 
@@ -200,6 +201,7 @@ Plans:
 | 5. Persistence & UX | 10/11 | Gaps Found  | - |
 | 6. Science & Engineering | 3/3 | Complete | 2026-05-07 |
 | 7. Hardening | 6/6 | Complete | 2026-05-07 |
+| 8. Tech Debt Cleanup | 0/- | Not Started | - |
 
 ---
 
@@ -214,8 +216,9 @@ Plans:
 | 5. Persistence & UX | PERS-01, PERS-02, UX-01, UX-02, UX-03 |
 | 6. Science & Engineering | SCI-01, SCI-02 |
 | 7. Hardening | QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06 |
+| 8. Tech Debt Cleanup | MATH-02 (SIN key), REGS-01 (STO-arith key), INPUT-01 (EEX), UX-01 (help text) |
 
-**Total mapped: 25/25**
+**Total mapped: 25/25 (Phase 8 closes keyboard coverage gaps and documentation staleness)**
 
 ---
 
