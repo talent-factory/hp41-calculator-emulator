@@ -224,10 +224,34 @@ fn test_hms_sub_saves_lastx() {
 }
 
 #[test]
-fn test_hms_add_invalid_operand_returns_invalid_input() {
-    // X = 1.6000 (60 minutes) → both operands validated → HpError::InvalidInput
+fn test_hms_add_invalid_x_operand_returns_invalid_input() {
+    // X = 1.6000 (60 minutes) → invalid; both operands are validated before mutation
     let mut s = CalcState::new();
     push_dec(&mut s, "1.0000"); // Y (valid)
     push_dec(&mut s, "1.6000"); // X (invalid: 60 minutes)
     assert_eq!(dispatch(&mut s, Op::HmsAdd), Err(HpError::InvalidInput));
+}
+
+#[test]
+fn test_hms_add_invalid_y_operand_returns_invalid_input() {
+    let mut s = CalcState::new();
+    push_dec(&mut s, "1.6000"); // Y (invalid: 60 minutes)
+    push_dec(&mut s, "1.0000"); // X (valid)
+    assert_eq!(dispatch(&mut s, Op::HmsAdd), Err(HpError::InvalidInput));
+}
+
+#[test]
+fn test_hms_sub_invalid_x_operand_returns_invalid_input() {
+    let mut s = CalcState::new();
+    push_dec(&mut s, "2.0000"); // Y (valid)
+    push_dec(&mut s, "1.6000"); // X (invalid: 60 minutes)
+    assert_eq!(dispatch(&mut s, Op::HmsSub), Err(HpError::InvalidInput));
+}
+
+#[test]
+fn test_hms_sub_invalid_y_operand_returns_invalid_input() {
+    let mut s = CalcState::new();
+    push_dec(&mut s, "1.6000"); // Y (invalid: 60 minutes)
+    push_dec(&mut s, "1.0000"); // X (valid)
+    assert_eq!(dispatch(&mut s, Op::HmsSub), Err(HpError::InvalidInput));
 }

@@ -191,16 +191,62 @@ fn test_trig_ops_save_lastx() {
 
 #[test]
 fn test_trig_ops_enable_lift() {
+    // 0.5 is a valid input domain for all six ops in DEG mode:
+    // sin(0.5°), cos(0.5°), tan(0.5°) — fine; asin(0.5)=30°, acos(0.5)=60°, atan(0.5)≈26.6°
     let ops = vec![Op::Sin, Op::Cos, Op::Tan, Op::Asin, Op::Acos, Op::Atan];
     for op in ops {
         let mut s = CalcState::new();
         set_deg(&mut s);
-        push_dec(&mut s, "0.5"); // valid domain for sin/cos/tan/asin
+        push_dec(&mut s, "0.5");
         s.stack.lift_enabled = false;
-        let _ = dispatch(&mut s, op.clone()); // may return ok or err depending on op
-                                              // Only check lift if op succeeded
-        if s.stack.lift_enabled {
-            assert!(s.stack.lift_enabled, "{op:?} must enable lift on success");
-        }
+        dispatch(&mut s, op.clone()).unwrap();
+        assert!(s.stack.lift_enabled, "{op:?} must enable lift on success");
     }
+}
+
+// ── ACOS tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_acos_half_is_60_deg() {
+    let mut s = CalcState::new();
+    set_deg(&mut s);
+    push_dec(&mut s, "0.5");
+    dispatch(&mut s, Op::Acos).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(60), "ACOS(0.5) in DEG = 60");
+}
+
+#[test]
+fn test_acos_out_of_domain_returns_error() {
+    let mut s = CalcState::new();
+    set_deg(&mut s);
+    push(&mut s, 2); // |2| > 1 — domain error
+    assert_eq!(dispatch(&mut s, Op::Acos), Err(HpError::Domain));
+}
+
+// ── ATAN in RAD and GRAD modes ───────────────────────────────────────────
+
+#[test]
+fn test_atan_1_in_rad_mode() {
+    let mut s = CalcState::new();
+    set_rad(&mut s);
+    push(&mut s, 1);
+    dispatch(&mut s, Op::Atan).unwrap();
+    // ATAN(1) in RAD = π/4 ≈ 0.7853981634
+    let result = s.stack.x.inner();
+    let expected = Decimal::from_str("0.7853981634").unwrap();
+    let diff = (result - expected).abs();
+    assert!(
+        diff < Decimal::from_str("0.0000000001").unwrap(),
+        "ATAN(1) in RAD = π/4 ≈ 0.7853981634, got {result}"
+    );
+}
+
+#[test]
+fn test_atan_1_in_grad_mode() {
+    let mut s = CalcState::new();
+    set_grad(&mut s);
+    push(&mut s, 1);
+    dispatch(&mut s, Op::Atan).unwrap();
+    // ATAN(1) in GRAD = 50 grad
+    assert_eq!(s.stack.x.inner(), Decimal::from(50), "ATAN(1) in GRAD = 50");
 }
