@@ -471,10 +471,7 @@ mod flush_eex_tests {
         flush_entry_buf(&mut state).unwrap();
         assert!(state.entry_buf.is_empty());
         // 1e-2 == 0.01
-        assert_eq!(
-            state.stack.x.0,
-            Decimal::from_str("0.01").unwrap()
-        );
+        assert_eq!(state.stack.x.0, Decimal::from_str("0.01").unwrap());
     }
 }
 

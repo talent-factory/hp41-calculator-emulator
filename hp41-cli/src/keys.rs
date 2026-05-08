@@ -158,7 +158,10 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
         "V",
         "CL\u{03A3} (clear \u{03A3} stats registers R01-R06 to zero)",
     ),
-    ("F", "FIX/SCI/ENG n modal (set exact digit count 0\u{2013}9)"),
+    (
+        "F",
+        "FIX/SCI/ENG n modal (set exact digit count 0\u{2013}9)",
+    ),
     ("h", "HMS\u{2192} (H.MMSS to decimal hours)"),
     ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
     ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),

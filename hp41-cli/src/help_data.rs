@@ -231,7 +231,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "HMS\u{2192}",
         "Convert H.MMSS (hours.minutesseconds) to decimal hours",
     ),
-    ("(none)", "\u{2192}HMS", "Convert decimal hours to H.MMSS format (key unbound; use dispatch)"),
+    (
+        "(none)",
+        "\u{2192}HMS",
+        "Convert decimal hours to H.MMSS format (key unbound; use dispatch)",
+    ),
     (
         "j",
         "HMS+",
