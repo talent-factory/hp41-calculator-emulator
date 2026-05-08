@@ -21,7 +21,7 @@ use math::{
     op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_recip, op_set_deg,
     op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
-use registers::{op_clreg, op_rcl, op_sto, op_sto_arith};
+use registers::{op_clreg, op_rcl, op_sto, op_sto_arith, op_sto_arith_stack};
 use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
 
 /// STO arithmetic operation kind.
@@ -31,6 +31,15 @@ pub enum StoArithKind {
     Sub,
     Mul,
     Div,
+}
+
+/// Stack register target for STO arithmetic operations (STOA-03).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum StackReg {
+    Y,
+    Z,
+    T,
+    LastX,
 }
 
 /// HP-41 conditional test kind — 12 total. Used in Op::Test(TestKind).
@@ -133,6 +142,11 @@ pub enum Op {
     StoArith {
         reg: u8,
         kind: StoArithKind,
+    },
+    /// STO+/−/×/÷ stack-reg — arithmetic on a stack register using X. LiftEffect: Neutral.
+    StoArithStack {
+        kind: StoArithKind,
+        stack_reg: StackReg,
     },
     /// CLREG — clear all storage registers to zero. LiftEffect: Neutral.
     Clreg,
@@ -317,6 +331,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::StoReg(r) => op_sto(state, r),
         Op::RclReg(r) => op_rcl(state, r),
         Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),
+        Op::StoArithStack { kind, stack_reg } => op_sto_arith_stack(state, stack_reg, kind),
         Op::Clreg => op_clreg(state),
         Op::AlphaToggle => op_alpha_toggle(state),
         Op::AlphaAppend(ch) => op_alpha_append(state, ch),
