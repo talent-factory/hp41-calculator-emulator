@@ -154,7 +154,15 @@ impl App {
             return;
         }
 
-        // Phase 5: pending input guard — intercept BEFORE alpha mode and digit entry (D-08, Pitfall 5).
+        // Phase 5: route to pending_input handler if modal is active — MUST come before
+        // the modal-opening interceptors below (CR-02). If any modal is active, 'S', 'R',
+        // and Ctrl+A must be handled by the active modal, not silently replaced.
+        if self.pending_input.is_some() {
+            self.handle_pending_input(key);
+            return;
+        }
+
+        // Only open new modals when no modal is currently active (D-08, Pitfall 5).
         // S key triggers StoRegister modal; R key triggers RclRegister modal.
         if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::StoRegister(String::new()));
@@ -170,11 +178,6 @@ impl App {
         if key.code == KeyCode::Char('a') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::AssignKey);
             self.message = None;
-            return;
-        }
-        // Route to pending_input handler if modal is active
-        if self.pending_input.is_some() {
-            self.handle_pending_input(key);
             return;
         }
 
