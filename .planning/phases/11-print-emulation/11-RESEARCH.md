@@ -465,19 +465,22 @@ PendingInput::PrintModal => "PRNT: _".to_string(),
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`App::new()` signature change for `print_log`**
+   RESOLVED: Add `print_log: Option<std::path::PathBuf>` as a third parameter. `App::new_for_test()` updated to call `App::new(state, path, None)`. All other test call sites in `app.rs` use `App::new_for_test()`, so only one place to fix.
    - What we know: `App::new` currently takes `(state: CalcState, state_path: PathBuf)`. Adding `print_log` as a third parameter is the simplest approach.
    - What's unclear: Whether tests that call `App::new_for_test()` or `App::new(...)` directly need updating.
    - Recommendation: `App::new_for_test()` is a private test constructor; update it to call `App::new(state, path, None)`. All test call sites in `app.rs` use `App::new_for_test()` so only one place to fix.
 
 2. **Drain location: D-15 vs D-16**
+   RESOLVED: D-16 chosen — dedicated `call_dispatch_and_drain` method on `App`, called only from the PrintModal arm of `handle_pending_input()`. This is the minimal-footprint change; no other dispatch paths are affected.
    - What we know: D-15 drains in `run()` before `terminal.draw()`; D-16 drains inside `handle_key()` after `call_dispatch()`.
    - What's unclear: D-15 requires changing `run()` which is tested; D-16 requires either a new `call_dispatch_and_drain` method or inlining drain logic in the PrintModal arm only.
    - Recommendation: D-16 with drain inlined only in the PrintModal arm of `handle_pending_input`. This is the minimal-footprint change: only the three print ops ever need buffer drain; all other ops leave `print_buffer` empty.
 
 3. **File open error reporting**
+   RESOLVED: `App::new()` captures the open-failure error into a local `initial_message: Option<String>` variable and uses it to initialize the `message` field in the `App { ... }` struct literal. This makes the error immediately visible in the TUI status bar on startup. `eprintln!` is also called as a fallback for contexts where the TUI is not yet rendered. `print_log_writer` is set to `None` on failure; the app continues without file logging (no panic, per D-04).
    - What we know: `App::new()` returns `Self`, not `Result`. Error must be communicated as a startup message.
    - What's unclear: Whether to add an `Option<String>` error field to `App` or follow the `main.rs` pattern of returning a message alongside the app.
    - Recommendation: Follow the `main.rs` pattern — `App::new()` returns `(App, Option<String>)` or `App::new()` stores the error in `self.message` after construction. The latter is simpler; the main.rs pattern using `load_message` already does this.
