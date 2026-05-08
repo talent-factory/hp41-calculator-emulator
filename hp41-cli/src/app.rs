@@ -267,8 +267,20 @@ impl App {
         // dispatch() calls flush_entry_buf() automatically on the next non-digit op.
         // DO NOT call dispatch() here — that would push each digit as a separate PushNum.
         // Phase 8 (T-08-03, T-08-04): guards prevent malformed strings reaching flush_entry_buf.
+        // Phase 9 (D-05/D-06/D-07/D-08): EEX hardware fidelity — implicit "1" mantissa on
+        // empty-buffer EEX, 2-digit exponent cap, double-EEX still blocked.
         if let KeyCode::Char(c) = key.code {
             if c.is_ascii_digit() {
+                // Phase 9 D-05/D-06: cap exponent entry at 2 digits. If entry_buf contains 'e',
+                // count the digits AFTER 'e' (excluding optional leading '-'). If count >= 2,
+                // silently ignore the new digit (no message, no beep).
+                if let Some(e_pos) = self.state.entry_buf.find('e') {
+                    let after_e = &self.state.entry_buf[e_pos + 1..];
+                    let exp_digit_count = after_e.chars().filter(|ch| ch.is_ascii_digit()).count();
+                    if exp_digit_count >= 2 {
+                        return; // silently block 3rd exponent digit
+                    }
+                }
                 self.state.entry_buf.push(c);
                 self.message = None;
                 return;
@@ -283,11 +295,18 @@ impl App {
                 return;
             }
             if c == 'e' {
-                // Block EEX if entry is empty (no mantissa yet) or already has 'e'
-                if self.state.entry_buf.is_empty() || self.state.entry_buf.contains('e') {
-                    return; // silently ignore malformed input
+                // Phase 9 D-08: still block double-EEX (entry_buf already contains 'e').
+                if self.state.entry_buf.contains('e') {
+                    return; // silently ignore second EEX
                 }
-                self.state.entry_buf.push('e');
+                // Phase 9 D-07: empty-buffer EEX inserts implicit "1" mantissa.
+                // HP-41 hardware shows "1   _" in this state; we set entry_buf = "1e" and
+                // let format_entry_buf_display in ui.rs render it as "1E_ _".
+                if self.state.entry_buf.is_empty() {
+                    self.state.entry_buf.push_str("1e");
+                } else {
+                    self.state.entry_buf.push('e');
+                }
                 self.message = None;
                 return;
             }
@@ -748,13 +767,15 @@ mod tests {
     }
 
     #[test]
-    fn test_eex_blocked_when_entry_buf_empty() {
+    fn test_eex_on_empty_entry_buf_inserts_implicit_one() {
+        // Phase 9 D-07: pressing 'e' on empty buffer inserts "1e" (implicit mantissa).
+        // The old behavior (blocking EEX when empty) was removed in Phase 9.
         let mut app = make_app();
         assert!(app.state.entry_buf.is_empty());
         app.handle_key(make_key(KeyCode::Char('e')));
-        assert!(
-            app.state.entry_buf.is_empty(),
-            "'e' must be blocked when entry_buf is empty"
+        assert_eq!(
+            app.state.entry_buf, "1e",
+            "'e' on empty entry_buf must insert implicit mantissa \"1e\" (D-07)"
         );
     }
 
