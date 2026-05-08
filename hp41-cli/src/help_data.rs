@@ -7,7 +7,7 @@
 //! Keys derived from KEY_REF_TABLE in keys.rs; descriptions added here.
 //! ≥50 entries covering all keyboard-accessible HP-41 operations.
 
-/// (key_binding, hp41_op_name, description) — ≥50 entries, 10 categories.
+/// (key_binding, hp41_op_name, description) — ≥50 entries, 13 categories.
 pub const HELP_DATA: &[(&str, &str, &str)] = &[
     // ── Stack ─────────────────────────────────────────────────────────────────
     ("", "", "=== Stack ==="),
@@ -91,6 +91,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "Bksp",
         "ALPHA ←",
         "While in ALPHA mode: delete last character",
+    ),
+    (
+        "Del",
+        "ALPHA CLR",
+        "While in ALPHA mode: clear entire ALPHA register",
     ),
     (
         "Esc",
@@ -224,9 +229,9 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),
     (
-        "Esc/?",
+        "Esc/q/?",
         "HELP close",
-        "Close this overlay (Esc or ? again)",
+        "Close this overlay (Esc, q, or ? again)",
     ),
     ("↑/↓/j/k", "scroll", "Scroll this table up/down"),
     // ── Quit ──────────────────────────────────────────────────────────────────
@@ -249,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn test_all_ten_categories_present() {
+    fn test_all_thirteen_categories_present() {
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",
@@ -261,6 +266,9 @@ mod tests {
             "=== Display ===",
             "=== Persistence ===",
             "=== USER Mode ===",
+            "=== Science & Engineering ===",
+            "=== Help ===",
+            "=== Quit ===",
         ];
         for cat in &categories {
             assert!(

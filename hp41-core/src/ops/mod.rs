@@ -390,6 +390,17 @@ mod flush_eex_tests {
         let mut state = make_state_with_entry("notanumber");
         assert!(flush_entry_buf(&mut state).is_err());
     }
+
+    #[test]
+    fn test_flush_trailing_e_without_exponent_returns_err() {
+        // "1.5e" has no exponent digits — both from_str and from_scientific reject it.
+        // Current behavior: InvalidOp + entry_buf cleared (number is silently lost).
+        // This test documents the behavior so any future change is intentional.
+        let mut state = make_state_with_entry("1.5e");
+        let result = flush_entry_buf(&mut state);
+        assert!(result.is_err(), "trailing 'e' with no exponent must return Err");
+        assert!(state.entry_buf.is_empty(), "entry_buf must be cleared on error");
+    }
 }
 
 #[cfg(test)]
