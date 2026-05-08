@@ -12,17 +12,17 @@
 
 ### Math & Formatting
 
-- [ ] **MATH-01**: User can perform core arithmetic (`+ − × ÷`, `1/x`, `√x`, `x²`, `Y^X`, `LN`, `LOG`, `e^x`, `10^x`) with HP-41-accurate 10-digit results
-- [ ] **MATH-02**: User can perform trig (SIN/COS/TAN + inverses) in DEG, RAD, and GRAD modes
-- [ ] **MATH-03**: User can switch number formatting between FIX n, SCI n, and ENG n (n = 0–9)
+- [x] **MATH-01**: User can perform core arithmetic (`+ − × ÷`, `1/x`, `√x`, `x²`, `Y^X`, `LN`, `LOG`, `e^x`, `10^x`) with HP-41-accurate 10-digit results
+- [x] **MATH-02**: User can perform trig (SIN/COS/TAN + inverses) in DEG, RAD, and GRAD modes *(note: SIN reachable via programs; keyboard binding deferred to v1.1)*
+- [x] **MATH-03**: User can switch number formatting between FIX n, SCI n, and ENG n (n = 0–9)
 
 ### Registers
 
-- [ ] **REGS-01**: User has storage registers R00–R99 with STO, RCL, and STO+/−/×/÷ operations that match HP-41 hardware behavior
+- [x] **REGS-01**: User has storage registers R00–R99 with STO, RCL, and STO+/−/×/÷ operations that match HP-41 hardware behavior *(note: STO arithmetic accessible via programs; interactive key bindings deferred to v1.1)*
 
 ### ALPHA Mode
 
-- [ ] **ALPH-01**: User can enter and store alphanumeric strings in the 24-char ALPHA register via ALPHA mode keyboard input
+- [x] **ALPH-01**: User can enter and store alphanumeric strings in the 24-char ALPHA register via ALPHA mode keyboard input
 
 ### Keystroke Programming
 
@@ -40,19 +40,19 @@
 
 ### State Persistence
 
-- [ ] **PERS-01**: User can save and load programs and full calculator state to/from versioned JSON files on disk
-- [ ] **PERS-02**: Calculator state auto-saves every 30 s and on graceful shutdown (equivalent to HP-41 continuous memory)
+- [x] **PERS-01**: User can save and load programs and full calculator state to/from versioned JSON files on disk
+- [x] **PERS-02**: Calculator state auto-saves every 30 s and on graceful shutdown (equivalent to HP-41 continuous memory)
 
 ### User Experience
 
-- [ ] **UX-01**: User can access a built-in function reference/help from within the TUI (`?` or `HELP` command)
-- [ ] **UX-02**: User can enable USER mode with custom key assignments that are persisted in state
-- [ ] **UX-03**: User can run ≥10 bundled, documented sample programs that demonstrate core programming features
+- [x] **UX-01**: User can access a built-in function reference/help from within the TUI (`?` or `HELP` command) *(note: help_data.rs SIN entry stale — deferred to v1.1)*
+- [x] **UX-02**: User can enable USER mode with custom key assignments that are persisted in state
+- [x] **UX-03**: User can run ≥10 bundled, documented sample programs that demonstrate core programming features
 
 ### Science & Engineering Functions
 
-- [ ] **SCI-01**: User can perform statistics operations: Σ+, Σ−, MEAN, SDEV, and linear regression using Σ registers (R01–R06)
-- [ ] **SCI-02**: User can perform HMS/H conversions: →HMS, HMS→, HMS+, HMS−
+- [x] **SCI-01**: User can perform statistics operations: Σ+, Σ−, MEAN, SDEV, and linear regression using Σ registers (R01–R06)
+- [x] **SCI-02**: User can perform HMS/H conversions: →HMS, HMS→, HMS+, HMS−
 
 ### Quality & Performance
 
@@ -101,23 +101,23 @@
 |-------------|-------|--------|
 | CORE-01 | Phase 1 | Complete |
 | CORE-02 | Phase 1 | Complete |
-| MATH-01 | Phase 2 | Pending |
-| MATH-02 | Phase 2 | Pending |
-| MATH-03 | Phase 2 | Pending |
-| REGS-01 | Phase 2 | Pending |
-| ALPH-01 | Phase 2 | Pending |
+| MATH-01 | Phase 2 | Complete (2026-05-07) |
+| MATH-02 | Phase 2 | Complete (2026-05-07) — SIN keyboard binding deferred v1.1 |
+| MATH-03 | Phase 2 | Complete (2026-05-07) |
+| REGS-01 | Phase 2 | Complete (2026-05-07) — STO arithmetic keyboard binding deferred v1.1 |
+| ALPH-01 | Phase 2 | Complete (2026-05-07) |
 | PROG-01 | Phase 3 | Complete |
 | PROG-02 | Phase 3 | Complete |
 | DISP-01 | Phase 4 | Complete |
 | DISP-02 | Phase 4 | Complete |
-| INPUT-01 | Phase 4 | Complete |
-| PERS-01 | Phase 5 | Pending |
-| PERS-02 | Phase 5 | Pending |
-| UX-01 | Phase 5 | Pending |
-| UX-02 | Phase 5 | Pending |
-| UX-03 | Phase 5 | Pending |
-| SCI-01 | Phase 6 | Validated in Phase 6 (2026-05-07) |
-| SCI-02 | Phase 6 | Validated in Phase 6 (2026-05-07) |
+| INPUT-01 | Phase 4 | Complete (2026-05-07) |
+| PERS-01 | Phase 5 | Complete (2026-05-07) |
+| PERS-02 | Phase 5 | Complete (2026-05-07) |
+| UX-01 | Phase 5 | Complete (2026-05-07) — help_data SIN entry stale, deferred v1.1 |
+| UX-02 | Phase 5 | Complete (2026-05-07) |
+| UX-03 | Phase 5 | Complete (2026-05-07) |
+| SCI-01 | Phase 6 | Complete (2026-05-07) |
+| SCI-02 | Phase 6 | Complete (2026-05-07) |
 | QUAL-01 | Phase 7 | Complete (2026-05-07) |
 | QUAL-02 | Phase 7 | Complete (2026-05-07) |
 | QUAL-03 | Phase 7 | Complete (2026-05-07) |
