@@ -65,6 +65,7 @@ just ci
 - [HP-41C/CV Owner's Manual](https://www.hpmuseum.org/41ownman.htm) — Museum of HP Calculators
 - [HP-41C/CV/CX Advanced Functions Handbook](https://www.hpmuseum.org/41advfun.htm)
 - [HP-41CX Owner's Manual](https://www.hpmuseum.org/41cxman.htm)
+- [HP-41 Programming](https://www.hpmuseum.org/prog/hp41prog.htm) — hpmuseum.org
 
 ## Project Structure
 
