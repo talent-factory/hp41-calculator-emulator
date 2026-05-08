@@ -7,9 +7,9 @@
 
 ### Input Behavior (EEX Fix)
 
-- [ ] **INPUT-01**: User pressing EEX then an op key (without typing exponent digits) commits the number with exponent 00 (e.g. `1.5e` + ENTER → `1.5`)
-- [ ] **INPUT-02**: User pressing EEX on an empty entry buffer sees `1` inserted as implicit mantissa (matches HP-41 hardware: `1   _` in exponent entry mode)
-- [ ] **INPUT-03**: TUI displays a placeholder cursor during partial exponent state (e.g. `1.5E_ _`) to signal exponent entry is pending
+- [x] **INPUT-01**: User pressing EEX then an op key (without typing exponent digits) commits the number with exponent 00 (e.g. `1.5e` + ENTER → `1.5`) — Validated in Phase 9
+- [x] **INPUT-02**: User pressing EEX on an empty entry buffer sees `1` inserted as implicit mantissa (matches HP-41 hardware: `1   _` in exponent entry mode) — Validated in Phase 9
+- [x] **INPUT-03**: TUI displays a placeholder cursor during partial exponent state (e.g. `1.5E_ _`) to signal exponent entry is pending — Validated in Phase 9
 
 ### STO Arithmetic Modals
 
@@ -33,7 +33,7 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Project MSRV formally bumped to Rust 1.85 in `Cargo.toml` and CI/docs (resolves `clap` 4.6.1 discrepancy); `rust_decimal` bumped 1.41 → 1.42
+- [x] **INFRA-01**: Project MSRV formally bumped to Rust 1.85 in `Cargo.toml` and CI/docs (resolves `clap` 4.6.1 discrepancy); `rust_decimal` bumped 1.41 → 1.42 — Validated in Phase 9
 
 ## v2+ Requirements
 

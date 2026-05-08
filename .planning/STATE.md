@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: CLI Feature Completeness
-current_phase: 9
-current_plan: All plans complete — verifying
-status: verifying
-last_updated: "2026-05-08T15:00:00.000Z"
+current_phase: 10
+current_plan: Not started
+status: planned
+last_updated: "2026-05-08T15:30:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 25
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
-**Current focus:** Phase 9 — Infrastructure & EEX Fix
+**Current focus:** Phase 10 — STO Arithmetic Modals
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -32,12 +32,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 9 of 12 (Infrastructure & EEX Fix)
+Phase: 10 of 12 (STO Arithmetic Modals)
 Plan: Not started
-Status: Ready to execute (3 plans)
-Last activity: 2026-05-08 — Phase 9 planned (3 plans in 2 waves)
+Status: Ready to plan
+Last activity: 2026-05-08 — Phase 9 complete (3/3 plans, verification passed 5/5)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25%
 
 ---
 
@@ -47,7 +47,7 @@ Progress: [░░░░░░░░░░] 0%
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% | 94.87% |
+| `hp41-core` test coverage | ≥ 80% | 94.87% (Phase 9: 94.22%) |
 | Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
 | CI platforms | Win/macOS/Ubuntu | All green |
@@ -70,14 +70,20 @@ Progress: [░░░░░░░░░░] 0%
 | No async in `hp41-core` | Single-threaded event loop | All |
 | `#![deny(clippy::unwrap_used)]` | Compile-time zero-panic guarantee | Phase 7 |
 | `print_buffer: Vec<String>` on CalcState | Keeps hp41-core I/O-free; hp41-cli drains buffer | Phase 11 |
+| EEX trailing-e → append "00" | Hardware fidelity; `flush_entry_buf` normalizes before parse chain | Phase 9 |
+| Empty-buffer EEX inserts "1e" | HP-41 hardware behavior; implicit mantissa | Phase 9 |
+| `format_entry_buf_display` in ui.rs | TUI exponent placeholder rendering separated from `get_display_string` | Phase 9 |
+| `pending_input` routing before modal interceptors | Prevents active dialogs being silently discarded by S/R/Ctrl+A | Phase 9 |
+| `entry_buf` preserved on parse failure | Silent data loss fix; clear only on successful parse | Phase 9 |
+| MSRV 1.85 with workspace inheritance | `rust-version.workspace = true` in member crates; CI job with llvm-tools | Phase 9 |
 
 ### Critical Implementation Traps (v1.1)
 
-- `test_flush_trailing_e_without_exponent_returns_err` must be INVERTED — it currently asserts the wrong (discarding) behavior; Phase 9 corrects this
 - Every new Op variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`
 - New CalcState fields need `#[serde(default)]` for backward compatibility with v1.0 save files
 - STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 is TUI wiring only
 - Phase 10 has no hp41-core changes; all work is in hp41-cli (modal state machine in app.rs)
+- `pending_input` routing block must remain ABOVE modal-opening interceptors (S/R/Ctrl+A) to prevent modal interruption
 
 ### Blockers
 
@@ -88,9 +94,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** Phase 9 planned — 3 plans (09-01 MSRV/CI, 09-02 flush_entry_buf core, 09-03 EEX guards + display) in 2 waves
-**Next action:** `/gsd-execute-phase 9`
+**Last action:** Phase 9 complete — MSRV 1.85 enforced, EEX hardware behavior correct, 461 tests pass, 5/5 verification passed
+**Next action:** `/gsd-discuss-phase 10` (CONTEXT.md not yet present for Phase 10)
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after v1.1 roadmap creation*
+*Last updated: 2026-05-08 after Phase 9 completion*
