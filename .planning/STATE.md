@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: CLI Feature Completeness
-current_phase: 0
+current_phase: 9
 current_plan: Not started
 status: planning
 last_updated: "2026-05-08T10:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,6 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
+**Current focus:** Phase 9 — Infrastructure & EEX Fix
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -31,10 +32,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-05-08 — Milestone v1.1 started
+Phase: 9 of 12 (Infrastructure & EEX Fix)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-08 — Roadmap created; v1.1 phases 9–12 defined
+
+Progress: [░░░░░░░░░░] 0%
 
 ---
 
@@ -47,7 +50,7 @@ Last activity: 2026-05-08 — Milestone v1.1 started
 | `hp41-core` test coverage | ≥ 80% | 94.87% |
 | Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
-| CI platforms | Win/macOS/Ubuntu | All green (run #25539003811) |
+| CI platforms | Win/macOS/Ubuntu | All green |
 
 ---
 
@@ -66,29 +69,17 @@ Last activity: 2026-05-08 — Milestone v1.1 started
 | `serde_json` for persistence | Human-readable, diff-able, versioned JSON | Phase 5 |
 | No async in `hp41-core` | Single-threaded event loop | All |
 | `#![deny(clippy::unwrap_used)]` | Compile-time zero-panic guarantee | Phase 7 |
+| `print_buffer: Vec<String>` on CalcState | Keeps hp41-core I/O-free; hp41-cli drains buffer | Phase 11 |
 
-### Critical Implementation Traps
+### Critical Implementation Traps (v1.1)
 
-- ISG/DSE counter fields must be extracted by string-splitting at the decimal point — never with `floor()`/`fmod()` on f64
-- Windows crossterm fires both `KeyEventKind::Press` and `KeyEventKind::Release` — filter to Press only or every operation executes twice
-- Always use `ratatui::init()` (not `Terminal::new()`) to install the panic hook
-- Use `event::poll(timeout)` not `event::read()` to support the 30-second auto-save timer
-- `cargo llvm-cov` accumulates stale `.profraw` data in worktree runs — always `cargo llvm-cov clean --workspace` before measuring coverage
+- `test_flush_trailing_e_without_exponent_returns_err` must be INVERTED — it currently asserts the wrong (discarding) behavior; Phase 9 corrects this
+- Every new Op variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`
+- New CalcState fields need `#[serde(default)]` for backward compatibility with v1.0 save files
+- STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 is TUI wiring only
+- Phase 10 has no hp41-core changes; all work is in hp41-cli (modal state machine in app.rs)
 
----
-
-## Deferred Items
-
-Items acknowledged at v1.0 milestone close (2026-05-08):
-
-| Category | Item | Status |
-|----------|------|--------|
-| keyboard | STO arithmetic modals (STO+/-/×/÷) | Deferred to v1.1 |
-| behavior | EEX trailing-e-without-exponent discards silently | Documented with test; v1.1 |
-
----
-
-## Blockers
+### Blockers
 
 None.
 
@@ -97,9 +88,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-08
-**Last action:** Milestone v1.1 started — goals confirmed, defining requirements
-**Next action:** Define requirements, create roadmap, then `/gsd-plan-phase [N]`
+**Last action:** v1.1 roadmap created — 4 phases (9–12), 15 requirements mapped
+**Next action:** `/gsd-plan-phase 9`
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after v1.0 milestone completion*
+*Last updated: 2026-05-08 after v1.1 roadmap creation*

@@ -65,31 +65,29 @@
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01    | —     | Pending |
-| INPUT-01    | —     | Pending |
-| INPUT-02    | —     | Pending |
-| INPUT-03    | —     | Pending |
-| STOA-01     | —     | Pending |
-| STOA-02     | —     | Pending |
-| STOA-03     | —     | Pending |
-| PRNT-01     | —     | Pending |
-| PRNT-02     | —     | Pending |
-| PRNT-03     | —     | Pending |
-| PRNT-04     | —     | Pending |
-| SYNT-01     | —     | Pending |
-| SYNT-02     | —     | Pending |
-| SYNT-03     | —     | Pending |
-| SYNT-04     | —     | Pending |
+| INFRA-01    | Phase 9  | Pending |
+| INPUT-01    | Phase 9  | Pending |
+| INPUT-02    | Phase 9  | Pending |
+| INPUT-03    | Phase 9  | Pending |
+| STOA-01     | Phase 10 | Pending |
+| STOA-02     | Phase 10 | Pending |
+| STOA-03     | Phase 10 | Pending |
+| PRNT-01     | Phase 11 | Pending |
+| PRNT-02     | Phase 11 | Pending |
+| PRNT-03     | Phase 11 | Pending |
+| PRNT-04     | Phase 11 | Pending |
+| SYNT-01     | Phase 12 | Pending |
+| SYNT-02     | Phase 12 | Pending |
+| SYNT-03     | Phase 12 | Pending |
+| SYNT-04     | Phase 12 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 15 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-08*
-*Last updated: 2026-05-08 after initial definition*
+*Last updated: 2026-05-08 — traceability filled after roadmap creation*
