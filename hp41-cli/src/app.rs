@@ -173,7 +173,7 @@ impl App {
         // 'F' (Shift+f) opens the digit-count modal for the current display mode.
         // The modal lets the user set an exact digit count for FIX/SCI/ENG via 0–9.
         if key.code == KeyCode::Char('F') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.pending_input = Some(PendingInput::FmtDigits(self.state.display_mode.clone()));
+            self.pending_input = Some(PendingInput::FmtDigits(self.state.display_mode));
             self.message = None;
             return;
         }
