@@ -2,6 +2,7 @@
 name = "hp41-core"
 version = "0.1.0"
 edition = "2021"
+rust-version.workspace = true
 
 [dependencies]
 rust_decimal = { workspace = true, features = ["maths", "serde-with-str"] }
