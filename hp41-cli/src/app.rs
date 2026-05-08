@@ -313,6 +313,23 @@ impl App {
                 self.message = None;
                 return;
             }
+            if c == 'n' && self.state.entry_buf.contains('e') {
+                // CHS during EEX entry: toggle exponent sign in-place — no flush, no dispatch.
+                // HP-41 hardware behavior: CHS while in EEX mode toggles the exponent sign.
+                // Find the 'e' position; everything after it is the (optional signed) exponent.
+                if let Some(e_pos) = self.state.entry_buf.find('e') {
+                    let after_e = &self.state.entry_buf[e_pos + 1..];
+                    if after_e.starts_with('-') {
+                        // Remove the minus: "1e-2" → "1e2", "1e-" → "1e"
+                        self.state.entry_buf.remove(e_pos + 1);
+                    } else {
+                        // Insert minus: "1e2" → "1e-2", "1e" → "1e-"
+                        self.state.entry_buf.insert(e_pos + 1, '-');
+                    }
+                }
+                self.message = None;
+                return;
+            }
         }
 
         // D-10: 'd' cycles angle mode DEG → RAD → GRAD
@@ -866,6 +883,85 @@ mod tests {
             format!("{}", app.state.stack.x),
             "30",
             "'q' closing help must not dispatch Op::Sin (x must remain 30, not become 0.5)"
+        );
+    }
+
+    // ── CHS during EEX entry (exponent sign toggle) ──────────────────────────
+
+    #[test]
+    fn test_chs_eex_inserts_minus_on_bare_e() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(app.state.entry_buf, "1e");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1e-");
+        assert!(app.message.is_none());
+    }
+
+    #[test]
+    fn test_chs_eex_removes_minus_on_e_minus() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('n'))); // → "1e-"
+        app.handle_key(make_key(KeyCode::Char('n'))); // → "1e" (toggle back)
+        assert_eq!(app.state.entry_buf, "1e");
+    }
+
+    #[test]
+    fn test_chs_eex_inserts_minus_with_digits() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('2')));
+        assert_eq!(app.state.entry_buf, "1e2");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1e-2");
+    }
+
+    #[test]
+    fn test_chs_eex_removes_minus_with_digits() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // "1e-2"
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1e2"
+        assert_eq!(app.state.entry_buf, "1e2");
+    }
+
+    #[test]
+    fn test_chs_eex_toggle_long_mantissa() {
+        let mut app = make_app();
+        // Build "1.5e-23" then toggle → "1.5e23"
+        for c in "1.5e".chars() {
+            app.handle_key(make_key(KeyCode::Char(c)));
+        }
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1.5e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // "1.5e-2"
+        app.handle_key(make_key(KeyCode::Char('3'))); // "1.5e-23"
+        assert_eq!(app.state.entry_buf, "1.5e-23");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+    }
+
+    #[test]
+    fn test_integration_1_eex_chs_2_enter_gives_0_01() {
+        // Full keystroke sequence: 1, EEX, CHS, 2, Enter → X = 1E-2 = 0.01
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1'))); // entry_buf = "1"
+        app.handle_key(make_key(KeyCode::Char('e'))); // entry_buf = "1e"
+        app.handle_key(make_key(KeyCode::Char('n'))); // entry_buf = "1e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // entry_buf = "1e-2"
+        // Simulate Enter by dispatching Op::Enter directly
+        app.call_dispatch(Op::Enter);
+        assert!(app.state.entry_buf.is_empty(), "entry_buf must flush on Enter");
+        // X should be 0.01 = 1E-2. Verify via display format (FIX 4 default).
+        let formatted = hp41_core::format_hpnum(&app.state.stack.x, &app.state.display_mode);
+        assert_eq!(
+            formatted, "0.0100",
+            "1 EEX CHS 2 Enter must yield 0.01 (shown as 0.0100 in FIX 4)"
         );
     }
 }

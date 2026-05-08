@@ -227,9 +227,9 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
     let mut s = state.entry_buf.clone();
     // D-09 (Phase 9): trailing 'e' with no exponent digits is HP-41 hardware-faithful
     // shorthand for "exponent 00". Normalize by appending "00" so from_scientific accepts it.
-    // We check both 'e' and 'E' for safety even though entry_buf is always lowercase per
-    // app.rs; this also makes the normalization robust to future case-folding changes.
-    if s.ends_with('e') || s.ends_with('E') {
+    // Also handles trailing "e-" (CHS pressed with no exponent digits yet) → "e-00" = exponent 0.
+    // We check both 'e'/'E' variants for safety even though entry_buf is always lowercase.
+    if s.ends_with("e-") || s.ends_with("E-") || s.ends_with('e') || s.ends_with('E') {
         s.push_str("00");
     }
     let d = Decimal::from_str(&s)
@@ -449,6 +449,31 @@ mod flush_eex_tests {
             state.stack.x.0,
             Decimal::from(1),
             "1e must commit as 1 (1 * 10^0)"
+        );
+    }
+
+    #[test]
+    fn test_flush_trailing_e_minus_parses_as_one() {
+        // HP-41 hardware: "1e-" + ENTER commits as 1.0 (exponent -00 = 0).
+        // flush_entry_buf normalizes "1e-" → "1e-00" before parsing.
+        let mut state = make_state_with_entry("1e-");
+        flush_entry_buf(&mut state).unwrap();
+        assert!(state.entry_buf.is_empty());
+        // "1e-00" == 1.0
+        use crate::num::HpNum;
+        assert_eq!(state.stack.x, HpNum::from(1i32));
+    }
+
+    #[test]
+    fn test_flush_entry_buf_negative_exponent() {
+        // "1e-2" is a complete negative exponent — parses directly as 0.01.
+        let mut state = make_state_with_entry("1e-2");
+        flush_entry_buf(&mut state).unwrap();
+        assert!(state.entry_buf.is_empty());
+        // 1e-2 == 0.01
+        assert_eq!(
+            state.stack.x.0,
+            Decimal::from_str("0.01").unwrap()
         );
     }
 }
