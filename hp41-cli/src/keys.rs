@@ -245,7 +245,8 @@ mod tests {
         // 'q' maps to Op::Sin — verify the op produces the correct result: sin(30 DEG) = 0.5
         let mut state = CalcState::new(); // angle_mode is DEG by default
         state.stack.x = hp41_core::HpNum::from(30);
-        hp41_core::ops::dispatch(&mut state, Op::Sin).unwrap();
+        let result = hp41_core::ops::dispatch(&mut state, Op::Sin);
+        assert!(result.is_ok(), "Op::Sin must not error on valid input");
         assert_eq!(
             format!("{}", state.stack.x),
             "0.5000000000",
@@ -258,7 +259,8 @@ mod tests {
         // 'g' maps to Op::Clreg — verify all storage registers are zeroed
         let mut state = CalcState::new();
         state.regs[5] = hp41_core::HpNum::from(42);
-        hp41_core::ops::dispatch(&mut state, Op::Clreg).unwrap();
+        let result = hp41_core::ops::dispatch(&mut state, Op::Clreg);
+        assert!(result.is_ok(), "Op::Clreg must not error");
         assert!(
             state.regs.iter().all(|r| r.is_zero()),
             "CLREG must zero all storage registers"
