@@ -4,6 +4,7 @@
 //! and hp41-core's dispatch() entry point.
 
 use std::cell::RefCell;
+use std::io::Write; // for writeln! and BufWriter::flush() in call_dispatch_and_drain
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -31,6 +32,7 @@ pub enum PendingInput {
     AssignLabel(char, String),         // D-27 step 2: char received; accumulating label name
     ConfirmLoad(usize),                // D-22: awaiting Y/n before overwriting program
     FmtDigits(hp41_core::DisplayMode), // digit-count modal for FIX/SCI/ENG (opened by 'F')
+    PrintModal, // Phase 11 D-06: 'P'-prefix modal for print ops (PRX/PRA/PRSTK)
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -52,13 +54,30 @@ pub struct App {
     pub help_table_state: RefCell<TableState>,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
+    /// BufWriter for --print-log, if specified. None = no file logging.
+    pub print_log_writer: Option<std::io::BufWriter<std::fs::File>>,
 }
 
 impl App {
-    pub fn new(state: CalcState, state_path: PathBuf) -> Self {
+    pub fn new(state: CalcState, state_path: PathBuf, print_log: Option<std::path::PathBuf>) -> Self {
+        let (print_log_writer, initial_message) = match print_log {
+            None => (None, None),
+            Some(path) => {
+                match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+                    Ok(file) => (Some(std::io::BufWriter::new(file)), None),
+                    Err(e) => {
+                        // Surface the error in the TUI status bar via app.message.
+                        // Also write to stderr as a fallback for contexts where the TUI
+                        // may not yet be visible (e.g., early startup errors).
+                        eprintln!("Warning: cannot open print log '{}': {e}", path.display());
+                        (None, Some(format!("Warning: cannot open print log '{}': {e}", path.display())))
+                    }
+                }
+            }
+        };
         App {
             state,
-            message: None,
+            message: initial_message,
             exit: false,
             last_save: Instant::now(),
             state_path,
@@ -67,6 +86,7 @@ impl App {
             help_table_state: RefCell::new(TableState::default()),
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
+            print_log_writer,
         }
     }
 
@@ -174,6 +194,12 @@ impl App {
         // The modal lets the user set an exact digit count for FIX/SCI/ENG via 0–9.
         if key.code == KeyCode::Char('F') && !key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::FmtDigits(self.state.display_mode));
+            self.message = None;
+            return;
+        }
+        // 'P' (Shift+p) opens the PrintModal for PRX/PRA/PRSTK selection (D-06, Phase 11).
+        if key.code == KeyCode::Char('P') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::PrintModal);
             self.message = None;
             return;
         }
@@ -671,6 +697,29 @@ impl App {
                     }
                 }
             }
+            Some(PendingInput::PrintModal) => {
+                match key.code {
+                    KeyCode::Char('x') | KeyCode::Char('X') => {
+                        self.call_dispatch_and_drain(Op::PRX);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('a') | KeyCode::Char('A') => {
+                        self.call_dispatch_and_drain(Op::PRA);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('s') | KeyCode::Char('S') => {
+                        self.call_dispatch_and_drain(Op::PRSTK);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Silently ignore unrecognized keys — keep modal open (existing convention).
+                        self.pending_input = Some(PendingInput::PrintModal);
+                    }
+                }
+            }
             None => {} // shouldn't happen (guard checked is_some() before calling)
         }
     }
@@ -774,6 +823,35 @@ impl App {
             Err(e) => self.message = Some(format!("{e}")),
         }
     }
+
+    /// Call hp41_core::ops::dispatch, then drain print_buffer.
+    /// For PRX/PRA (1 line): sets app.message to the formatted line (per D-01).
+    /// For PRSTK (6 lines): sets app.message to "PRSTK → N lines" summary (per D-01).
+    /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
+    pub(crate) fn call_dispatch_and_drain(&mut self, op: Op) {
+        match hp41_core::ops::dispatch(&mut self.state, op) {
+            Ok(()) => {
+                let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+                if !lines.is_empty() {
+                    for line in &lines {
+                        if let Some(ref mut writer) = self.print_log_writer {
+                            let _ = writeln!(writer, "{}", line);
+                            let _ = writer.flush();
+                        }
+                    }
+                    if lines.len() > 1 {
+                        self.message = Some(format!("PRSTK \u{2192} {} lines", lines.len()));
+                    } else {
+                        // lines.len() == 1; into_iter().next() is safe here
+                        self.message = lines.into_iter().next();
+                    }
+                } else {
+                    self.message = None;
+                }
+            }
+            Err(e) => self.message = Some(format!("{e}")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -785,6 +863,7 @@ impl App {
         App::new(
             CalcState::new(),
             PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            None,
         )
     }
 }
@@ -804,7 +883,7 @@ mod tests {
         let state_path = tmp_dir.join("autosave_test.json");
 
         let state = hp41_core::CalcState::new();
-        let mut app = App::new(state, state_path.clone());
+        let mut app = App::new(state, state_path.clone(), None);
 
         // Wind last_save back 31 seconds — timer should fire immediately.
         app.last_save = Instant::now() - Duration::from_secs(31);
@@ -827,7 +906,7 @@ mod tests {
         let state_path = tmp_dir.join("premature.json");
 
         let state = hp41_core::CalcState::new();
-        let mut app = App::new(state, state_path.clone());
+        let mut app = App::new(state, state_path.clone(), None);
 
         // last_save is Instant::now() — only 0ms elapsed; should NOT save.
         app.check_autosave();
@@ -844,6 +923,7 @@ mod tests {
         App::new(
             hp41_core::CalcState::new(),
             std::path::PathBuf::from("/tmp/hp41_test_app.json"),
+            None,
         )
     }
 
@@ -1230,5 +1310,122 @@ mod eex_integration_tests {
         app.handle_key(key('e'));
         assert_eq!(app.state.entry_buf, "1.5e");
         assert!(app.message.is_none(), "silent block — no message set");
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod print_modal_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use hp41_core::ops::Op;
+
+    fn key(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_print_modal_prx_sets_message() {
+        let mut app = App::new_for_test();
+        // Push a value onto the stack
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(42))).unwrap();
+        // Simulate 'P' key (opens modal)
+        let p_key = KeyEvent::new(KeyCode::Char('P'), KeyModifiers::NONE);
+        app.handle_key(p_key);
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::PrintModal)),
+            "Pressing 'P' must set PendingInput::PrintModal"
+        );
+        // Simulate 'x' key (dispatches PRX)
+        let x_key = KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE);
+        app.handle_key(x_key);
+        assert!(
+            app.pending_input.is_none(),
+            "After PrintModal 'x', pending_input must be None"
+        );
+        assert!(
+            app.message.is_some(),
+            "After PRX, app.message must contain the formatted line"
+        );
+        let msg = app.message.as_deref().unwrap_or("");
+        assert_eq!(msg.len(), 24, "PRX message must be 24 chars, got {:?}", msg);
+    }
+
+    #[test]
+    fn test_print_modal_esc_cancels_without_dispatch() {
+        let mut app = App::new_for_test();
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(5))).unwrap();
+        let x_before = app.state.stack.x.clone();
+        // Open modal
+        let p_key = KeyEvent::new(KeyCode::Char('P'), KeyModifiers::NONE);
+        app.handle_key(p_key);
+        // Cancel
+        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        app.handle_key(esc_key);
+        assert!(app.pending_input.is_none(), "Esc must clear pending_input");
+        assert!(app.state.print_buffer.is_empty(), "Esc must not dispatch any print op");
+        assert_eq!(app.state.stack.x, x_before, "Esc must not modify stack");
+    }
+
+    #[test]
+    fn test_print_log_file_append() {
+        let tmp_dir = std::env::temp_dir().join("hp41_print_log_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let log_path = tmp_dir.join("print.txt");
+        // Remove if leftover from prior run
+        let _ = std::fs::remove_file(&log_path);
+
+        let mut app = App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            Some(log_path.clone()),
+        );
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(99))).unwrap();
+        // Trigger PRX via call_dispatch_and_drain directly
+        app.call_dispatch_and_drain(Op::PRX);
+
+        // Flush should have been called in call_dispatch_and_drain
+        let contents = std::fs::read_to_string(&log_path).unwrap();
+        assert!(
+            !contents.is_empty(),
+            "print log file must have content after PRX"
+        );
+        assert_eq!(
+            contents.lines().count(),
+            1,
+            "PRX must write exactly 1 line to the log file"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_print_log_invalid_path_sets_message() {
+        // Use a path that cannot be created (directory that does not exist, read-only root)
+        let bad_path = std::path::PathBuf::from("/no_such_dir_hp41/print.log");
+        let app = App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            Some(bad_path),
+        );
+        assert!(
+            app.print_log_writer.is_none(),
+            "App::new with invalid --print-log path must set print_log_writer = None"
+        );
+        assert!(
+            app.message.is_some(),
+            "App::new with invalid --print-log path must set app.message to an error string"
+        );
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("Warning") || msg.contains("cannot open") || msg.contains("print log"),
+            "Error message must describe the open failure, got: {:?}",
+            msg
+        );
     }
 }

@@ -261,6 +261,7 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
             };
             format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
         }
+        PendingInput::PrintModal => "PRNT: _".to_string(),
     }
 }
 
@@ -351,7 +352,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn make_app() -> crate::app::App {
-        crate::app::App::new(CalcState::new(), PathBuf::from("/tmp/hp41_ui_test.json"))
+        crate::app::App::new(CalcState::new(), PathBuf::from("/tmp/hp41_ui_test.json"), None)
     }
 
     /// BLOCKER 1: test_help_scroll — help_table_state.select_next() must not panic.
