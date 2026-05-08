@@ -1358,6 +1358,7 @@ mod print_modal_tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     use hp41_core::ops::Op;
 
+    #[allow(dead_code)]
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent {
             code,
