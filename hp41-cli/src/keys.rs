@@ -4,7 +4,7 @@
 //! hp41-core Op variants. The `_app` parameter is kept for potential context-sensitivity
 //! (USER mode state checks) without breaking call sites.
 //!
-//! Digit keys (0-9, '.', 'e'), quit keys ('q', Ctrl+C), mode-cycle keys ('d', 'f'),
+//! Digit keys (0-9, '.', 'e'), quit key (Ctrl+C), mode-cycle keys ('d', 'f'),
 //! and F5/F7/F8 are handled directly in app.handle_key() and MUST NOT appear here.
 
 use crossterm::event::{KeyCode, KeyEvent};
@@ -13,7 +13,7 @@ use hp41_core::ops::Op;
 use crate::app::App;
 
 /// Map a crossterm KeyEvent to an hp41-core Op.
-/// Returns None for keys handled elsewhere (digits, quit, mode cycles, F5/F7/F8).
+/// Returns None for keys handled elsewhere (digits, Ctrl+C quit, mode cycles, F5/F7/F8).
 /// Returns None for unmapped keys (silently ignored by app.handle_key).
 pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
     match key.code {
@@ -68,6 +68,9 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('F') => Some(Op::HToHms),
         KeyCode::Char('j') => Some(Op::HmsAdd),
         KeyCode::Char('J') => Some(Op::HmsSub),
+        // Phase 8: Tech Debt Cleanup — previously unmapped keys
+        KeyCode::Char('q') => Some(Op::Sin),    // 'q' reassigned from quit to SIN (D-01)
+        KeyCode::Char('g') => Some(Op::Clreg),  // 'g' free key assigned to CLREG (D-02)
         // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
         // They do NOT return an Op here — the modal is intercepted in app.handle_key()
         // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
@@ -77,7 +80,7 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::F(5) | KeyCode::F(7) | KeyCode::F(8) => None,
         // F1-F4: intercepted in app.handle_key() for USER mode dispatch — not routed through key_to_op().
         KeyCode::F(1) | KeyCode::F(2) | KeyCode::F(3) | KeyCode::F(4) => None,
-        // All other keys (including digits 0-9, '.', 'e', 'd', 'f', 'q') — handled elsewhere.
+        // All other keys (including digits 0-9, '.', 'e', 'd', 'f') — handled elsewhere.
         _ => None,
     }
 }
@@ -101,6 +104,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("a", "ASIN (arc sine)"),
     ("c", "ACOS (arc cosine)"),
     ("k", "ATAN (arc tangent)"),
+    ("q", "SIN (sine of X in current angle mode)"),
     ("S", "STO [nn] (modal register entry)"),
     ("R", "RCL [nn] (modal register entry)"),
     ("C", "COS  (Shift+c)"),
@@ -118,7 +122,8 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("F5", "R/S (run program A)"),
     ("F7", "SST (step forward)"),
     ("F8", "BST (step back)"),
-    ("q/^C", "quit"),
+    ("^C", "quit"),
+    ("g", "CLREG (clear all storage registers R00-R99)"),
     // Phase 5: new bindings
     ("u", "USER mode toggle"),
     ("?", "help overlay (toggle)"),
