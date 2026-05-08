@@ -68,7 +68,10 @@
   2. Pressing `S`, then `-`, then `Y` executes STO- into the stack Y register, leaving X unchanged
   3. Pressing Esc at any modal step (after `S`, after the arithmetic op key, or after the first register digit) cancels the operation with no state change
   4. The TUI shows the current modal step (e.g., `STO _` after `S`, `STO+ _` after the op key) so the user always knows which step they are on
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 10-01-PLAN.md — STOA-03 (core): StackReg enum, Op::StoArithStack variant, op_sto_arith_stack function, dispatch() + execute_op() arms
+  - [ ] 10-02-PLAN.md — STOA-01/02 (cli): step-2 routing in StoRegister arm, Y/Z/T/L stack-reg dispatch in StoAdd/Sub/Mul/Div arms, remove dead_code
+  - [ ] 10-03-PLAN.md — STOA-01/02/03 (help): fix 4 placeholder entries in help_data.rs
 **UI hint**: yes
 
 ### Phase 11: Print Emulation
@@ -110,6 +113,6 @@
 | 7. Hardening | v1.0 | 6/6 | Complete | 2026-05-07 |
 | 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
 | 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 10. STO Arithmetic Modals | v1.1 | 0/TBD | Not started | - |
+| 10. STO Arithmetic Modals | v1.1 | 0/3 | Not started | - |
 | 11. Print Emulation | v1.1 | 0/TBD | Not started | - |
 | 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
