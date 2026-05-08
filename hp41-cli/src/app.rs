@@ -23,7 +23,7 @@ pub enum PendingInput {
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
     RclRegister(String), // accumulating 2-digit register number for RCL [nn]
     // STO arithmetic variants — handled in handle_pending_input() match arms.
-    // Not yet wired to key bindings (Phase 7 polish); #[allow] suppresses premature dead-code lint.
+    // Keyboard binding deferred to v1.1 (multi-step modal flow out of scope for cleanup phase).
     #[allow(dead_code)]
     StoAdd(String), // STO+ [nn]
     #[allow(dead_code)]
@@ -125,19 +125,7 @@ impl App {
             return;
         }
 
-        // Quit: 'q' — only when no overlay or modal is active (D-16, D-22).
-        // When show_help or show_programs is open, 'q' closes the overlay (handled below).
-        // When alpha_mode is active, 'q' is an alpha character (handled by handle_alpha_mode_key).
-        // When pending_input is Some, 'q' may cancel the modal (handled by handle_pending_input).
-        if key.code == KeyCode::Char('q')
-            && !self.show_help
-            && !self.show_programs
-            && !self.state.alpha_mode
-            && self.pending_input.is_none()
-        {
-            self.exit = true;
-            return;
-        }
+        // Quit: Ctrl+C only (D-16, D-22). Phase 8: 'q' reassigned to SIN (D-01).
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
             return;
@@ -278,9 +266,28 @@ impl App {
         // D-11 / D-13: digit keys and 'e' (EEX) append directly to entry_buf.
         // dispatch() calls flush_entry_buf() automatically on the next non-digit op.
         // DO NOT call dispatch() here — that would push each digit as a separate PushNum.
+        // Phase 8 (T-08-03, T-08-04): guards prevent malformed strings reaching flush_entry_buf.
         if let KeyCode::Char(c) = key.code {
-            if c.is_ascii_digit() || c == '.' || c == 'e' {
+            if c.is_ascii_digit() {
                 self.state.entry_buf.push(c);
+                self.message = None;
+                return;
+            }
+            if c == '.' {
+                // Block duplicate decimal point, and '.' after 'e' (exponent is integer-only)
+                if self.state.entry_buf.contains('.') || self.state.entry_buf.contains('e') {
+                    return; // silently ignore malformed input
+                }
+                self.state.entry_buf.push('.');
+                self.message = None;
+                return;
+            }
+            if c == 'e' {
+                // Block EEX if entry is empty (no mantissa yet) or already has 'e'
+                if self.state.entry_buf.is_empty() || self.state.entry_buf.contains('e') {
+                    return; // silently ignore malformed input
+                }
+                self.state.entry_buf.push('e');
                 self.message = None;
                 return;
             }
@@ -512,6 +519,10 @@ impl App {
                 // D-12: all printable chars route to AlphaAppend
                 self.call_dispatch(Op::AlphaAppend(c));
             }
+            KeyCode::Delete => {
+                // Phase 8: Delete key in ALPHA mode clears the entire ALPHA register (D-03)
+                self.call_dispatch(Op::AlphaClear);
+            }
             _ => {
                 // Other keys (arrows, F-keys, etc.) ignored in ALPHA mode
             }
@@ -691,13 +702,16 @@ mod tests {
     }
 
     #[test]
-    fn test_q_quits_when_no_overlay_open() {
-        // Normal quit path must still work after the guard is applied.
+    fn test_ctrl_c_still_quits() {
+        // Phase 8: Ctrl+C remains the sole quit key after 'q' reassignment to SIN.
         let mut app = make_app();
-        assert!(!app.show_help);
-        assert!(!app.show_programs);
-        app.handle_key(make_key(KeyCode::Char('q')));
-        assert!(app.exit, "'q' must set exit=true when no overlay is open");
+        app.handle_key(KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        });
+        assert!(app.exit, "Ctrl+C must still quit the app");
     }
 
     #[test]
