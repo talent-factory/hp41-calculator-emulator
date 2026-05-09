@@ -173,10 +173,10 @@
   **Wave 0**
   - [x] 14-00-PLAN.md — IPC-01: test scaffold (types.rs, key_map.rs, commands.rs with RED failing tests using `unimplemented!()`) — Complete 2026-05-09
   **Wave 1** *(blocked on Wave 0; 01 and 02 can run in parallel)*
-  - [ ] 14-01-PLAN.md — IPC-01 (data layer): types.rs (CalcStateView, Annunciators, GuiError, From<HpError>) + key_map.rs (resolve fn for ~50 named ops + 7 prefix-parameterized families)
-  - [ ] 14-02-PLAN.md — IPC-01 (command layer): commands.rs (dispatch_op, get_state Tauri thunks + handle_op, handle_get_state pure helpers) + lib.rs `generate_handler!` registration
+  - [x] 14-01-PLAN.md — IPC-01 (data layer): types.rs (CalcStateView, Annunciators, GuiError, From<HpError>) + key_map.rs (resolve fn for ~50 named ops + 7 prefix-parameterized families) — Complete 2026-05-09
+  - [x] 14-02-PLAN.md — IPC-01 (command layer): commands.rs (dispatch_op, get_state Tauri thunks + handle_op, handle_get_state pure helpers) + lib.rs `generate_handler!` registration — Complete 2026-05-09
   **Wave 2** *(blocked on Wave 1)*
-  - [ ] 14-03-PLAN.md — IPC-01 (capabilities): capabilities/default.json — add auto-generated `allow-dispatch-op` and `allow-get-state` permission IDs (D-12)
+  - [x] 14-03-PLAN.md — IPC-01 (capabilities): capabilities/default.json + permission TOML files for allow-dispatch-op and allow-get-state (D-12) — Complete 2026-05-09
   **Cross-cutting constraints:**
   - Wave 0 scaffolds the public signatures (`from_state`, `From<HpError>`, `resolve`, `handle_op`, `handle_get_state`, Tauri thunks) — Plans 01/02 implement against them exactly
   - Plan 03 MUST NOT run before Plan 02's first successful `cargo check` (which generates `gen/schemas/*.json` permission identifiers — Pitfall 2 in 14-RESEARCH.md)
