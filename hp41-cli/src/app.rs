@@ -12,7 +12,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use ratatui::widgets::TableState;
 use ratatui::DefaultTerminal;
 
-use hp41_core::ops::{Op, StackReg, StoArithKind};
+use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
 use hp41_core::{AngleMode, CalcState, DisplayMode};
 
 use crate::{keys, persistence, ui};
@@ -33,6 +33,11 @@ pub enum PendingInput {
     ConfirmLoad(usize),                // D-22: awaiting Y/n before overwriting program
     FmtDigits(hp41_core::DisplayMode), // digit-count modal for FIX/SCI/ENG (opened by 'F')
     PrintModal, // Phase 11 D-06: 'P'-prefix modal for print ops (PRX/PRA/PRSTK)
+    /// Phase 12: hex-byte insertion modal accumulator. Holds 0, 1, or 2 hex chars.
+    /// Triggered by uppercase 'X' in PRGM mode (D-14). On 2nd char, validates
+    /// against synthetic_byte_to_op() and either inserts Op::SyntheticByte at
+    /// state.pc or sets app.message = "INVALID" (D-13).
+    HexModal(String),
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -155,6 +160,12 @@ impl App {
             return;
         }
 
+        // [Phase 12 D-01] Update last_key_code on every Press event — placed AFTER the
+        // release filter but BEFORE Ctrl+C, modal dispatch, and key_to_op(). This ensures
+        // every real keypress (digits, modal navigation, function keys) is recorded.
+        // Read by Op::GetKey (SYNT-01).
+        self.state.last_key_code = keys::keycode_to_hp41_code(key.code);
+
         // Quit: Ctrl+C only (D-16, D-22). 'q' was reassigned to SIN in Phase 8; quit is Ctrl+C only.
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
@@ -215,6 +226,19 @@ impl App {
         if key.code == KeyCode::Char('P') && !key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::PrintModal);
             self.message = None;
+            return;
+        }
+        // [Phase 12 D-14] 'X' (Shift+X / uppercase) opens hex-byte insertion modal in PRGM mode.
+        // Lowercase 'x' is unchanged — it dispatches Op::XySwap via key_to_op() below.
+        // Gated on prgm_mode: hex insertion only makes sense while recording a program (D-18).
+        // 'X' is also a valid key code 21 (XEQ) — the last_key_code update above already ran.
+        if key.code == KeyCode::Char('X') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            if self.state.prgm_mode {
+                self.pending_input = Some(PendingInput::HexModal(String::new()));
+                self.message = None;
+            }
+            // Whether prgm_mode or not, consume the 'X' here — do NOT fall through to
+            // key_to_op() (lowercase 'x' is XySwap; uppercase 'X' has no other meaning).
             return;
         }
         // Ctrl+A triggers USER key assignment modal (D-27)
@@ -440,6 +464,29 @@ impl App {
         let pending = self.pending_input.take();
         match pending {
             Some(PendingInput::StoRegister(ref acc)) => {
+                // [Phase 12 D-08] M/N/O dispatch — ONLY valid as FIRST char (acc.is_empty() guard).
+                // If user has already typed a digit (e.g., "0"), ignore M/N/O — there's no
+                // valid register "0M" and we want plain numbered registers to keep working.
+                if acc.is_empty() {
+                    match key.code {
+                        KeyCode::Char('M') | KeyCode::Char('m') => {
+                            self.call_dispatch(Op::StoM);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('N') | KeyCode::Char('n') => {
+                            self.call_dispatch(Op::StoN);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('O') | KeyCode::Char('o') => {
+                            self.call_dispatch(Op::StoO);
+                            self.pending_input = None;
+                            return;
+                        }
+                        _ => {} // fall through to existing arithmetic-key + handle_reg_modal logic
+                    }
+                }
                 // Step 2: intercept arithmetic op keys before delegating to digit accumulator.
                 match key.code {
                     KeyCode::Char('+') => {
@@ -463,6 +510,27 @@ impl App {
                 }
             }
             Some(PendingInput::RclRegister(ref acc)) => {
+                // [Phase 12 D-08] M/N/O dispatch — first-char only.
+                if acc.is_empty() {
+                    match key.code {
+                        KeyCode::Char('M') | KeyCode::Char('m') => {
+                            self.call_dispatch(Op::RclM);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('N') | KeyCode::Char('n') => {
+                            self.call_dispatch(Op::RclN);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('O') | KeyCode::Char('o') => {
+                            self.call_dispatch(Op::RclO);
+                            self.pending_input = None;
+                            return;
+                        }
+                        _ => {} // fall through to handle_reg_modal
+                    }
+                }
                 self.handle_reg_modal(key, acc.clone(), Op::RclReg, PendingInput::RclRegister)
             }
             Some(PendingInput::StoAdd(ref acc)) => {
@@ -737,6 +805,48 @@ impl App {
                     _ => {
                         // Silently ignore unrecognized keys — keep modal open (existing convention).
                         self.pending_input = Some(PendingInput::PrintModal);
+                    }
+                }
+            }
+            Some(PendingInput::HexModal(ref acc)) => {
+                match key.code {
+                    KeyCode::Char(c) if c.is_ascii_hexdigit() => {
+                        // Normalize to uppercase for display consistency.
+                        let hex_char = c.to_ascii_uppercase();
+                        let mut new_acc = acc.clone();
+                        new_acc.push(hex_char);
+                        if new_acc.len() == 2 {
+                            // Two ASCII hex chars always parse as u8 — invariant guarantees no panic.
+                            let byte = u8::from_str_radix(&new_acc, 16)
+                                .expect("two ASCII hex digits must parse as u8");
+                            match synthetic_byte_to_op(byte) {
+                                Some(_) => {
+                                    // [Phase 12 D-16] Insert at current pc, advance pc past inserted step.
+                                    self.state
+                                        .program
+                                        .insert(self.state.pc, Op::SyntheticByte(byte));
+                                    self.state.pc += 1;
+                                    self.message = None;
+                                }
+                                None => {
+                                    // [Phase 12 D-13] Rejected: signal to user, leave program Vec untouched.
+                                    self.message = Some("INVALID".to_string());
+                                }
+                            }
+                            // [D-13] Modal always closes after the second digit (valid or not).
+                            self.pending_input = None;
+                        } else {
+                            // First digit accumulated — keep modal open for second digit.
+                            self.pending_input = Some(PendingInput::HexModal(new_acc));
+                        }
+                    }
+                    KeyCode::Esc => {
+                        // Cancel — no side effects (program unchanged, no INVALID message).
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Non-hex key: keep modal open silently (existing modal convention).
+                        self.pending_input = Some(PendingInput::HexModal(acc.clone()));
                     }
                 }
             }
@@ -1482,6 +1592,180 @@ mod print_modal_tests {
             msg.contains("Warning") || msg.contains("cannot open") || msg.contains("print log"),
             "Error message must describe the open failure, got: {:?}",
             msg
+        );
+    }
+}
+
+/// Phase 12 CLI wiring tests: last_key_code, HexModal, and M/N/O modal extensions.
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod synthetic_modal_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    fn make_app() -> App {
+        App::new_for_test()
+    }
+
+    fn press(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_last_key_code_updated_on_press() {
+        let mut app = make_app();
+        // Press '5' (KeyCode::Char('5')) — keycode_to_hp41_code maps to 62 (row 6, col 2).
+        app.handle_key(press(KeyCode::Char('5')));
+        assert_eq!(app.state.last_key_code, 62, "Press '5' must set last_key_code = 62");
+    }
+
+    #[test]
+    fn test_hex_modal_opens_only_in_prgm_mode() {
+        let mut app = make_app();
+        app.state.prgm_mode = false;
+        app.handle_key(press(KeyCode::Char('X')));
+        assert!(
+            !matches!(app.pending_input, Some(PendingInput::HexModal(_))),
+            "HexModal must NOT open outside PRGM mode"
+        );
+
+        let mut app2 = make_app();
+        app2.state.prgm_mode = true;
+        app2.handle_key(press(KeyCode::Char('X')));
+        assert!(
+            matches!(app2.pending_input, Some(PendingInput::HexModal(ref s)) if s.is_empty()),
+            "HexModal must open with empty accumulator in PRGM mode"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_invalid_byte_rejects_with_message() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        let prog_len_before = app.state.program.len();
+        // 0x00 is not in the safe subset → INVALID.
+        app.handle_key(press(KeyCode::Char('0')));
+        app.handle_key(press(KeyCode::Char('0')));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before,
+            "Invalid byte must NOT modify the program Vec"
+        );
+        assert_eq!(
+            app.message.as_deref(),
+            Some("INVALID"),
+            "Invalid byte must set app.message = 'INVALID'"
+        );
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after rejection"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_valid_byte_inserts_synthetic() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        app.state.pc = 0;
+        let pc_before = app.state.pc;
+        let prog_len_before = app.state.program.len();
+        // 0xCF is NULL — which is in the safe subset (maps to Op::Null).
+        // Check synthetic_byte_to_op(0xCF) is Some in Wave 1 implementation.
+        // If 0xCF is not in subset, use 0xCE (GetKey) which is confirmed in mod.rs.
+        app.handle_key(press(KeyCode::Char('c')));
+        app.handle_key(press(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before + 1,
+            "Valid byte must insert exactly 1 step"
+        );
+        assert_eq!(
+            app.state.program[0],
+            hp41_core::ops::Op::SyntheticByte(0xCE),
+            "Inserted step must be SyntheticByte(0xCE)"
+        );
+        assert_eq!(app.state.pc, pc_before + 1, "PC must advance past inserted step");
+        assert!(app.pending_input.is_none(), "HexModal must close after insertion");
+    }
+
+    #[test]
+    fn test_hex_modal_esc_cancels_cleanly() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        let prog_len_before = app.state.program.len();
+        app.handle_key(press(KeyCode::Esc));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before,
+            "Esc must not modify program Vec"
+        );
+        assert!(app.pending_input.is_none(), "Esc must close HexModal");
+        assert!(app.message.is_none(), "Esc must not set INVALID message");
+    }
+
+    #[test]
+    fn test_sto_m_via_modal() {
+        let mut app = make_app();
+        // Press 'S' to open StoRegister modal
+        app.handle_key(press(KeyCode::Char('S')));
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::StoRegister(_))),
+            "Pressing 'S' must open StoRegister modal"
+        );
+        // Set X to 42 before pressing 'M'
+        app.state.stack.x = hp41_core::HpNum::from(42i32);
+        // Press 'M' to dispatch StoM
+        app.handle_key(press(KeyCode::Char('M')));
+        assert!(app.pending_input.is_none(), "Modal must close after M dispatch");
+        assert_eq!(
+            app.state.reg_m,
+            hp41_core::HpNum::from(42i32),
+            "STO M must store X into reg_m"
+        );
+    }
+
+    #[test]
+    fn test_rcl_m_via_modal() {
+        let mut app = make_app();
+        // Pre-load reg_m with 99
+        app.state.reg_m = hp41_core::HpNum::from(99i32);
+        // Press 'R' to open RclRegister modal
+        app.handle_key(press(KeyCode::Char('R')));
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::RclRegister(_))),
+            "Pressing 'R' must open RclRegister modal"
+        );
+        // Press 'm' (lowercase) to dispatch RclM
+        app.handle_key(press(KeyCode::Char('m')));
+        assert!(app.pending_input.is_none(), "Modal must close after m dispatch");
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(99i32),
+            "RCL M must recall reg_m into X"
+        );
+    }
+
+    #[test]
+    fn test_mno_guard_only_when_acc_empty() {
+        // If user already typed a digit '0' in StoRegister, pressing 'M' should NOT
+        // dispatch StoM — it should fall through to handle_reg_modal and be ignored
+        // (since '0M' is not a valid register number, handle_reg_modal will ignore 'M').
+        let mut app = make_app();
+        app.pending_input = Some(PendingInput::StoRegister("0".to_string()));
+        app.state.stack.x = hp41_core::HpNum::from(77i32);
+        app.handle_key(press(KeyCode::Char('M')));
+        // reg_m must NOT be updated because acc was non-empty ("0") when M was pressed.
+        assert!(
+            app.state.reg_m.is_zero(),
+            "STO M must not dispatch when accumulator is non-empty"
         );
     }
 }

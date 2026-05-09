@@ -262,6 +262,13 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
             format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
         }
         PendingInput::PrintModal => "PRNT: _".to_string(),
+        PendingInput::HexModal(acc) => {
+            if acc.is_empty() {
+                "HEX: __".to_string()
+            } else {
+                format!("HEX: {}_", acc)
+            }
+        }
     }
 }
 

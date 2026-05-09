@@ -165,7 +165,86 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("h", "HMS\u{2192} (H.MMSS to decimal hours)"),
     ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
     ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),
+    // Phase 12: synthetic programming
+    ("X nn", "Insert synthetic hex byte at current PC (PRGM mode only)"),
 ];
+
+/// Map a crossterm KeyCode to the HP-41 hardware key code (row×10 + col, 1-indexed).
+/// Returns 0 for keys with no HP-41 hardware equivalent (function keys, Ctrl combos, etc.).
+/// Called from `App::handle_key()` to update `CalcState.last_key_code` on every Press
+/// event (D-01). Read by `Op::GetKey` to push the last key code to X (SYNT-01).
+///
+/// HP-41C keyboard layout: 8 rows × 5 columns. Key code = row × 10 + col.
+/// Rows are numbered 1-8 top-to-bottom, columns 1-5 left-to-right.
+/// Row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15)
+/// Row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25)
+/// Row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35)
+/// Row 4: USER(41), f(42), g(43), ENTER(44), ÷(45)
+/// Row 5: 7(51), 8(52), 9(53), ×(54)
+/// Row 6: 4(61), 5(62), 6(63), −(64)
+/// Row 7: 1(71), 2(72), 3(73), +(74)
+/// Row 8: 0(81), .(82), EEX(83), R/S(84), ENTER(85) [rows from HP-41C Owner's Manual Appendix A]
+///
+/// [ASSUMED — rows 1-4 column assignments; rows 5-8 digit/arithmetic keys are certain.
+///  See CONTEXT.md D-02 and RESEARCH.md A1.]
+pub fn keycode_to_hp41_code(code: crossterm::event::KeyCode) -> u8 {
+    use crossterm::event::KeyCode;
+    match code {
+        // Row 8: 0(81), .(82), EEX(83), ENTER(84/85) — digit/arithmetic row (bottom)
+        KeyCode::Char('0') => 81,
+        KeyCode::Char('.') => 82,
+        KeyCode::Char('e') => 83, // EEX
+        KeyCode::Enter => 84,     // ENTER (row 8, col 4 in some HP-41C variants)
+        // Row 7: 1(71), 2(72), 3(73), +(74)
+        KeyCode::Char('1') => 71,
+        KeyCode::Char('2') => 72,
+        KeyCode::Char('3') => 73,
+        KeyCode::Char('+') => 74,
+        // Row 6: 4(61), 5(62), 6(63), −(64)
+        KeyCode::Char('4') => 61,
+        KeyCode::Char('5') => 62,
+        KeyCode::Char('6') => 63,
+        KeyCode::Char('-') => 64,
+        // Row 5: 7(51), 8(52), 9(53), ×(54)
+        KeyCode::Char('7') => 51,
+        KeyCode::Char('8') => 52,
+        KeyCode::Char('9') => 53,
+        KeyCode::Char('*') => 54,
+        // Row 4: USER(41), f(42), g(43), ENTER(44), ÷(45)
+        // [ASSUMED — row 4 column assignments from HP-41C Owner's Manual]
+        KeyCode::Char('u') | KeyCode::Char('U') => 41, // USER mode toggle
+        KeyCode::Char('f') => 42,                       // f-key (format cycle)
+        KeyCode::Char('g') => 43,                       // g-key (CLREG)
+        // ENTER(44) also mapped above to 84 (row 8 variant); row 4 position omitted to avoid conflict
+        KeyCode::Char('/') => 45, // ÷
+        // Row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35)
+        // [ASSUMED — row 3 column assignments]
+        KeyCode::F(5) => 31,  // R/S — F5 is the TUI binding
+        KeyCode::F(7) => 32,  // SST — F7 is the TUI binding
+        KeyCode::F(8) => 32,  // BST — treated as SST code (same hardware key, different direction)
+        // GTO(33) — no TUI keyboard binding; returns 0 via _ catch-all
+        KeyCode::Char('C') => 34, // COS (uppercase, Shift+C)
+        KeyCode::Char('T') => 35, // TAN (uppercase, Shift+T)
+        // Row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25)
+        // [ASSUMED — row 2 column assignments match Phase 8 TUI key assignments]
+        KeyCode::Char('X') => 21, // XEQ key code (uppercase X also opens HexModal in PRGM mode — see app.rs)
+        KeyCode::Char('S') => 22, // STO modal opener — key code is 22 (STO key)
+        KeyCode::Char('R') => 23, // RCL modal opener — key code is 23 (RCL key)
+        KeyCode::Char('r') => 24, // R↓ (lowercase r — roll down)
+        KeyCode::Char('q') => 25, // SIN (Phase 8 reassignment to 'q')
+        // Row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15) — top function row
+        // [ASSUMED — row 1 column assignments]
+        KeyCode::Char('z') => 11, // Σ+
+        KeyCode::Char('I') => 12, // 1/x (uppercase I, Shift+I)
+        KeyCode::Char('s') => 13, // √x (lowercase s)
+        KeyCode::Char('G') => 14, // LOG (uppercase G, Shift+G) — LOG wins over g-key conflict per D-02
+        KeyCode::Char('L') => 15, // LN (uppercase L, Shift+L)
+        // All other keys (Esc, F1-F4, F6, Backspace, Tab, arrow keys, modifiers,
+        // digits/letters not mapped above): no HP-41 hardware equivalent → 0.
+        // A return value of 0 means GETKEY reports 0 (no key pressed since startup, D-03).
+        _ => 0,
+    }
+}
 
 #[cfg(test)]
 mod tests {
