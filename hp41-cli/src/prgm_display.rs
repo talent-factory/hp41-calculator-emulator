@@ -125,5 +125,15 @@ fn op_display_name(op: &Op) -> String {
         Op::PRX => "PRX".to_string(),
         Op::PRA => "PRA".to_string(),
         Op::PRSTK => "PRSTK".to_string(),
+        // Phase 12: Synthetic Programming
+        Op::GetKey => "GETKEY".to_string(),
+        Op::Null => "NULL".to_string(),
+        Op::StoM => "STO M".to_string(),
+        Op::StoN => "STO N".to_string(),
+        Op::StoO => "STO O".to_string(),
+        Op::RclM => "RCL M".to_string(),
+        Op::RclN => "RCL N".to_string(),
+        Op::RclO => "RCL O".to_string(),
+        Op::SyntheticByte(b) => format!("SYN {:02X}", b),
     }
 }
