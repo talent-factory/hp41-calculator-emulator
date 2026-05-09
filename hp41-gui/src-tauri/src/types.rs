@@ -25,6 +25,11 @@ pub struct Annunciators {
 pub struct CalcStateView {
     pub display_str: String,
     pub x_str: String,
+    pub y_str: String,      // Phase 15 D-01: stack Y register
+    pub z_str: String,      // Phase 15 D-01: stack Z register
+    pub t_str: String,      // Phase 15 D-01: stack T register
+    pub lastx_str: String,  // Phase 15 D-01: LASTX register
+    pub in_eex_mode: bool,  // Phase 15 D-02: entry_buf.contains('e')
     pub annunciators: Annunciators,
     pub print_lines: Vec<String>,
 }
@@ -51,6 +56,15 @@ impl CalcStateView {
         // Phase 15 stack panel will use this directly without re-formatting.
         let x_str = format_hpnum(&state.stack.x, &state.display_mode);
 
+        // Phase 15 D-01: populate Y/Z/T/LASTX stack register strings for the stack panel.
+        let y_str = format_hpnum(&state.stack.y, &state.display_mode);
+        let z_str = format_hpnum(&state.stack.z, &state.display_mode);
+        let t_str = format_hpnum(&state.stack.t, &state.display_mode);
+        let lastx_str = format_hpnum(&state.stack.lastx, &state.display_mode);
+
+        // Phase 15 D-02: in_eex_mode — true when entry_buf contains 'e' (EEX entry active).
+        let in_eex_mode = state.entry_buf.contains('e');
+
         let annunciators = Annunciators {
             user: state.user_mode,
             prgm: state.prgm_mode,
@@ -62,6 +76,11 @@ impl CalcStateView {
         CalcStateView {
             display_str,
             x_str,
+            y_str,
+            z_str,
+            t_str,
+            lastx_str,
+            in_eex_mode,
             annunciators,
             print_lines,
         }
