@@ -53,3 +53,19 @@ install-hooks:
 # Prerequisite: just build-release (or cargo build --release) must be run first
 bench-startup:
 	hyperfine --warmup 3 --runs 10 './target/release/hp41 --bench-startup'
+
+# GUI: install npm dependencies (run once after cloning or after package.json changes)
+gui-install:
+	cd hp41-gui && npm install
+
+# GUI: launch development window (Rust hot-reload + Vite HMR)
+gui-dev:
+	cd hp41-gui && npm run tauri dev
+
+# GUI: production bundle (native app)
+gui-build:
+	cd hp41-gui && npm run tauri build
+
+# GUI: Rust type-check (fast CI check without launching dev server)
+gui-check:
+	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
