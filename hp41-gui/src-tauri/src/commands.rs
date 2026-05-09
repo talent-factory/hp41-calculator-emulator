@@ -99,6 +99,25 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
         return Ok(CalcStateView::from_state(calc, print_lines));
     }
 
+    // ── "eex_chs" — toggle exponent sign in entry_buf (Phase 15 D-06) ────────────
+    // Source: hp41-cli/src/app.rs lines 389-404 (entry_buf direct mutation, no dispatch).
+    // MUST come before key_map::resolve() — no Op::EexChs variant exists.
+    if key_id == "eex_chs" {
+        if let Some(e_pos) = calc.entry_buf.find('e') {
+            let after_e = &calc.entry_buf[e_pos + 1..];
+            if after_e.starts_with('-') {
+                // Remove minus: "1e-2" → "1e2", "1e-" → "1e"
+                calc.entry_buf.remove(e_pos + 1);
+            } else {
+                // Insert minus: "1e2" → "1e-2", "1e" → "1e-"
+                calc.entry_buf.insert(e_pos + 1, '-');
+            }
+        }
+        // No-op if entry_buf has no 'e' — React guards this but Rust is defensive.
+        let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
+        return Ok(CalcStateView::from_state(calc, print_lines));
+    }
+
     // ── Named / parameterized op — resolve and dispatch ──────────────────────
     let op = key_map::resolve(key_id)?;
     dispatch(calc, op).map_err(GuiError::from)?;
