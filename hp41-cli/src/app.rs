@@ -1805,4 +1805,25 @@ mod synthetic_modal_tests {
             "HexModal must close after insertion"
         );
     }
+
+    #[test]
+    fn test_getkey_end_to_end_keypress_to_x() {
+        // UAT-1: keyboard press → last_key_code → GETKEY in program → X
+        let mut app = make_app();
+        // Press '5' — keycode_to_hp41_code maps it to 62 (row 6 × 10 + col 2)
+        app.handle_key(press(KeyCode::Char('5')));
+        let recorded = app.state.last_key_code;
+        assert_eq!(recorded, 62, "pressing '5' must record HP-41 code 62");
+
+        // Load a one-step program [GetKey] and run it via dispatch
+        app.state.program = vec![hp41_core::ops::Op::GetKey];
+        app.state.pc = 0;
+        hp41_core::ops::dispatch(&mut app.state, hp41_core::ops::Op::GetKey).unwrap();
+
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(62i32),
+            "GETKEY must push the recorded last_key_code (62) into X"
+        );
+    }
 }

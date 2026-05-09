@@ -137,3 +137,25 @@ fn op_display_name(op: &Op) -> String {
         Op::SyntheticByte(b) => format!("SYN {:02X}", b),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_phase12_op_labels() {
+        // UAT-2: program listing shows correct labels for all Phase 12 Op variants.
+        assert_eq!(op_display_name(&Op::GetKey), "GETKEY");
+        assert_eq!(op_display_name(&Op::Null), "NULL");
+        assert_eq!(op_display_name(&Op::StoM), "STO M");
+        assert_eq!(op_display_name(&Op::StoN), "STO N");
+        assert_eq!(op_display_name(&Op::StoO), "STO O");
+        assert_eq!(op_display_name(&Op::RclM), "RCL M");
+        assert_eq!(op_display_name(&Op::RclN), "RCL N");
+        assert_eq!(op_display_name(&Op::RclO), "RCL O");
+        // SyntheticByte displays as "SYN <HEX>" — 0xCF = NULL, 0xCE = GETKEY
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xCF)), "SYN CF");
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xCE)), "SYN CE");
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xA0)), "SYN A0");
+    }
+}
