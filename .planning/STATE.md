@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
 current_phase: 13
-current_plan: "13-03"
-status: executing
-last_updated: "2026-05-09T14:00:00.000Z"
+current_plan: "14-01"
+status: awaiting_planning
+last_updated: "2026-05-09T18:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,11 +34,11 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 13 — Workspace Skeleton
-Plan: 13-03 (Wave 2 — integration validation + human checkpoint)
-Status: Executing (2/3 plans complete)
-Last activity: 2026-05-09 — Wave 1 complete (13-01, 13-02)
+Plan: 13-03 COMPLETE — Phase 13 fully verified
+Status: Phase 13 complete — awaiting Phase 14 planning
+Last activity: 2026-05-09 — All 5 SC verified; human confirmed Tauri window "HP-41 Calculator"
 
-Progress: [███████   ] 67%
+Progress: [██████████] 100% (Phase 13 complete)
 
 ---
 
@@ -78,6 +78,9 @@ Progress: [███████   ] 67%
 | `entry_buf` preserved on parse failure | Silent data loss fix; clear only on successful parse | Phase 9 |
 | MSRV 1.85 with workspace inheritance | `rust-version.workspace = true` in member crates; CI job with llvm-tools | Phase 9 |
 | CHS during EEX entry toggles exponent sign | 'n' in EEX mode mutates entry_buf in-place (no flush); "e-" normalized to "e-00" in flush_entry_buf | Quick 260508-y30 |
+| Bundle identifier `ch.talent-factory.hp41` (D-02) | Overrides scaffold default `com.tauri.dev`; avoids macOS sandbox/keychain issues | Phase 13 |
+| capabilities/default.json core:default only | Minimum Tauri v2 capability; hp41-specific IPC permissions added in Phase 14 when commands are registered | Phase 13 |
+| Mutex lock: `.unwrap_or_else(\|e\| e.into_inner())` | Poisoned-lock recovery required by zero-panic policy; applies to all Phase 14+ command handlers | Phase 13 |
 
 ### Critical Implementation Traps (v1.1)
 
@@ -103,8 +106,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-09
-**Last action:** Phase 13 planned — 3 plans (13-01, 13-02, 13-03) in 2 waves, verification passed
-**Next action:** `/gsd-execute-phase 13` — execute Phase 13 plans
+**Last action:** Phase 13 complete — all 3 plans executed; SC-1 through SC-5 verified; human confirmed window title
+**Next action:** `/gsd-execute-phase 14` or `/gsd-plan 14` — Phase 14 IPC Layer
 
 ---
 *State initialized: 2026-05-06*
