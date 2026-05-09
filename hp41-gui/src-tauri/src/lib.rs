@@ -17,7 +17,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Tauri commands registered here in Phase 14
+            commands::dispatch_op,
+            commands::get_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
