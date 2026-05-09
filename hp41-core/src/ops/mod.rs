@@ -22,7 +22,10 @@ use math::{
     op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_recip, op_set_deg,
     op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
-use registers::{op_clreg, op_rcl, op_sto, op_sto_arith, op_sto_arith_stack};
+use registers::{
+    op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
+    op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
+};
 use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
 
 /// STO arithmetic operation kind.
@@ -214,6 +217,27 @@ pub enum Op {
     PRA,
     /// PRSTK — print full stack T/Z/Y/X/LASTX/ALPHA, 6 lines, 24 chars each. LiftEffect: Neutral.
     PRSTK,
+    // ── Synthetic Programming (Phase 12) ────────────────────────────────────
+    /// GETKEY — push last key code (HP-41 row×10+col) to X. LiftEffect: Enable.
+    GetKey,
+    /// NULL — true no-op; does not modify any state. LiftEffect: Neutral.
+    Null,
+    /// STO M — store X into hidden register M. LiftEffect: Neutral.
+    StoM,
+    /// STO N — store X into hidden register N. LiftEffect: Neutral.
+    StoN,
+    /// STO O — store X into hidden register O. LiftEffect: Neutral.
+    StoO,
+    /// RCL M — recall hidden register M into X. LiftEffect: Enable.
+    RclM,
+    /// RCL N — recall hidden register N into X. LiftEffect: Enable.
+    RclN,
+    /// RCL O — recall hidden register O into X. LiftEffect: Enable.
+    RclO,
+    /// SyntheticByte(u8) — synthetic op inserted via hex modal. At execution time,
+    /// dispatches to the corresponding Op via `synthetic_byte_to_op()` lookup.
+    /// LiftEffect: varies (delegates to the mapped op).
+    SyntheticByte(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -385,6 +409,78 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::PRX => print::op_prx(state),
         Op::PRA => print::op_pra(state),
         Op::PRSTK => print::op_prstk(state),
+        // ── Phase 12: Synthetic Programming ─────────────────────────────────
+        Op::GetKey => op_getkey(state),
+        Op::Null => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::StoM => op_sto_m(state),
+        Op::StoN => op_sto_n(state),
+        Op::StoO => op_sto_o(state),
+        Op::RclM => op_rcl_m(state),
+        Op::RclN => op_rcl_n(state),
+        Op::RclO => op_rcl_o(state),
+        Op::SyntheticByte(b) => {
+            if let Some(op) = synthetic_byte_to_op(b) {
+                // Recursive dispatch — safe: synthetic_byte_to_op never returns
+                // Some(Op::SyntheticByte(_)), so recursion depth is exactly 1.
+                dispatch(state, op)
+            } else {
+                Err(HpError::InvalidOp)
+            }
+        }
+    }
+}
+
+// ── Phase 12: Synthetic Byte Subset (D-11, D-12) ─────────────────────────────
+//
+// Maps HP-41 NUT/FOCAL byte codes to already-implemented Op variants.
+// This is a CONSERVATIVE initial table — covers ~15 well-known single-byte
+// codes. Codes outside this table are rejected at the hex modal entry point
+// (D-13: app.message = "INVALID"). Expandable in v2+ as part of SYNT-05.
+//
+// CRITICAL INVARIANT: this function MUST NOT return Some(Op::SyntheticByte(_))
+// — that would cause infinite recursion in dispatch() / execute_op().
+//
+// [ASSUMED] — exact NUT byte codes from secondary sources. Cross-verify
+// against HP-41 FOCAL reference if precision is needed for a specific code.
+
+/// Map an HP-41 byte code to the corresponding Op, if it is in the safe subset.
+/// Returns `None` for codes outside the curated subset.
+pub fn synthetic_byte_to_op(byte: u8) -> Option<Op> {
+    match byte {
+        // Arithmetic (HP-41 single-byte FOCAL codes — [ASSUMED])
+        0x40 => Some(Op::Add),
+        0x41 => Some(Op::Sub),
+        0x42 => Some(Op::Mul),
+        0x43 => Some(Op::Div),
+        // Stack ops
+        0x4F => Some(Op::Chs),
+        0x73 => Some(Op::Clx),
+        0x74 => Some(Op::Rdn),
+        0x71 => Some(Op::XySwap),
+        // Math
+        0x52 => Some(Op::Sqrt),
+        0x53 => Some(Op::Sq),
+        0x57 => Some(Op::Log),
+        0x67 => Some(Op::Ln),
+        0x60 => Some(Op::Recip),
+        // Trig
+        0x59 => Some(Op::Sin),
+        0x5A => Some(Op::Cos),
+        0x5B => Some(Op::Tan),
+        // Synthetic primitives — primary purpose of the hex modal
+        0xCF => Some(Op::Null),
+        0xCE => Some(Op::GetKey),
+        // Hidden register access — synthetic byte path mirrors the new Op variants
+        0xB0 => Some(Op::StoM),
+        0xB1 => Some(Op::StoN),
+        0xB2 => Some(Op::StoO),
+        0x90 => Some(Op::RclM),
+        0x91 => Some(Op::RclN),
+        0x92 => Some(Op::RclO),
+        _ => None,
     }
 }
 

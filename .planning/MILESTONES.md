@@ -47,4 +47,37 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 - Tauri v2 GUI (hp41-gui crate) — deferred to v2.0
 
 ---
+
+## v1.1 — HP-41 Calculator Emulator CLI Feature Completeness
+
+**Status:** ✅ SHIPPED 2026-05-09
+**Phases:** 4 (Phases 9–12)
+**Plans:** 14 total, all complete
+
+### Delivered
+
+- **Phase 9:** MSRV 1.85, rust_decimal 1.42, EEX trailing-e hardware-faithful fix, exponent placeholder in TUI
+- **Phase 10:** STO arithmetic modals (S → op → register), stack register support (Y/Z/T/LASTX), Esc cancellation
+- **Phase 11:** PRX/PRA/PRSTK print emulation via `print_buffer` on CalcState, `--print-log` file output
+- **Phase 12:** GETKEY, NULL, hidden registers M/N/O, 2-digit HexModal (23-entry safe subset)
+- **Bugfixes found in review:** Vec::insert panic after ISG/DSE skip-at-end (CR-01); F5 overwriting last_key_code before GETKEY (F5 → 0 in keycode_to_hp41_code)
+
+### Quality at Ship
+
+| Gate | v1.0 | v1.1 |
+|------|------|------|
+| hp41-cli tests | 86 | 99 |
+| hp41-core tests | 150 | 150+ |
+| Synthetic tests | — | 21 |
+| All requirements | 15/15 complete | ✅ |
+
+### Known Deferred Items
+
+- SYNT-05: Full FOCAL byte-code table (~200 codes)
+- SYNT-06: GETKEY interrupt-style capture (requires event loop redesign)
+- PRNT-05/06: Scrollable print history, ADV/PRREG/TRACE
+- STOA-04: STO arithmetic via indirect addressing
+- Tauri v2 GUI (hp41-gui crate) — deferred to v2.0
+
+---
 *For current project status, see .planning/ROADMAP.md*

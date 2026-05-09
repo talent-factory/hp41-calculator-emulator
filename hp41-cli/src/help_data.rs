@@ -263,6 +263,43 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "PRSTK",
         "Print full stack T/Z/Y/X/LASTX/ALPHA (6 lines) to console",
     ),
+    // ── Synthetic Programming ─────────────────────────────────────────────────
+    ("", "", "=== Synthetic Programming ==="),
+    (
+        "X nn",
+        "HEX",
+        "Insert synthetic hex byte at current PC (PRGM mode) — press X then 2 hex digits",
+    ),
+    (
+        "S M",
+        "STO M",
+        "Store X to hidden register M — press S then M",
+    ),
+    (
+        "S N",
+        "STO N",
+        "Store X to hidden register N — press S then N",
+    ),
+    (
+        "S O",
+        "STO O",
+        "Store X to hidden register O — press S then O",
+    ),
+    (
+        "R M",
+        "RCL M",
+        "Recall hidden register M into X — press R then M",
+    ),
+    (
+        "R N",
+        "RCL N",
+        "Recall hidden register N into X — press R then N",
+    ),
+    (
+        "R O",
+        "RCL O",
+        "Recall hidden register O into X — press R then O",
+    ),
     // ── Help ──────────────────────────────────────────────────────────────────
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),
@@ -292,7 +329,8 @@ mod tests {
     }
 
     #[test]
-    fn test_all_fourteen_categories_present() {
+    fn test_all_fifteen_categories_present() {
+        // Phase 12 added "=== Synthetic Programming ===" — now 15 categories total.
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",
@@ -306,6 +344,7 @@ mod tests {
             "=== USER Mode ===",
             "=== Science & Engineering ===",
             "=== Print ===",
+            "=== Synthetic Programming ===",
             "=== Help ===",
             "=== Quit ===",
         ];

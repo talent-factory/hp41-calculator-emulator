@@ -323,6 +323,26 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::PRX => super::print::op_prx(state),
         Op::PRA => super::print::op_pra(state),
         Op::PRSTK => super::print::op_prstk(state),
+        // ── Phase 12: Synthetic Programming ─────────────────────────────────
+        Op::GetKey => super::registers::op_getkey(state),
+        Op::Null => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::StoM => super::registers::op_sto_m(state),
+        Op::StoN => super::registers::op_sto_n(state),
+        Op::StoO => super::registers::op_sto_o(state),
+        Op::RclM => super::registers::op_rcl_m(state),
+        Op::RclN => super::registers::op_rcl_n(state),
+        Op::RclO => super::registers::op_rcl_o(state),
+        Op::SyntheticByte(b) => {
+            if let Some(op) = super::synthetic_byte_to_op(b) {
+                // Recursive — safe per the same invariant as in dispatch().
+                execute_op(state, op)
+            } else {
+                Err(HpError::InvalidOp)
+            }
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

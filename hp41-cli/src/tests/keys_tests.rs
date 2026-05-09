@@ -1,11 +1,11 @@
-//! Unit tests for keys::key_to_op() mapping table.
+//! Unit tests for keys::key_to_op() and keycode_to_hp41_code() mapping tables.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use hp41_core::ops::Op;
 use hp41_core::CalcState;
 
 use crate::app::App;
-use crate::keys::key_to_op;
+use crate::keys::{key_to_op, keycode_to_hp41_code};
 
 fn press(code: KeyCode) -> KeyEvent {
     KeyEvent {
@@ -123,12 +123,50 @@ fn key_ref_table_has_33_entries() {
     // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
     // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
     // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
-    // Total is now 54. Test name preserved for history; count updated to 54.
+    // Phase 12: added "X nn" hex modal entry (+1).
+    // Total is now 55. Test name preserved for history; count updated to 55.
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        54,
-        "KEY_REF_TABLE must have exactly 54 entries (52 Phase 1-6 + 2 Phase 8: q->SIN, g->CLREG)"
+        55,
+        "KEY_REF_TABLE must have exactly 55 entries (54 Phase 1-8 + 1 Phase 12: X nn hex modal)"
     );
+}
+
+// Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller
+// skips the last_key_code write and GETKEY capture is not corrupted.
+#[test]
+fn f5_f7_f8_return_none_keycode_for_getkey() {
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(5)),
+        None,
+        "F5 (R/S TUI trigger) must return None — no HP-41 physical key equivalent"
+    );
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(7)),
+        None,
+        "F7 (SST TUI trigger) must return None"
+    );
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(8)),
+        None,
+        "F8 (BST TUI trigger) must return None"
+    );
+}
+
+#[test]
+fn digit_5_returns_hp41_keycode_62() {
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::Char('5')),
+        Some(62),
+        "'5' must map to HP-41 code 62 (row 6, col 2)"
+    );
+}
+
+#[test]
+fn unmapped_keys_return_none_from_keycode_fn() {
+    assert_eq!(keycode_to_hp41_code(KeyCode::Esc), None);
+    assert_eq!(keycode_to_hp41_code(KeyCode::F(1)), None);
+    assert_eq!(keycode_to_hp41_code(KeyCode::Up), None);
 }
 
 // Phase 8: key_to_op() bindings for SIN and CLREG
