@@ -8,11 +8,8 @@
 //! Decisions: D-01..D-03 (CalcStateView shape), D-10..D-11 (GuiError shape).
 //! Phase 14 design: types.rs has zero side effects — only struct definitions and a
 //! pure constructor that reads CalcState fields.
-//!
-//! Wave 0 status: scaffolds + RED tests. `from_state` and `From<HpError>` are
-//! `unimplemented!()` so tests fail predictably until Wave 1 fills in real logic.
 
-use hp41_core::HpError;
+use hp41_core::{format_alpha, format_hpnum, AngleMode, CalcState, HpError};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -37,8 +34,37 @@ impl CalcStateView {
     ///
     /// IMPORTANT: caller MUST drain `state.print_buffer` BEFORE calling this function
     /// (drain takes &mut, then this function takes &). See RESEARCH.md Pitfall 1.
-    pub fn from_state(_state: &hp41_core::CalcState, _print_lines: Vec<String>) -> Self {
-        unimplemented!("Wave 1 (Plan 01): build CalcStateView from CalcState fields per D-01")
+    pub fn from_state(state: &CalcState, print_lines: Vec<String>) -> Self {
+        // display_str priority chain (D-01 + Claude's Discretion):
+        //   1. entry_buf (when user is typing)
+        //   2. alpha_reg via format_alpha (when alpha_mode is on)
+        //   3. format_hpnum(stack.x, display_mode) (default)
+        let display_str = if !state.entry_buf.is_empty() {
+            state.entry_buf.clone()
+        } else if state.alpha_mode {
+            format_alpha(&state.alpha_reg)
+        } else {
+            format_hpnum(&state.stack.x, &state.display_mode)
+        };
+
+        // x_str is always the formatted X register — independent of entry/alpha mode.
+        // Phase 15 stack panel will use this directly without re-formatting.
+        let x_str = format_hpnum(&state.stack.x, &state.display_mode);
+
+        let annunciators = Annunciators {
+            user: state.user_mode,
+            prgm: state.prgm_mode,
+            alpha: state.alpha_mode,
+            rad: state.angle_mode == AngleMode::Rad,
+            grad: state.angle_mode == AngleMode::Grad,
+        };
+
+        CalcStateView {
+            display_str,
+            x_str,
+            annunciators,
+            print_lines,
+        }
     }
 }
 
@@ -48,8 +74,12 @@ pub struct GuiError {
 }
 
 impl From<HpError> for GuiError {
-    fn from(_e: HpError) -> Self {
-        unimplemented!("Wave 1 (Plan 01): convert HpError to GuiError via to_string()")
+    fn from(e: HpError) -> Self {
+        // HpError uses #[derive(thiserror::Error)] with #[error("...")] attrs.
+        // .to_string() yields the literal message ("overflow", "divide by zero", etc.).
+        GuiError {
+            message: e.to_string(),
+        }
     }
 }
 
