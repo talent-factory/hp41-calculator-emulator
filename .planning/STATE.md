@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
 current_phase: 14
-current_plan: "14-00"
-status: ready_to_execute
-last_updated: "2026-05-09T20:00:00.000Z"
+current_plan: "14-01"
+status: executing
+last_updated: "2026-05-09T21:15:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,11 +34,11 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 14 — IPC Layer
-Plan: 14-00 READY — 4 plans planned (Wave 0→1→2)
-Status: Phase 14 ready to execute — all plans verified, 0 issues
-Last activity: 2026-05-09 — Phase 14 planning complete; 4 plans in 3 waves
+Plan: 14-01 IN PROGRESS — executing Wave 1 (types+key_map / commands+lib parallel)
+Status: Phase 14 executing — Wave 1 (14-01 + 14-02) running in parallel
+Last activity: 2026-05-09 — Wave 0 complete; RED scaffold created; Wave 1 started
 
-Progress: [░░░░░░░░░░] 0% (Phase 14 not started)
+Progress: [██░░░░░░░░] 25% (Wave 0 complete, Wave 1 of 3 running)
 
 ---
 

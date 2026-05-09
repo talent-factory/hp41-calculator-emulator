@@ -171,7 +171,7 @@
   5. A `type AppState = Mutex<CalcState>` alias is used throughout command handlers, making incorrect state extraction a compile error rather than a runtime panic
 **Plans**: 4 plans
   **Wave 0**
-  - [ ] 14-00-PLAN.md — IPC-01: test scaffold (types.rs, key_map.rs, commands.rs with RED failing tests using `unimplemented!()`)
+  - [x] 14-00-PLAN.md — IPC-01: test scaffold (types.rs, key_map.rs, commands.rs with RED failing tests using `unimplemented!()`) — Complete 2026-05-09
   **Wave 1** *(blocked on Wave 0; 01 and 02 can run in parallel)*
   - [ ] 14-01-PLAN.md — IPC-01 (data layer): types.rs (CalcStateView, Annunciators, GuiError, From<HpError>) + key_map.rs (resolve fn for ~50 named ops + 7 prefix-parameterized families)
   - [ ] 14-02-PLAN.md — IPC-01 (command layer): commands.rs (dispatch_op, get_state Tauri thunks + handle_op, handle_get_state pure helpers) + lib.rs `generate_handler!` registration
