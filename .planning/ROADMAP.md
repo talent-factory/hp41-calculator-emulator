@@ -1,15 +1,15 @@
 # Roadmap: HP-41 Calculator Emulator
 
 **Project:** HP-41 Calculator Emulator
-**Current milestone:** v1.1 (in progress)
+**Current milestone:** v2.0 Tauri GUI (in progress)
 
 ---
 
 ## Milestones
 
 - ✅ **v1.0 CLI** — Phases 1–8, shipped 2026-05-08 · [Archive](milestones/v1.0-ROADMAP.md)
-- 🚧 **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming (in progress)
-- 📋 **v2.0 GUI** — Tauri desktop app (hp41-gui) reusing hp41-core unchanged (planned)
+- ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09
+- 🚧 **v2.0 Tauri GUI** — Phases 13–18 (in progress)
 
 ---
 
@@ -31,14 +31,26 @@
 
 </details>
 
-### 🚧 v1.1 CLI Feature Completeness (In Progress)
-
-**Milestone Goal:** Close remaining HP-41 behavioral gaps — correct EEX trailing-e hardware behavior, add STO arithmetic keyboard modals, print emulation (PRX/PRA/PRSTK), and a curated synthetic programming subset.
+<details>
+<summary>✅ v1.1 CLI Feature Completeness (Phases 9–12) — SHIPPED 2026-05-09</summary>
 
 - [x] **Phase 9: Infrastructure & EEX Fix** - Bump MSRV + rust_decimal; correct EEX trailing-e-without-exponent to hardware behavior (completed 2026-05-08)
 - [x] **Phase 10: STO Arithmetic Modals** - Wire the existing op_sto_arith core to a 3-step keyboard modal (S → op → register) (completed 2026-05-08)
 - [x] **Phase 11: Print Emulation** - Add PRX/PRA/PRSTK ops with print_buffer on CalcState; optional file log via --print-log (completed 2026-05-08)
-- [ ] **Phase 12: Synthetic Programming** - GETKEY, NULL, hidden registers M/N/O, and a hex-byte insertion modal
+- [x] **Phase 12: Synthetic Programming** - GETKEY, NULL, hidden registers M/N/O, and a hex-byte insertion modal (completed 2026-05-09)
+
+</details>
+
+### 🚧 v2.0 Tauri GUI (In Progress)
+
+**Milestone Goal:** Ship a pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI.
+
+- [ ] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green
+- [ ] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call
+- [ ] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli
+- [ ] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation
+- [ ] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel
+- [ ] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; cross-platform GUI CI job
 
 ---
 
@@ -126,6 +138,84 @@
   - HexModal byte validation MUST happen before `state.program.insert()` (security invariant T-12-W2-02)
 **UI hint**: yes
 
+### Phase 13: Workspace Skeleton
+**Goal**: Users can launch an empty Tauri v2 window via `just gui-dev`, the hp41-gui crate is a nested workspace member that does not affect `cargo build --workspace`, and `just ci` (the CLI pipeline) remains green without modification.
+**Depends on**: Phase 12
+**Requirements**: WSPC-01, WSPC-02
+**Success Criteria** (what must be TRUE):
+  1. Running `just gui-dev` on macOS opens a blank Tauri window with the title "HP-41 Calculator" and exits cleanly on close
+  2. Running `just ci` after adding hp41-gui completes with the same pass/fail outcome as before — zero regressions in hp41-cli or hp41-core
+  3. Running `cargo build --workspace` from the repo root builds hp41-core and hp41-cli but does NOT attempt to build the Tauri binary (nested workspace isolation confirmed)
+  4. The `tauri` and `tauri-build` crates appear only in `hp41-gui/src-tauri/Cargo.toml`, not in the root `[workspace.dependencies]`
+  5. The CI matrix (Windows, macOS, Ubuntu) continues to pass the existing CLI jobs with no new failures introduced
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 14: IPC Layer
+**Goal**: All calculator operations reach `hp41-core` via Tauri Rust commands; the IPC response is a lean `CalcStateView` (~200 bytes) that never duplicates core logic; `print_buffer` is explicitly drained on every command; a `key_map.rs` module in hp41-gui resolves string key IDs to `Op` variants so the frontend never references Rust enums directly.
+**Depends on**: Phase 13
+**Requirements**: IPC-01
+**Success Criteria** (what must be TRUE):
+  1. Invoking `dispatch_op` with a valid key ID (e.g., `"enter"`, `"plus"`, `"sin"`) updates CalcState and returns a `CalcStateView` JSON payload of ≤300 bytes
+  2. Invoking `dispatch_op` with an unknown key ID returns a serialized `GuiError` — no panic, no silent discard
+  3. The `print_buffer` field is drained and its contents included in `CalcStateView.print_lines` on every command response — no print output is silently dropped
+  4. `CalcState` logic (stack operations, dispatch, arithmetic) is entirely within `hp41-core`; `hp41-gui/src-tauri` contains zero duplicated calculator logic
+  5. A `type AppState = Mutex<CalcState>` alias is used throughout command handlers, making incorrect state extraction a compile error rather than a runtime panic
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 15: Display & Keyboard
+**Goal**: Users can see the HP-41 12-character display string and all five annunciators update in the GUI after every operation, and can drive all calculator functions from the physical keyboard using the same key bindings as hp41-cli — without requiring mouse input.
+**Depends on**: Phase 14
+**Requirements**: DISP-01, DISP-02, IPC-02
+**Success Criteria** (what must be TRUE):
+  1. Pressing any key (e.g., `3`, `+`, `ENTER`) from the physical keyboard triggers the correct `dispatch_op` call and the 12-char display updates within one frame
+  2. All five annunciators (USER, PRGM, ALPHA, RAD, GRAD) reflect the current CalcState and change visually when mode is toggled (e.g., RAD annunciator lights when switching to radians mode)
+  3. The stack register panel shows current X/Y/Z/T/LASTX values and updates after every operation, matching the values that hp41-cli would show
+  4. Physical keyboard event listeners use `useCallback` and always return a cleanup function in `useEffect`, so no duplicate IPC calls fire on a single keypress even in React StrictMode
+  5. The key binding set covers all bindings present in hp41-cli's `key_to_op()` function — no key that works in the CLI is silently ignored in the GUI
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 16: SVG Skin
+**Goal**: Users see a pixel-perfect HP-41C calculator skin rendered as SVG — dark brown body, gold shift legends, 9×5 key grid with ENTER spanning two columns — where every key is individually clickable and shows a CSS scale-down press animation on each click.
+**Depends on**: Phase 14
+**Requirements**: SKIN-01, SKIN-02, SKIN-03
+**Success Criteria** (what must be TRUE):
+  1. The SVG skin renders all 40 HP-41C keys in the correct 9×5 grid layout with ENTER occupying a double-width position, matching HP-41C hardware proportions
+  2. The color scheme matches HP-41C hardware: dark brown body, light-colored key caps for the top row, gold shift legends, white primary legends
+  3. Clicking any key in the SVG invokes `dispatch_op` with the correct key ID — the result is identical to pressing the equivalent key in hp41-cli
+  4. Each key click triggers a visible CSS scale-down animation (scale to ~0.92, then bounce back) that completes within 150ms without blocking further input
+  5. The SVG uses a `viewBox` and scales correctly on Retina/HiDPI displays and at the fixed 400×700 window size without pixelation or layout breakage
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17: Persistence & Print Output
+**Goal**: Users can close and reopen the GUI calculator without losing state — the same `~/.hp41/autosave.json` file used by hp41-cli is loaded on startup and written every 30 seconds; v1.x save files from the CLI load without error; print output from PRX/PRA/PRSTK is visible in a scrollable panel rather than silently discarded.
+**Depends on**: Phase 15
+**Requirements**: PERS-01, PERS-02
+**Success Criteria** (what must be TRUE):
+  1. After performing operations in the GUI and restarting the app, the stack and register values are restored to their state at last save — no data loss across restarts
+  2. A save file created by hp41-cli v1.x loads in the GUI without a parse error or panic — the `print_buffer` field absence is handled by `#[serde(default)]`
+  3. After 30 seconds of inactivity the auto-save fires silently in the background — the GUI remains responsive and no blocking occurs on the UI thread
+  4. The `~/.hp41/autosave.json` path is used by both hp41-cli and hp41-gui — a state saved in the CLI is visible when the GUI starts next
+  5. Executing PRX, PRA, or PRSTK causes formatted output lines to appear in the scrollable print panel; the panel retains previous output and new lines append to the bottom
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 18: Program Listing & CI/CD
+**Goal**: Users in PRGM mode can view the complete program listing and step through it with SST and BST in the GUI; a cross-platform CI job (macOS, Windows, Ubuntu) builds and tests hp41-gui on every push to paths that affect the GUI or core.
+**Depends on**: Phase 17
+**Requirements**: PROG-01
+**Success Criteria** (what must be TRUE):
+  1. Entering PRGM mode in the GUI displays the program listing with step numbers and mnemonic labels matching the format shown in hp41-cli
+  2. Pressing the SST key (via keyboard binding or SVG click) advances the program counter by one step and highlights the current step in the listing
+  3. Pressing the BST key steps backward one position in the program and the listing scrolls to keep the highlighted step visible
+  4. The cross-platform CI job runs on Windows, macOS, and Ubuntu; the build completes without error on all three platforms and is triggered only on changes to `hp41-gui/**` or `hp41-core/**`
+  5. `just ci` (the CLI pipeline) and the new GUI CI job are independent — a GUI build failure does not block CLI CI and vice versa
+**Plans**: TBD
+**UI hint**: yes
+
 ---
 
 ## Progress Table
@@ -144,3 +234,9 @@
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
+| 13. Workspace Skeleton | v2.0 | 0/? | Not started | - |
+| 14. IPC Layer | v2.0 | 0/? | Not started | - |
+| 15. Display & Keyboard | v2.0 | 0/? | Not started | - |
+| 16. SVG Skin | v2.0 | 0/? | Not started | - |
+| 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |
+| 18. Program Listing & CI/CD | v2.0 | 0/? | Not started | - |

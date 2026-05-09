@@ -66,24 +66,24 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WSPC-01     | TBD   | Pending |
-| WSPC-02     | TBD   | Pending |
-| SKIN-01     | TBD   | Pending |
-| SKIN-02     | TBD   | Pending |
-| SKIN-03     | TBD   | Pending |
-| DISP-01     | TBD   | Pending |
-| DISP-02     | TBD   | Pending |
-| IPC-01      | TBD   | Pending |
-| IPC-02      | TBD   | Pending |
-| PERS-01     | TBD   | Pending |
-| PERS-02     | TBD   | Pending |
-| PROG-01     | TBD   | Pending |
+| WSPC-01     | Phase 13 | Pending |
+| WSPC-02     | Phase 13 | Pending |
+| SKIN-01     | Phase 16 | Pending |
+| SKIN-02     | Phase 16 | Pending |
+| SKIN-03     | Phase 16 | Pending |
+| DISP-01     | Phase 15 | Pending |
+| DISP-02     | Phase 15 | Pending |
+| IPC-01      | Phase 14 | Pending |
+| IPC-02      | Phase 15 | Pending |
+| PERS-01     | Phase 17 | Pending |
+| PERS-02     | Phase 17 | Pending |
+| PROG-01     | Phase 18 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 12 total
-- Mapped to phases: 0 (roadmap not yet created)
-- Unmapped: 12
+- Mapped to phases: 12
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-09*
-*Last updated: 2026-05-09 — initial v2.0 requirements*
+*Last updated: 2026-05-09 — traceability assigned after v2.0 roadmap creation*
