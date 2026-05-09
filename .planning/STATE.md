@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: CLI Feature Completeness
 current_phase: 12
-current_plan: Not started
-status: planned
+current_plan: complete
+status: complete
 last_updated: "2026-05-09T00:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 10
-  percent: 75
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -24,7 +24,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
-**Current focus:** Phase 12 — Synthetic Programming
+**Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
+**Current focus:** v1.1 milestone complete — ready for v2.0 planning
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -32,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 12 of 12 (Synthetic Programming)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-08 — Phase 11 complete (4 plans, verification passed)
+Phase: 12 of 12 (Synthetic Programming) — COMPLETE
+Plan: All 3 plans complete
+Status: Complete — v1.1 milestone finished
+Last activity: 2026-05-09 — Phase 12 complete (3 plans, verification passed, UAT approved)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ---
 
@@ -102,9 +103,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-09
-**Last action:** Phase 12 planned — 3 plans (12-00 Wave 0 test scaffold, 12-01 hp41-core + prgm_display, 12-02 hp41-cli wiring); verification passed all 12 dimensions
-**Next action:** Phase 12 execution — `/gsd-execute-phase 12`
+**Last action:** Phase 12 complete — GETKEY, NULL, hidden registers M/N/O, HexModal; 2 bugs fixed (CR-01 Vec::insert panic, F5 last_key_code overwrite); UAT approved; 99 hp41-cli tests
+**Next action:** `/gsd-new-milestone` — v2.0 Tauri GUI planning
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after Phase 12 context gathering*
+*Last updated: 2026-05-09 — v1.1 milestone complete*

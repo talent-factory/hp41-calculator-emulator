@@ -26,10 +26,10 @@
 
 ### Synthetic Programming
 
-- [ ] **SYNT-01**: `GETKEY` instruction pushes the last key code (HP-41 row-column encoding) to X register
-- [ ] **SYNT-02**: `NULL` instruction executes as a no-op with Neutral stack-lift effect
-- [ ] **SYNT-03**: Hidden registers M, N, O are accessible in programs via `STO M`/`RCL M`, `STO N`/`RCL N`, `STO O`/`RCL O`
-- [ ] **SYNT-04**: User can insert a synthetic op into the current program via a 2-digit hex byte modal (curated safe subset; rejects mode-mutating byte codes)
+- [x] **SYNT-01**: `GETKEY` instruction pushes the last key code (HP-41 row-column encoding) to X register — Validated in Phase 12
+- [x] **SYNT-02**: `NULL` instruction executes as a no-op with Neutral stack-lift effect — Validated in Phase 12
+- [x] **SYNT-03**: Hidden registers M, N, O are accessible in programs via `STO M`/`RCL M`, `STO N`/`RCL N`, `STO O`/`RCL O` — Validated in Phase 12
+- [x] **SYNT-04**: User can insert a synthetic op into the current program via a 2-digit hex byte modal (curated safe subset; rejects mode-mutating byte codes) — Validated in Phase 12
 
 ### Infrastructure
 
@@ -67,21 +67,21 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01    | Phase 9  | Pending |
-| INPUT-01    | Phase 9  | Pending |
-| INPUT-02    | Phase 9  | Pending |
-| INPUT-03    | Phase 9  | Pending |
-| STOA-01     | Phase 10 | Pending |
-| STOA-02     | Phase 10 | Pending |
-| STOA-03     | Phase 10 | Pending |
-| PRNT-01     | Phase 11 | Pending |
-| PRNT-02     | Phase 11 | Pending |
-| PRNT-03     | Phase 11 | Pending |
-| PRNT-04     | Phase 11 | Pending |
-| SYNT-01     | Phase 12 | Pending |
-| SYNT-02     | Phase 12 | Pending |
-| SYNT-03     | Phase 12 | Pending |
-| SYNT-04     | Phase 12 | Pending |
+| INFRA-01    | Phase 9  | ✅ Complete |
+| INPUT-01    | Phase 9  | ✅ Complete |
+| INPUT-02    | Phase 9  | ✅ Complete |
+| INPUT-03    | Phase 9  | ✅ Complete |
+| STOA-01     | Phase 10 | ✅ Complete |
+| STOA-02     | Phase 10 | ✅ Complete |
+| STOA-03     | Phase 10 | ✅ Complete |
+| PRNT-01     | Phase 11 | ✅ Complete |
+| PRNT-02     | Phase 11 | ✅ Complete |
+| PRNT-03     | Phase 11 | ✅ Complete |
+| PRNT-04     | Phase 11 | ✅ Complete |
+| SYNT-01     | Phase 12 | ✅ Complete |
+| SYNT-02     | Phase 12 | ✅ Complete |
+| SYNT-03     | Phase 12 | ✅ Complete |
+| SYNT-04     | Phase 12 | ✅ Complete |
 
 **Coverage:**
 - v1.1 requirements: 15 total
