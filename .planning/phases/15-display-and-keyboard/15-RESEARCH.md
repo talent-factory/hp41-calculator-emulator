@@ -640,7 +640,7 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Tailwind removal scope**
    - What we know: `index.css` imports Tailwind; `vite.config.ts` has the Tailwind plugin; `package.json` has `tailwindcss` and `@tailwindcss/vite` in devDependencies.
