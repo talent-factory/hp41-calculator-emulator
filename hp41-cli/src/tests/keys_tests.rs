@@ -1,11 +1,11 @@
-//! Unit tests for keys::key_to_op() mapping table.
+//! Unit tests for keys::key_to_op() and keycode_to_hp41_code() mapping tables.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use hp41_core::ops::Op;
 use hp41_core::CalcState;
 
 use crate::app::App;
-use crate::keys::key_to_op;
+use crate::keys::{key_to_op, keycode_to_hp41_code};
 
 fn press(code: KeyCode) -> KeyEvent {
     KeyEvent {
@@ -129,6 +129,36 @@ fn key_ref_table_has_33_entries() {
         crate::keys::KEY_REF_TABLE.len(),
         55,
         "KEY_REF_TABLE must have exactly 55 entries (54 Phase 1-8 + 1 Phase 12: X nn hex modal)"
+    );
+}
+
+// Phase 12: F5/F7/F8 must return 0 from keycode_to_hp41_code so they do not
+// overwrite last_key_code and interfere with GETKEY capture.
+#[test]
+fn f5_f7_f8_return_zero_keycode_for_getkey() {
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(5)),
+        0,
+        "F5 (R/S TUI trigger) must not record a key code — would overwrite last_key_code before GETKEY runs"
+    );
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(7)),
+        0,
+        "F7 (SST TUI trigger) must return 0"
+    );
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::F(8)),
+        0,
+        "F8 (BST TUI trigger) must return 0"
+    );
+}
+
+#[test]
+fn digit_5_returns_hp41_keycode_62() {
+    assert_eq!(
+        keycode_to_hp41_code(KeyCode::Char('5')),
+        62,
+        "'5' must map to HP-41 code 62 (row 6, col 2)"
     );
 }
 

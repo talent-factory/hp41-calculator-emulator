@@ -166,7 +166,10 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
     ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),
     // Phase 12: synthetic programming
-    ("X nn", "Insert synthetic hex byte at current PC (PRGM mode only)"),
+    (
+        "X nn",
+        "Insert synthetic hex byte at current PC (PRGM mode only)",
+    ),
 ];
 
 /// Map a crossterm KeyCode to the HP-41 hardware key code (row×10 + col, 1-indexed).
@@ -213,15 +216,18 @@ pub fn keycode_to_hp41_code(code: crossterm::event::KeyCode) -> u8 {
         // Row 4: USER(41), f(42), g(43), ENTER(44), ÷(45)
         // [ASSUMED — row 4 column assignments from HP-41C Owner's Manual]
         KeyCode::Char('u') | KeyCode::Char('U') => 41, // USER mode toggle
-        KeyCode::Char('f') => 42,                       // f-key (format cycle)
-        KeyCode::Char('g') => 43,                       // g-key (CLREG)
+        KeyCode::Char('f') => 42,                      // f-key (format cycle)
+        KeyCode::Char('g') => 43,                      // g-key (CLREG)
         // ENTER(44) also mapped above to 84 (row 8 variant); row 4 position omitted to avoid conflict
         KeyCode::Char('/') => 45, // ÷
         // Row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35)
         // [ASSUMED — row 3 column assignments]
-        KeyCode::F(5) => 31,  // R/S — F5 is the TUI binding
-        KeyCode::F(7) => 32,  // SST — F7 is the TUI binding
-        KeyCode::F(8) => 32,  // BST — treated as SST code (same hardware key, different direction)
+        // F5/F7/F8 are TUI convenience bindings (not physical HP-41 keys) — return 0 so
+        // they do not overwrite last_key_code and interfere with GETKEY capture.
+        // The physical HP-41 R/S and SST keys have no direct PC keyboard equivalent.
+        KeyCode::F(5) => 0, // R/S TUI trigger — not an HP-41 physical keypress for GETKEY
+        KeyCode::F(7) => 0, // SST TUI trigger — not an HP-41 physical keypress for GETKEY
+        KeyCode::F(8) => 0, // BST TUI trigger — not an HP-41 physical keypress for GETKEY
         // GTO(33) — no TUI keyboard binding; returns 0 via _ catch-all
         KeyCode::Char('C') => 34, // COS (uppercase, Shift+C)
         KeyCode::Char('T') => 35, // TAN (uppercase, Shift+T)
