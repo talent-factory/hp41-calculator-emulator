@@ -1,14 +1,16 @@
 # HP-41 Calculator Emulator
 
-## Current Milestone: v1.1 CLI Feature Completeness
+## Current Milestone: v2.0 Tauri GUI
 
-**Goal:** Close remaining HP-41 behavioral gaps and add print + synthetic programming capabilities.
+**Goal:** Ship a pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI.
 
 **Target features:**
-- STO arithmetic keyboard modals (`STO+/-/×/÷` interactive key binding)
-- EEX trailing-e-without-exponent hardware lock behavior
-- Print emulation (`PRX`/`PRA`/`PRSTK` → console/text file)
-- Synthetic programming (byte-code injection, FOCAL internals)
+- `hp41-gui` Tauri v2 binary in the existing Cargo workspace
+- SVG skin: vector HP-41C key layout with clickable regions per key
+- Display panel: 12-char dot-matrix display + annunciators in the GUI
+- `hp41-core` integration via Tauri Rust commands (no core duplication)
+- `hp41-cli` remains fully functional (both binaries ship)
+- Platform targets: macOS (primary), Windows, Linux
 
 ## What This Is
 
@@ -48,17 +50,26 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - ✓ QUAL-05: CI green on Windows/macOS/Ubuntu — v1.0 Phase 7
 - ✓ QUAL-06: 495/500 accuracy cases (99% ≥ 98%) — v1.0 Phase 7
 
-### Active (v1.1)
+### Validated (v1.1)
 
-- [x] EEX trailing-e-without-exponent behavior (HP-41 hardware lock on partial exponent) — Validated in Phase 9 (2026-05-08)
-- [x] MSRV 1.85 enforcement + rust_decimal 1.42 — Validated in Phase 9 (2026-05-08)
-- [x] STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding) — Validated in Phase 10 (2026-05-08)
-- [x] FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file — Validated in Phase 11 (2026-05-08)
-- [ ] FR-20: Synthetic programming (byte-code injection, FOCAL internals)
+- ✓ EEX trailing-e-without-exponent behavior (HP-41 hardware lock on partial exponent) — v1.1 Phase 9 (2026-05-08)
+- ✓ MSRV 1.85 enforcement + rust_decimal 1.42 — v1.1 Phase 9 (2026-05-08)
+- ✓ STO arithmetic keyboard modals (STO+/-/×/÷ interactive key binding) — v1.1 Phase 10 (2026-05-08)
+- ✓ FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file — v1.1 Phase 11 (2026-05-08)
+- ✓ FR-20: Synthetic programming (GETKEY, NULL, hidden registers M/N/O, HexModal) — v1.1 Phase 12 (2026-05-09)
+
+### Active (v2.0)
+
+- [ ] GUI-01: `hp41-gui` Tauri v2 binary added to Cargo workspace; builds and launches on macOS, Windows, Linux
+- [ ] GUI-02: SVG skin renders pixel-perfect HP-41C key layout; all keys are visually distinct and correctly positioned
+- [ ] GUI-03: Clickable keys in the SVG skin trigger the same `Op` dispatch as their CLI keyboard counterparts
+- [ ] GUI-04: HP-41 12-char dot-matrix display and annunciators render in the GUI, updating after every op
+- [ ] GUI-05: `hp41-core` integrated via Tauri Rust commands — no duplication of CalcState logic
+- [ ] GUI-06: `hp41-cli` remains fully functional and unmodified after adding `hp41-gui` to the workspace
 
 ### Out of Scope
 
-- v2.0 GUI (Tauri, FR-G1–G5) — deferred until v1.1 CLI stable
+- v2.0 GUI advanced features (module emulation, skin themes) — deferred until core GUI is stable
 - FR-18 Multiple skin themes — GUI-only, v2.0
 - FR-21 Module emulation (Math/Stat/Time/Advantage) — could-have, v1.2+
 - FR-22 `.raw` HP-41 program file import/export — could-have, v1.2+
@@ -79,7 +90,7 @@ v1.1 Phase 10 (2026-05-08): STO arithmetic keyboard modal complete — S→op→
 
 v1.1 Phase 11 (2026-05-08): Print emulation complete — `print_buffer: Vec<String>` on `CalcState` keeps hp41-core I/O-free; `Op::PRX/PRA/PRSTK` in `ops/print.rs` format output into the buffer; `hp41-cli` drains via `call_dispatch_and_drain()` (interactive) and `drain_and_show_print_output()` (programmatic run_program paths); `--print-log` appends to a file. 5/5 must-haves verified; 94.00% hp41-core coverage. Gap closure plan 11-03 fixed serde(skip) on print_buffer (CR-03) and wired 3 run_program call sites (CR-01).
 
-Key codebase facts: `hp41-core` is a UI-agnostic library with zero CLI dependencies; `hp41-cli` uses ratatui 0.30 + crossterm 0.29; all tests use `just ci` (lint + test + coverage); `#![deny(clippy::unwrap_used)]` enforces zero panics at compile time.
+Key codebase facts: `hp41-core` is a UI-agnostic library with zero CLI dependencies; `hp41-cli` uses ratatui 0.30 + crossterm 0.29; all tests use `just ci` (lint + test + coverage); `#![deny(clippy::unwrap_used)]` enforces zero panics at compile time. v1.1 shipped 2026-05-09 with 4 phases (9–12), completing all planned CLI features. v2.0 adds `hp41-gui` (Tauri v2 + React + TypeScript) as a new workspace member reusing `hp41-core` unchanged.
 
 ## Constraints
 
@@ -118,4 +129,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Audit Key Decisions with outcomes
 
 ---
-*Last updated: 2026-05-08 after Phase 10 completion*
+*Last updated: 2026-05-09 — v2.0 Tauri GUI milestone started*

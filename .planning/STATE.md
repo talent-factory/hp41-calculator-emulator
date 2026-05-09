@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: CLI Feature Completeness
-current_phase: 12
-current_plan: complete
-status: complete
+milestone: v2.0
+milestone_name: Tauri GUI
+current_phase: 0
+current_plan: ""
+status: planning
 last_updated: "2026-05-09T00:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
-**Current focus:** v1.1 milestone complete — ready for v2.0 planning
+**Current focus:** v2.0 Tauri GUI — planning phase
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 12 of 12 (Synthetic Programming) — COMPLETE
-Plan: All 3 plans complete
-Status: Complete — v1.1 milestone finished
-Last activity: 2026-05-09 — Phase 12 complete (3 plans, verification passed, UAT approved)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-09 — Milestone v2.0 started
 
-Progress: [██████████] 100%
+Progress: [          ] 0%
 
 ---
 
@@ -103,9 +103,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-09
-**Last action:** Phase 12 complete — GETKEY, NULL, hidden registers M/N/O, HexModal; 2 bugs fixed (CR-01 Vec::insert panic, F5 last_key_code overwrite); UAT approved; 99 hp41-cli tests
-**Next action:** `/gsd-new-milestone` — v2.0 Tauri GUI planning
+**Last action:** v2.0 Tauri GUI milestone started — PROJECT.md and STATE.md updated
+**Next action:** Research Tauri v2 + React ecosystem, then define requirements and create roadmap
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-09 — v1.1 milestone complete*
+*Last updated: 2026-05-09 — v2.0 milestone started*
