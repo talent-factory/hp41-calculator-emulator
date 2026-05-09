@@ -3,6 +3,10 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod commands;
+mod key_map;
+mod types;
+
 pub type AppState = Mutex<hp41_core::CalcState>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
