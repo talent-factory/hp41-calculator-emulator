@@ -130,4 +130,29 @@ mod tests {
         let err: GuiError = HpError::Overflow.into();
         assert_eq!(err.message, "overflow");
     }
+
+    #[test]
+    fn test_phase15_stack_fields_exist() {
+        // Wave 0 RED test: CalcStateView must have y_str, z_str, t_str, lastx_str,
+        // and in_eex_mode after Phase 15 types.rs is updated.
+        // This test compiles only after Wave 1 adds these fields to the struct.
+        let mut state = CalcState::new();
+        state.entry_buf = "1e2".to_string();
+        let view = CalcStateView::from_state(&state, vec![]);
+        // y/z/t/lastx start as "0.0000000000" (format_hpnum of zero stack)
+        assert!(!view.y_str.is_empty(), "y_str must be populated");
+        assert!(!view.z_str.is_empty(), "z_str must be populated");
+        assert!(!view.t_str.is_empty(), "t_str must be populated");
+        assert!(!view.lastx_str.is_empty(), "lastx_str must be populated");
+        // in_eex_mode: entry_buf "1e2" contains 'e' → true
+        assert!(view.in_eex_mode, "in_eex_mode must be true when entry_buf contains 'e'");
+    }
+
+    #[test]
+    fn test_in_eex_mode_false_without_e() {
+        let mut state = CalcState::new();
+        state.entry_buf = "42".to_string();
+        let view = CalcStateView::from_state(&state, vec![]);
+        assert!(!view.in_eex_mode, "in_eex_mode must be false when entry_buf has no 'e'");
+    }
 }
