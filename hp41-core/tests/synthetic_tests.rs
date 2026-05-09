@@ -186,7 +186,7 @@ fn test_calcstate_loads_without_new_fields() {
     // v1.0 save files would not contain last_key_code, reg_m, reg_n, reg_o.
     // Use serde_json::Value to construct a stripped-down JSON, then deserialize.
     // If #[serde(default)] is missing on any new field, this test fails to deserialize.
-    let full = serde_json::to_value(&CalcState::new()).unwrap();
+    let full = serde_json::to_value(CalcState::new()).unwrap();
     let mut obj = full.as_object().unwrap().clone();
     obj.remove("last_key_code");
     obj.remove("reg_m");
