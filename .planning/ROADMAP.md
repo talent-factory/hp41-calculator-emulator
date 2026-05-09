@@ -150,8 +150,8 @@
   5. The CI matrix (Windows, macOS, Ubuntu) continues to pass the existing CLI jobs with no new failures introduced
 **Plans**: 3 plans
   **Wave 1** *(parallel)*
-  - [ ] 13-01-PLAN.md — WSPC-01/02: Rust nested workspace skeleton (Cargo.toml, build.rs, main.rs, lib.rs) + four Justfile gui-* recipes
-  - [ ] 13-02-PLAN.md — WSPC-01: Frontend scaffold (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/App.tsx, src/index.css)
+  - [x] 13-01-PLAN.md — WSPC-01/02: Rust nested workspace skeleton (Cargo.toml, build.rs, main.rs, lib.rs) + four Justfile gui-* recipes
+  - [x] 13-02-PLAN.md — WSPC-01: Frontend scaffold (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/App.tsx, src/index.css)
   **Wave 2** *(blocked on Wave 1)*
   - [ ] 13-03-PLAN.md — WSPC-01/02: tauri.conf.json + capabilities + npm install + full integration validation + human window verify
   **Cross-cutting constraints:**
@@ -242,7 +242,7 @@
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
-| 13. Workspace Skeleton | v2.0 | 0/3 | Planned | - |
+| 13. Workspace Skeleton | v2.0 | 2/3 | In Progress | - |
 | 14. IPC Layer | v2.0 | 0/? | Not started | - |
 | 15. Display & Keyboard | v2.0 | 0/? | Not started | - |
 | 16. SVG Skin | v2.0 | 0/? | Not started | - |
