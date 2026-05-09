@@ -5,6 +5,7 @@
 //! RCL: Enable lift (like PushNum — places a value on the stack).
 
 use crate::error::HpError;
+use crate::num::HpNum;
 use crate::ops::{StackReg, StoArithKind};
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
@@ -97,6 +98,67 @@ pub fn op_sto_arith_stack(
 pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
     state.regs = vec![crate::num::HpNum::zero(); 100];
     apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+// ── Phase 12: Synthetic Programming ──────────────────────────────────────────
+
+/// GETKEY — push the last HP-41 row-column key code to X. LiftEffect::Enable.
+/// Reads `state.last_key_code` (u8) — default 0 when no key has been pressed yet.
+pub fn op_getkey(state: &mut CalcState) -> Result<(), HpError> {
+    let code = HpNum::from(state.last_key_code as i32);
+    state.stack.lift_enabled = true; // GETKEY always lifts (produces a new value)
+    enter_number(state, code);
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
+}
+
+/// STO M — store X into hidden register M. LiftEffect::Neutral.
+pub fn op_sto_m(state: &mut CalcState) -> Result<(), HpError> {
+    state.reg_m = state.stack.x.clone();
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// STO N — store X into hidden register N. LiftEffect::Neutral.
+pub fn op_sto_n(state: &mut CalcState) -> Result<(), HpError> {
+    state.reg_n = state.stack.x.clone();
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// STO O — store X into hidden register O. LiftEffect::Neutral.
+pub fn op_sto_o(state: &mut CalcState) -> Result<(), HpError> {
+    state.reg_o = state.stack.x.clone();
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// RCL M — recall hidden register M into X. LiftEffect::Enable.
+/// Forces lift_enabled = true before enter_number, matching op_rcl pattern.
+pub fn op_rcl_m(state: &mut CalcState) -> Result<(), HpError> {
+    let val = state.reg_m.clone();
+    state.stack.lift_enabled = true;
+    enter_number(state, val);
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
+}
+
+/// RCL N — recall hidden register N into X. LiftEffect::Enable.
+pub fn op_rcl_n(state: &mut CalcState) -> Result<(), HpError> {
+    let val = state.reg_n.clone();
+    state.stack.lift_enabled = true;
+    enter_number(state, val);
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
+}
+
+/// RCL O — recall hidden register O into X. LiftEffect::Enable.
+pub fn op_rcl_o(state: &mut CalcState) -> Result<(), HpError> {
+    let val = state.reg_o.clone();
+    state.stack.lift_enabled = true;
+    enter_number(state, val);
+    apply_lift_effect(state, LiftEffect::Enable);
     Ok(())
 }
 
