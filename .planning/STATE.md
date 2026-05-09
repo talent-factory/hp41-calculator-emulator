@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
-current_phase: 13
-current_plan: "14-01"
-status: awaiting_planning
-last_updated: "2026-05-09T18:00:00.000Z"
+current_phase: 14
+current_plan: "14-00"
+status: ready_to_execute
+last_updated: "2026-05-09T20:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 4
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 13 — Workspace Skeleton
-Plan: 13-03 COMPLETE — Phase 13 fully verified
-Status: Phase 13 complete — awaiting Phase 14 planning
-Last activity: 2026-05-09 — All 5 SC verified; human confirmed Tauri window "HP-41 Calculator"
+Phase: 14 — IPC Layer
+Plan: 14-00 READY — 4 plans planned (Wave 0→1→2)
+Status: Phase 14 ready to execute — all plans verified, 0 issues
+Last activity: 2026-05-09 — Phase 14 planning complete; 4 plans in 3 waves
 
-Progress: [██████████] 100% (Phase 13 complete)
+Progress: [░░░░░░░░░░] 0% (Phase 14 not started)
 
 ---
 
@@ -106,9 +106,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-09
-**Last action:** Phase 13 complete — all 3 plans executed; SC-1 through SC-5 verified; human confirmed window title
-**Next action:** `/gsd-execute-phase 14` or `/gsd-plan 14` — Phase 14 IPC Layer
+**Last action:** Phase 14 planned — 4 plans (14-00 → 14-01 → 14-02 → 14-03); all verified; 0 checker issues
+**Next action:** `/gsd-execute-phase 14` — execute IPC Layer plans
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-09 — Phase 13 context gathered*
+*Last updated: 2026-05-09 — Phase 14 planning complete*

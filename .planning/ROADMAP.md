@@ -169,7 +169,19 @@
   3. The `print_buffer` field is drained and its contents included in `CalcStateView.print_lines` on every command response — no print output is silently dropped
   4. `CalcState` logic (stack operations, dispatch, arithmetic) is entirely within `hp41-core`; `hp41-gui/src-tauri` contains zero duplicated calculator logic
   5. A `type AppState = Mutex<CalcState>` alias is used throughout command handlers, making incorrect state extraction a compile error rather than a runtime panic
-**Plans**: TBD
+**Plans**: 4 plans
+  **Wave 0**
+  - [ ] 14-00-PLAN.md — IPC-01: test scaffold (types.rs, key_map.rs, commands.rs with RED failing tests using `unimplemented!()`)
+  **Wave 1** *(blocked on Wave 0; 01 and 02 can run in parallel)*
+  - [ ] 14-01-PLAN.md — IPC-01 (data layer): types.rs (CalcStateView, Annunciators, GuiError, From<HpError>) + key_map.rs (resolve fn for ~50 named ops + 7 prefix-parameterized families)
+  - [ ] 14-02-PLAN.md — IPC-01 (command layer): commands.rs (dispatch_op, get_state Tauri thunks + handle_op, handle_get_state pure helpers) + lib.rs `generate_handler!` registration
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 14-03-PLAN.md — IPC-01 (capabilities): capabilities/default.json — add auto-generated `allow-dispatch-op` and `allow-get-state` permission IDs (D-12)
+  **Cross-cutting constraints:**
+  - Wave 0 scaffolds the public signatures (`from_state`, `From<HpError>`, `resolve`, `handle_op`, `handle_get_state`, Tauri thunks) — Plans 01/02 implement against them exactly
+  - Plan 03 MUST NOT run before Plan 02's first successful `cargo check` (which generates `gen/schemas/*.json` permission identifiers — Pitfall 2 in 14-RESEARCH.md)
+  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-gui/src-tauri — Mutex locks use `.unwrap_or_else(|e| e.into_inner())`; tests carry `#[allow(clippy::unwrap_used)]` at the test mod level
+  - SC-4 invariant: `grep -rn "fn op_\|fn flush_entry\|fn format_hpnum" hp41-gui/src-tauri/src/` MUST return nothing — no calculator logic duplicated in hp41-gui
 **UI hint**: yes
 
 ### Phase 15: Display & Keyboard
@@ -243,7 +255,7 @@
 | 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
 | 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
-| 14. IPC Layer | v2.0 | 0/? | Not started | - |
+| 14. IPC Layer | v2.0 | 0/4 | Not started | - |
 | 15. Display & Keyboard | v2.0 | 0/? | Not started | - |
 | 16. SVG Skin | v2.0 | 0/? | Not started | - |
 | 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |
