@@ -46,7 +46,7 @@
 **Milestone Goal:** Ship a pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI.
 
 - [x] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green (completed 2026-05-09)
-- [ ] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call
+- [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
 - [ ] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli
 - [ ] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation
 - [ ] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel
@@ -255,7 +255,7 @@
 | 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
 | 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
-| 14. IPC Layer | v2.0 | 0/4 | Not started | - |
+| 14. IPC Layer | v2.0 | 4/4 | Complete | 2026-05-09 |
 | 15. Display & Keyboard | v2.0 | 0/? | Not started | - |
 | 16. SVG Skin | v2.0 | 0/? | Not started | - |
 | 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |

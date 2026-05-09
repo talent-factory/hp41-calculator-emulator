@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
-current_phase: 14
-current_plan: "14-03"
-status: verifying
-last_updated: "2026-05-09T21:45:00.000Z"
+current_phase: 15
+current_plan: "15-00"
+status: ready_to_plan
+last_updated: "2026-05-09T22:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
   completed_plans: 4
   percent: 100
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 14 — IPC Layer
-Plan: 14-03 COMPLETE — all 4 plans done (3 waves)
-Status: Phase 14 execution complete — verifying phase goal
-Last activity: 2026-05-09 — All 4 plans executed; 9/9 tests GREEN; capabilities wired
+Phase: 15 — Display & Keyboard
+Plan: 15-00 READY TO PLAN — Phase 14 complete
+Status: Phase 14 complete (verified 2026-05-09); Phase 15 ready to discuss/plan
+Last activity: 2026-05-09 — Phase 14 IPC Layer verified 5/5 SC; advancing to Phase 15
 
-Progress: [██████████] 100% (Wave 0+1+2 complete, awaiting verification)
+Progress: [██████████] 33% (2/6 phases complete — Phase 14 done, Phase 15 next)
 
 ---
 
@@ -81,6 +81,9 @@ Progress: [██████████] 100% (Wave 0+1+2 complete, awaiting v
 | Bundle identifier `ch.talent-factory.hp41` (D-02) | Overrides scaffold default `com.tauri.dev`; avoids macOS sandbox/keychain issues | Phase 13 |
 | capabilities/default.json core:default only | Minimum Tauri v2 capability; hp41-specific IPC permissions added in Phase 14 when commands are registered | Phase 13 |
 | Mutex lock: `.unwrap_or_else(\|e\| e.into_inner())` | Poisoned-lock recovery required by zero-panic policy; applies to all Phase 14+ command handlers | Phase 13 |
+| Tauri v2.11 app-command permissions: TOML files required | For inline app commands (not plugins), Tauri v2.11 does NOT auto-generate allow-<cmd> permissions. Create TOML in src-tauri/permissions/<cmd-kebab>.toml with `[[permission]] identifier + commands.allow = ["fn_name"]` | Phase 14 |
+| CalcStateView display_str priority: entry_buf → format_alpha(alpha_mode) → format_hpnum(stack.x) | Matches hp41-cli get_display_string logic; x_str always uses format_hpnum for Phase 15 stack panel | Phase 14 |
+| EEX-CHS gap in handle_op | In-buffer exponent sign toggle (Op::Chs during EEX entry) is missing from commands.rs handle_op; deferred to Phase 15 keyboard wiring. Frontend must send "eex_chs" key ID | Phase 14 |
 
 ### Critical Implementation Traps (v1.1)
 
@@ -106,8 +109,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-09
-**Last action:** Phase 14 planned — 4 plans (14-00 → 14-01 → 14-02 → 14-03); all verified; 0 checker issues
-**Next action:** `/gsd-execute-phase 14` — execute IPC Layer plans
+**Last action:** Phase 14 IPC Layer executed and verified — 4/4 plans done, 5/5 SC passed, 9/9 tests GREEN
+**Next action:** `/gsd-discuss-phase 15` or `/gsd-plan-phase 15` — Display & Keyboard phase
 
 ---
 *State initialized: 2026-05-06*
