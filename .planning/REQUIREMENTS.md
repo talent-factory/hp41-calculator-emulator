@@ -1,93 +1,89 @@
-# Requirements: HP-41 Calculator Emulator v1.1
+# Requirements: HP-41 Calculator Emulator v2.0
 
-**Defined:** 2026-05-08
-**Core Value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
+**Defined:** 2026-05-09
+**Core Value:** Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to the original hardware; everything else is secondary.
 
-## v1.1 Requirements
+## v2.0 Requirements
 
-### Input Behavior (EEX Fix)
+### WORKSPACE — Workspace & Infrastructure
 
-- [x] **INPUT-01**: User pressing EEX then an op key (without typing exponent digits) commits the number with exponent 00 (e.g. `1.5e` + ENTER → `1.5`) — Validated in Phase 9
-- [x] **INPUT-02**: User pressing EEX on an empty entry buffer sees `1` inserted as implicit mantissa (matches HP-41 hardware: `1   _` in exponent entry mode) — Validated in Phase 9
-- [x] **INPUT-03**: TUI displays a placeholder cursor during partial exponent state (e.g. `1.5E_ _`) to signal exponent entry is pending — Validated in Phase 9
+- [ ] **WSPC-01**: User can build and launch `hp41-gui` from the Cargo workspace via `just gui-dev`; `just ci` (CLI pipeline) still passes without modification
+- [ ] **WSPC-02**: User can build both `hp41-cli` and `hp41-gui` in the same workspace without either binary's CI regressing
 
-### STO Arithmetic Modals
+### SKIN — HP-41C Visual Skin
 
-- [ ] **STOA-01**: User can perform STO+, STO-, STO×, STO÷ to R00–R99 via 3-step keyboard modal (`S` → arithmetic op key → two-digit register)
-- [ ] **STOA-02**: User can press Esc at any step of the STO arithmetic modal to cancel without side effects
-- [ ] **STOA-03**: User can perform STO arithmetic to stack registers (STO+ Y, STO- Z, STO× T, STO÷ L)
+- [ ] **SKIN-01**: User sees a pixel-perfect SVG HP-41C key layout (9×5 grid, ENTER double-width, correct key labels and legends, HP-41C proportions and color scheme — dark brown body, gold shift labels)
+- [ ] **SKIN-02**: User can click any key in the SVG skin and the corresponding HP-41 operation executes in `hp41-core` (same result as pressing the equivalent CLI key binding)
+- [ ] **SKIN-03**: User sees visual press feedback (CSS scale-down animation) on every key click
 
-### Print Emulation
+### DISP — Display & Readouts
 
-- [ ] **PRNT-01**: `PRX` prints X register in current display format (FIX/SCI/ENG), right-aligned to 24 chars, to console
-- [ ] **PRNT-02**: `PRA` prints ALPHA register contents, left-aligned to 24 chars, to console
-- [ ] **PRNT-03**: `PRSTK` prints full stack in order T→Z→Y→X→LASTX→ALPHA to console
-- [ ] **PRNT-04**: User can pass `--print-log <path>` to `hp41-cli` to append all print output to a file in addition to console
+- [ ] **DISP-01**: User sees the 12-char HP-41 display string and all five annunciators (USER, PRGM, ALPHA, RAD, GRAD) update in the GUI after every operation
+- [ ] **DISP-02**: User sees a stack register panel showing X/Y/Z/T/LASTX values alongside the calculator skin, updating after every operation
 
-### Synthetic Programming
+### IPC — IPC & Core Integration
 
-- [x] **SYNT-01**: `GETKEY` instruction pushes the last key code (HP-41 row-column encoding) to X register — Validated in Phase 12
-- [x] **SYNT-02**: `NULL` instruction executes as a no-op with Neutral stack-lift effect — Validated in Phase 12
-- [x] **SYNT-03**: Hidden registers M, N, O are accessible in programs via `STO M`/`RCL M`, `STO N`/`RCL N`, `STO O`/`RCL O` — Validated in Phase 12
-- [x] **SYNT-04**: User can insert a synthetic op into the current program via a 2-digit hex byte modal (curated safe subset; rejects mode-mutating byte codes) — Validated in Phase 12
+- [ ] **IPC-01**: All user operations reach `hp41-core` via Tauri Rust commands (`dispatch_op`, `get_state`); the response is a `CalcStateView` (~200 bytes); `print_buffer` is drained on every command; no `hp41-core` logic is duplicated in the GUI crate
+- [ ] **IPC-02**: User can operate the GUI entirely from the physical keyboard using the same key bindings as `hp41-cli` (e.g. `0–9`, `+`, `-`, `*`, `/`, `ENTER`, `q`→SIN, etc.)
 
-### Infrastructure
+### PERS — Persistence
 
-- [x] **INFRA-01**: Project MSRV formally bumped to Rust 1.85 in `Cargo.toml` and CI/docs (resolves `clap` 4.6.1 discrepancy); `rust_decimal` bumped 1.41 → 1.42 — Validated in Phase 9
+- [ ] **PERS-01**: User's calculator state persists across GUI restarts via `~/.hp41/autosave.json` (shared with `hp41-cli`); state auto-saves every 30 seconds; save files created by v1.x `hp41-cli` load without error in `hp41-gui`
+- [ ] **PERS-02**: User sees PRX/PRA/PRSTK print output in a scrollable panel in the GUI (output from the `print_buffer` is surfaced, not silently discarded)
 
-## v2+ Requirements
+### PROG — Program Display
 
-### Print Emulation (deferred)
+- [ ] **PROG-01**: User can view the current program listing and navigate steps with SST/BST in GUI PRGM mode
 
-- **PRNT-05**: Scrollable print history panel in TUI — complexity vs. v1.1 scope
-- **PRNT-06**: `ADV` (paper advance), `PRREG` (print all registers), Flag 26 / TRACE mode — niche printer peripheral ops
+## Future Requirements
 
-### Synthetic Programming (deferred)
+### v2.1 Polish
 
-- **SYNT-05**: Full FOCAL byte-code table (~200 codes) — byte-code reference not fully available at v1.1 planning
-- **SYNT-06**: `GETKEY` interrupt-style key capture during program execution — requires event loop redesign
+- **SKIN-04**: 14-segment SVG font for the HP-41 display (authentic LCD rendering) — medium complexity; deferred until core GUI is stable
+- **SKIN-05**: Keyboard shortcut overlay (port `?` help panel from CLI) — low complexity
+- **PROG-02**: Full keyboard assignment display in USER mode — medium complexity
 
-### STO Arithmetic (deferred)
+### v2.x / v3.0
 
-- **STOA-04**: STO arithmetic via indirect addressing (e.g. `STO+ IND NN`) — v1.2+
+- **PRNT-03**: `ADV`, `PRREG`, FLAG 26 / TRACE mode printer peripheral ops
+- **WSPC-03**: STO arithmetic via indirect addressing (`STO+ IND NN`) — v1.2+ in CLI, then GUI
+- **MOD-01**: HP-41 module emulation (Math/Stat/Time/Advantage) — v1.2+ or v3.0
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Tauri v2 GUI (hp41-gui) | Deferred to v2.0; this milestone is CLI-only |
-| Full FOCAL / Nut CPU emulation | Architecture decision: behavioral emulation, not cycle-accurate |
-| HP-copyrighted ROM images | Legal risk; excluded permanently |
+| Cycle-accurate Nut CPU simulation | Architecture decision: behavioral emulation; high effort, low user value |
+| HP-copyrighted ROM image redistribution | Legal risk; excluded permanently |
 | HP-IL / peripheral bus emulation | Niche, high complexity |
 | Cloud sync or telemetry | Privacy; local-only data storage |
-| Byte-grabber / ROM exploit replication | Hardware-only technique; not reproducible in behavioral emulator |
+| Mobile (iOS/Android) | Deferred until desktop GUI is stable |
+| Multiple skin themes | v2.x after core GUI is solid |
+| `.raw` HP-41 program file import/export | v1.2+ CLI feature before GUI integration |
 | `println!` / direct I/O in `hp41-core` | Enforced invariant: zero UI dependencies in core library |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01    | Phase 9  | ✅ Complete |
-| INPUT-01    | Phase 9  | ✅ Complete |
-| INPUT-02    | Phase 9  | ✅ Complete |
-| INPUT-03    | Phase 9  | ✅ Complete |
-| STOA-01     | Phase 10 | ✅ Complete |
-| STOA-02     | Phase 10 | ✅ Complete |
-| STOA-03     | Phase 10 | ✅ Complete |
-| PRNT-01     | Phase 11 | ✅ Complete |
-| PRNT-02     | Phase 11 | ✅ Complete |
-| PRNT-03     | Phase 11 | ✅ Complete |
-| PRNT-04     | Phase 11 | ✅ Complete |
-| SYNT-01     | Phase 12 | ✅ Complete |
-| SYNT-02     | Phase 12 | ✅ Complete |
-| SYNT-03     | Phase 12 | ✅ Complete |
-| SYNT-04     | Phase 12 | ✅ Complete |
+| WSPC-01     | TBD   | Pending |
+| WSPC-02     | TBD   | Pending |
+| SKIN-01     | TBD   | Pending |
+| SKIN-02     | TBD   | Pending |
+| SKIN-03     | TBD   | Pending |
+| DISP-01     | TBD   | Pending |
+| DISP-02     | TBD   | Pending |
+| IPC-01      | TBD   | Pending |
+| IPC-02      | TBD   | Pending |
+| PERS-01     | TBD   | Pending |
+| PERS-02     | TBD   | Pending |
+| PROG-01     | TBD   | Pending |
 
 **Coverage:**
-- v1.1 requirements: 15 total
-- Mapped to phases: 15 ✓
-- Unmapped: 0
+- v2.0 requirements: 12 total
+- Mapped to phases: 0 (roadmap not yet created)
+- Unmapped: 12
 
 ---
-*Requirements defined: 2026-05-08*
-*Last updated: 2026-05-08 — traceability filled after roadmap creation*
+*Requirements defined: 2026-05-09*
+*Last updated: 2026-05-09 — initial v2.0 requirements*
