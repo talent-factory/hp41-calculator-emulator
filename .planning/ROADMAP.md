@@ -194,7 +194,13 @@
   3. The stack register panel shows current X/Y/Z/T/LASTX values and updates after every operation, matching the values that hp41-cli would show
   4. Physical keyboard event listeners use `useCallback` and always return a cleanup function in `useEffect`, so no duplicate IPC calls fire on a single keypress even in React StrictMode
   5. The key binding set covers all bindings present in hp41-cli's `key_to_op()` function — no key that works in the CLI is silently ignored in the GUI
-**Plans**: TBD
+**Plans**: 3 plans
+  **Wave 0** *(Tailwind strip + test stubs)*
+  - [ ] 15-01-PLAN.md — DISP-01/IPC-02: Strip Tailwind from index.css + vite.config.ts; write 4 RED test stubs in types.rs + commands.rs
+  **Wave 1** *(blocked on Wave 0)*
+  - [ ] 15-02-PLAN.md — DISP-01/DISP-02/IPC-02: Extend CalcStateView (y_str/z_str/t_str/lastx_str/in_eex_mode) + add eex_chs branch in handle_op
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 15-03-PLAN.md — DISP-01/DISP-02/IPC-02: Build App.tsx (display + annunciators + stack panel + keyboard listener) + App.css + human-verify SC-1..SC-5
 **UI hint**: yes
 
 ### Phase 16: SVG Skin
@@ -256,7 +262,7 @@
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
 | 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
 | 14. IPC Layer | v2.0 | 4/4 | Complete | 2026-05-09 |
-| 15. Display & Keyboard | v2.0 | 0/? | Not started | - |
+| 15. Display & Keyboard | v2.0 | 0/3 | In progress | - |
 | 16. SVG Skin | v2.0 | 0/? | Not started | - |
 | 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |
 | 18. Program Listing & CI/CD | v2.0 | 0/? | Not started | - |
