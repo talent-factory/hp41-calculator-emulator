@@ -1,486 +1,406 @@
 # Architecture Patterns
 
-**Domain:** HP-41 Calculator Emulator — v1.1 Integration Architecture
-**Researched:** 2026-05-08
-**Focus:** Integration points for four v1.1 features into the existing v1.0 codebase
+**Domain:** HP-41 Calculator Emulator — v2.0 Tauri GUI Integration
+**Researched:** 2026-05-09
+**Focus:** How `hp41-gui` (Tauri v2 + React + TypeScript) integrates with `hp41-core`
 
 ---
 
-## Existing Architecture (v1.0 Baseline)
+## Summary
 
-### Component Map
+`hp41-core` is already designed for exactly this use case: a UI-agnostic library with a single mutable state (`CalcState`), a single entry point (`dispatch(op, state)`), and full serde coverage. Tauri v2's managed-state pattern maps cleanly onto this. The integration is shallow by design — `hp41-gui` is a thin adapter crate, not a reimplementation.
 
-```
-hp41-core (library crate — zero UI deps)
-  src/
-    lib.rs             — public API re-exports; #![deny(clippy::unwrap_used)]
-    state.rs           — CalcState (single source of truth for all mutable state)
-    stack.rs           — Stack, apply_lift_effect(), enter_number()
-    num.rs             — HpNum (rust_decimal newtype)
-    format.rs          — format_hpnum(), format_alpha()
-    error.rs           — HpError enum
-    ops/
-      mod.rs           — Op enum, dispatch(), flush_entry_buf()
-      arithmetic.rs    — op_add/sub/mul/div
-      math.rs          — trig, log, exp, ...
-      registers.rs     — op_sto, op_rcl, op_sto_arith, op_clreg
-      stack_ops.rs     — op_enter, op_clx, op_chs, ...
-      alpha.rs         — op_alpha_toggle, op_alpha_append, ...
-      program.rs       — run_program(), run_loop(), execute_op(), parse_counter()
-      stats.rs         — sigma, mean, sdev, lr, ...
-      hms.rs           — HMS conversions
+**The canonical pattern:**
+- `CalcState` lives in `Mutex<CalcState>` managed by Tauri's `AppState`.
+- Every key click → `invoke("dispatch_op", { op: "Sin" })` → Tauri command locks mutex, calls `dispatch(op, &mut state)`, returns `CalcStateView` snapshot to frontend.
+- Frontend re-renders from the returned snapshot. No push events needed for synchronous ops.
+- Key-to-Op mapping lives in Rust (not TypeScript). The frontend sends a key identifier; Rust resolves it to `Op`.
 
-hp41-cli (binary crate — depends on hp41-core)
-  src/
-    main.rs            — entry point
-    app.rs             — App struct, handle_key(), handle_pending_input(), event loop
-    keys.rs            — key_to_op(), KEY_REF_TABLE
-    ui.rs              — render_ui() (ratatui)
-    persistence.rs     — save_state(), load_state()
-    help_data.rs       — HELP_DATA (? overlay content)
-    prgm_display.rs    — program listing formatter
-    programs.rs        — sample_programs()
-```
-
-### Key Invariants (must not be violated by v1.1)
-
-1. `hp41-core` has zero UI/CLI dependencies — enforced at compile time.
-2. All state lives in `CalcState`. No module-level globals.
-3. `#![deny(clippy::unwrap_used)]` — production code uses `.expect("reason")` or `?`.
-4. `dispatch()` calls `flush_entry_buf()` first, then checks `prgm_mode` gate.
-5. `execute_op()` inside `run_loop()` does NOT call `flush_entry_buf()`.
-6. `Op` derives `Serialize, Deserialize` — adding Op variants breaks existing JSON state files if not handled with `#[serde(default)]` on new CalcState fields.
-
-### Data Flow (existing)
-
-```
-crossterm KeyEvent
-  → app.handle_key()            [hp41-cli/src/app.rs]
-    → entry_buf append          (digit/./e keys — no dispatch)
-    → handle_pending_input()    (modal states)
-    → handle_alpha_mode_key()   (alpha mode)
-    → keys::key_to_op()         → hp41_core::ops::dispatch()
-                                    → flush_entry_buf()
-                                    → prgm_mode gate
-                                    → op_xxx() implementations
-```
+**What does NOT change:** `hp41-core` is untouched. Zero new dependencies are added to it. `hp41-cli` continues to build and run unchanged.
 
 ---
 
-## Feature 1: STO Arithmetic Keyboard Modals
+## Data Flow
 
-### Current State
+```
+SVG Key Click (TypeScript)
+  │
+  │  invoke("dispatch_op", { keyId: "sin" })
+  ▼
+Tauri IPC (JSON over webview message channel)
+  │
+  ▼
+dispatch_op command (src-tauri/src/commands.rs)
+  │  1. lock Mutex<CalcState>
+  │  2. resolve keyId → Op  (key_map.rs)
+  │  3. hp41_core::ops::dispatch(&mut state, op)
+  │  4. build CalcStateView from state
+  │  5. drain print_buffer
+  ▼
+Return CalcStateView (serialized to JSON by Tauri)
+  │
+  ▼
+React state update (useState / useReducer)
+  │
+  ▼
+Re-render: display panel + annunciators + print output
+```
 
-`PendingInput::StoAdd/StoSub/StoMul/StoDiv(String)` variants already exist in `app.rs` but are marked `#[allow(dead_code)]` with a comment "deferred to v1.1". The `handle_pending_input()` match arms for these four variants are already implemented and call `handle_reg_modal()` with the correct `Op::StoArith` constructor. The core dispatch (`Op::StoArith`) and the underlying `op_sto_arith()` function in `registers.rs` are fully implemented.
+**Key invariants preserved:**
+- `flush_entry_buf()` is called inside `dispatch()` — no change needed.
+- `is_running` is reset to `false` after `load_state` (same as `hp41-cli`).
+- `print_buffer` is drained by the Tauri command layer (analogous to `hp41-cli`'s `call_dispatch_and_drain()`).
+- `prgm_mode` is a field in `CalcState`; the frontend reflects it from the returned view.
 
-### What Is Missing
+---
 
-The trigger is missing. Currently pressing `S` unconditionally sets `PendingInput::StoRegister`. There is no way for the user to reach `PendingInput::StoAdd/Sub/Mul/Div`.
+## New Components
 
-### Integration Points
+### Modified (workspace-level)
 
-**File: `hp41-cli/src/app.rs`**
+| File | Change | Reason |
+|------|--------|--------|
+| `Cargo.toml` (root) | Add `"hp41-gui"` to `members` | Register new workspace member |
+| `Justfile` | Add `gui-dev`, `gui-build`, `gui-test` recipes | Expose Tauri CLI through `just` |
 
-The `handle_key()` function contains this block:
+### New crate: `hp41-gui/`
+
+Standard Tauri v2 structure. `src-tauri/` is the Rust crate; `src/` (or `ui/src/`) holds React/TypeScript.
+
+```
+hp41-gui/
+  src-tauri/
+    Cargo.toml                  ← workspace member; depends on hp41-core
+    build.rs                    ← tauri_build::build()
+    tauri.conf.json             ← app metadata, devUrl, frontendDist, bundle
+    capabilities/
+      default.json              ← core:default + custom hp41 commands
+    src/
+      main.rs                   ← desktop entry: calls lib::run()
+      lib.rs                    ← #[cfg_attr(mobile, tauri::mobile_entry_point)] pub fn run()
+      commands.rs               ← #[tauri::command] functions
+      key_map.rs                ← key_id string → Op resolution
+      state.rs                  ← CalcStateView (serializable snapshot)
+      error.rs                  ← CommandError (implements serde::Serialize)
+      persistence.rs            ← reuses save_state/load_state logic from hp41-cli
+  ui/                           ← Vite + React + TypeScript frontend
+    src/
+      main.tsx
+      App.tsx
+      components/
+        Calculator.tsx           ← top-level layout
+        Display.tsx              ← 12-char dot-matrix + annunciators
+        Keyboard.tsx             ← SVG skin with clickable regions
+        PrintOutput.tsx          ← print buffer display
+      hooks/
+        useCalcState.ts          ← invoke wrapper + local state
+      bindings.ts               ← hand-written or tauri-specta generated types
+    index.html
+    vite.config.ts
+    package.json
+    tsconfig.json
+```
+
+### New files in `hp41-gui/src-tauri/src/`
+
+**`state.rs` — CalcStateView**
+
+`CalcState` is too large and has internal fields (e.g., `program: Vec<Op>`, `call_stack`) that the frontend does not need every frame. Derive a `CalcStateView` as the IPC return type — a serializable subset covering what the display needs:
+
 ```rust
-if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-    self.pending_input = Some(PendingInput::StoRegister(String::new()));
-    ...
-    return;
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CalcStateView {
+    pub display_x: String,       // format_hpnum(&state.stack.x, &state.display_mode)
+    pub display_y: String,
+    pub display_z: String,
+    pub display_t: String,
+    pub display_lastx: String,
+    pub alpha_reg: String,
+    pub alpha_mode: bool,
+    pub prgm_mode: bool,
+    pub user_mode: bool,
+    pub angle_mode: String,      // "DEG" | "RAD" | "GRAD"
+    pub display_mode: String,    // "FIX 4" etc.
+    pub is_running: bool,
+    pub annunciators: Annunciators,
+    pub print_lines: Vec<String>, // drained print_buffer
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Annunciators {
+    pub user: bool,
+    pub prgm: bool,
+    pub alpha: bool,
+    pub rad: bool,
+    pub grad: bool,
+    pub run: bool,    // is_running
 }
 ```
 
-This must become a two-step modal. Step 1 waits for an arithmetic key (+/-/*//) or a digit. Step 1 needs a new `PendingInput` variant:
+**`error.rs` — CommandError**
+
+`HpError` does not implement `serde::Serialize` (by design — `hp41-core` has no serde feature on errors). Add a thin adapter in `hp41-gui`:
 
 ```rust
-StoDispatch,  // waiting for: digit (StoRegister), + (StoAdd), - (StoSub), * (StoMul), / (StoDiv)
+#[derive(serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandError {
+    pub kind: String,    // HpError::to_string()
+}
+
+impl From<hp41_core::HpError> for CommandError {
+    fn from(e: hp41_core::HpError) -> Self {
+        CommandError { kind: e.to_string() }
+    }
+}
 ```
 
-Step 2 is already implemented for all four arithmetic variants.
+All commands return `Result<CalcStateView, CommandError>`.
 
-**File: `hp41-cli/src/app.rs` — `handle_pending_input()`**
+**`key_map.rs` — Key ID → Op resolution**
 
-Add a match arm for `PendingInput::StoDispatch`:
-- Digit → set `PendingInput::StoRegister(digit_string)`
-- `+` → set `PendingInput::StoAdd(String::new())`
-- `-` → set `PendingInput::StoSub(String::new())`
-- `*` → set `PendingInput::StoMul(String::new())`
-- `/` → set `PendingInput::StoDiv(String::new())`
-- `Esc` → clear
-
-**File: `hp41-cli/src/keys.rs` — `KEY_REF_TABLE`**
-
-Add entries documenting the two-step STO modal flow.
-
-**File: `hp41-cli/src/help_data.rs`**
-
-Update `HELP_DATA` to document the new STO arithmetic modal flow.
-
-### New Data Structures
-
-None in `CalcState`. One new `PendingInput` variant (`StoDispatch`) in `app.rs`.
-
-### New Op Variants
-
-None. `Op::StoArith { reg: u8, kind: StoArithKind }` is already defined.
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `hp41-cli/src/app.rs` | Add `PendingInput::StoDispatch`; change `S` key handler to set `StoDispatch` instead of `StoRegister`; add match arm in `handle_pending_input()` |
-| `hp41-cli/src/keys.rs` | Update `KEY_REF_TABLE` |
-| `hp41-cli/src/help_data.rs` | Update help text |
-
-### No hp41-core changes required.
-
----
-
-## Feature 2: EEX Trailing-e-Without-Exponent Hardware Lock
-
-### Current State
-
-The existing behavior when a user presses a non-digit key while `entry_buf` ends with `'e'` (e.g., `"1.5e"`) is: `flush_entry_buf()` returns `Err(HpError::InvalidOp)`, the error is shown in the status bar, and `entry_buf` is cleared. This behavior is tested and documented in `mod flush_eex_tests::test_flush_trailing_e_without_exponent_returns_err`.
-
-The real HP-41 hardware behavior is different: pressing a non-numeric key when the exponent field is pending but empty locks the entry — the calculator waits for exponent digits and does not execute the attempted operation. The EEX key has been pressed; the hardware is in "exponent entry mode" and will not commit an incomplete number.
-
-### What Changes
-
-**The behavior to implement:** When `entry_buf` ends with `'e'` (exponent pending), any key that would trigger a non-digit operation must be blocked. The entry buf stays in place; the status bar shows a message like "EEX: enter exponent". The lock is cleared only by a digit (extends the exponent) or Backspace (cancels the EEX and removes the `e`).
-
-**File: `hp41-core/src/error.rs`**
-
-Add a new error variant:
-```rust
-#[error("enter exponent")]
-IncompleteEntry,
-```
-
-**File: `hp41-core/src/ops/mod.rs` — `flush_entry_buf()`**
-
-Currently clears `entry_buf` and returns `Err` on a trailing `e`. The new behavior: detect trailing `e`, return `Err(HpError::IncompleteEntry)` WITHOUT clearing `entry_buf`. The buffer must survive the error so the user can continue typing exponent digits.
-
-**File: `hp41-cli/src/app.rs` — digit-entry block in `handle_key()`**
-
-Add a Backspace handler for "EEX backspace": when `entry_buf` ends with `'e'`, Backspace pops the `e` (returning to plain mantissa), rather than routing through to `Op::Clx`. This is the correct HP-41 behavior (Backspace undoes the EEX key).
-
-**File: `hp41-cli/src/app.rs` — `call_dispatch()`**
-
-When `dispatch()` returns `Err(HpError::IncompleteEntry)`, display "EEX: enter exponent" in the status bar but do NOT clear `entry_buf`. All other errors: existing behavior (show error, clear nothing).
-
-### New Data Structures
-
-None in `CalcState`.
-
-### New Op Variants
-
-None.
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `hp41-core/src/error.rs` | Add `HpError::IncompleteEntry` |
-| `hp41-core/src/ops/mod.rs` | `flush_entry_buf()`: detect trailing `e`, return `IncompleteEntry` without clearing buf |
-| `hp41-cli/src/app.rs` | Backspace handling in digit-entry block (EEX backspace); `call_dispatch()` special-case for `IncompleteEntry` |
-
-### Test Impact
-
-`mod flush_eex_tests::test_flush_trailing_e_without_exponent_returns_err` must be updated: the asserted error changes to `HpError::IncompleteEntry`, and the assertion `state.entry_buf.is_empty()` inverts to assert that the buf is NOT cleared.
-
----
-
-## Feature 3: Print Emulation (PRX / PRA / PRSTK)
-
-### HP-41 Hardware Behavior
-
-On the real HP-41 with the 82143A printer module:
-- `PRX` prints the X register formatted per the current display mode
-- `PRA` prints the ALPHA register string
-- `PRSTK` prints all five registers: T, Z, Y, X, LASTX (and optionally the ALPHA register)
-
-Flag 26 when set suppresses printer output on hardware — emulator support for this flag is a v1.2+ refinement.
-
-### Architecture Decision: Print Sink
-
-`hp41-core` must remain UI-agnostic. The print operations cannot write to stdout or a file directly from within the library. Two options were considered:
-
-**Option A — Callback/trait sink:** Add `print_sink: Option<Box<dyn FnMut(String)>>` to `CalcState` or as a separate `dispatch()` parameter. Avoids storing output in state, but introduces trait objects, complicates serde, and changes the `dispatch()` signature.
-
-**Option B — Print buffer in CalcState (recommended):** Add `print_buffer: Vec<String>` to `CalcState`. Print ops append lines to the buffer. `hp41-cli` drains the buffer after each `dispatch()` call and writes to stdout. No trait objects, no signature changes, fully serde-compatible with `#[serde(default)]`.
-
-**Recommendation: Option B.** It avoids trait objects, is serde-compatible without special handling, keeps `dispatch()` signature unchanged, and lets tests inspect the buffer directly without stdout capture. The drain-after-dispatch pattern is a clean boundary.
-
-### New Fields in CalcState
+The frontend sends a stable string key identifier (e.g., `"sin"`, `"sto_reg_5"`, `"push_num_3"`). Rust resolves to `Op`. This keeps Op serialization complexity out of the IPC layer:
 
 ```rust
-/// Lines accumulated by PRX/PRA/PRSTK. hp41-cli drains after each dispatch().
-/// Intentionally not persisted between sessions: #[serde(default)] returns empty vec.
-#[serde(default)]
-pub print_buffer: Vec<String>,
+pub fn key_id_to_op(id: &str) -> Option<hp41_core::ops::Op> {
+    match id {
+        "sin"    => Some(Op::Sin),
+        "cos"    => Some(Op::Cos),
+        "enter"  => Some(Op::Enter),
+        "clx"    => Some(Op::Clx),
+        // digit keys: "digit_0" .. "digit_9", "dot", "eex", "chs"
+        // handled by special path: append to entry_buf, not dispatch
+        _ => None,
+    }
+}
 ```
 
-### New Op Variants
+Digit keys (`0`–`9`, `.`, `EEX`, `CHS`) are special: instead of dispatching `Op::PushNum`, the Tauri command appends to `CalcState.entry_buf` and returns a view (no `flush_entry_buf` yet, exactly mirroring `hp41-cli` key handling).
+
+**`commands.rs` — Tauri commands**
 
 ```rust
-/// PRX — print X register (formatted per display_mode). LiftEffect: Neutral.
-Prx,
-/// PRA — print ALPHA register string. LiftEffect: Neutral.
-Pra,
-/// PRSTK — print all stack registers (T/Z/Y/X/LASTX) + ALPHA. LiftEffect: Neutral.
-Prstk,
+#[tauri::command]
+pub fn dispatch_op(
+    key_id: String,
+    state: tauri::State<'_, Mutex<CalcState>>,
+) -> Result<CalcStateView, CommandError> {
+    let mut calc = state.lock().expect("CalcState mutex poisoned");
+    handle_key_id(&key_id, &mut calc)?;
+    Ok(build_view(&calc))
+}
+
+#[tauri::command]
+pub fn load_state_cmd(
+    state: tauri::State<'_, Mutex<CalcState>>,
+) -> Result<CalcStateView, CommandError> { ... }
+
+#[tauri::command]
+pub fn save_state_cmd(
+    state: tauri::State<'_, Mutex<CalcState>>,
+) -> Result<(), CommandError> { ... }
 ```
 
-### New Source File
-
-`hp41-core/src/ops/print.rs` — contains `op_prx()`, `op_pra()`, `op_prstk()`. Each pushes one or more formatted lines onto `state.print_buffer` using `format_hpnum()` and `format_alpha()` from `hp41-core/src/format.rs`.
-
-### Integration Points
-
-**File: `hp41-core/src/state.rs`**
-
-Add `print_buffer: Vec<String>` to `CalcState` with `#[serde(default)]`. Initialize as `Vec::new()` in `CalcState::new()`.
-
-**File: `hp41-core/src/ops/mod.rs`**
-
-Add `pub mod print;` declaration and use imports. Add three Op variants. Add three match arms in `dispatch()`.
-
-**File: `hp41-core/src/ops/program.rs` — `execute_op()`**
-
-Add match arms for `Op::Prx`, `Op::Pra`, `Op::Prstk` so print ops work inside programs. This is mandatory — see the execute_op mirror requirement below.
-
-**File: `hp41-cli/src/app.rs` — `call_dispatch()`**
-
-After `dispatch()` returns `Ok(())`, drain `self.state.print_buffer` and write each line to stdout (or a configured output file). Use `std::mem::take(&mut self.state.print_buffer)` to drain atomically.
-
-**File: `hp41-cli/src/keys.rs`**
-
-Add key bindings. Candidate uppercase letters currently unmapped:
-- `KeyCode::Char('P')` (Shift+p) → `Op::Prx`  (lowercase `p` is PrgmMode)
-- `KeyCode::Char('A')` (Shift+a) → `Op::Pra`  (lowercase `a` is Asin)
-- `KeyCode::Char('K')` (Shift+k) → `Op::Prstk` (lowercase `k` is Atan)
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `hp41-core/src/state.rs` | Add `print_buffer: Vec<String>` with `#[serde(default)]` |
-| `hp41-core/src/ops/print.rs` | New file — `op_prx()`, `op_pra()`, `op_prstk()` |
-| `hp41-core/src/ops/mod.rs` | `pub mod print;`, 3 new Op variants, 3 match arms in `dispatch()` |
-| `hp41-core/src/ops/program.rs` | 3 match arms in `execute_op()` |
-| `hp41-cli/src/app.rs` | Drain `print_buffer` after `call_dispatch()` |
-| `hp41-cli/src/keys.rs` | 3 key bindings and KEY_REF_TABLE entries |
-| `hp41-cli/src/help_data.rs` | Help text for print ops |
+`handle_key_id` is not a Tauri command — it's plain Rust called from within commands. This keeps the command signatures thin.
 
 ---
 
-## Feature 4: Synthetic Programming
+## IPC Design
 
-### HP-41 Hardware Context
+### Recommendation: Key-ID string API (not Op enum over IPC)
 
-Synthetic programming on the real HP-41 exploits the multi-byte FOCAL instruction encoding to inject byte sequences not accessible from the normal keyboard. The byte codes are raw FOCAL virtual machine opcodes (0x00–0xEF range). Users historically used "byte jumper" and "byte grabber" techniques to compose byte sequences that access hidden functions, null characters in ALPHA, and extended operations.
+Do NOT serialize `Op` variants over IPC. The `Op` enum contains variants with nested data (e.g., `Op::StoArith { reg: u8, kind: StoArithKind }`, `Op::PushNum(HpNum)`, `Op::Lbl(String)`) that would require complex serde tagging and TypeScript union types to model correctly. This creates a brittle coupling where every new Op variant requires frontend type updates.
 
-### Architecture Decision: Scope for v1.1
+Instead, use a **stable key-identifier string API**:
 
-A full faithful FOCAL byte-code interpreter would require a complete FOCAL VM — this contradicts the project's settled "behavioral emulation, not cycle-accurate Nut CPU" decision. The appropriate v1.1 scope is:
+| Frontend sends | Rust resolves |
+|---------------|---------------|
+| `"sin"` | `Op::Sin` |
+| `"sto_reg_05"` | `Op::StoReg(5)` |
+| `"fmt_fix_4"` | `Op::FmtFix(4)` |
+| `"digit_3"` | append `"3"` to `entry_buf` |
+| `"alpha_a"` | `Op::AlphaAppend('a')` |
+| `"gto_lbl"` + `label` param | `Op::Gto(label)` |
 
-**Raw byte injection into program memory as a new `Op` variant.** The byte is stored in the flat `program: Vec<Op>` as `Op::RawByte(u8)`. When the interpreter encounters `Op::RawByte`, it executes a best-effort behavioral mapping: known codes map to existing behaviors; unknown codes return `HpError::InvalidOp`. This gives users access to the synthetic programming workflow without a full FOCAL VM.
+Multi-step UI flows (e.g., STO arithmetic modal that hp41-cli implements as a 3-step keyboard state machine) are implemented as multi-step React state — the frontend manages which step it is in, then sends the fully-resolved key-ID once complete (e.g., `"sto_arith_add_reg_05"`).
 
-This is explicitly a behavioral emulation of synthetic programming's effects, not a bit-faithful FOCAL byte interpreter. The initial implementation covers the ~15–20 most commonly used synthetic operations.
+### Single command surface
 
-### New Fields in CalcState
+Use **one primary command**: `dispatch_op(key_id: string) -> CalcStateView`. Additional commands are support only:
 
-None. Raw byte codes are stored as `Op::RawByte(u8)` in the existing `program: Vec<Op>`. No new top-level fields required.
+| Command | Purpose |
+|---------|---------|
+| `dispatch_op` | All key inputs |
+| `load_state` | Load from `~/.hp41/autosave.json` |
+| `save_state` | Manual save |
+| `get_state` | Initial hydration on app start |
+| `get_program_listing` | Fetch `Vec<String>` for program display panel |
 
-### New Op Variants
+### Return value: always CalcStateView
+
+Every `dispatch_op` call returns a fresh `CalcStateView`. The frontend replaces its entire React state from this view. No partial updates, no delta patching, no events. This is the simplest correct model for a single-user single-window app with ~65 ns/op dispatch.
+
+### No push events for synchronous ops
+
+Tauri events (`app.emit()`) are for asynchronous notifications (e.g., auto-save completion). They are explicitly not suited for low-latency command-response cycles (Tauri docs: "not designed for low latency or high throughput situations"). Do not use events for key dispatch results.
+
+---
+
+## State Management
+
+### CalcState lives in `Mutex<CalcState>` in Tauri AppState
+
+**Use `std::sync::Mutex`, not `tokio::sync::Mutex`.** The hp41-core dispatch is synchronous, fast (~65 ns), and never crosses an await point. `std::sync::Mutex` is appropriate and preferred per Tauri's own documentation.
+
+**No `Arc` needed.** Tauri wraps managed state in its own reference-counted container. Adding `Arc` is redundant.
 
 ```rust
-/// RawByte(b) — synthetic programming: raw FOCAL byte injection.
-/// In prgm_mode recording: stored verbatim in program Vec like any op.
-/// In execute_op(): dispatched to op_raw_byte() behavioral mapping.
-/// Unknown byte codes return HpError::InvalidOp.
-/// LiftEffect: depends on byte code semantics.
-RawByte(u8),
+// In lib.rs run():
+tauri::Builder::default()
+    .setup(|app| {
+        let state = load_or_new_calc_state();
+        app.manage(Mutex::new(state));
+        Ok(())
+    })
+    .invoke_handler(tauri::generate_handler![
+        commands::dispatch_op,
+        commands::load_state_cmd,
+        commands::save_state_cmd,
+        commands::get_state,
+        commands::get_program_listing,
+    ])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application")
 ```
 
-### New Source File
+### No per-command reconstruction
 
-`hp41-core/src/ops/synthetic.rs` — contains:
+Do NOT reconstruct `CalcState` from scratch per command and do NOT pass the full serialized state from the frontend on each call. The state is server-side (Rust). Frontend holds only `CalcStateView` for rendering.
 
-- `pub fn op_raw_byte(state: &mut CalcState, byte: u8) -> Result<(), HpError>` — behavioral dispatch table for known FOCAL byte codes.
-- `pub fn focal_byte_name(byte: u8) -> &'static str` — returns the conventional mnemonic for a byte code (e.g., `"NULL"`, `"TONE 1"`) for use in program display formatting.
+### Persistence reuse
 
-### Integration Points
+`hp41-cli`'s `save_state` / `load_state` logic uses only `serde_json` and `std::fs`. Copy (do not share) this module into `hp41-gui/src-tauri/src/persistence.rs` — it is three functions and straightforward to maintain in both crates. Using the same `~/.hp41/autosave.json` path means the CLI and GUI share a save file, which is the correct HP-41 behavior (one calculator, two interfaces). Ensure `is_running = false` is reset on load (already enforced in the existing code).
 
-**File: `hp41-core/src/ops/mod.rs`**
+### Auto-save
 
-Add `pub mod synthetic;`, add `Op::RawByte(u8)` variant, add match arm in `dispatch()`.
-
-**File: `hp41-core/src/ops/program.rs` — `execute_op()`**
-
-Add match arm for `Op::RawByte(b)` calling `synthetic::op_raw_byte(state, b)`.
-
-**File: `hp41-cli/src/app.rs`**
-
-Add `PendingInput::SyntheticByte(String)` — a two-digit hex accumulator. Trigger: e.g., `Ctrl+B`. On two hex digits received, dispatch `Op::RawByte(parsed_byte)`. Esc cancels. This reuses the accumulator pattern already established by `handle_reg_modal()`.
-
-**File: `hp41-cli/src/prgm_display.rs`**
-
-Add formatting for `Op::RawByte(b)` — display as `"BYTE xx"` (hex) in the program listing, with the FOCAL mnemonic from `focal_byte_name()` appended where known.
-
-**File: `hp41-cli/src/keys.rs`**
-
-Add a trigger key for byte entry modal (KEY_REF_TABLE entry).
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `hp41-core/src/ops/synthetic.rs` | New file — `op_raw_byte()`, `focal_byte_name()` |
-| `hp41-core/src/ops/mod.rs` | `pub mod synthetic;`, `Op::RawByte(u8)`, match arm in `dispatch()` |
-| `hp41-core/src/ops/program.rs` | Match arm in `execute_op()` |
-| `hp41-cli/src/app.rs` | `PendingInput::SyntheticByte(String)`, hex accumulator modal |
-| `hp41-cli/src/prgm_display.rs` | Format `Op::RawByte` in program listing |
-| `hp41-cli/src/keys.rs` | Trigger key + KEY_REF_TABLE entry |
-| `hp41-cli/src/help_data.rs` | Help text for byte entry |
+Tauri has no built-in interval timer at the app level. Use a background thread spawned in `setup()` that wakes every 30 seconds (matching v1.0 CLI behavior) and calls `save_state`. Access state via `app.state::<Mutex<CalcState>>()` cloned into the thread via `AppHandle::clone()`.
 
 ---
 
-## Dependency Graph and Build Order
+## Build Order
 
-### Feature Dependencies
+The following phase sequence is recommended based on dependencies:
+
+### Phase 1: Workspace skeleton and Tauri shell
+
+Create `hp41-gui/` as a workspace member. Scaffold the Tauri v2 project (`cargo tauri init` or manual). Confirm `just build` and `just gui-dev` work with an empty "Hello World" frontend. No hp41-core integration yet. Success criterion: Tauri window opens.
+
+### Phase 2: CalcState in AppState + get_state command
+
+Wire `hp41-core` dependency into `hp41-gui/src-tauri/Cargo.toml`. Implement `Mutex<CalcState>` in AppState. Add `get_state` command returning `CalcStateView`. Implement `build_view()`. Success criterion: frontend can fetch initial state on startup.
+
+### Phase 3: dispatch_op command + key_map + display rendering
+
+Implement `key_map.rs`, `dispatch_op` command, and digit-entry path. Build React `Display` component consuming `CalcStateView`. Success criterion: digit entry and arithmetic (`+`, `-`, `×`, `÷`, `Enter`) work end to end with correct display update.
+
+### Phase 4: SVG keyboard skin
+
+Build the SVG HP-41C layout with clickable regions. Each key's `onClick` calls `invoke("dispatch_op", { keyId: "..." })`. This phase is pure frontend work against the Phase 3 backend. Success criterion: all 130 ops reachable by click, display updates after every click.
+
+### Phase 5: Persistence, annunciators, print output
+
+Add `load_state_cmd`, `save_state_cmd`, and the 30-second auto-save background thread. Add annunciator rendering (USER, PRGM, RAD/GRAD, ALPHA). Add `PrintOutput` component draining `print_lines` from `CalcStateView`. Success criterion: state survives app restart; annunciators match CLI behavior.
+
+### Phase 6: Program listing panel + PRGM mode UI
+
+Add `get_program_listing` command. Render program listing panel (equivalent to ratatui PRGM panel). PRGM mode entry/exit visible in the GUI. Success criterion: programs can be recorded and run from the GUI.
+
+---
+
+## Justfile Integration
+
+Add these recipes to the root Justfile. All use `cargo tauri` CLI through `npm`/`pnpm` — the standard Tauri v2 toolchain. Tauri's CLI wraps `cargo` internally.
+
+```just
+# GUI: install frontend dependencies (run once after clone)
+gui-install:
+    cd hp41-gui && npm install
+
+# GUI: development mode (hot-reload frontend + Rust watch)
+gui-dev:
+    cd hp41-gui && npm run tauri dev
+
+# GUI: production build (bundles native app)
+gui-build:
+    cd hp41-gui && npm run tauri build
+
+# GUI: build only the Rust backend (useful for CI type-checking)
+gui-check:
+    cargo check -p hp41-gui
+
+# Full CI gate including GUI Rust check (not the full Tauri bundle)
+ci-full: lint test coverage gui-check
+```
+
+**Rationale:**
+- `gui-dev` and `gui-build` must be run from `hp41-gui/` because `tauri.conf.json` and `package.json` are there. The `cd hp41-gui &&` prefix achieves this without breaking the "no bare `cargo`" rule — `npm run tauri` is the entry point, not `cargo` directly.
+- `gui-check` is added to `ci-full` (a new recipe) rather than to the existing `ci` recipe. The existing `ci` recipe must remain identical for the CLI build matrix. CI can run `ci` for the CLI job and `ci-full` or `gui-check` separately.
+- `just build` (existing) continues to build only `hp41-core` and `hp41-cli` via `cargo build --workspace`. To avoid pulling Tauri's heavy build-time dependencies into the standard workspace build, `hp41-gui/src-tauri` should either be excluded from `cargo build --workspace` by not being a workspace member at the root level (using a nested workspace) or by excluding it conditionally. The recommended approach: make `hp41-gui/src-tauri` a standalone Cargo workspace (not a member of the root workspace) and depend on `hp41-core` via path. This keeps `cargo build --workspace` fast and `hp41-cli` CI unaffected.
+
+**Nested workspace pattern (recommended):**
 
 ```
-Feature 1 (STO arithmetic modals)   — independent; all core code exists; only app.rs changes
-Feature 2 (EEX hardware lock)       — independent; self-contained flush_entry_buf change
-Feature 3 (Print emulation)         — independent; new Op variants, new CalcState field
-Feature 4 (Synthetic programming)   — independent of 1-3, but benefits from Feature 3
-                                      existing first (synthetic printer byte codes can
-                                      call op_prx/op_pra rather than stub to InvalidOp)
+# Root Cargo.toml — unchanged:
+[workspace]
+members = ["hp41-core", "hp41-cli"]
+
+# hp41-gui/src-tauri/Cargo.toml — standalone:
+[package]
+name = "hp41-gui"
+...
+
+[dependencies]
+hp41-core = { path = "../../hp41-core" }
+tauri = { version = "2", features = [...] }
 ```
 
-No feature is a hard prerequisite for another. Soft coupling:
-
-- Feature 4's `op_raw_byte()` behavioral map may want to call `op_prx()`/`op_pra()` for the printer byte codes (FOCAL bytes 0x00–0x0F include print functions). Building Feature 3 before Feature 4 allows direct reuse. Building Feature 4 first requires stubbing those bytes as `InvalidOp` initially.
-
-### Recommended Build Order
-
-**Phase 1: Feature 1 (STO arithmetic modals)**
-
-Lowest risk, smallest surface area. No `hp41-core` changes required. The implementation is already scaffolded in `app.rs` — only `PendingInput::StoDispatch` and its handler are missing. `handle_reg_modal()` is proven by the existing STO/RCL implementation. Delivers immediately visible UX value and establishes confidence for the more complex modal pattern in Feature 4.
-
-**Phase 2: Feature 2 (EEX hardware lock)**
-
-Small, focused change touching two files in `hp41-core` and one in `hp41-cli`. Must be done carefully to avoid regressions in the `entry_buf` guards already present in `app.rs`. Completing this before Feature 3 keeps the `flush_entry_buf()` change isolated and the diff history clean.
-
-**Phase 3: Feature 3 (Print emulation)**
-
-Medium surface area. New `CalcState` field, new `Op` variants, new source file, drain logic in `app.rs`. Establishes the `#[serde(default)]` pattern for backward-compatible persistence — this is the template for any future CalcState additions. After this phase, Feature 4's `op_raw_byte()` can call `op_prx()`/`op_pra()` directly for printer byte codes.
-
-**Phase 4: Feature 4 (Synthetic programming)**
-
-Largest research and implementation surface. The behavioral byte-code table requires research into which FOCAL byte codes to implement at what fidelity. Build last to benefit from the established modal patterns (Feature 1), the refined `execute_op()` extension workflow (Feature 3), and the program display formatting established in Feature 3's integration work. Start with a minimal curated set (NULL character insertion, extended alpha characters, printer byte codes) and expand incrementally.
+This is the same pattern Tauri itself recommends (the `src-tauri` folder is described as optionally a workspace member or a standalone crate). It avoids forcing `tauri`, `wry`, and `tao` into every `cargo check` run.
 
 ---
 
-## Cross-Cutting Concerns
+## Key Architectural Decisions and Rationale
 
-### execute_op() Mirror Requirement
-
-`execute_op()` in `program.rs` is a MIRROR of `dispatch()` in `ops/mod.rs`. Every Op variant that works interactively must also work inside programs. Any new Op variant added to `dispatch()`'s match must also appear in `execute_op()`. Failing to do this causes a runtime `HpError::InvalidOp` when the op is encountered during program execution — no compile-time warning, because `execute_op()` ends with a catch-all arm for programming-specific ops.
-
-For Features 3 and 4: after adding match arms to `dispatch()`, immediately add corresponding arms to `execute_op()` in the same change.
-
-### Serde Backward Compatibility
-
-Every new `CalcState` field must use `#[serde(default)]`. This ensures v1.0 JSON state files deserialize without error after upgrading to v1.1. Test pattern: deserialize a JSON blob that lacks the new field and verify the field takes its default value. `Vec<String>` defaults to `vec![]` via `Vec::default()`. Feature 3 is the only feature that adds a new `CalcState` field.
-
-### #![deny(clippy::unwrap_used)] Compliance
-
-All new `hp41-core` production code must use `.expect("reason")` or `?`-propagation. The `#[allow(clippy::unwrap_used)]` exemption applies to test modules only. New source files (`print.rs`, `synthetic.rs`) must not contain `.unwrap()` in non-test code.
-
-### Coverage Gate
-
-`just coverage` enforces at least 80% coverage on `hp41-core` (currently 94.87%). Each new `ops/` submodule must include unit tests sufficient to keep coverage above 80%. The print ops are simple (push formatted string to buffer) and easy to test. The synthetic byte dispatch table requires a test per implemented byte code mapping.
-
-### Key Binding Space Available
-
-Uppercase letters (Shift+letter) still unmapped as of v1.0: `B`, `M`, `N`, `P`, `Q`, `U`, `X`. Feature 3 needs 3 bindings; Feature 4 needs 1 trigger. `P/A/K` for print ops and `Ctrl+B` for byte entry are the recommended choices, leaving `B/M/N/Q/U/X` available for v1.2+.
+| Decision | Rationale |
+|----------|-----------|
+| `std::sync::Mutex<CalcState>` | hp41-core dispatch is sync, fast, never crosses await. Matches Tauri's own recommendation. |
+| Key-ID string API over Op enum IPC | Avoids brittle serde tagging of complex enum variants. Stable contract: new Op variants don't break the frontend API. |
+| CalcStateView (not full CalcState) | Keeps IPC payload small. `program: Vec<Op>` and `call_stack` are not needed for display. Avoids serializing HpNum (Decimal) to the frontend every frame — format to String in Rust where format logic lives. |
+| Key-to-Op mapping in Rust | Op logic belongs in Rust. TypeScript should not need to know about Op variants, StoArithKind, or StackReg. |
+| Shared save path `~/.hp41/autosave.json` | One calculator state across both interfaces. Users who use both CLI and GUI stay in sync. |
+| Nested workspace (hp41-gui standalone) | Prevents Tauri/wry/tao from polluting `cargo build --workspace` and slowing CLI CI. |
+| No auto-generated TypeScript bindings (tauri-specta) | tauri-specta adds build complexity and a new dependency. With a key-ID string API and a hand-written `CalcStateView` type, the TypeScript surface is small and stable. Re-evaluate if the command surface grows significantly. |
+| Digit entry via entry_buf, not PushNum dispatch | Matches hp41-cli behavior exactly. The Tauri command layer appends digits to `state.entry_buf` directly; `flush_entry_buf()` is called by the next `dispatch()` invocation. This preserves HP-41 number entry semantics. |
 
 ---
 
-## Architecture Patterns to Follow
+## Constraints from hp41-core (must not be violated)
 
-### Pattern: New Op Submodule
-
-When adding new operations (Features 3 and 4):
-
-1. Create `hp41-core/src/ops/new_module.rs`.
-2. Declare `pub mod new_module;` in `hp41-core/src/ops/mod.rs`.
-3. Add Op variants to the `Op` enum.
-4. Add match arms to `dispatch()`.
-5. Add match arms to `execute_op()` in `program.rs`.
-6. Add unit tests inside the new module (`#[allow(clippy::unwrap_used)]` on the test mod).
-
-### Pattern: New CalcState Field
-
-When adding persistent state (Feature 3):
-
-1. Add field to `CalcState` struct with `#[serde(default)]`.
-2. Initialize in `CalcState::new()`.
-3. The `impl Default for CalcState` delegates to `new()` — no separate change needed.
-4. Write a test that deserializes a JSON blob missing the field and verifies the default.
-
-### Pattern: New PendingInput Modal
-
-When adding a multi-key input flow (Features 1 and 4):
-
-1. Add variant to `PendingInput` enum in `app.rs`.
-2. Set the variant from the trigger key handler in `handle_key()` (before `key_to_op()` is called).
-3. Add a match arm in `handle_pending_input()`.
-4. For numeric accumulators (register numbers, hex bytes), reuse `handle_reg_modal()` via a closure that constructs the target Op.
-5. Document the trigger key in `KEY_REF_TABLE` and `help_data.rs`.
-
----
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern: Print Directly from hp41-core
-
-**What:** `op_prx()` calls `println!()` or writes to a file inside `hp41-core`.
-**Why bad:** Breaks the zero-UI-deps invariant. Makes the library untestable without capturing stdout. Incompatible with a future GUI adapter.
-**Instead:** Push formatted strings to `state.print_buffer`; drain in `hp41-cli/src/app.rs` after `dispatch()` returns.
-
-### Anti-Pattern: Skipping the execute_op() Mirror
-
-**What:** Adding Op variants to `dispatch()` without adding them to `execute_op()`.
-**Why bad:** The op silently fails during program execution (`HpError::InvalidOp`) with no compile-time warning.
-**Instead:** Always update both match statements in the same commit/plan.
-
-### Anti-Pattern: New CalcState Field Without serde(default)
-
-**What:** Adding a field to `CalcState` without `#[serde(default)]`.
-**Why bad:** Users with v1.0 state files get a deserialization error on first v1.1 launch, losing their calculator state.
-**Instead:** Every new field uses `#[serde(default)]`. Verify with a deserialization test.
-
-### Anti-Pattern: Full FOCAL VM for Synthetic Programming
-
-**What:** Implementing a cycle-accurate FOCAL byte interpreter for all 256 byte codes.
-**Why bad:** Contradicts the settled "behavioral emulation, not cycle-accurate Nut CPU" decision. Requires HP ROM knowledge (legal risk). 500+ LOC for negligible user-visible value above a curated behavioral subset.
-**Instead:** Behavioral dispatch table in `synthetic.rs` covering the ~15–20 most commonly used synthetic operations (NULL, extended ALPHA characters, printer byte codes).
-
-### Anti-Pattern: Clearing Entry Buffer on IncompleteEntry
-
-**What:** `flush_entry_buf()` clears `entry_buf` when returning `HpError::IncompleteEntry`.
-**Why bad:** The user loses their mantissa and must re-enter it from scratch.
-**Instead (Feature 2):** Return `IncompleteEntry` WITHOUT clearing `entry_buf`. The CLI displays the "EEX: enter exponent" message and keeps the entry alive. The buffer is only cleared by Backspace (removes trailing `e`) or by a valid subsequent operation.
+1. `hp41-core` has zero UI/CLI/Tauri dependencies — enforced at compile time. Never add `tauri` to `hp41-core/Cargo.toml`.
+2. `HpError` does not implement `serde::Serialize`. Wrap in `CommandError` in `hp41-gui` only.
+3. `#![deny(clippy::unwrap_used)]` is active in `hp41-core`. The new `hp41-gui` crate should adopt the same lint but is not required to.
+4. `CalcState.print_buffer` must be drained after every dispatch that could produce print output (PRX/PRA/PRSTK, and any run_program path). The Tauri command layer owns this drain, returning lines in `CalcStateView.print_lines`.
+5. `is_running = false` must be enforced on state load (already in `load_state`).
 
 ---
 
 ## Sources
 
-- Codebase direct read: `hp41-core/src/ops/mod.rs`, `program.rs`, `registers.rs`, `state.rs`, `error.rs`, `lib.rs` (2026-05-08)
-- Codebase direct read: `hp41-cli/src/app.rs`, `keys.rs`, `ui.rs` (2026-05-08)
-- HP-41 synthetic programming: [HP Museum Synthetic Programming Guide](https://www.hpmuseum.org/prog/synth41.htm), [Wikipedia: Synthetic Programming (HP-41)](https://en.wikipedia.org/wiki/Synthetic_Programming_(HP-41))
-- HP-41 print commands: [forum.hp41.org — printer differences](https://forum.hp41.org/viewtopic.php?f=5&t=492)
-- PROJECT.md and STATE.md (2026-05-08)
+- [Tauri v2 State Management](https://v2.tauri.app/develop/state-management/) — HIGH confidence (official docs)
+- [Tauri v2 Calling Rust from Frontend](https://v2.tauri.app/develop/calling-rust/) — HIGH confidence (official docs)
+- [Tauri v2 Calling Frontend from Rust](https://v2.tauri.app/develop/calling-frontend/) — HIGH confidence (official docs)
+- [Tauri v2 Project Structure](https://v2.tauri.app/start/project-structure/) — HIGH confidence (official docs)
+- [Tauri v2 Architecture](https://v2.tauri.app/concept/architecture/) — HIGH confidence (official docs)
+- [tauri-specta GitHub](https://github.com/specta-rs/tauri-specta) — MEDIUM confidence (community library, actively maintained)
+- hp41-core codebase — HIGH confidence (direct inspection of state.rs, ops/mod.rs, error.rs, persistence.rs)
