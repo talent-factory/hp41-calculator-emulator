@@ -823,8 +823,7 @@ impl App {
                                 Some(_) => {
                                     // Clamp pc to program.len(): Vec::insert panics when index > len.
                                     // state.pc can be program.len()+1 after ISG/DSE skip on the last step.
-                                    let insert_pos =
-                                        self.state.pc.min(self.state.program.len());
+                                    let insert_pos = self.state.pc.min(self.state.program.len());
                                     self.state
                                         .program
                                         .insert(insert_pos, Op::SyntheticByte(byte));
@@ -1624,7 +1623,10 @@ mod synthetic_modal_tests {
         let mut app = make_app();
         // Press '5' (KeyCode::Char('5')) — keycode_to_hp41_code maps to 62 (row 6, col 2).
         app.handle_key(press(KeyCode::Char('5')));
-        assert_eq!(app.state.last_key_code, 62, "Press '5' must set last_key_code = 62");
+        assert_eq!(
+            app.state.last_key_code, 62,
+            "Press '5' must set last_key_code = 62"
+        );
     }
 
     #[test]
@@ -1694,8 +1696,15 @@ mod synthetic_modal_tests {
             hp41_core::ops::Op::SyntheticByte(0xCE),
             "Inserted step must be SyntheticByte(0xCE)"
         );
-        assert_eq!(app.state.pc, pc_before + 1, "PC must advance past inserted step");
-        assert!(app.pending_input.is_none(), "HexModal must close after insertion");
+        assert_eq!(
+            app.state.pc,
+            pc_before + 1,
+            "PC must advance past inserted step"
+        );
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after insertion"
+        );
     }
 
     #[test]
@@ -1727,7 +1736,10 @@ mod synthetic_modal_tests {
         app.state.stack.x = hp41_core::HpNum::from(42i32);
         // Press 'M' to dispatch StoM
         app.handle_key(press(KeyCode::Char('M')));
-        assert!(app.pending_input.is_none(), "Modal must close after M dispatch");
+        assert!(
+            app.pending_input.is_none(),
+            "Modal must close after M dispatch"
+        );
         assert_eq!(
             app.state.reg_m,
             hp41_core::HpNum::from(42i32),
@@ -1748,7 +1760,10 @@ mod synthetic_modal_tests {
         );
         // Press 'm' (lowercase) to dispatch RclM
         app.handle_key(press(KeyCode::Char('m')));
-        assert!(app.pending_input.is_none(), "Modal must close after m dispatch");
+        assert!(
+            app.pending_input.is_none(),
+            "Modal must close after m dispatch"
+        );
         assert_eq!(
             app.state.stack.x,
             hp41_core::HpNum::from(99i32),
@@ -1785,6 +1800,9 @@ mod synthetic_modal_tests {
         app.handle_key(press(KeyCode::Char('c')));
         app.handle_key(press(KeyCode::Char('f')));
         assert_eq!(app.state.program.len(), 2, "one step must be inserted");
-        assert!(app.pending_input.is_none(), "HexModal must close after insertion");
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after insertion"
+        );
     }
 }
