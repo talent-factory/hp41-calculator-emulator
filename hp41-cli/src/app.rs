@@ -821,11 +821,14 @@ impl App {
                                 .expect("two ASCII hex digits must parse as u8");
                             match synthetic_byte_to_op(byte) {
                                 Some(_) => {
-                                    // [Phase 12 D-16] Insert at current pc, advance pc past inserted step.
+                                    // Clamp pc to program.len(): Vec::insert panics when index > len.
+                                    // state.pc can be program.len()+1 after ISG/DSE skip on the last step.
+                                    let insert_pos =
+                                        self.state.pc.min(self.state.program.len());
                                     self.state
                                         .program
-                                        .insert(self.state.pc, Op::SyntheticByte(byte));
-                                    self.state.pc += 1;
+                                        .insert(insert_pos, Op::SyntheticByte(byte));
+                                    self.state.pc = insert_pos + 1;
                                     self.message = None;
                                 }
                                 None => {
@@ -1767,5 +1770,21 @@ mod synthetic_modal_tests {
             app.state.reg_m.is_zero(),
             "STO M must not dispatch when accumulator is non-empty"
         );
+    }
+
+    #[test]
+    fn test_hex_modal_insert_when_pc_past_end_does_not_panic() {
+        // Reproduces ISG/DSE skip-at-end scenario where pc = program.len() + 1.
+        // Vec::insert panics when index > len — the clamp in the Some(_) arm prevents this.
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.state.program = vec![hp41_core::ops::Op::Null]; // len = 1
+        app.state.pc = 2; // len + 1 — the dangerous value after ISG/DSE skip
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        // 0xCF → Op::Null (valid) — must insert at clamped position without panic
+        app.handle_key(press(KeyCode::Char('c')));
+        app.handle_key(press(KeyCode::Char('f')));
+        assert_eq!(app.state.program.len(), 2, "one step must be inserted");
+        assert!(app.pending_input.is_none(), "HexModal must close after insertion");
     }
 }
