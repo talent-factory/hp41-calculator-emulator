@@ -164,4 +164,26 @@ mod tests {
             "view.print_lines should contain the drained line"
         );
     }
+
+    #[test]
+    fn test_eex_chs_toggles_exponent_sign() {
+        // Wave 0 RED test: "eex_chs" key_id must toggle the exponent sign in entry_buf.
+        // entry_buf "1e2" → "1e-2" on first call → "1e2" on second call.
+        let mut calc = CalcState::new();
+        calc.entry_buf = "1e2".to_string();
+        handle_op(&mut calc, "eex_chs").unwrap();
+        assert_eq!(calc.entry_buf, "1e-2", "first eex_chs must insert minus sign");
+        handle_op(&mut calc, "eex_chs").unwrap();
+        assert_eq!(calc.entry_buf, "1e2", "second eex_chs must remove minus sign");
+    }
+
+    #[test]
+    fn test_eex_chs_noop_without_e() {
+        // Defensive: if no 'e' in entry_buf, eex_chs must return Ok without panic or error.
+        let mut calc = CalcState::new();
+        calc.entry_buf = "42".to_string();
+        let result = handle_op(&mut calc, "eex_chs");
+        assert!(result.is_ok(), "eex_chs with no 'e' must not error or panic");
+        assert_eq!(calc.entry_buf, "42", "entry_buf must be unchanged when no 'e' present");
+    }
 }
