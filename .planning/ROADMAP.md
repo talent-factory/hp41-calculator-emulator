@@ -112,7 +112,18 @@
   2. A program containing NULL executes without changing any stack register, any numbered register, or the lift flag (Neutral stack-lift effect)
   3. `STO M` / `RCL M`, `STO N` / `RCL N`, `STO O` / `RCL O` work in programs identically to numbered registers and survive a JSON save/load round-trip
   4. The hex-byte insertion modal accepts a 2-digit hex code from a curated safe subset and inserts the synthetic op at the current program step; codes outside the safe subset are rejected with a visible error in the HP-41 display area
-**Plans**: TBD
+**Plans**: 3 plans
+  **Wave 0**
+  - [ ] 12-00-PLAN.md — SYNT-01/02/03/04: test scaffold (synthetic_tests.rs with RED failing tests)
+  **Wave 1** *(blocked on Wave 0)*
+  - [ ] 12-01-PLAN.md — SYNT-01/02/03/04 (core): CalcState fields (last_key_code, reg_m/n/o), 9 new Op variants, dispatch + execute_op arms, registers.rs functions, synthetic_byte_to_op, prgm_display arms
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 12-02-PLAN.md — SYNT-01/03/04 (cli): keycode_to_hp41_code, last_key_code update, 'X' interceptor (PRGM-mode gated), HexModal handler with synthetic_byte_to_op validation, M/N/O branches in StoRegister/RclRegister, ui.rs HexModal arm, help_data.rs Synthetic Programming category
+  **Cross-cutting constraints:**
+  - All 9 new `Op` variants from 12-01 must be visible before 12-02 can compile
+  - `prgm_display.rs` exhaustive match means 12-01 MUST land core variants AND display arms together
+  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new core code uses `?`-propagation or `.expect("reason")`
+  - HexModal byte validation MUST happen before `state.program.insert()` (security invariant T-12-W2-02)
 **UI hint**: yes
 
 ---
@@ -132,4 +143,4 @@
 | 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
 | 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
-| 12. Synthetic Programming | v1.1 | 0/TBD | Not started | - |
+| 12. Synthetic Programming | v1.1 | 0/3 | Not started | - |
