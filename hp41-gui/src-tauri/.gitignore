@@ -1,0 +1,5 @@
+# Rust build output
+target/
+
+# Tauri build-time generated files (schema, capabilities)
+gen/
