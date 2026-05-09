@@ -129,4 +129,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Audit Key Decisions with outcomes
 
 ---
-*Last updated: 2026-05-09 — v2.0 Tauri GUI milestone started*
+v2.0 Phase 14 (2026-05-09): IPC Layer complete — `dispatch_op` and `get_state` Tauri v2 commands route key string IDs through `key_map.rs` to `hp41_core::ops::dispatch`; `CalcStateView` (~170 bytes, ≤300 limit) serializes state for the frontend; `print_buffer` drained on every command; Tauri v2.11 app-command permissions declared via TOML files in `src-tauri/permissions/` (auto-generation not available for inline commands). 5/5 SC verified, 9/9 unit tests GREEN.
+
+*Last updated: 2026-05-09 — Phase 14 IPC Layer complete; Phase 15 Display & Keyboard next*
