@@ -148,7 +148,12 @@
   3. Running `cargo build --workspace` from the repo root builds hp41-core and hp41-cli but does NOT attempt to build the Tauri binary (nested workspace isolation confirmed)
   4. The `tauri` and `tauri-build` crates appear only in `hp41-gui/src-tauri/Cargo.toml`, not in the root `[workspace.dependencies]`
   5. The CI matrix (Windows, macOS, Ubuntu) continues to pass the existing CLI jobs with no new failures introduced
-**Plans**: TBD
+**Plans**: 3 plans
+  **Wave 1** *(parallel)*
+  - [ ] 13-01-PLAN.md — WSPC-01/02: Rust nested workspace skeleton (Cargo.toml, build.rs, main.rs, lib.rs) + four Justfile gui-* recipes
+  - [ ] 13-02-PLAN.md — WSPC-01: Frontend scaffold (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/App.tsx, src/index.css)
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 13-03-PLAN.md — WSPC-01/02: tauri.conf.json + capabilities + npm install + full integration validation + human window verify
 **UI hint**: yes
 
 ### Phase 14: IPC Layer
