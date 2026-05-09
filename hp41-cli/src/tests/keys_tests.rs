@@ -132,24 +132,24 @@ fn key_ref_table_has_33_entries() {
     );
 }
 
-// Phase 12: F5/F7/F8 must return 0 from keycode_to_hp41_code so they do not
-// overwrite last_key_code and interfere with GETKEY capture.
+// Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller
+// skips the last_key_code write and GETKEY capture is not corrupted.
 #[test]
-fn f5_f7_f8_return_zero_keycode_for_getkey() {
+fn f5_f7_f8_return_none_keycode_for_getkey() {
     assert_eq!(
         keycode_to_hp41_code(KeyCode::F(5)),
-        0,
-        "F5 (R/S TUI trigger) must not record a key code — would overwrite last_key_code before GETKEY runs"
+        None,
+        "F5 (R/S TUI trigger) must return None — no HP-41 physical key equivalent"
     );
     assert_eq!(
         keycode_to_hp41_code(KeyCode::F(7)),
-        0,
-        "F7 (SST TUI trigger) must return 0"
+        None,
+        "F7 (SST TUI trigger) must return None"
     );
     assert_eq!(
         keycode_to_hp41_code(KeyCode::F(8)),
-        0,
-        "F8 (BST TUI trigger) must return 0"
+        None,
+        "F8 (BST TUI trigger) must return None"
     );
 }
 
@@ -157,9 +157,16 @@ fn f5_f7_f8_return_zero_keycode_for_getkey() {
 fn digit_5_returns_hp41_keycode_62() {
     assert_eq!(
         keycode_to_hp41_code(KeyCode::Char('5')),
-        62,
+        Some(62),
         "'5' must map to HP-41 code 62 (row 6, col 2)"
     );
+}
+
+#[test]
+fn unmapped_keys_return_none_from_keycode_fn() {
+    assert_eq!(keycode_to_hp41_code(KeyCode::Esc), None);
+    assert_eq!(keycode_to_hp41_code(KeyCode::F(1)), None);
+    assert_eq!(keycode_to_hp41_code(KeyCode::Up), None);
 }
 
 // Phase 8: key_to_op() bindings for SIN and CLREG

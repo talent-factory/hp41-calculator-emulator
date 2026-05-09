@@ -160,11 +160,14 @@ impl App {
             return;
         }
 
-        // [Phase 12 D-01] Update last_key_code on every Press event — placed AFTER the
-        // release filter but BEFORE Ctrl+C, modal dispatch, and key_to_op(). This ensures
-        // every real keypress (digits, modal navigation, function keys) is recorded.
-        // Read by Op::GetKey (SYNT-01).
-        self.state.last_key_code = keys::keycode_to_hp41_code(key.code);
+        // Update last_key_code for physical HP-41 keys only:
+        // - None from keycode_to_hp41_code = no HP-41 equivalent (F5/F7/F8, unknown keys)
+        // - Ctrl-modified keys are TUI commands (save, quit), not calculator keypresses
+        if let Some(code) = keys::keycode_to_hp41_code(key.code) {
+            if !key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.state.last_key_code = code;
+            }
+        }
 
         // Quit: Ctrl+C only (D-16, D-22). 'q' was reassigned to SIN in Phase 8; quit is Ctrl+C only.
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -236,9 +239,9 @@ impl App {
             if self.state.prgm_mode {
                 self.pending_input = Some(PendingInput::HexModal(String::new()));
                 self.message = None;
+            } else {
+                self.message = Some("PRGM mode required for hex insertion (X nn)".to_string());
             }
-            // Whether prgm_mode or not, consume the 'X' here — do NOT fall through to
-            // key_to_op() (lowercase 'x' is XySwap; uppercase 'X' has no other meaning).
             return;
         }
         // Ctrl+A triggers USER key assignment modal (D-27)
@@ -852,7 +855,7 @@ impl App {
                     }
                 }
             }
-            None => {} // shouldn't happen (guard checked is_some() before calling)
+            None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
         }
     }
 
@@ -1724,6 +1727,52 @@ mod synthetic_modal_tests {
     }
 
     #[test]
+    fn test_hex_modal_esc_after_first_digit_cancels() {
+        // Esc must also cancel when one hex digit has already been typed
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        app.handle_key(press(KeyCode::Char('c'))); // first digit — acc = "c"
+        let prog_len = app.state.program.len();
+        app.handle_key(press(KeyCode::Esc));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len,
+            "Esc must not insert anything"
+        );
+        assert!(app.pending_input.is_none(), "Esc must close modal");
+        assert!(app.message.is_none(), "Esc must not set INVALID");
+    }
+
+    #[test]
+    fn test_sto_n_via_modal() {
+        let mut app = make_app();
+        app.handle_key(press(KeyCode::Char('S')));
+        app.state.stack.x = hp41_core::HpNum::from(55i32);
+        app.handle_key(press(KeyCode::Char('N')));
+        assert!(app.pending_input.is_none(), "modal must close after N");
+        assert_eq!(
+            app.state.reg_n,
+            hp41_core::HpNum::from(55i32),
+            "STO N must store X into reg_n"
+        );
+    }
+
+    #[test]
+    fn test_rcl_o_via_modal() {
+        let mut app = make_app();
+        app.state.reg_o = hp41_core::HpNum::from(77i32);
+        app.handle_key(press(KeyCode::Char('R')));
+        app.handle_key(press(KeyCode::Char('o')));
+        assert!(app.pending_input.is_none(), "modal must close after o");
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(77i32),
+            "RCL O must recall reg_o into X"
+        );
+    }
+
+    #[test]
     fn test_sto_m_via_modal() {
         let mut app = make_app();
         // Press 'S' to open StoRegister modal
@@ -1808,22 +1857,50 @@ mod synthetic_modal_tests {
 
     #[test]
     fn test_getkey_end_to_end_keypress_to_x() {
-        // UAT-1: keyboard press → last_key_code → GETKEY in program → X
+        // UAT-1: keyboard press → last_key_code → GETKEY in program via run_program → X
+        // Tests the execute_op path (Op::GetKey arm in program.rs), not just dispatch.
         let mut app = make_app();
         // Press '5' — keycode_to_hp41_code maps it to 62 (row 6 × 10 + col 2)
         app.handle_key(press(KeyCode::Char('5')));
-        let recorded = app.state.last_key_code;
-        assert_eq!(recorded, 62, "pressing '5' must record HP-41 code 62");
+        assert_eq!(
+            app.state.last_key_code, 62,
+            "pressing '5' must record HP-41 code 62"
+        );
 
-        // Load a one-step program [GetKey] and run it via dispatch
-        app.state.program = vec![hp41_core::ops::Op::GetKey];
-        app.state.pc = 0;
-        hp41_core::ops::dispatch(&mut app.state, hp41_core::ops::Op::GetKey).unwrap();
+        // Load program [LBL A, GetKey] and run via run_program — exercises execute_op
+        app.state.program = vec![
+            hp41_core::ops::Op::Lbl("A".to_string()),
+            hp41_core::ops::Op::GetKey,
+        ];
+        hp41_core::run_program(&mut app.state, "A").unwrap();
 
         assert_eq!(
             app.state.stack.x,
             hp41_core::HpNum::from(62i32),
-            "GETKEY must push the recorded last_key_code (62) into X"
+            "GETKEY in program must push last_key_code (62) into X"
+        );
+    }
+
+    #[test]
+    fn test_getkey_via_synthetic_byte_in_program() {
+        // SyntheticByte(0xCE) → GetKey path via execute_op (HexModal insertion flow)
+        let mut app = make_app();
+        app.handle_key(press(KeyCode::Char('7')));
+        assert_eq!(
+            app.state.last_key_code, 51,
+            "pressing '7' must record HP-41 code 51"
+        );
+
+        app.state.program = vec![
+            hp41_core::ops::Op::Lbl("A".to_string()),
+            hp41_core::ops::Op::SyntheticByte(0xCE), // 0xCE → GetKey
+        ];
+        hp41_core::run_program(&mut app.state, "A").unwrap();
+
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(51i32),
+            "SyntheticByte(0xCE) in program must execute as GETKEY and push 51"
         );
     }
 }

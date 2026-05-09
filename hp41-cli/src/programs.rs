@@ -78,7 +78,8 @@ fn build_all_programs() -> Vec<SampleProgram> {
         },
         SampleProgram {
             name: "Synthetic Demo",
-            description: "Phase 12 demo: GETKEY → STO M → NULL → RCL M. Press a key, then run.",
+            description:
+                "Synthetic programming demo: GETKEY → STO M → NULL → RCL M. Press a key, then run.",
             ops: synthetic_demo_ops(),
         },
     ]
