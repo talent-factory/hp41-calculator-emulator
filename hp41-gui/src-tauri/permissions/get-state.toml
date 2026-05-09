@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
+[[permission]]
+identifier = "allow-get-state"
+description = "Allows the get_state command."
+commands.allow = ["get_state"]
