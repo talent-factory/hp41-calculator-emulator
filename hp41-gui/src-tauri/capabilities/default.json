@@ -5,6 +5,8 @@
   "permissions": [
     "core:default",
     "allow-dispatch-op",
-    "allow-get-state"
+    "allow-get-state",
+    "allow-sst-step",
+    "allow-bst-step"
   ]
 }

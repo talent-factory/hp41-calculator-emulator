@@ -6,6 +6,7 @@ use tauri::Manager;
 mod commands;
 mod key_map;
 mod persistence;
+mod prgm_display;   // Phase 18 D-03
 mod types;
 
 pub type AppState = Mutex<hp41_core::CalcState>;
@@ -43,6 +44,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::dispatch_op,
             commands::get_state,
+            commands::sst_step,   // Phase 18 D-05
+            commands::bst_step,   // Phase 18 D-05
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
