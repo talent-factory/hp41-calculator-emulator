@@ -1,0 +1,96 @@
+name: Release on Tag
+
+# Fires on either a v* tag push or a push to main (post-PR-merge).
+# Idempotent: only creates a GitHub Release if the tag is reachable from
+# origin/main AND no release for that tag exists yet. This handles the GSD
+# workflow's "tag during /gsd-complete-milestone, then later PR-merge" timing —
+# the first event finds the tag not yet on main and skips; the second event
+# (push to main) sees the tag is now reachable and creates the release.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+*']
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Specific tag to publish (e.g. v2.1). Leave empty to scan all v* tags.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need full history + all tags for git merge-base
+      - name: Ensure origin/main is up to date
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Create missing releases for v* tags reachable from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Pass user-provided input through env to avoid command injection in run:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # Single-tag mode (workflow_dispatch with explicit input) overrides the scan.
+          if [ -n "${INPUT_TAG:-}" ]; then
+            tags="$INPUT_TAG"
+          else
+            tags="$(git tag -l 'v[0-9]*.[0-9]*' --sort=v:refname)"
+          fi
+
+          if [ -z "$tags" ]; then
+            echo "No v* tags found."
+            exit 0
+          fi
+
+          created_any=false
+          for tag in $tags; do
+            # Defensive: refuse anything that doesn't look like a v* tag, so even a
+            # malicious workflow_dispatch input cannot inject arbitrary shell.
+            case "$tag" in
+              v[0-9]*.[0-9]*) ;;
+              *) echo "[skip] '$tag' — does not match v<num>.<num>* pattern"; continue ;;
+            esac
+
+            if ! git rev-parse "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "[skip] $tag — tag not present locally"
+              continue
+            fi
+            if ! git merge-base --is-ancestor "$tag" origin/main 2>/dev/null; then
+              echo "[skip] $tag — not reachable from origin/main yet"
+              continue
+            fi
+            if gh release view "$tag" --json id >/dev/null 2>&1; then
+              echo "[skip] $tag — release already exists"
+              continue
+            fi
+
+            # Tag annotation message becomes the release notes. /gsd-complete-milestone
+            # writes a "Delivered: …\n\nKey accomplishments:\n- …" block into the tag.
+            notes_file="$(mktemp)"
+            git tag -l --format='%(contents)' "$tag" > "$notes_file"
+
+            if [ ! -s "$notes_file" ]; then
+              # Fallback for lightweight tags (no annotation) — should not happen with GSD.
+              echo "Release $tag — see milestones/$tag-ROADMAP.md for details." > "$notes_file"
+            fi
+
+            echo "[create] release for $tag"
+            gh release create "$tag" \
+              --title "$tag" \
+              --notes-file "$notes_file" \
+              --verify-tag \
+              --latest
+            created_any=true
+          done
+
+          if [ "$created_any" = "false" ]; then
+            echo "Nothing to publish — all reachable v* tags already have releases."
+          fi
