@@ -69,3 +69,9 @@ gui-build:
 # GUI: Rust type-check (fast CI check without launching dev server)
 gui-check:
 	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
+
+# gui-ci: CI gate — TypeScript type-check and Rust release build (called from ci-gui.yml)
+gui-ci:
+	cd hp41-gui && npm install
+	cd hp41-gui && npx tsc --noEmit
+	cargo build --release --manifest-path hp41-gui/src-tauri/Cargo.toml
