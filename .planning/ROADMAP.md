@@ -236,8 +236,8 @@
   5. Executing PRX, PRA, or PRSTK causes formatted output lines to appear in the scrollable print panel; the panel retains previous output and new lines append to the bottom
 **Plans**: 3 plans
   **Wave 1** *(parallel)*
-  - [ ] 17-01-PLAN.md — PERS-01: Rust persistence module (dirs dep, persistence.rs copy, lib.rs startup load + 30s auto-save thread)
-  - [ ] 17-02-PLAN.md — PERS-02: React print panel (printLog state, accumulation useEffect, auto-scroll, collapsible JSX + CSS)
+  - [x] 17-01-PLAN.md — PERS-01: Rust persistence module (dirs dep, persistence.rs copy, lib.rs startup load + 30s auto-save thread)
+  - [x] 17-02-PLAN.md — PERS-02: React print panel (printLog state, accumulation useEffect, auto-scroll, collapsible JSX + CSS)
   **Wave 2** *(blocked on Wave 1)*
   - [ ] 17-03-PLAN.md — PERS-01/PERS-02: Integration verification (Rust tests, CLI regression, TypeScript build, human SC-1..SC-5)
 **UI hint**: yes
