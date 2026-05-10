@@ -3,7 +3,7 @@
 .calculator {
   display: flex;
   flex-direction: column;
-  width: 320px;
+  width: 392px;
   background: #0d0d0d;
   border: 1px solid #333;
   border-radius: 4px;
@@ -70,7 +70,18 @@
   user-select: none;
 }
 
-/* Phase 16 SVG keyboard placeholder */
-#keyboard-area {
-  min-height: 0;
+/* SVG keyboard press animation — transform-box: fill-box is REQUIRED for SVG elements */
+.key {
+  cursor: pointer;
+  transform-box: fill-box;    /* REQUIRED: makes transform-origin relative to element's own bounding box, not the SVG canvas */
+  transform-origin: center;   /* center of the KEY element, not the SVG viewBox origin */
+  transition: transform 80ms ease-out;
+}
+
+.key-pressed {
+  transform: scale(0.92);
+}
+
+.key:hover:not(.key-pressed) {
+  opacity: 0.85;
 }

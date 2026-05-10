@@ -12,9 +12,9 @@
     "windows": [
       {
         "title": "HP-41 Calculator",
-        "width": 800,
-        "height": 600,
-        "resizable": true,
+        "width": 400,
+        "height": 700,
+        "resizable": false,
         "decorations": true
       }
     ]
