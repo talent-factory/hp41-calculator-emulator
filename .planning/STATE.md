@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
 current_phase: 16
-current_plan: "16-02"
-status: executing
-last_updated: "2026-05-10T10:00:00.000Z"
+current_plan: "16-complete"
+status: complete
+last_updated: "2026-05-10T12:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 7
-  percent: 50
+  completed_plans: 9
+  percent: 67
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,11 +34,11 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 16 — SVG Skin
-Plan: 16-02 EXECUTING — Wave 1: SVG Keyboard skin + App wiring
-Status: Phase 16 executing (2026-05-10); Wave 1 in progress (16-01 complete)
-Last activity: 2026-05-10 — Wave 0 complete (16-01 key_map test passes); Wave 1 starting (16-02 Keyboard.tsx)
+Plan: Phase 16 COMPLETE — 2/2 plans shipped
+Status: Phase 16 complete (2026-05-10); Phase 17 next
+Last activity: 2026-05-10 — Phase 16 SVG Skin complete: Keyboard.tsx with 44-key 3D SVG skin, all 5 SCs approved
 
-Progress: [████████████████] 50% (3/6 phases complete — Phase 15 done, Phase 16 next)
+Progress: [██████████████████████] 67% (4/6 phases complete — Phase 16 done, Phase 17 next)
 
 ---
 
@@ -84,6 +84,9 @@ Progress: [████████████████] 50% (3/6 phases com
 | Tauri v2.11 app-command permissions: TOML files required | For inline app commands (not plugins), Tauri v2.11 does NOT auto-generate allow-<cmd> permissions. Create TOML in src-tauri/permissions/<cmd-kebab>.toml with `[[permission]] identifier + commands.allow = ["fn_name"]` | Phase 14 |
 | CalcStateView display_str priority: entry_buf → format_alpha(alpha_mode) → format_hpnum(stack.x) | Matches hp41-cli get_display_string logic; x_str always uses format_hpnum for Phase 15 stack panel | Phase 14 |
 | EEX-CHS gap in handle_op | In-buffer exponent sign toggle (Op::Chs during EEX entry) is missing from commands.rs handle_op; deferred to Phase 15 keyboard wiring. Frontend must send "eex_chs" key ID | Phase 14 |
+| KEY_DEFS has 44 entries, not 40 | HP-41C has 44 key positions (9+8+9+9+9 across 5 rows); ENTER is one entry with colSpan:2. Plan text said "40" in error; implementation follows the actual key list. | Phase 16 |
+| SVG shadow: manual rect over filter | Shadow implemented as 1px-offset black rect (45% opacity) rather than SVG feDropShadow filter — simpler, no GPU compositing overhead, no per-element filter allocation | Phase 16 |
+| transform-box: fill-box required for SVG animation | Without this CSS property, scale() transforms from SVG canvas origin rather than each key's own center — keys would translate instead of shrink in place | Phase 16 |
 
 ### Critical Implementation Traps (v1.1)
 
@@ -109,8 +112,8 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-10
-**Last action:** Phase 16 planned — 2 plans (16-01 Wave 0 Rust test, 16-02 Wave 1 Keyboard.tsx + wiring); verification passed 0 blockers
-**Next action:** `/gsd-execute-phase 16` — execute Phase 16 SVG Skin
+**Last action:** Phase 16 complete — SVG keyboard skin with 3D gradients shipped; all 5 SCs approved; verification passed
+**Next action:** `/gsd-discuss-phase 17` or `/gsd-plan-phase 17` — Phase 17 Persistence & Print Output
 
 ---
 *State initialized: 2026-05-06*

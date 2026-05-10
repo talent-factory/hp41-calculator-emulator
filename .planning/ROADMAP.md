@@ -48,7 +48,7 @@
 - [x] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green (completed 2026-05-09)
 - [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
 - [x] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli (completed 2026-05-10)
-- [ ] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation
+- [x] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation (completed 2026-05-10)
 - [ ] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel
 - [ ] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; cross-platform GUI CI job
 
@@ -217,7 +217,7 @@
   **Wave 0**
   - [x] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
   **Wave 1** *(blocked on Wave 0 completion)*
-  - [ ] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
+  - [x] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
   **Cross-cutting constraints:**
   - All 23 named KEY_DEFS `id` values MUST pass `key_map::resolve()` — validated by Wave 0 test before Wave 1 runs
   - CSS MUST include `transform-box: fill-box` + `transform-origin: center` on `.key` — required for SVG scale() to animate from key center, not canvas origin
