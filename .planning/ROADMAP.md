@@ -47,7 +47,7 @@
 
 - [x] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green (completed 2026-05-09)
 - [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
-- [ ] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli
+- [x] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli (completed 2026-05-10)
 - [ ] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation
 - [ ] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel
 - [ ] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; cross-platform GUI CI job
@@ -196,11 +196,11 @@
   5. The key binding set covers all bindings present in hp41-cli's `key_to_op()` function — no key that works in the CLI is silently ignored in the GUI
 **Plans**: 3 plans
   **Wave 0** *(Tailwind strip + test stubs)*
-  - [ ] 15-01-PLAN.md — DISP-01/IPC-02: Strip Tailwind from index.css + vite.config.ts; write 4 RED test stubs in types.rs + commands.rs
+  - [x] 15-01-PLAN.md — DISP-01/IPC-02: Strip Tailwind from index.css + vite.config.ts; write 4 RED test stubs in types.rs + commands.rs
   **Wave 1** *(blocked on Wave 0)*
-  - [ ] 15-02-PLAN.md — DISP-01/DISP-02/IPC-02: Extend CalcStateView (y_str/z_str/t_str/lastx_str/in_eex_mode) + add eex_chs branch in handle_op
+  - [x] 15-02-PLAN.md — DISP-01/DISP-02/IPC-02: Extend CalcStateView (y_str/z_str/t_str/lastx_str/in_eex_mode) + add eex_chs branch in handle_op
   **Wave 2** *(blocked on Wave 1)*
-  - [ ] 15-03-PLAN.md — DISP-01/DISP-02/IPC-02: Build App.tsx (display + annunciators + stack panel + keyboard listener) + App.css + human-verify SC-1..SC-5
+  - [x] 15-03-PLAN.md — DISP-01/DISP-02/IPC-02: Build App.tsx (display + annunciators + stack panel + keyboard listener) + App.css + human-verify SC-1..SC-5
 **UI hint**: yes
 
 ### Phase 16: SVG Skin
