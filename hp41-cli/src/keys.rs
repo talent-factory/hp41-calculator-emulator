@@ -266,8 +266,7 @@ mod tests {
         let result = hp41_core::ops::dispatch(&mut state, Op::UserMode);
         assert!(
             result.is_ok(),
-            "UserMode dispatch must not error: {:?}",
-            result
+            "UserMode dispatch must not error: {result:?}"
         );
         assert!(
             state.user_mode,

@@ -491,8 +491,7 @@ mod tests {
         let result = hp41_core::run_program(&mut state, "A");
         assert!(
             result.is_ok(),
-            "Fibonacci must run without error: {:?}",
-            result
+            "Fibonacci must run without error: {result:?}"
         );
     }
 

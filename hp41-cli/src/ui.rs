@@ -238,12 +238,12 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 fn pending_prompt(pending: &crate::app::PendingInput) -> String {
     use crate::app::PendingInput;
     match pending {
-        PendingInput::StoRegister(acc) => format!("STO [{:_<2}]", acc),
-        PendingInput::RclRegister(acc) => format!("RCL [{:_<2}]", acc),
-        PendingInput::StoAdd(acc) => format!("STO+ [{:_<2}]", acc),
-        PendingInput::StoSub(acc) => format!("STO- [{:_<2}]", acc),
-        PendingInput::StoMul(acc) => format!("STO\u{00D7} [{:_<2}]", acc),
-        PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{:_<2}]", acc),
+        PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
+        PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
+        PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
+        PendingInput::StoSub(acc) => format!("STO- [{acc:_<2}]"),
+        PendingInput::StoMul(acc) => format!("STO\u{00D7} [{acc:_<2}]"),
+        PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{acc:_<2}]"),
         PendingInput::AssignKey => "Assign: press key to assign".to_string(),
         PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
         PendingInput::ConfirmLoad(idx) => {
@@ -266,7 +266,7 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
             if acc.is_empty() {
                 "HEX: __".to_string()
             } else {
-                format!("HEX: {}_", acc)
+                format!("HEX: {acc}_")
             }
         }
     }

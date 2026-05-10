@@ -969,7 +969,7 @@ impl App {
         if !lines.is_empty() {
             for line in &lines {
                 if let Some(ref mut writer) = self.print_log_writer {
-                    let _ = writeln!(writer, "{}", line);
+                    let _ = writeln!(writer, "{line}");
                     let _ = writer.flush();
                 }
             }
@@ -1002,7 +1002,7 @@ impl App {
                 if !lines.is_empty() {
                     for line in &lines {
                         if let Some(ref mut writer) = self.print_log_writer {
-                            let _ = writeln!(writer, "{}", line);
+                            let _ = writeln!(writer, "{line}");
                             let _ = writer.flush();
                         }
                     }
@@ -1521,7 +1521,7 @@ mod print_modal_tests {
             "After PRX, app.message must contain the formatted line"
         );
         let msg = app.message.as_deref().unwrap_or("");
-        assert_eq!(msg.len(), 24, "PRX message must be 24 chars, got {:?}", msg);
+        assert_eq!(msg.len(), 24, "PRX message must be 24 chars, got {msg:?}");
     }
 
     #[test]
@@ -1595,8 +1595,7 @@ mod print_modal_tests {
         let msg = app.message.as_deref().unwrap_or("");
         assert!(
             msg.contains("Warning") || msg.contains("cannot open") || msg.contains("print log"),
-            "Error message must describe the open failure, got: {:?}",
-            msg
+            "Error message must describe the open failure, got: {msg:?}"
         );
     }
 }

@@ -32,8 +32,7 @@ fn test_prx_output_is_24_chars() {
     assert_eq!(
         line.len(),
         24,
-        "PRX output must be exactly 24 chars, got: {:?}",
-        line
+        "PRX output must be exactly 24 chars, got: {line:?}"
     );
 }
 
@@ -47,8 +46,7 @@ fn test_prx_output_is_right_aligned() {
     // Right-aligned: the string ends with the value, not spaces
     assert!(
         line.starts_with(' '),
-        "PRX output of small value must have leading spaces: {:?}",
-        line
+        "PRX output of small value must have leading spaces: {line:?}"
     );
 }
 
@@ -65,8 +63,7 @@ fn test_prx_respects_display_mode_sci() {
     let trimmed = line.trim();
     assert!(
         trimmed.to_ascii_uppercase().contains('E'),
-        "PRX in SCI mode must produce scientific notation: {:?}",
-        line
+        "PRX in SCI mode must produce scientific notation: {line:?}"
     );
 }
 
@@ -104,8 +101,7 @@ fn test_pra_output_is_24_chars() {
     assert_eq!(
         line.len(),
         24,
-        "PRA output must be exactly 24 chars, got: {:?}",
-        line
+        "PRA output must be exactly 24 chars, got: {line:?}"
     );
 }
 
@@ -119,13 +115,11 @@ fn test_pra_output_is_left_aligned() {
     // Left-aligned: starts with "HI", ends with spaces
     assert!(
         line.starts_with("HI"),
-        "PRA output must start with alpha content: {:?}",
-        line
+        "PRA output must start with alpha content: {line:?}"
     );
     assert!(
         line.ends_with(' '),
-        "PRA output of short value must have trailing spaces: {:?}",
-        line
+        "PRA output of short value must have trailing spaces: {line:?}"
     );
 }
 
@@ -173,9 +167,7 @@ fn test_prstk_all_lines_are_24_chars() {
         assert_eq!(
             line.len(),
             24,
-            "PRSTK line {} must be 24 chars, got {:?}",
-            i,
-            line
+            "PRSTK line {i} must be 24 chars, got {line:?}"
         );
     }
 }

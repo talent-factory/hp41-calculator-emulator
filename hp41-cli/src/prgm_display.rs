@@ -134,7 +134,7 @@ fn op_display_name(op: &Op) -> String {
         Op::RclM => "RCL M".to_string(),
         Op::RclN => "RCL N".to_string(),
         Op::RclO => "RCL O".to_string(),
-        Op::SyntheticByte(b) => format!("SYN {:02X}", b),
+        Op::SyntheticByte(b) => format!("SYN {b:02X}"),
     }
 }
 

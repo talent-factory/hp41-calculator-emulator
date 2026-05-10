@@ -66,7 +66,7 @@ fn test_calcstate_has_regs_field_100_elements() {
     // Must have exactly 100 elements, all zero
     assert_eq!(state.regs.len(), 100);
     for (i, reg) in state.regs.iter().enumerate() {
-        assert!(reg.is_zero(), "register {} should be zero on init", i);
+        assert!(reg.is_zero(), "register {i} should be zero on init");
     }
 }
 
@@ -222,7 +222,7 @@ fn test_sto_arith_kind_has_four_variants() {
 #[test]
 fn test_sto_arith_kind_debug_and_clone() {
     let k = StoArithKind::Add;
-    let _ = format!("{:?}", k);
+    let _ = format!("{k:?}");
     let k2 = k.clone();
     assert_eq!(k, k2);
 }
@@ -232,7 +232,7 @@ fn test_sto_arith_kind_debug_and_clone() {
 #[test]
 fn test_op_enum_has_recip_variant() {
     let op = Op::Recip;
-    let _ = format!("{:?}", op);
+    let _ = format!("{op:?}");
     assert_eq!(op.clone(), Op::Recip);
 }
 
@@ -322,7 +322,7 @@ fn test_op_enum_has_register_variants() {
         reg: 5,
         kind: StoArithKind::Add,
     };
-    let _ = format!("{:?}", arith);
+    let _ = format!("{arith:?}");
 }
 
 #[test]
