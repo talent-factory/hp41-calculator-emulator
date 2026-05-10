@@ -962,25 +962,57 @@ impl App {
     /// For 1 line (PRX/PRA): sets app.message to the formatted line.
     /// For N > 1 lines (PRSTK or multiple print ops in one program): sets app.message to
     ///   "PRSTK → N lines" summary consistent with D-01.
-    /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
+    /// If print_log_writer is Some, writes each line to the file via
+    /// `write_lines_to_print_log()` which disables the writer on first I/O error.
     /// Clears print_buffer via drain(..).
     fn drain_and_show_print_output(&mut self) {
         let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
         if !lines.is_empty() {
-            for line in &lines {
-                if let Some(ref mut writer) = self.print_log_writer {
-                    let _ = writeln!(writer, "{line}");
-                    let _ = writer.flush();
-                }
-            }
-            if lines.len() > 1 {
-                self.message = Some(format!("PRSTK \u{2192} {} lines", lines.len()));
+            let log_failure = self.write_lines_to_print_log(&lines);
+            let summary = if lines.len() > 1 {
+                format!("PRSTK \u{2192} {} lines", lines.len())
             } else {
-                self.message = lines.into_iter().next();
-            }
+                lines.into_iter().next().unwrap_or_default()
+            };
+            self.message = Some(match log_failure {
+                Some(err) => format!("{summary} ({err})"),
+                None => summary,
+            });
         }
         // If lines is empty, leave self.message as None (caller already set it to None
         // on the Ok(()) branch before calling this helper).
+    }
+
+    /// Write a batch of print lines to `print_log_writer`. On the first I/O error
+    /// (write or flush) disables the writer (sets to `None`) and returns a one-shot
+    /// `"print log disabled: {err}"` message so the caller can append it to
+    /// `self.message`. After this returns `Some(_)` once, subsequent calls are no-ops.
+    ///
+    /// This replaces the original `let _ = writeln!(...)` pattern that silently
+    /// dropped every line after the first failure (PR #5 silent-failure review).
+    fn write_lines_to_print_log(&mut self, lines: &[String]) -> Option<String> {
+        let failure: Option<String> = {
+            let Some(writer) = self.print_log_writer.as_mut() else {
+                return None;
+            };
+            let mut err_msg: Option<String> = None;
+            for line in lines {
+                if let Err(e) = writeln!(writer, "{line}") {
+                    err_msg = Some(format!("print log disabled: {e}"));
+                    break;
+                }
+            }
+            if err_msg.is_none() {
+                if let Err(e) = writer.flush() {
+                    err_msg = Some(format!("print log disabled: {e}"));
+                }
+            }
+            err_msg
+        };
+        if failure.is_some() {
+            self.print_log_writer = None;
+        }
+        failure
     }
 
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
@@ -1000,18 +1032,17 @@ impl App {
             Ok(()) => {
                 let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
                 if !lines.is_empty() {
-                    for line in &lines {
-                        if let Some(ref mut writer) = self.print_log_writer {
-                            let _ = writeln!(writer, "{line}");
-                            let _ = writer.flush();
-                        }
-                    }
-                    if lines.len() > 1 {
-                        self.message = Some(format!("PRSTK \u{2192} {} lines", lines.len()));
+                    let log_failure = self.write_lines_to_print_log(&lines);
+                    let summary = if lines.len() > 1 {
+                        format!("PRSTK \u{2192} {} lines", lines.len())
                     } else {
                         // lines.len() == 1; into_iter().next() is safe here
-                        self.message = lines.into_iter().next();
-                    }
+                        lines.into_iter().next().unwrap_or_default()
+                    };
+                    self.message = Some(match log_failure {
+                        Some(err) => format!("{summary} ({err})"),
+                        None => summary,
+                    });
                 } else {
                     self.message = None;
                 }
