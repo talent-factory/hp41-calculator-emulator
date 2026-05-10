@@ -205,4 +205,42 @@ mod tests {
         assert!(result.is_ok(), "eex_chs with no 'e' must not error or panic");
         assert_eq!(calc.entry_buf, "42", "entry_buf must be unchanged when no 'e' present");
     }
+
+    #[test]
+    fn test_handle_sst_advances_pc() {
+        use hp41_core::ops::Op;
+        let mut calc = CalcState::new();
+        calc.program = vec![Op::Add, Op::Enter];
+        calc.pc = 0;
+        handle_sst(&mut calc).unwrap();
+        assert_eq!(calc.pc, 1, "SST must advance pc from 0 to 1");
+    }
+
+    #[test]
+    fn test_handle_sst_clamps_at_end() {
+        use hp41_core::ops::Op;
+        let mut calc = CalcState::new();
+        calc.program = vec![Op::Add];
+        calc.pc = 1; // already at end (program.len() == 1)
+        handle_sst(&mut calc).unwrap();
+        assert_eq!(calc.pc, 1, "SST must not advance past program.len()");
+    }
+
+    #[test]
+    fn test_handle_bst_decrements_pc() {
+        use hp41_core::ops::Op;
+        let mut calc = CalcState::new();
+        calc.program = vec![Op::Add];
+        calc.pc = 1;
+        handle_bst(&mut calc).unwrap();
+        assert_eq!(calc.pc, 0, "BST must decrement pc from 1 to 0");
+    }
+
+    #[test]
+    fn test_handle_bst_clamps_at_zero() {
+        let mut calc = CalcState::new();
+        calc.pc = 0;
+        handle_bst(&mut calc).unwrap();
+        assert_eq!(calc.pc, 0, "BST must not underflow below 0");
+    }
 }
