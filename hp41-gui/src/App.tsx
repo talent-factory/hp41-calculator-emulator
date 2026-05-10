@@ -27,8 +27,9 @@ interface CalcStateView {
 
 function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | null {
   // Phase 18 D-07: F7/F8 → SST/BST keyboard bindings
-  if (e.key === 'F7') return 'sst';
-  if (e.key === 'F8') return 'bst';
+  // Use e.code (physical key) so macOS media-key remapping doesn't block these
+  if (e.key === 'F7' || e.code === 'F7') return 'sst';
+  if (e.key === 'F8' || e.code === 'F8') return 'bst';
   // EEX-CHS: 'n' routes based on current in_eex_mode (D-06)
   if (e.key === 'n') return state?.in_eex_mode ? 'eex_chs' : 'chs';
   // Digit entry
