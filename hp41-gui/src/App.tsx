@@ -62,6 +62,8 @@ function App() {
 
   // Keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode
   const handleKey = useCallback((e: KeyboardEvent) => {
+    if (e.repeat) return;        // SC-4 fix: ignore OS key-repeat events — each IPC round-trip
+                                 // completes before the next repeat fires, defeating busyRef alone
     if (busyRef.current) return; // debounce: ignore while invoke pending
     const keyId = resolveKeyId(e, calcState);
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
