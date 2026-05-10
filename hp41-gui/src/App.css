@@ -1,0 +1,76 @@
+/* Phase 15 calculator display styles — vanilla CSS (D-10) */
+
+.calculator {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+  margin: 16px auto;
+}
+
+/* Annunciator row — D-09: always visible, dim=inactive (~35% opacity), bright=active */
+.annunciators {
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #1a1a1a;
+}
+
+.annunciator {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #555;
+  opacity: 0.35;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.annunciator.active {
+  color: #e8e8c0;
+  opacity: 1.0;
+}
+
+/* Display row — D-08: right-aligned monospace on dark background */
+.display {
+  background: #111;
+  padding: 6px 10px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 22px;
+  text-align: right;
+  color: #c8e6c9;
+  letter-spacing: 0.05em;
+  min-height: 2em;
+  border-bottom: 1px solid #222;
+  white-space: pre;
+}
+
+/* Stack panel — D-08: labeled rows for X/Y/Z/T/L */
+.stack-panel {
+  background: #1a1a1a;
+  padding: 6px 10px;
+  border-bottom: 1px solid #222;
+}
+
+.stack-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #aaa;
+  padding: 2px 0;
+}
+
+.stack-label {
+  color: #666;
+  min-width: 20px;
+  user-select: none;
+}
+
+/* Phase 16 SVG keyboard placeholder */
+#keyboard-area {
+  min-height: 0;
+}
