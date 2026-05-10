@@ -94,11 +94,18 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] SC-4 FAILED: key-repeat events bypassed busyRef debounce**
+- **Found during:** Human verification checkpoint (SC-4)
+- **Issue:** Holding a digit key (e.g. '3') fires OS-level key-repeat events. Each IPC round-trip completes in ~65 ns, well before the next repeat event fires (~30 ms), so `busyRef.current` is already `false` when the repeated event arrives. Result: holding '3' produced '333...' in the display.
+- **Fix:** Added `if (e.repeat) return;` as the first guard inside `handleKey`, before the `busyRef` check. `KeyboardEvent.repeat` is `true` for all OS key-repeat events and `false` for initial keydowns — this is the correct and complete solution.
+- **Files modified:** `hp41-gui/src/App.tsx` (line 65)
+- **Commit:** `fix(15-03): ignore key-repeat events in handleKey to prevent multi-digit entry`
 
 ## Issues Encountered
 
-None.
+None beyond the SC-4 key-repeat regression fixed above.
 
 ## User Setup Required
 
@@ -130,14 +137,16 @@ No new trust boundary surfaces beyond the plan's threat model:
 
 - [x] `hp41-gui/src/App.css` exists and contains `.annunciator.active`
 - [x] `hp41-gui/src/App.tsx` contains `useCallback`, `removeEventListener`, `in_eex_mode`, `eex_chs`, `busyRef`, `dispatch_op`, `get_state`, `keyboard-area`
+- [x] `hp41-gui/src/App.tsx` line 65 contains `if (e.repeat) return;` (SC-4 fix)
 - [x] `grep "@import" hp41-gui/src/App.css` returns 0 matches
-- [x] `just gui-check` exits 0 (TypeScript compiles)
+- [x] `just gui-check` exits 0 (TypeScript compiles, post-fix)
 - [x] `cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml` exits 0 (13 tests pass)
 - [x] Commit `5a50314` exists (Task 1 — App.css)
 - [x] Commit `bff8de2` exists (Task 2 — App.tsx)
+- [x] SC-4 fix commit exists (key-repeat guard)
 
 ## Self-Check: PASSED
 
 ---
 *Phase: 15-display-and-keyboard*
-*Completed: 2026-05-09 (auto tasks); awaiting human checkpoint SC-1..SC-5*
+*Completed: 2026-05-10 (all tasks + SC-4 fix; SC-1 through SC-5 all verified)*
