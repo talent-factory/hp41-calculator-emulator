@@ -29,10 +29,9 @@ A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmabl
 **Calculator engine (`hp41-core`)**
 
 - Full RPN stack model (X, Y, Z, T + LAST X) with correct stack-lift behaviour for every one of ~130 operations
-- 64 storage registers (R00–R99) plus the hidden synthetic registers M, N, O
-- Alpha register and string operations
+- 100 numbered storage registers (R00–R99) plus the hidden synthetic registers M, N, O
+- ALPHA register (24 chars) and string operations
 - ISG/DSE loop counters with string-split semantics (no floating-point rounding errors)
-- Flags 0–55 with all test/set/clear variants
 - Keystroke programming: LBL / GTO / XEQ / RTN, all 12 conditional tests, ISG/DSE loops
 - Hardware-faithful EEX entry (trailing-e commits as exponent 00; empty-buffer EEX inserts implicit mantissa)
 - Print emulation: PRX / PRA / PRSTK push to an in-memory `print_buffer` — `hp41-core` stays I/O-free
@@ -58,11 +57,13 @@ A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmabl
 
 ## Variants Emulated
 
-| Model   | Year | Memory           | Notes                              |
-|---------|------|------------------|------------------------------------|
-| HP-41C  | 1979 | 63 registers     | Base model                         |
-| HP-41CV | 1980 | 319 steps / 64 R | "Continuously Variable" memory     |
-| HP-41CX | 1983 | Extended + Time  | Built-in X-Functions & Time Module |
+This is a **behavioural** emulation — variant-specific memory limits are not enforced; the emulator always provides 100 numbered registers (R00–R99) plus the three hidden synthetic registers, regardless of which physical model the table references.
+
+| Model   | Year | Original memory   | Notes                              |
+|---------|------|-------------------|------------------------------------|
+| HP-41C  | 1979 | 63 registers      | Base model                         |
+| HP-41CV | 1980 | 319 registers     | "Continuously Variable" memory     |
+| HP-41CX | 1983 | Extended + Time   | Built-in X-Functions & Time Module |
 
 ## Quick Start
 
