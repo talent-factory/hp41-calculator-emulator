@@ -992,9 +992,7 @@ impl App {
     /// dropped every line after the first failure (PR #5 silent-failure review).
     fn write_lines_to_print_log(&mut self, lines: &[String]) -> Option<String> {
         let failure: Option<String> = {
-            let Some(writer) = self.print_log_writer.as_mut() else {
-                return None;
-            };
+            let writer = self.print_log_writer.as_mut()?;
             let mut err_msg: Option<String> = None;
             for line in lines {
                 if let Err(e) = writeln!(writer, "{line}") {
