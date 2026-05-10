@@ -216,8 +216,12 @@
 **Plans**: 2 plans
   **Wave 0**
   - [ ] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
-  **Wave 1** *(blocked on Wave 0)*
+  **Wave 1** *(blocked on Wave 0 completion)*
   - [ ] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
+  **Cross-cutting constraints:**
+  - All 23 named KEY_DEFS `id` values MUST pass `key_map::resolve()` — validated by Wave 0 test before Wave 1 runs
+  - CSS MUST include `transform-box: fill-box` + `transform-origin: center` on `.key` — required for SVG scale() to animate from key center, not canvas origin
+  - Empty-id guard (`if (!keyId) return`) MUST be present in `handleKeyClick` for 10 visual-only keys (XEQ, STO, RCL, SST, BST, R/S, ON, f, g)
 **UI hint**: yes
 
 ### Phase 17: Persistence & Print Output

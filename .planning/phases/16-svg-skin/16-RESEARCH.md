@@ -740,7 +740,7 @@ No new ASVS work required for Phase 16. The existing `resolve()` + `GuiError` pa
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact KEY_DEFS visual layout (row/col grid)**
    - What we know: 40 keys, 5 rows, 9 cols, ENTER at row=1 spanning cols 4-5 per CONTEXT hint
