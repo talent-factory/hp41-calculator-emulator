@@ -36,7 +36,7 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
   const MAP: Record<string, string> = {
     'Enter': 'enter', 'Backspace': 'clx',
     '+': 'plus', '-': 'minus', '*': 'mul', '/': 'div',
-    'r': 'rdn', 'x': 'xy_swap', 'l': 'lastx', 's': 'sqrt', 'p': 'prgm_mode',
+    'r': 'rdn', 'x': 'xy_swap', 'l': 'lastx', 's': 'sqrt', 'p': 'prx',
     'a': 'asin', 'c': 'acos', 'k': 'atan',
     'C': 'cos', 'T': 'tan', 'L': 'ln', 'G': 'log', 'E': 'exp',
     'H': 'tenpow', 'I': 'recip', 'W': 'sq', 'Y': 'ypow',
