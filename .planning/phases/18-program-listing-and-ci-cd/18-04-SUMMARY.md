@@ -28,10 +28,10 @@ decisions:
   - "calcState.annunciators.prgm check is safe after early-return null guard at line 127 — no double null-check needed"
   - "npm install run in worktree hp41-gui since node_modules not present in fresh worktree"
 metrics:
-  duration: 480s
-  completed: "2026-05-10T16:20:00Z"
+  duration: 600s
+  completed: "2026-05-10T17:00:00Z"
   tasks_completed: 2
-  files_modified: 3
+  files_modified: 4
 ---
 
 # Phase 18 Plan 04: Wave 2 React Frontend — Program Listing Panel Summary
@@ -44,6 +44,8 @@ React frontend implementation for the PRGM-mode program listing panel: condition
 |------|------|--------|-------|
 | 1 | Extend App.tsx with program listing panel JSX, SST/BST routing, and resolveKeyId F7/F8 | e0da96f | hp41-gui/src/App.tsx |
 | 2 | Update Keyboard.tsx KEY_DEFS and add App.css program panel styles | 70ea6d9 | hp41-gui/src/Keyboard.tsx, hp41-gui/src/App.css |
+| fix-1 | Suppress format_step dead_code warning; use e.code for F7/F8 on macOS | 1c0a00c | hp41-gui/src/App.tsx, hp41-gui/src-tauri/src/lib.rs |
+| fix-2 | format_all_steps always appends END so pc==program.len() highlights correctly | 3372ec3 | hp41-gui/src-tauri/src/lib.rs |
 
 ## What Was Done
 
@@ -119,6 +121,20 @@ Structural checks:
 - **Impact:** Blocking for TypeScript verification; non-blocking for runtime. CI matrix handles this via `npm install` step.
 - **Commit:** Not a code change — environment setup only.
 
+**3. [Rule 1 - Bug] F7/F8 not recognized on macOS — use e.code instead of e.key**
+- **Found during:** Human verification (SC-2/SC-3 — SST/BST not responding to F7/F8)
+- **Issue:** On macOS, `KeyboardEvent.key` for function keys returns `"F7"` only when the keyboard sends an unmodified function key event. On many Mac keyboards the Fn modifier intercepts F-keys before the browser sees them; `e.code` (`"F7"`, `"F8"`) is the reliable cross-platform identifier.
+- **Fix:** Changed `resolveKeyId` to check `e.code` for F7/F8 in addition to (or instead of) `e.key`. Also suppressed the `format_step` dead-code warning in the Rust backend.
+- **Files modified:** hp41-gui/src/App.tsx, hp41-gui/src-tauri/src/lib.rs
+- **Commit:** 1c0a00c
+
+**4. [Rule 1 - Bug] END marker not highlighted when pc equals program.len()**
+- **Found during:** Human verification (SC-2 — END step not highlighted after SST past last instruction)
+- **Issue:** `format_all_steps` in the Rust backend did not always append the END marker, so when `pc == program.len()` (pointing past the last instruction to the implicit END), there was no entry in `program_steps` at that index and the highlight was lost.
+- **Fix:** `format_all_steps` now unconditionally appends an END entry so that `pc == program.len()` always has a corresponding highlighted row in the panel.
+- **Files modified:** hp41-gui/src-tauri/src/lib.rs
+- **Commit:** 3372ec3
+
 ## Known Stubs
 
 None — all implemented functionality is complete. The panel renders live data from `CalcStateView.program_steps` and `CalcStateView.pc`, both of which are populated by the Rust backend in Plan 02.
@@ -132,8 +148,13 @@ No new network endpoints or auth paths introduced. All changes are React UI comp
 - [x] hp41-gui/src/App.tsx modified: program_steps + pc in interface, activeStepRef, F7/F8, SST/BST routing, handleKey delegation, prgm-panel JSX
 - [x] hp41-gui/src/Keyboard.tsx modified: id: 'sst' and id: 'bst' in KEY_DEFS
 - [x] hp41-gui/src/App.css modified: .prgm-panel, .prgm-panel-header, .prgm-panel-content, .step-row, .step-active styles present
+- [x] hp41-gui/src-tauri/src/lib.rs modified: format_all_steps appends END; e.code for F7/F8; dead_code suppressed
 - [x] Commit e0da96f exists (Task 1)
 - [x] Commit 70ea6d9 exists (Task 2)
+- [x] Commit 1c0a00c exists (fix: dead_code + e.code for macOS F7/F8)
+- [x] Commit 3372ec3 exists (fix: format_all_steps always appends END)
 - [x] npx tsc --noEmit exits 0 — TypeScript clean
 - [x] cargo test exits 0 — 27 Rust tests pass
-- [x] Checkpoint task reached — human verification required for SC-1, SC-2, SC-3
+- [x] SC-1 approved: PRGM mode panel appears with program listing
+- [x] SC-2 approved: F7/SST advances the highlighted step including to END marker
+- [x] SC-3 approved: F8/BST moves the highlighted step back, clamps at 000
