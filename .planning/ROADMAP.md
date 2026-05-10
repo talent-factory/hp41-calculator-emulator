@@ -213,7 +213,11 @@
   3. Clicking any key in the SVG invokes `dispatch_op` with the correct key ID — the result is identical to pressing the equivalent key in hp41-cli
   4. Each key click triggers a visible CSS scale-down animation (scale to ~0.92, then bounce back) that completes within 150ms without blocking further input
   5. The SVG uses a `viewBox` and scales correctly on Retina/HiDPI displays and at the fixed 400×700 window size without pixelation or layout breakage
-**Plans**: TBD
+**Plans**: 2 plans
+  **Wave 0**
+  - [ ] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
+  **Wave 1** *(blocked on Wave 0)*
+  - [ ] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
 **UI hint**: yes
 
 ### Phase 17: Persistence & Print Output
@@ -263,6 +267,6 @@
 | 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
 | 14. IPC Layer | v2.0 | 4/4 | Complete | 2026-05-09 |
 | 15. Display & Keyboard | v2.0 | 0/3 | In progress | - |
-| 16. SVG Skin | v2.0 | 0/? | Not started | - |
+| 16. SVG Skin | v2.0 | 0/2 | Not started | - |
 | 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |
 | 18. Program Listing & CI/CD | v2.0 | 0/? | Not started | - |
