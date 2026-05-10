@@ -58,6 +58,10 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
 
 function App() {
   const [calcState, setCalcState] = useState<CalcStateView | null>(null);
+  // Surfaces GuiError messages from the backend (DivByZero, "unknown key", load
+  // failure, lock poison, …). Without this row every HpError translated via
+  // From<HpError> ends up at console.error and the user sees stale state.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const busyRef = useRef(false);
   const [printLog, setPrintLog] = useState<string[]>([]);
   const [printPanelOpen, setPrintPanelOpen] = useState(false);
@@ -67,8 +71,8 @@ function App() {
   // Mount: load initial state via get_state (D-11 — no polling)
   useEffect(() => {
     invoke<CalcStateView>('get_state')
-      .then(view => setCalcState(view))
-      .catch(err => console.error('get_state error:', err));
+      .then(view => { setCalcState(view); setErrorMessage(null); })
+      .catch(err => setErrorMessage(`Load failed: ${err}`));
   }, []);
 
   const handleClick = useCallback((keyId: string) => {
@@ -83,8 +87,8 @@ function App() {
       invokePromise = invoke<CalcStateView>('dispatch_op', { keyId });
     }
     invokePromise
-      .then(view => setCalcState(view))
-      .catch(err => console.error('invoke error:', err))
+      .then(view => { setCalcState(view); setErrorMessage(null); })
+      .catch(err => setErrorMessage(String(err)))
       .finally(() => { busyRef.current = false; });
   }, []);
 
@@ -151,6 +155,9 @@ function App() {
         ))}
       </div>
       <div className="display">{calcState.display_str}</div>
+      {errorMessage && (
+        <div className="error-row" role="alert">{errorMessage}</div>
+      )}
       <div className="stack-panel">
         {stackRows.map(([label, value]) => (
           <div key={label} className="stack-row">

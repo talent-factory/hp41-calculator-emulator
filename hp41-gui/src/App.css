@@ -48,6 +48,17 @@
   white-space: pre;
 }
 
+/* Error row — surfaces GuiError messages from the backend so they reach
+   the user instead of dying at console.error (silent-failure-hunter CRIT-1/2). */
+.error-row {
+  background: #3a1a1a;
+  color: #ffb4a8;
+  padding: 4px 10px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  border-bottom: 1px solid #222;
+}
+
 /* Stack panel — D-08: labeled rows for X/Y/Z/T/L */
 .stack-panel {
   background: #1a1a1a;

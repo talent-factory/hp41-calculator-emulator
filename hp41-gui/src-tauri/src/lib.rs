@@ -17,9 +17,23 @@ pub fn run() {
         .setup(|app| {
             // D-03: attempt to load ~/.hp41/autosave.json; fall back to fresh state on any error.
             // D-04: load_state() always resets is_running = false (Pitfall 4 guard).
+            //
+            // Match the CLI's corrupt-vs-missing split (hp41-cli/src/main.rs:51-62):
+            // a missing file is the normal first-run case (silent); an existing-but-
+            // unreadable file means the user lost a session, so log to stderr instead
+            // of silently dropping it.
             let save_path = persistence::default_state_path();
-            let initial_state = persistence::load_state(&save_path)
-                .unwrap_or_else(|_| hp41_core::CalcState::new());
+            let initial_state = match persistence::load_state(&save_path) {
+                Ok(state) => state,
+                Err(e) if save_path.exists() => {
+                    eprintln!(
+                        "hp41-gui: state load failed for {} ({e}); starting fresh",
+                        save_path.display()
+                    );
+                    hp41_core::CalcState::new()
+                }
+                Err(_) => hp41_core::CalcState::new(),
+            };
             app.manage(Mutex::new(initial_state));
 
             // D-01: spawn auto-save background thread — 30s sleep, then lock, then save.
