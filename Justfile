@@ -70,8 +70,9 @@ gui-build:
 gui-check:
 	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
 
-# gui-ci: CI gate — TypeScript type-check and Rust release build (called from ci-gui.yml)
+# gui-ci: CI gate — TypeScript type-check, Rust tests, and release build (called from ci-gui.yml)
 gui-ci:
 	cd hp41-gui && npm install
 	cd hp41-gui && npx tsc --noEmit
+	cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml
 	cargo build --release --manifest-path hp41-gui/src-tauri/Cargo.toml
