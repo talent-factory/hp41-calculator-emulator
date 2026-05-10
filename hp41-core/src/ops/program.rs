@@ -401,7 +401,7 @@ pub fn parse_counter(n: &HpNum) -> Result<(i64, i64, i64, String), HpError> {
     };
     let current: i64 = int_part.parse().map_err(|_| HpError::InvalidOp)?;
     // Pad RIGHT with zeros to exactly 5 chars (trailing-zero normalisation fix, RESEARCH Pitfall 3)
-    let frac_padded = format!("{:0<5}", frac_part);
+    let frac_padded = format!("{frac_part:0<5}");
     // Truncate if somehow longer than 5 (defensive; should not occur with valid HP-41 counters)
     let frac_padded = if frac_padded.len() > 5 {
         frac_padded[..5].to_string()
@@ -417,7 +417,7 @@ pub fn parse_counter(n: &HpNum) -> Result<(i64, i64, i64, String), HpError> {
 /// Reconstruct counter HpNum from updated current and the preserved frac_padded string.
 /// Preserves the FFFDD fields exactly (only CCCCC changes, D-12).
 fn build_counter(current: i64, frac_padded: &str) -> Result<HpNum, HpError> {
-    let s = format!("{}.{}", current, frac_padded);
+    let s = format!("{current}.{frac_padded}");
     let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
     Ok(HpNum::rounded(d))
 }

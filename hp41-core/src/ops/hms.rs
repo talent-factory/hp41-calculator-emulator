@@ -32,7 +32,7 @@ fn parse_hms(n: &HpNum) -> Result<(i64, i64, i64, bool), HpError> {
     };
     let hours: i64 = int_part.parse().map_err(|_| HpError::InvalidOp)?;
     // CRITICAL: left-align ({:0<4}) = right-pad with zeros
-    let padded = format!("{:0<4}", frac_part);
+    let padded = format!("{frac_part:0<4}");
     let padded = if padded.len() > 4 {
         padded[..4].to_string()
     } else {
@@ -84,7 +84,7 @@ fn decimal_to_hms_fields(decimal_hours: &Decimal) -> Result<(i64, i64, i64), HpE
 /// Reconstruct H.MMSS HpNum from integer fields.
 /// Uses integer formatting: format!("{}.{:02}{:02}", h, m, s) — never float formatting.
 fn build_hms(hours: i64, minutes: i64, seconds: i64) -> Result<HpNum, HpError> {
-    let s = format!("{}.{:02}{:02}", hours, minutes, seconds);
+    let s = format!("{hours}.{minutes:02}{seconds:02}");
     let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
     Ok(HpNum::rounded(d))
 }

@@ -23,7 +23,7 @@ pub fn op_prx(state: &mut CalcState) -> Result<(), HpError> {
 pub fn op_pra(state: &mut CalcState) -> Result<(), HpError> {
     // Take at most 24 chars from alpha_reg (HP-41 ALPHA is max 24 chars but guard regardless).
     let alpha = state.alpha_reg.chars().take(24).collect::<String>();
-    let line = format!("{:<24}", alpha);
+    let line = format!("{alpha:<24}");
     state.print_buffer.push(line);
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())

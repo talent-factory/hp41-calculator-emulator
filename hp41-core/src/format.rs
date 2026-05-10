@@ -54,7 +54,7 @@ fn format_fix(d: Decimal, digits: usize) -> String {
     let rounded = d.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
 
     // Rust's format! with precision handles FIX formatting including trailing zeros.
-    let s = format!("{:.prec$}", rounded, prec = digits);
+    let s = format!("{rounded:.digits$}");
 
     // HP-41 FIX 0 shows trailing decimal point: "42."
     if digits == 0 {
@@ -96,7 +96,7 @@ fn format_sci(d: Decimal, digits: usize) -> String {
     }
 
     // Format mantissa to `digits` decimal places
-    let mantissa_str = format!("{:.prec$}", mantissa_rounded, prec = digits);
+    let mantissa_str = format!("{mantissa_rounded:.digits$}");
 
     // HP-41 SCI 0 format: "1.E 02" — need to keep the decimal point
     let mantissa_with_point = ensure_decimal_point(mantissa_str);
@@ -143,7 +143,7 @@ fn format_eng(d: Decimal, digits: usize) -> String {
     }
 
     // Format mantissa to `digits` decimal places
-    let mantissa_str = format!("{:.prec$}", mantissa_rounded, prec = digits);
+    let mantissa_str = format!("{mantissa_rounded:.digits$}");
 
     // ENG 0 format also needs decimal point
     let mantissa_with_point = ensure_decimal_point(mantissa_str);
@@ -204,7 +204,7 @@ fn ensure_decimal_point(s: String) -> String {
 /// HP-41 format: space before positive exponent, minus sign before negative.
 fn assemble_sci(mantissa: &str, exp: i32) -> String {
     if exp >= 0 {
-        format!("{mantissa}E {:02}", exp)
+        format!("{mantissa}E {exp:02}")
     } else {
         format!("{mantissa}E-{:02}", -exp)
     }
