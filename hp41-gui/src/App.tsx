@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
+import { Keyboard } from './Keyboard';
 
 interface Annunciators {
   user: boolean;
@@ -75,6 +76,15 @@ function App() {
       .finally(() => { busyRef.current = false; });
   }, [calcState]);
 
+  const handleClick = useCallback((keyId: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    invoke<CalcStateView>('dispatch_op', { keyId })
+      .then(view => setCalcState(view))
+      .catch(err => console.error('dispatch_op error:', err))
+      .finally(() => { busyRef.current = false; });
+  }, []);
+
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
     window.addEventListener('keydown', handleKey);
@@ -115,7 +125,7 @@ function App() {
           </div>
         ))}
       </div>
-      <div id="keyboard-area" />
+      <Keyboard onKey={handleClick} busyRef={busyRef} />
     </div>
   );
 }
