@@ -51,17 +51,17 @@ requirements-completed:
   - SKIN-03
 
 # Metrics
-duration: ~4min (tasks 1-2 only; task 3 human-verify pending)
-completed: CHECKPOINT — awaiting human verification
+duration: ~20min (tasks 1-3, including 3D visual enhancement pass)
+completed: PASSED — all 5 SCs approved by human verifier
 ---
 
 # Phase 16 Plan 02: SVG Keyboard Skin Summary
 
-**Complete HP-41C SVG keyboard component with 44 keys, press animation, and click-to-dispatch — pending human visual verification (SC-1 through SC-5)**
+**Complete HP-41C SVG keyboard component with 44 keys, 3D gradient rendering, press animation, and click-to-dispatch — all 5 SCs approved.**
 
 ## Status
 
-CHECKPOINT REACHED at Task 3 (human-verify). Tasks 1 and 2 are complete and committed. This SUMMARY will be finalized after human verification approval.
+COMPLETE. All 3 tasks finished. Human verifier approved SC-1 through SC-5 after a visual enhancement pass (3D gradients + bevel highlights added post-checkpoint).
 
 ## Performance
 
@@ -91,13 +91,16 @@ CHECKPOINT REACHED at Task 3 (human-verify). Tasks 1 and 2 are complete and comm
 
 1. **Task 1: Create Keyboard.tsx** — `8909d66`
 2. **Task 2: Wire Keyboard into App, update CSS and window config** — `a7a0e45`
+3. **Task 3: Human verification + 3D visual enhancement** — `d2aa858` (gradient fills, per-key shadows, bevel highlights)
+4. **Fix: vite-env.d.ts** — `<commit>` (pre-existing TS2882 CSS import error resolved)
 
 ## Files Created/Modified
 
-- `hp41-gui/src/Keyboard.tsx` — new file, 163 lines
+- `hp41-gui/src/Keyboard.tsx` — new file, 213 lines (163 base + 50 for 3D gradients/shadows/highlights)
 - `hp41-gui/src/App.tsx` — Keyboard import + handleClick + JSX replacement (+11 lines)
 - `hp41-gui/src/App.css` — width update + animation CSS (+14 lines, -4 lines)
 - `hp41-gui/src-tauri/tauri.conf.json` — window config (3 values changed)
+- `hp41-gui/src/vite-env.d.ts` — new file (1 line, resolves pre-existing TS2882)
 
 ## Decisions Made
 
@@ -108,7 +111,13 @@ CHECKPOINT REACHED at Task 3 (human-verify). Tasks 1 and 2 are complete and comm
 
 ## Deviations from Plan
 
-**1. [Rule 1 - Minor] KEY_DEFS entry count is 44, not 40**
+**1. [Rule 1 - Minor] 3D visual enhancement added post-checkpoint (user request)**
+- **Found during:** Human verification (Task 3)
+- **Issue:** User approved functional SCs but requested more realistic 3D depth — the initial flat fills looked artificial
+- **Fix:** Added SVG `<defs>` with `linearGradient` for each key group, per-key shadow rects (1px offset, 45% opacity), bevel highlight rects (white gradient, top half of cap), body gradient, deeper gold f-shift color (#d4a800), rx=4 rounding
+- **Files modified:** Keyboard.tsx (commit d2aa858)
+
+**2. [Rule 1 - Minor] KEY_DEFS entry count is 44, not 40**
 - **Found during:** Task 1 implementation
 - **Issue:** Plan header states "40 entries, 5 rows x 9 columns" but the plan's own KEY_DEFS specification lists 9+8+9+9+9 = 44 entries. The HP-41C actually has more than 40 keys.
 - **Fix:** Implemented all 44 entries exactly as specified in the plan's KEY_DEFS list. The plan's acceptance check `grep -c "row: 0\|row: 1..." returns 40` is incorrect for the same reason.
@@ -123,16 +132,24 @@ None. All 44 keys render with correct labels; functional keys dispatch to Rust v
 
 No new security surface introduced beyond the plan's threat model.
 
-## Self-Check: CHECKPOINT
+## Self-Check: PASSED
 
-Tasks 1 and 2 verified. Task 3 (human-verify) has not been executed — this is expected; awaiting orchestrator to present verification steps to the user.
+All tasks complete. Human verifier approved SC-1 through SC-5.
 
 Files exist:
-- hp41-gui/src/Keyboard.tsx: EXISTS
+- hp41-gui/src/Keyboard.tsx: EXISTS (213 lines, 3D gradients)
 - hp41-gui/src/App.tsx: EXISTS (modified)
 - hp41-gui/src/App.css: EXISTS (modified)
 - hp41-gui/src-tauri/tauri.conf.json: EXISTS (modified)
+- hp41-gui/src/vite-env.d.ts: EXISTS (new)
 
-Commits exist:
+Commits:
 - 8909d66: feat(16-02): create Keyboard.tsx with 44-key HP-41C SVG skin
 - a7a0e45: feat(16-02): wire Keyboard into App, update CSS and window config
+- d2aa858: feat(16-02): enhance SVG keyboard with 3D gradients, drop shadows, and bevel highlights
+
+Gates:
+- cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml: 14 passed
+- just ci: green (89.89% hp41-core coverage)
+- npm run build: exits 0, no TypeScript errors
+- Human SC-1..SC-5: APPROVED
