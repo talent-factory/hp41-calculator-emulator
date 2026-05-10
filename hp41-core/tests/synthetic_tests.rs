@@ -358,6 +358,88 @@ fn test_synthetic_byte_to_op_rejects_unknown() {
     );
 }
 
+/// Exhaustive guard: walk all 256 byte values and assert each one matches
+/// the curated SAFE_SUBSET. This catches both directions of regression:
+///   - a future contributor adds a new mapping → the test fails until they
+///     update SAFE_SUBSET below as well (intentional friction)
+///   - someone drops a mapping → that byte's expected `Some(_)` is missed
+///     and the test fails immediately
+///
+/// Security: this is the T-12-W2-02 safe-subset invariant — bytes outside
+/// the subset MUST reject (synthetic_byte_to_op returns None) so the
+/// HexModal insertion path cannot smuggle arbitrary opcodes into program memory.
+#[test]
+fn test_synthetic_byte_to_op_exhaustive_safe_subset() {
+    // Canonical safe subset: (byte, expected_op_name) pairs.
+    // Keep this list sorted by byte; the test fails on length mismatch first
+    // which makes "I added a byte but forgot to update this list" obvious.
+    const SAFE_SUBSET: &[(u8, &str)] = &[
+        (0x40, "Add"),
+        (0x41, "Sub"),
+        (0x42, "Mul"),
+        (0x43, "Div"),
+        (0x4F, "Chs"),
+        (0x52, "Sqrt"),
+        (0x53, "Sq"),
+        (0x57, "Log"),
+        (0x59, "Sin"),
+        (0x5A, "Cos"),
+        (0x5B, "Tan"),
+        (0x60, "Recip"),
+        (0x67, "Ln"),
+        (0x71, "XySwap"),
+        (0x73, "Clx"),
+        (0x74, "Rdn"),
+        (0x90, "RclM"),
+        (0x91, "RclN"),
+        (0x92, "RclO"),
+        (0xB0, "StoM"),
+        (0xB1, "StoN"),
+        (0xB2, "StoO"),
+        (0xCE, "GetKey"),
+        (0xCF, "Null"),
+    ];
+    assert_eq!(
+        SAFE_SUBSET.len(),
+        24,
+        "safe subset is documented as 24 entries — \
+         if you change synthetic_byte_to_op also update this list"
+    );
+
+    let allowed: std::collections::HashSet<u8> = SAFE_SUBSET.iter().map(|(b, _)| *b).collect();
+    for byte in 0u8..=255 {
+        let result = synthetic_byte_to_op(byte);
+        if allowed.contains(&byte) {
+            assert!(
+                result.is_some(),
+                "byte 0x{byte:02X} is in SAFE_SUBSET but synthetic_byte_to_op returned None"
+            );
+        } else {
+            assert!(
+                result.is_none(),
+                "byte 0x{byte:02X} is NOT in SAFE_SUBSET but synthetic_byte_to_op returned {result:?} — \
+                 security invariant T-12-W2-02 violated"
+            );
+        }
+    }
+}
+
+/// Recursion-safety: synthetic_byte_to_op MUST NEVER return Some(Op::SyntheticByte(_)).
+/// dispatch(Op::SyntheticByte(b)) looks up the byte and re-dispatches the resolved op;
+/// if the resolved op were itself a SyntheticByte the calculator would deadlock or
+/// blow the stack. There is no test for this in the type system, so guard at runtime.
+#[test]
+fn test_synthetic_byte_to_op_never_returns_synthetic_byte() {
+    for byte in 0u8..=255 {
+        let result = synthetic_byte_to_op(byte);
+        assert!(
+            !matches!(result, Some(Op::SyntheticByte(_))),
+            "synthetic_byte_to_op(0x{byte:02X}) returned Some(SyntheticByte(_)) — \
+             this would cause unbounded recursion in dispatch()"
+        );
+    }
+}
+
 /// Op::SyntheticByte(b) at runtime delegates to the mapped op.
 /// 0xCF maps to Op::Null — executing SyntheticByte(0xCF) must be a no-op.
 #[test]

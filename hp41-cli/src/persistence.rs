@@ -145,4 +145,50 @@ mod tests {
         );
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
+
+    /// PR #5 review (pr-test-analyzer) flagged that no test exercised the
+    /// realistic upgrade path: a user with a v1.0 save file launches v1.1+.
+    /// All v1.1-introduced CalcState fields carry #[serde(default)], so the
+    /// load must succeed and missing fields default to zero values.
+    ///
+    /// Strategy: serialize a fresh state, parse the JSON, strip the
+    /// v1.1-introduced fields, write it back, then load_state must succeed.
+    #[test]
+    fn test_loads_v1_format_state_file() {
+        use hp41_core::num::HpNum;
+
+        let path = temp_path("v1_compat");
+        let fresh = CalcState::new();
+        save_state(&path, &fresh).unwrap();
+
+        // Strip v1.1-introduced fields to simulate a v1.0-shaped save file.
+        // (print_buffer is #[serde(default, skip)] so it never appears in JSON.)
+        let raw = fs::read_to_string(&path).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let state_obj = value["state"]
+            .as_object_mut()
+            .expect("state must be a JSON object");
+        for key in ["last_key_code", "reg_m", "reg_n", "reg_o"] {
+            state_obj.remove(key);
+        }
+        fs::write(&path, value.to_string()).unwrap();
+
+        let loaded = load_state(&path).expect("v1.0-format save must load via serde(default)");
+        assert_eq!(
+            loaded.last_key_code, 0,
+            "last_key_code must default to 0 when absent from v1.0 save"
+        );
+        assert_eq!(
+            loaded.reg_m,
+            HpNum::zero(),
+            "reg_m must default to zero when absent"
+        );
+        assert_eq!(loaded.reg_n, HpNum::zero());
+        assert_eq!(loaded.reg_o, HpNum::zero());
+        assert!(
+            loaded.print_buffer.is_empty(),
+            "print_buffer must default to empty (serde(default, skip))"
+        );
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
 }

@@ -145,4 +145,39 @@ mod tests {
         );
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
+
+    /// PR #5 review (pr-test-analyzer) flagged that no test exercised the
+    /// CLI→GUI interop path: a state file produced by hp41-cli v1.0 must
+    /// load in hp41-gui v2.0 (shared ~/.hp41/autosave.json). All v1.1-
+    /// introduced fields carry #[serde(default)] so missing fields must
+    /// default to zero values without error.
+    #[test]
+    fn test_loads_v1_format_state_file() {
+        use hp41_core::num::HpNum;
+
+        let path = temp_path("v1_compat");
+        let fresh = CalcState::new();
+        save_state(&path, &fresh).unwrap();
+
+        // Strip v1.1-introduced fields from the serialized JSON to simulate
+        // a v1.0 save file. (print_buffer is #[serde(default, skip)] so it
+        // never appears in JSON in the first place.)
+        let raw = fs::read_to_string(&path).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let state_obj = value["state"]
+            .as_object_mut()
+            .expect("state must be a JSON object");
+        for key in ["last_key_code", "reg_m", "reg_n", "reg_o"] {
+            state_obj.remove(key);
+        }
+        fs::write(&path, value.to_string()).unwrap();
+
+        let loaded = load_state(&path).expect("v1.0-format save must load via serde(default)");
+        assert_eq!(loaded.last_key_code, 0);
+        assert_eq!(loaded.reg_m, HpNum::zero());
+        assert_eq!(loaded.reg_n, HpNum::zero());
+        assert_eq!(loaded.reg_o, HpNum::zero());
+        assert!(loaded.print_buffer.is_empty());
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
 }

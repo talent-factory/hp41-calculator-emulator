@@ -208,4 +208,36 @@ mod stack_arith_tests {
         // Y must be unchanged on error (atomicity)
         assert_eq!(s.stack.y, HpNum::from(d("5")));
     }
+
+    /// PR #5 review (pr-test-analyzer) — only Y (Add) and LastX (Sub) were
+    /// unit-tested; Z and T were exercised only through CLI integration paths.
+    /// A future refactor that lost the Z or T arm in op_sto_arith_stack would
+    /// be silently green. Cover the remaining stack-reg variants here.
+    #[test]
+    fn sto_arith_stack_mul_z() {
+        let mut s = CalcState::default();
+        s.stack.x = HpNum::from(d("3"));
+        s.stack.z = HpNum::from(d("4"));
+        op_sto_arith_stack(&mut s, StackReg::Z, StoArithKind::Mul).unwrap();
+        assert_eq!(
+            s.stack.z,
+            HpNum::from(d("12")),
+            "STO×Z must write 3×4=12 into Z"
+        );
+        assert_eq!(s.stack.x, HpNum::from(d("3")), "X must be unchanged");
+    }
+
+    #[test]
+    fn sto_arith_stack_div_t() {
+        let mut s = CalcState::default();
+        s.stack.x = HpNum::from(d("2"));
+        s.stack.t = HpNum::from(d("10"));
+        op_sto_arith_stack(&mut s, StackReg::T, StoArithKind::Div).unwrap();
+        assert_eq!(
+            s.stack.t,
+            HpNum::from(d("5")),
+            "STO÷T must write 10÷2=5 into T"
+        );
+        assert_eq!(s.stack.x, HpNum::from(d("2")), "X must be unchanged");
+    }
 }

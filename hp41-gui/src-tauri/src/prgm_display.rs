@@ -179,4 +179,26 @@ mod tests {
         assert_eq!(steps[0], "000 + ", "step 0 must match op_display_name(Op::Add)");
         assert_eq!(steps[1], "001 ENTER", "step 1 must match op_display_name(Op::Enter)");
     }
+
+    /// PR #5 review (pr-test-analyzer) — the whole point of commit 3372ec3
+    /// (`format_all_steps always appends END so pc==program.len() highlights
+    /// correctly`) is that the listing has one more row than the program.
+    /// The trailing END row was not asserted by any test; add it here.
+    #[test]
+    fn test_format_all_steps_appends_end_row() {
+        use hp41_core::ops::Op;
+        let mut state = hp41_core::CalcState::new();
+        state.program = vec![Op::Add, Op::Enter];
+        let steps = format_all_steps(&state);
+        assert_eq!(
+            steps.len(),
+            state.program.len() + 1,
+            "format_all_steps must always append an END row so pc==program.len() highlights"
+        );
+        assert_eq!(
+            steps[steps.len() - 1],
+            "002 END",
+            "trailing row must be the END marker at index program.len()"
+        );
+    }
 }

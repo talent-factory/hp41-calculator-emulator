@@ -217,6 +217,47 @@ mod tests {
         );
     }
 
+    /// PR #5 review (pr-test-analyzer) — the existing test_print_buffer_drained
+    /// only exercises handle_get_state. The handle_op path (the most-trafficked
+    /// dispatch_op IPC route) was never directly asserted to drain print_buffer
+    /// AND populate view.print_lines. A regression that skipped the drain in
+    /// handle_op would silently break the entire GUI print panel without any
+    /// test signal.
+    #[test]
+    fn test_handle_op_drains_print_buffer_via_dispatch() {
+        // PRX
+        let mut calc = CalcState::new();
+        calc.stack.x = HpNum::from(7);
+        let view = handle_op(&mut calc, "prx").expect("handle_op prx must succeed");
+        assert!(
+            calc.print_buffer.is_empty(),
+            "handle_op('prx') must drain print_buffer (was: {} lines)",
+            calc.print_buffer.len()
+        );
+        assert_eq!(
+            view.print_lines.len(),
+            1,
+            "view.print_lines must contain the PRX line after dispatch"
+        );
+
+        // PRA — exercises a different op_* helper through the same drain path
+        let mut calc2 = CalcState::new();
+        calc2.alpha_reg = "HELLO".to_string();
+        let view2 = handle_op(&mut calc2, "pra").expect("handle_op pra must succeed");
+        assert!(calc2.print_buffer.is_empty());
+        assert_eq!(view2.print_lines.len(), 1);
+
+        // PRSTK — drains 6 lines in one call
+        let mut calc3 = CalcState::new();
+        let view3 = handle_op(&mut calc3, "prstk").expect("handle_op prstk must succeed");
+        assert!(calc3.print_buffer.is_empty());
+        assert_eq!(
+            view3.print_lines.len(),
+            6,
+            "PRSTK must drain all 6 lines (T/Z/Y/X/LASTX/ALPHA) into the view"
+        );
+    }
+
     #[test]
     fn test_eex_chs_toggles_exponent_sign() {
         // Wave 0 RED test: "eex_chs" key_id must toggle the exponent sign in entry_buf.
