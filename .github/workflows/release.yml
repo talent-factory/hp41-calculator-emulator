@@ -50,6 +50,17 @@ jobs:
             exit 0
           fi
 
+          # No-backfill rule: find the highest-version tag that ALREADY has a Release.
+          # We only publish tags strictly newer than that. Reasoning: a milestone tag
+          # left without a Release (e.g. v1.1 between v1.0 and v2.0) was an intentional
+          # skip by the maintainer. The workflow should never resurrect those.
+          highest_released="$(gh release list --limit 100 --json tagName \
+              --jq '.[].tagName' 2>/dev/null \
+            | grep -E '^v[0-9]+\.[0-9]+' \
+            | sort -V \
+            | tail -1 || true)"
+          echo "highest existing Release: ${highest_released:-<none>}"
+
           created_any=false
           for tag in $tags; do
             # Defensive: refuse anything that doesn't look like a v* tag, so even a
@@ -72,6 +83,18 @@ jobs:
               continue
             fi
 
+            # No-backfill guard: skip if a strictly newer tag already has a Release.
+            if [ -n "$highest_released" ]; then
+              # `sort -V` orders semver. After sort, $tag and $highest_released:
+              # head -1 == $tag  →  tag <= highest_released
+              # head -1 == $highest_released → tag > highest_released
+              earliest="$(printf '%s\n%s\n' "$tag" "$highest_released" | sort -V | head -1)"
+              if [ "$earliest" = "$tag" ] && [ "$tag" != "$highest_released" ]; then
+                echo "[skip] $tag — older than highest existing Release ($highest_released); treating as intentionally unreleased"
+                continue
+              fi
+            fi
+
             # Tag annotation message becomes the release notes. /gsd-complete-milestone
             # writes a "Delivered: …\n\nKey accomplishments:\n- …" block into the tag.
             notes_file="$(mktemp)"
@@ -89,8 +112,9 @@ jobs:
               --verify-tag \
               --latest
             created_any=true
+            highest_released="$tag"   # advance the watermark for subsequent iterations
           done
 
           if [ "$created_any" = "false" ]; then
-            echo "Nothing to publish — all reachable v* tags already have releases."
+            echo "Nothing to publish — all reachable v* tags already have Releases or are intentionally unreleased."
           fi
