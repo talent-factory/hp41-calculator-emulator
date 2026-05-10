@@ -21,9 +21,14 @@ interface CalcStateView {
   in_eex_mode: boolean;
   annunciators: Annunciators;
   print_lines: string[];
+  program_steps: string[];  // Phase 18 D-01: pre-formatted step strings from Rust
+  pc: number;               // Phase 18 D-01: current program counter index
 }
 
 function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | null {
+  // Phase 18 D-07: F7/F8 → SST/BST keyboard bindings
+  if (e.key === 'F7') return 'sst';
+  if (e.key === 'F8') return 'bst';
   // EEX-CHS: 'n' routes based on current in_eex_mode (D-06)
   if (e.key === 'n') return state?.in_eex_mode ? 'eex_chs' : 'chs';
   // Digit entry
@@ -56,12 +61,30 @@ function App() {
   const [printLog, setPrintLog] = useState<string[]>([]);
   const [printPanelOpen, setPrintPanelOpen] = useState(false);
   const printEndRef = useRef<HTMLDivElement>(null);
+  const activeStepRef = useRef<HTMLDivElement>(null);
 
   // Mount: load initial state via get_state (D-11 — no polling)
   useEffect(() => {
     invoke<CalcStateView>('get_state')
       .then(view => setCalcState(view))
       .catch(err => console.error('get_state error:', err));
+  }, []);
+
+  const handleClick = useCallback((keyId: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    let invokePromise: Promise<CalcStateView>;
+    if (keyId === 'sst') {
+      invokePromise = invoke<CalcStateView>('sst_step');
+    } else if (keyId === 'bst') {
+      invokePromise = invoke<CalcStateView>('bst_step');
+    } else {
+      invokePromise = invoke<CalcStateView>('dispatch_op', { keyId });
+    }
+    invokePromise
+      .then(view => setCalcState(view))
+      .catch(err => console.error('invoke error:', err))
+      .finally(() => { busyRef.current = false; });
   }, []);
 
   // Keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode
@@ -72,21 +95,8 @@ function App() {
     const keyId = resolveKeyId(e, calcState);
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
     e.preventDefault();
-    busyRef.current = true;
-    invoke<CalcStateView>('dispatch_op', { keyId })
-      .then(view => setCalcState(view))
-      .catch(err => console.error('dispatch_op error:', err))
-      .finally(() => { busyRef.current = false; });
-  }, [calcState]);
-
-  const handleClick = useCallback((keyId: string) => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    invoke<CalcStateView>('dispatch_op', { keyId })
-      .then(view => setCalcState(view))
-      .catch(err => console.error('dispatch_op error:', err))
-      .finally(() => { busyRef.current = false; });
-  }, []);
+    handleClick(keyId);
+  }, [calcState, handleClick]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -108,6 +118,11 @@ function App() {
   useEffect(() => {
     printEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [printLog]);
+
+  // Auto-scroll active program step into view when pc changes (D-09)
+  useEffect(() => {
+    activeStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [calcState?.pc]);
 
   if (!calcState) {
     return <div className="calculator"><div className="display">Loading...</div></div>;
@@ -144,6 +159,25 @@ function App() {
         ))}
       </div>
       <Keyboard onKey={handleClick} busyRef={busyRef} />
+      {calcState.annunciators.prgm && (
+        <div className="prgm-panel">
+          <div className="prgm-panel-header">
+            PRGM &#8212; {calcState.program_steps.length}{' '}
+            {calcState.program_steps.length === 1 ? 'step' : 'steps'}
+          </div>
+          <div className="prgm-panel-content">
+            {calcState.program_steps.map((step, i) => (
+              <div
+                key={i}
+                ref={calcState.pc === i ? activeStepRef : null}
+                className={`step-row${calcState.pc === i ? ' step-active' : ''}`}
+              >
+                {step}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {printPanelOpen && (
         <div className="print-panel">
           <div className="print-panel-header">
