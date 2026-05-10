@@ -5,7 +5,7 @@ milestone_name: Tauri GUI
 current_phase: 18
 current_plan: "ready-to-plan"
 status: ready-to-plan
-last_updated: "2026-05-10T18:00:00.000Z"
+last_updated: "2026-05-10T19:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 5
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 17 — Persistence & Print Output
-Plan: Phase 17 COMPLETE — 3/3 plans shipped
-Status: Phase 17 complete (2026-05-10); Phase 18 next
-Last activity: 2026-05-10 — Phase 17 complete: persistence.rs, 30s auto-save thread, React print panel, all 5 SCs approved. CR-01 fixed (mutex not held during disk I/O).
+Phase: 18 — Program Listing & CI/CD
+Plan: ready-to-plan
+Status: Phase 18 context gathered (2026-05-10); ready for /gsd-plan-phase 18
+Last activity: 2026-05-10 — Phase 18 context captured: program_steps+pc in CalcStateView, sst_step/bst_step Tauri commands, F7/F8 bindings, listing panel below keyboard, window 700→900, ci-gui.yml separate workflow.
 
-Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 17 done, Phase 18 next)
+Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 18 context ready)
 
 ---
 
