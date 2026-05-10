@@ -1311,6 +1311,7 @@ dependencies = [
 name = "hp41-gui"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "hp41-core",
  "serde",
  "serde_json",
