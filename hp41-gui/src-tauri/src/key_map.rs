@@ -243,4 +243,25 @@ mod tests {
             Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::Y }
         );
     }
+
+    #[test]
+    fn test_all_keyboard_skin_ids_are_valid() {
+        // IDs from KEY_DEFS that are routed through key_map::resolve() (named ops only).
+        // Digit keys ("0"-"9", ".", "e") are handled by handle_op() digit branch — not here.
+        // Empty-string ids are visual-only and are never sent to dispatch_op.
+        let named_ids = [
+            "sigma_plus", "recip", "sqrt", "log", "ln",
+            "sin", "cos", "tan", "rdn", "xy_swap",
+            "enter", "div", "mul",
+            "user_mode", "minus", "prgm_mode", "alpha_toggle",
+            "chs", "plus",
+            "lastx", "clreg", "clx",
+        ];
+        for id in named_ids {
+            assert!(
+                resolve(id).is_ok(),
+                "key_map::resolve({id:?}) must succeed for a KEY_DEFS named id"
+            );
+        }
+    }
 }
