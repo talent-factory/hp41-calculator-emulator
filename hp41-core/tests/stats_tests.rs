@@ -280,8 +280,7 @@ fn test_cl_sigma_stat_zeros_r01_to_r06() {
         assert_eq!(
             s.regs[i].inner(),
             Decimal::ZERO,
-            "R{:02} must be zero after CLΣSTAT",
-            i
+            "R{i:02} must be zero after CLΣSTAT"
         );
     }
 }
