@@ -49,7 +49,7 @@
 - [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
 - [x] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli (completed 2026-05-10)
 - [x] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation (completed 2026-05-10)
-- [ ] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel
+- [x] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel (completed 2026-05-10)
 - [ ] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; cross-platform GUI CI job
 
 ---
@@ -275,7 +275,7 @@
 | 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
 | 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
 | 14. IPC Layer | v2.0 | 4/4 | Complete | 2026-05-09 |
-| 15. Display & Keyboard | v2.0 | 0/3 | In progress | - |
-| 16. SVG Skin | v2.0 | 0/2 | Not started | - |
-| 17. Persistence & Print Output | v2.0 | 0/? | Not started | - |
+| 15. Display & Keyboard | v2.0 | 3/3 | Complete | 2026-05-10 |
+| 16. SVG Skin | v2.0 | 2/2 | Complete | 2026-05-10 |
+| 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
 | 18. Program Listing & CI/CD | v2.0 | 0/? | Not started | - |

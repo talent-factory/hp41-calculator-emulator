@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
-current_phase: 17
-current_plan: "context-gathered"
-status: context-gathered
-last_updated: "2026-05-10T13:00:00.000Z"
+current_phase: 18
+current_plan: "ready-to-plan"
+status: ready-to-plan
+last_updated: "2026-05-10T18:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 12
-  completed_plans: 9
-  percent: 67
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 12
+  percent: 83
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 16 — SVG Skin
-Plan: Phase 16 COMPLETE — 2/2 plans shipped
-Status: Phase 16 complete (2026-05-10); Phase 17 next
-Last activity: 2026-05-10 — Phase 16 SVG Skin complete: Keyboard.tsx with 44-key 3D SVG skin, all 5 SCs approved
+Phase: 17 — Persistence & Print Output
+Plan: Phase 17 COMPLETE — 3/3 plans shipped
+Status: Phase 17 complete (2026-05-10); Phase 18 next
+Last activity: 2026-05-10 — Phase 17 complete: persistence.rs, 30s auto-save thread, React print panel, all 5 SCs approved. CR-01 fixed (mutex not held during disk I/O).
 
-Progress: [██████████████████████] 67% (4/6 phases complete — Phase 16 done, Phase 17 next)
+Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 17 done, Phase 18 next)
 
 ---
 
