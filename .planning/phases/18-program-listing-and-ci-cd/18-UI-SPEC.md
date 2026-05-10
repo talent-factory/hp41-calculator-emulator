@@ -1,7 +1,8 @@
 ---
 phase: 18
 slug: program-listing-and-ci-cd
-status: draft
+status: approved
+reviewed_at: 2026-05-10
 shadcn_initialized: false
 preset: none
 created: 2026-05-10
@@ -41,21 +42,17 @@ The project uses an 8-point scale. Values in use across the existing
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px | Panel header vertical padding (4px top/bottom) |
-| sm | 8px | Panel header horizontal padding; step row horizontal padding |
-| sm+ | 6px | Step list container vertical padding (matches print-panel-content) |
+| sm | 8px | Panel header horizontal padding; step row horizontal padding; step list container vertical padding |
 | md | 16px | .calculator top/bottom margin (inherited, no change) |
 | lg | 24px | Not used in this panel |
 | xl | 32px | Not used in this panel |
 | 2xl | 48px | Not used in this panel |
 | 3xl | 64px | Not used in this panel |
 
-Exceptions: 6px vertical padding on .prgm-panel-content matches the
-existing .print-panel-content (6px 8px) — a deliberate carry-over for
-visual consistency, not a deviation.
-
-Step row height: 1px top + 1px bottom padding per row, line-height 1.4.
-At 12px font size this yields ~18.8px per row — approximately 8 rows
-visible in the 160px max-height panel.
+Step row separation: `border-bottom: 1px solid #2a2a2a` on each .step-row.
+A border is not a spacing token and is not subject to the 4px grid rule.
+Row height is determined by font-size 12px at line-height 1.4, yielding
+~16.8px per row — approximately 9 rows visible in the 160px max-height panel.
 
 ---
 
@@ -90,6 +87,7 @@ calculator aesthetic (CONTEXT.md "Claude's Discretion").
 | Secondary (30%) | #1a1a1a | .prgm-panel background; step list background |
 | Panel chrome | #252525 | .prgm-panel-header background (matches .print-panel-header) |
 | Border / separator | #3a3a3a | border-top separating panel from keyboard; header border-bottom |
+| Step separator | #2a2a2a | border-bottom on each .step-row (subtle row division) |
 | Step text | #c8c8c8 | Default step row text (matches .print-line color) |
 | Header text | #888 | "PRGM — N steps" label (matches .print-panel-header color) |
 | Active step bg | #1e3a1e | Highlight background for the current pc step row |
@@ -153,7 +151,7 @@ No close button (D-11 — panel dismisses automatically on PRGM mode exit).
 |----------|-------|--------|
 | max-height | 160px | D-09 (locked) |
 | overflow-y | auto | D-09 (locked) |
-| padding | 6px 8px | matches .print-panel-content |
+| padding | 8px | 8px on all sides (sm token, 4px-grid compliant) |
 
 ### .step-row
 
@@ -163,12 +161,18 @@ One div per program step. Contains the pre-formatted string from
 | Property | Value |
 |----------|-------|
 | color | #c8c8c8 |
-| padding | 1px 4px |
+| padding | 0 4px |
+| border-bottom | 1px solid #2a2a2a |
 | white-space | pre |
 | line-height | 1.4 |
 | border-radius | 2px |
 | font-family | inherited ('Courier New') |
 | font-size | inherited (12px) |
+
+Note: row separation is provided by `border-bottom: 1px solid #2a2a2a`
+(a border property, not a spacing token) plus natural line-height spacing.
+No top/bottom padding is needed — line-height 1.4 at 12px yields ~16.8px
+per row, providing adequate vertical breathing room.
 
 ### .step-active (modifier on .step-row)
 
@@ -255,12 +259,12 @@ if preferred; the rendered output is always uppercase.
 
 - `.calculator` is fixed at 392px width — no responsive breakpoints.
 - Panel inherits this width via `width: 100%`.
-- max-height: 160px chosen in D-09 — approximately 8 step rows at
+- max-height: 160px chosen in D-09 — approximately 9 step rows at
   12px/1.4 line-height. Overflow scrolls vertically.
 - Window height 900px provides ~200px of space below the keyboard for
   the panel plus the print panel (if both visible simultaneously).
-  At 160px max-height + 6px padding top + bottom + 1px borders, the
-  prgm-panel occupies at most ~175px.
+  At 160px max-height + 8px padding top + bottom + 1px borders, the
+  prgm-panel occupies at most ~178px.
 
 ---
 
@@ -289,11 +293,11 @@ only.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-05-10
