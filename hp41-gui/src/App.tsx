@@ -163,8 +163,8 @@ function App() {
       {calcState.annunciators.prgm && (
         <div className="prgm-panel">
           <div className="prgm-panel-header">
-            PRGM &#8212; {calcState.program_steps.length}{' '}
-            {calcState.program_steps.length === 1 ? 'step' : 'steps'}
+            PRGM &#8212; {calcState.program_steps.length - 1}{' '}
+            {calcState.program_steps.length - 1 === 1 ? 'step' : 'steps'}
           </div>
           <div className="prgm-panel-content">
             {calcState.program_steps.map((step, i) => (

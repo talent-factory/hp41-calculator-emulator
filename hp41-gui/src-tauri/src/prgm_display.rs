@@ -29,16 +29,15 @@ pub fn format_step(state: &CalcState) -> String {
 /// Index 0 = step 000; each string is "{index:03} {op_display_name}".
 /// Note: do NOT use format_step() in a loop — it reads state.pc, not the index.
 pub fn format_all_steps(state: &CalcState) -> Vec<String> {
-    if state.program.is_empty() {
-        vec!["000 END".to_string()]
-    } else {
-        state
-            .program
-            .iter()
-            .enumerate()
-            .map(|(i, op)| format!("{i:03} {}", op_display_name(op)))
-            .collect()
-    }
+    let mut steps: Vec<String> = state
+        .program
+        .iter()
+        .enumerate()
+        .map(|(i, op)| format!("{i:03} {}", op_display_name(op)))
+        .collect();
+    // Always append END so pc == program.len() has a matching row to highlight
+    steps.push(format!("{:03} END", state.program.len()));
+    steps
 }
 
 /// Map an Op variant to its HP-41 display name.
