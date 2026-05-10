@@ -54,8 +54,9 @@ created: 2026-05-10
 ## Wave 0 Requirements
 
 - [ ] `hp41-gui/src-tauri/src/commands.rs` — add test stubs: `test_handle_sst_advances_pc`, `test_handle_sst_clamps_at_end`, `test_handle_bst_decrements_pc`, `test_handle_bst_clamps_at_zero`
-- [ ] `hp41-gui/src-tauri/src/prgm_display.rs` — add test stubs: `test_format_all_steps_empty_program`, `test_format_all_steps_nonempty`
 - [ ] `hp41-gui/src-tauri/src/types.rs` — add test stub: `test_phase18_fields_exist` (verifies `program_steps` and `pc` are in `CalcStateView`)
+
+> **Note:** `hp41-gui/src-tauri/src/prgm_display.rs` does not exist at Wave 0 (it is created in Plan 18-02, Wave 1). The `test_format_all_steps_empty_program` and `test_format_all_steps_nonempty` stubs (tasks 18-01-03) are therefore included in Plan 18-02 Task 1 (file creation) rather than Plan 18-01 (stubs only). Task row 18-01-03 reflects this — the `❌ W0` status refers to the file's non-existence, which is expected and intentional.
 
 ---
 

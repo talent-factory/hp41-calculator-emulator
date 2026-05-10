@@ -640,17 +640,19 @@ Security enforcement is enabled.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **300-byte CalcStateView assertion — exact relaxation needed**
    - What we know: Adding `program_steps: ["000 END"]` and `pc: 0` adds ~35 bytes to the empty-program JSON. Current assertion is ≤300 bytes.
    - What's unclear: Whether the current serialized size is ≤265 bytes (leaving room) or already at ~285 bytes (requiring relaxation).
    - Recommendation: The implementer should run the test after adding the fields and either verify it passes or relax to ≤350 bytes. If the assertion is changed, update the comment to document the scope.
+   - **RESOLVED:** Plan 18-02 Task 1 relaxes the assertion to ≤400 bytes and updates the comment to document scope (empty-program JSON only).
 
 2. **handleKey for F7/F8 vs the existing handleClick routing**
    - What we know: `handleKey` calls `resolveKeyId()` to get a `keyId` string, then calls `invoke('dispatch_op', { keyId })` directly (not via `handleClick`). So extending `handleClick` for sst/bst does NOT automatically cover keyboard F7/F8.
    - What's unclear: Phase 18 D-07 says "add F7/F8 to resolveKeyId". If `handleKey` continues to call `dispatch_op` directly after resolveKeyId, F7 would still hit `dispatch_op` with key_id `'sst'` and fail.
    - Recommendation: Either (a) extract the invoke routing from `handleKey` into `handleClick` so the two share the same SST/BST detection, OR (b) add a parallel F7/F8 check in `handleKey` that calls `invoke('sst_step')` directly before the `dispatch_op` call. Option (a) is cleaner.
+   - **RESOLVED:** Plan 18-04 Task 1 Change 6 makes `handleKey` delegate to `handleClick` (Option a), unifying SST/BST routing for both F7/F8 keyboard and SVG click paths.
 
 ---
 

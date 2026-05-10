@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
 current_phase: 18
-current_plan: "ready-to-plan"
-status: ready-to-plan
-last_updated: "2026-05-10T19:00:00.000Z"
+current_plan: "01"
+status: ready-to-execute
+last_updated: "2026-05-10T20:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 15
+  total_plans: 19
   completed_plans: 12
   percent: 83
 ---
@@ -34,11 +34,11 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 18 — Program Listing & CI/CD
-Plan: ready-to-plan
-Status: Phase 18 context gathered (2026-05-10); ready for /gsd-plan-phase 18
-Last activity: 2026-05-10 — Phase 18 context captured: program_steps+pc in CalcStateView, sst_step/bst_step Tauri commands, F7/F8 bindings, listing panel below keyboard, window 700→900, ci-gui.yml separate workflow.
+Plan: 18-01 (ready to execute)
+Status: Phase 18 planned (2026-05-10); 4 plans in 3 waves — ready for /gsd-execute-phase 18
+Last activity: 2026-05-10 — Phase 18 planned: Wave 0 (18-01 RED stubs), Wave 1 parallel (18-02 Rust backend + 18-03 ci-gui.yml + Justfile gui-ci), Wave 2 (18-04 React frontend + human checkpoint).
 
-Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 18 context ready)
+Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 18 planned, ready to execute)
 
 ---
 
