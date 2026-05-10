@@ -174,4 +174,18 @@ mod tests {
         let view = CalcStateView::from_state(&state, vec![]);
         assert!(!view.in_eex_mode, "in_eex_mode must be false when entry_buf has no 'e'");
     }
+
+    #[test]
+    fn test_phase18_fields_exist() {
+        // Wave 0 RED: CalcStateView must have program_steps: Vec<String> and pc: usize
+        // after Phase 18 Plan 02 adds these fields. This test will fail until Plan 02 runs.
+        let state = CalcState::new();
+        let view = CalcStateView::from_state(&state, vec![]);
+        assert_eq!(
+            view.program_steps,
+            vec!["000 END"],
+            "empty program must produce program_steps = [\"000 END\"]"
+        );
+        assert_eq!(view.pc, 0, "fresh CalcState pc must be 0");
+    }
 }
