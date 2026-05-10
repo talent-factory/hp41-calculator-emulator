@@ -71,21 +71,18 @@ const KEY_DEFS: KeyDef[] = [
   { id: '',      label: 'BST',  row: 4, col: 8 },
 ];
 
-function getKeyGrad(key: KeyDef): string {
-  if (key.row === 0) return 'url(#grad-row0)';
-  if (key.id === 'enter') return 'url(#grad-enter)';
-  if (
-    ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
-    (key.id === '' && (key.label === 'f' || key.label === 'g'))
-  ) return 'url(#grad-cream)';
-  return 'url(#grad-dark)';
-}
-
 function isCreamKey(key: KeyDef): boolean {
   return (
     ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
     (key.id === '' && (key.label === 'f' || key.label === 'g'))
   );
+}
+
+function getKeyGrad(key: KeyDef): string {
+  if (key.row === 0) return 'url(#grad-row0)';
+  if (key.id === 'enter') return 'url(#grad-enter)';
+  if (isCreamKey(key)) return 'url(#grad-cream)';
+  return 'url(#grad-dark)';
 }
 
 interface KeyboardProps {
@@ -139,11 +136,6 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
           <stop offset="60%"  stopColor="#c8bd98" />
           <stop offset="100%" stopColor="#a89870" />
         </linearGradient>
-
-        {/* Drop shadow for each key cap */}
-        <filter id="key-shadow" x="-8%" y="-8%" width="116%" height="130%">
-          <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#00000070" />
-        </filter>
 
         {/* Inner bevel highlight — white gradient fading out (top of key only) */}
         <linearGradient id="bevel-hi" x1="0" y1="0" x2="0" y2="1">
