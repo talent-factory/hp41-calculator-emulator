@@ -134,6 +134,39 @@ pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError>
     Ok(CalcStateView::from_state(calc, print_lines))
 }
 
+/// Tauri command: step the program counter forward by 1 (SST — Single Step).
+/// Mirrors HP-41 hardware: pc stays at program.len(), no wrap-around.
+#[tauri::command]
+pub fn sst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    handle_sst(&mut calc)
+}
+
+/// Tauri command: step the program counter backward by 1 (BST — Back Step).
+/// Mirrors HP-41 hardware: pc stays at 0, no underflow.
+#[tauri::command]
+pub fn bst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    handle_bst(&mut calc)
+}
+
+/// Pure-Rust helper for sst_step — unit-testable without a Tauri runtime.
+/// Advances pc by 1, capped at program.len() (no wrap-around, matching HP-41 hardware behavior).
+pub fn handle_sst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
+    if calc.pc < calc.program.len() {
+        calc.pc += 1;
+    }
+    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines))
+}
+
+/// Pure-Rust helper for bst_step — decrements pc via saturating_sub, clamped at 0.
+pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
+    calc.pc = calc.pc.saturating_sub(1);
+    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines))
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

@@ -9,6 +9,7 @@
 //! Phase 14 design: types.rs has zero side effects — only struct definitions and a
 //! pure constructor that reads CalcState fields.
 
+use crate::prgm_display;
 use hp41_core::{format_alpha, format_hpnum, AngleMode, CalcState, HpError};
 use serde::Serialize;
 
@@ -32,6 +33,8 @@ pub struct CalcStateView {
     pub in_eex_mode: bool,  // Phase 15 D-02: entry_buf.contains('e')
     pub annunciators: Annunciators,
     pub print_lines: Vec<String>,
+    pub program_steps: Vec<String>,  // Phase 18 D-01: pre-formatted step strings
+    pub pc: usize,                   // Phase 18 D-01: current program counter
 }
 
 impl CalcStateView {
@@ -73,6 +76,10 @@ impl CalcStateView {
             grad: state.angle_mode == AngleMode::Grad,
         };
 
+        // Phase 18 D-01: populate program_steps and pc for the program listing panel.
+        let program_steps = prgm_display::format_all_steps(state);
+        let pc = state.pc;
+
         CalcStateView {
             display_str,
             x_str,
@@ -83,6 +90,8 @@ impl CalcStateView {
             in_eex_mode,
             annunciators,
             print_lines,
+            program_steps,
+            pc,
         }
     }
 }
@@ -110,13 +119,13 @@ mod tests {
 
     #[test]
     fn test_dispatch_op_payload_size() {
-        // SC-1: CalcStateView JSON serialization must be ≤ 300 bytes.
+        // SC-1: empty program baseline — program_steps adds ["000 END"] (~35 bytes). Real programs grow beyond this limit.
         let state = CalcState::new();
         let view = CalcStateView::from_state(&state, vec![]);
         let json = serde_json::to_string(&view).unwrap();
         assert!(
-            json.len() <= 300,
-            "CalcStateView JSON must be ≤300 bytes, got {} bytes: {}",
+            json.len() <= 400,
+            "CalcStateView JSON (empty program) must be ≤400 bytes, got {} bytes: {}",
             json.len(),
             json
         );
