@@ -892,12 +892,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Sin).unwrap();
-        case!(
-            "trig_deg",
-            &format!("sin({deg}deg)"),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("sin({deg}deg)"), *expected, get_x(&s));
     }
 
     // COS DEG cases 131–155
@@ -931,12 +926,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Cos).unwrap();
-        case!(
-            "trig_deg",
-            &format!("cos({deg}deg)"),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("cos({deg}deg)"), *expected, get_x(&s));
     }
 
     // TAN DEG cases 156–175
@@ -965,12 +955,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Tan).unwrap();
-        case!(
-            "trig_deg",
-            &format!("tan({deg}deg)"),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("tan({deg}deg)"), *expected, get_x(&s));
     }
 
     // ASIN/ACOS/ATAN DEG cases 176–195
