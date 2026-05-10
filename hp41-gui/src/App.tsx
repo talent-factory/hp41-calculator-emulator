@@ -53,6 +53,9 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
 function App() {
   const [calcState, setCalcState] = useState<CalcStateView | null>(null);
   const busyRef = useRef(false);
+  const [printLog, setPrintLog] = useState<string[]>([]);
+  const [printPanelOpen, setPrintPanelOpen] = useState(false);
+  const printEndRef = useRef<HTMLDivElement>(null);
 
   // Mount: load initial state via get_state (D-11 — no polling)
   useEffect(() => {
@@ -91,6 +94,21 @@ function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [handleKey]);
 
+  // Accumulate print_lines from each IPC response into local React state.
+  // D-09: print_buffer is drained per IPC call; React retains full history.
+  // D-07: setPrintPanelOpen(true) auto-shows panel on first print output.
+  useEffect(() => {
+    if (calcState && calcState.print_lines.length > 0) {
+      setPrintLog(prev => [...prev, ...calcState.print_lines]);
+      setPrintPanelOpen(true);
+    }
+  }, [calcState]);
+
+  // Auto-scroll to bottom whenever the print log grows.
+  useEffect(() => {
+    printEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [printLog]);
+
   if (!calcState) {
     return <div className="calculator"><div className="display">Loading...</div></div>;
   }
@@ -126,6 +144,20 @@ function App() {
         ))}
       </div>
       <Keyboard onKey={handleClick} busyRef={busyRef} />
+      {printPanelOpen && (
+        <div className="print-panel">
+          <div className="print-panel-header">
+            <span>PRINT</span>
+            <button className="print-panel-close" onClick={() => setPrintPanelOpen(false)}>×</button>
+          </div>
+          <div className="print-panel-content">
+            {printLog.map((line, i) => (
+              <div key={i} className="print-line">{line}</div>
+            ))}
+            <div ref={printEndRef} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
