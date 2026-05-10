@@ -71,13 +71,53 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 | Synthetic tests | — | 21 |
 | All requirements | 15/15 complete | ✅ |
 
+### Archives
+
+- [ROADMAP.md](milestones/v1.1-ROADMAP.md)
+- [REQUIREMENTS.md](milestones/v1.1-REQUIREMENTS.md)
+
 ### Known Deferred Items
 
 - SYNT-05: Full FOCAL byte-code table (~200 codes)
 - SYNT-06: GETKEY interrupt-style capture (requires event loop redesign)
 - PRNT-05/06: Scrollable print history, ADV/PRREG/TRACE
 - STOA-04: STO arithmetic via indirect addressing
-- Tauri v2 GUI (hp41-gui crate) — deferred to v2.0
+- Tauri v2 GUI (hp41-gui crate) — shipped in v2.0
+
+---
+
+## v2.0 — HP-41 Calculator Emulator Tauri GUI
+
+**Status:** ✅ SHIPPED 2026-05-10
+**Phases:** 6 (Phases 13–18)
+**Plans:** 19 total, all complete
+**Timeline:** 2 days (2026-05-09 → 2026-05-10)
+**Source:** 183 files changed | 30,358 insertions
+
+### Delivered
+
+A pixel-perfect HP-41C desktop application built with Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing `hp41-cli`.
+
+### Key Accomplishments
+
+1. **Tauri v2 workspace skeleton** — `hp41-gui` nested standalone workspace isolated from CLI Cargo graph; `just gui-dev` launches HP-41 Calculator window; `just ci` stays green; bundle identifier `ch.talent-factory.hp41`
+2. **IPC Layer** — `dispatch_op`/`get_state` Tauri v2 commands; `CalcStateView` (~170 bytes, ≤300 limit); `key_map::resolve()` for 50+ named ops + 7 prefix families; Tauri v2.11 permission TOML pattern; `print_buffer` drained on every command
+3. **Display & Keyboard** — React `App.tsx` with 12-char HP-41 display, 5 annunciators, X/Y/Z/T/LASTX stack panel; `useCallback`+`useEffect` keyboard listener with `busyRef` debounce; `eex_chs` branch; all hp41-cli bindings covered
+4. **SVG Skin** — Pixel-perfect HP-41C 44-key SVG layout (9+8+9+9+9 rows, ENTER double-width); authentic HP-41C color scheme; CSS `scale(0.92)` press animation with `transform-box: fill-box`; Tauri window 400×700
+5. **Persistence & Print Output** — Shared `~/.hp41/autosave.json` auto-save thread (30s); v1.x CLI save files load without error; scrollable print panel with auto-show, history accumulation, auto-scroll
+6. **Program Listing & CI/CD** — PRGM-mode program listing panel with SST/BST navigation, F7/F8 bindings, `activeStepRef` auto-scroll; cross-platform `ci-gui.yml` (3-OS matrix, path filter, `cargo test` before build, independent from `ci.yml`)
+
+### Archives
+
+- [ROADMAP.md](milestones/v2.0-ROADMAP.md)
+- [REQUIREMENTS.md](milestones/v2.0-REQUIREMENTS.md)
+
+### Known Deferred Items (v2.1)
+
+- SKIN-04: 14-segment SVG font for authentic LCD rendering
+- SKIN-05: Keyboard shortcut overlay (port `?` help panel from CLI)
+- PROG-02: Full keyboard assignment display in USER mode
+- `prgm_mode` binding for 'p' key (currently mapped to `prx`)
 
 ---
 *For current project status, see .planning/ROADMAP.md*

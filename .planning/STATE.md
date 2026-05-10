@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Tauri GUI
+milestone: v2.1
+milestone_name: Polish
 current_phase: 18
 current_plan: "04"
-status: ready-to-execute
-last_updated: "2026-05-10T20:00:00.000Z"
+status: milestone-complete
+last_updated: "2026-05-10T21:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 19
-  completed_plans: 16
+  completed_plans: 19
   percent: 100
 ---
 
@@ -25,7 +25,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
-**Current focus:** v2.0 Tauri GUI — planning phase
+**Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
+**Current focus:** v2.1 Polish — planning next milestone
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -33,12 +34,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 18 — Program Listing & CI/CD
+Phase: 18 — Program Listing & CI/CD (COMPLETE)
 Plan: 18-04 (complete — all plans executed)
-Status: Phase 18 planned (2026-05-10); 4 plans in 3 waves — ready for /gsd-execute-phase 18
-Last activity: 2026-05-10 — Phase 18 planned: Wave 0 (18-01 RED stubs), Wave 1 parallel (18-02 Rust backend + 18-03 ci-gui.yml + Justfile gui-ci), Wave 2 (18-04 React frontend + human checkpoint).
+Status: v2.0 milestone complete (2026-05-10); all 6 phases (13–18), 19 plans complete; awaiting /gsd-new-milestone for v2.1
+Last activity: 2026-05-10 — v2.0 archived; git tag v1.1 + v2.0 created.
 
-Progress: [█████████████████████████████] 83% (5/6 phases complete — Phase 18 planned, ready to execute)
+Progress: [█████████████████████████████] 100% (6/6 phases complete)
 
 ---
 
@@ -112,9 +113,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-10
-**Last action:** Phase 17 context gathered — persistence (Rust thread auto-save, copy persistence.rs), print panel (collapsible, auto-show, collapse-only dismiss)
-**Next action:** `/gsd-plan-phase 17` — Phase 17 Persistence & Print Output
+**Last action:** v2.0 Tauri GUI milestone complete — all 6 phases (13–18), 19 plans, archived to milestones/; git tags v1.1 + v2.0 created
+**Next action:** `/gsd-new-milestone` — plan v2.1 Polish milestone
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-10 — Phase 16 planned: 2 plans, 2 waves, verification passed*
+*Last updated: 2026-05-10 — v2.0 Tauri GUI milestone archived; tags v1.1 + v2.0 created*

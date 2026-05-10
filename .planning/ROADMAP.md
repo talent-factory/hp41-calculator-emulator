@@ -8,8 +8,8 @@
 ## Milestones
 
 - ✅ **v1.0 CLI** — Phases 1–8, shipped 2026-05-08 · [Archive](milestones/v1.0-ROADMAP.md)
-- ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09
-- 🚧 **v2.0 Tauri GUI** — Phases 13–18 (in progress)
+- ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09 · [Archive](milestones/v1.1-ROADMAP.md)
+- ✅ **v2.0 Tauri GUI** — Phases 13–18, pixel-perfect HP-41C desktop app — SHIPPED 2026-05-10 · [Archive](milestones/v2.0-ROADMAP.md)
 
 ---
 
@@ -41,16 +41,19 @@
 
 </details>
 
-### 🚧 v2.0 Tauri GUI (In Progress)
-
-**Milestone Goal:** Ship a pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI.
+<details>
+<summary>✅ v2.0 Tauri GUI (Phases 13–18) — SHIPPED 2026-05-10</summary>
 
 - [x] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green (completed 2026-05-09)
 - [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
 - [x] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli (completed 2026-05-10)
 - [x] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation (completed 2026-05-10)
 - [x] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel (completed 2026-05-10)
-- [ ] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; cross-platform GUI CI job
+- [x] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; F7/F8 bindings; cross-platform GUI CI job (completed 2026-05-10)
+
+**Full phase details:** [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROADMAP.md)
+
+</details>
 
 ---
 
@@ -254,12 +257,12 @@
   5. `just ci` (the CLI pipeline) and the new GUI CI job are independent — a GUI build failure does not block CLI CI and vice versa
 **Plans**: 4 plans
   **Wave 0**
-  - [ ] 18-01-PLAN.md — PROG-01: Wave 0 test stubs for handle_sst, handle_bst, format_all_steps, CalcStateView Phase 18 fields (RED)
+  - [x] 18-01-PLAN.md — PROG-01: Wave 0 test stubs for handle_sst, handle_bst, format_all_steps, CalcStateView Phase 18 fields (RED)
   **Wave 1** *(parallel -- no shared files)*
-  - [ ] 18-02-PLAN.md — PROG-01 (Rust backend): prgm_display.rs copy + format_all_steps; CalcStateView program_steps + pc; handle_sst/bst + sst_step/bst_step commands; permissions; window height 900
-  - [ ] 18-03-PLAN.md — PROG-01/SC-4/SC-5 (CI): .github/workflows/ci-gui.yml (3-OS matrix, path filter, WebKit deps)
+  - [x] 18-02-PLAN.md — PROG-01 (Rust backend): prgm_display.rs copy + format_all_steps; CalcStateView program_steps + pc; handle_sst/bst + sst_step/bst_step commands; permissions; window height 900
+  - [x] 18-03-PLAN.md — PROG-01/SC-4/SC-5 (CI): .github/workflows/ci-gui.yml (3-OS matrix, path filter, WebKit deps)
   **Wave 2** *(blocked on Wave 1 Plan 18-02)*
-  - [ ] 18-04-PLAN.md — PROG-01 (React frontend): program listing panel JSX + CSS; SST/BST routing in handleClick + handleKey; F7/F8 in resolveKeyId; Keyboard.tsx id sst/bst; human SC-1..SC-3 checkpoint
+  - [x] 18-04-PLAN.md — PROG-01 (React frontend): program listing panel JSX + CSS; SST/BST routing in handleClick + handleKey; F7/F8 in resolveKeyId; Keyboard.tsx id sst/bst; human SC-1..SC-3 checkpoint
   **Cross-cutting constraints:**
   - Plan 18-02 must compile before Plan 18-04 can run (TypeScript CalcStateView must match Rust struct)
   - ci.yml MUST NOT be modified; ci-gui.yml is a new independent file (SC-5 invariant)
@@ -289,4 +292,4 @@
 | 15. Display & Keyboard | v2.0 | 3/3 | Complete | 2026-05-10 |
 | 16. SVG Skin | v2.0 | 2/2 | Complete | 2026-05-10 |
 | 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
-| 18. Program Listing & CI/CD | v2.0 | 0/4 | In Progress | - |
+| 18. Program Listing & CI/CD | v2.0 | 4/4 | Complete | 2026-05-10 |

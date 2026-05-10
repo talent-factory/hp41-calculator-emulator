@@ -1,16 +1,10 @@
 # HP-41 Calculator Emulator
 
-## Current Milestone: v2.0 Tauri GUI
+## Current State: v2.0 Tauri GUI Shipped
 
-**Goal:** Ship a pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI.
+**Shipped:** 2026-05-10 — Pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI. Both `hp41-cli` (TUI) and `hp41-gui` (desktop app) ship from the same Cargo workspace.
 
-**Target features:**
-- `hp41-gui` Tauri v2 binary in the existing Cargo workspace
-- SVG skin: vector HP-41C key layout with clickable regions per key
-- Display panel: 12-char dot-matrix display + annunciators in the GUI
-- `hp41-core` integration via Tauri Rust commands (no core duplication)
-- `hp41-cli` remains fully functional (both binaries ship)
-- Platform targets: macOS (primary), Windows, Linux
+**Next milestone:** v2.1 Polish (14-segment LCD font, keyboard shortcut overlay, USER mode keyboard display)
 
 ## What This Is
 
@@ -58,14 +52,26 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - ✓ FR-17: Print emulation (PRX/PRA/PRSTK) to console/text file — v1.1 Phase 11 (2026-05-08)
 - ✓ FR-20: Synthetic programming (GETKEY, NULL, hidden registers M/N/O, HexModal) — v1.1 Phase 12 (2026-05-09)
 
-### Active (v2.0)
+### Validated (v2.0)
 
-- [ ] GUI-01: `hp41-gui` Tauri v2 binary added to Cargo workspace; builds and launches on macOS, Windows, Linux
-- [ ] GUI-02: SVG skin renders pixel-perfect HP-41C key layout; all keys are visually distinct and correctly positioned
-- [ ] GUI-03: Clickable keys in the SVG skin trigger the same `Op` dispatch as their CLI keyboard counterparts
-- [ ] GUI-04: HP-41 12-char dot-matrix display and annunciators render in the GUI, updating after every op
-- [ ] GUI-05: `hp41-core` integrated via Tauri Rust commands — no duplication of CalcState logic
-- [ ] GUI-06: `hp41-cli` remains fully functional and unmodified after adding `hp41-gui` to the workspace
+- ✓ GUI-01: `hp41-gui` Tauri v2 binary added to Cargo workspace; builds and launches on macOS, Windows, Linux — v2.0 Phase 13
+- ✓ GUI-02: SVG skin renders pixel-perfect HP-41C key layout (44 keys, 9+8+9+9+9 rows, ENTER double-width, authentic HP-41C colors) — v2.0 Phase 16
+- ✓ GUI-03: Clickable keys in the SVG skin trigger the same `Op` dispatch as their CLI keyboard counterparts — v2.0 Phase 16
+- ✓ GUI-04: HP-41 12-char dot-matrix display and annunciators render in the GUI, updating after every op — v2.0 Phase 15
+- ✓ GUI-05: `hp41-core` integrated via Tauri Rust commands — no duplication of CalcState logic (SC-4 invariant verified) — v2.0 Phase 14
+- ✓ GUI-06: `hp41-cli` remains fully functional and unmodified after adding `hp41-gui` to the workspace — v2.0 Phase 13
+- ✓ WSPC-01/02: Workspace isolation; `just ci` stays green; nested workspace never affects root Cargo resolver — v2.0 Phase 13
+- ✓ IPC-01/02: `dispatch_op`/`get_state` Tauri commands; `CalcStateView` ≤300 bytes; physical keyboard fully wired — v2.0 Phases 14+15
+- ✓ SKIN-01/02/03: Pixel-perfect SVG skin with click-to-dispatch and CSS press animation — v2.0 Phase 16
+- ✓ DISP-01/02: 12-char display + 5 annunciators + X/Y/Z/T/LASTX stack panel — v2.0 Phase 15
+- ✓ PERS-01/02: Shared `~/.hp41/autosave.json`; 30s auto-save; scrollable print panel — v2.0 Phase 17
+- ✓ PROG-01: PRGM-mode program listing with SST/BST navigation; cross-platform GUI CI — v2.0 Phase 18
+
+### Active (v2.1)
+
+- [ ] SKIN-04: 14-segment SVG font for authentic LCD rendering
+- [ ] SKIN-05: Keyboard shortcut overlay (port `?` help panel from CLI)
+- [ ] PROG-02: Full keyboard assignment display in USER mode
 
 ### Out of Scope
 
@@ -132,4 +138,10 @@ This document evolves at phase transitions and milestone boundaries.
 v2.0 Phase 14 (2026-05-09): IPC Layer complete — `dispatch_op` and `get_state` Tauri v2 commands route key string IDs through `key_map.rs` to `hp41_core::ops::dispatch`; `CalcStateView` (~170 bytes, ≤300 limit) serializes state for the frontend; `print_buffer` drained on every command; Tauri v2.11 app-command permissions declared via TOML files in `src-tauri/permissions/` (auto-generation not available for inline commands). 5/5 SC verified, 9/9 unit tests GREEN.
 v2.0 Phase 15 (2026-05-10): Display & Keyboard complete — React `App.tsx` renders 12-char display, 5 annunciators, and X/Y/Z/T/LASTX stack panel; `useCallback`+`useEffect` keyboard listener with `e.repeat` guard (SC-4 fix) and modal-key silencing; `CalcStateView` extended with `y_str`/`z_str`/`t_str`/`lastx_str`/`in_eex_mode`; `eex_chs` branch wired before `key_map::resolve()`; Tailwind removed from scaffold. 5/5 SC human-verified, 13/13 Rust tests GREEN.
 
-*Last updated: 2026-05-10 — Phase 15 Display & Keyboard complete; Phase 16 SVG Skin next*
+v2.0 Phase 16 (2026-05-10): SVG Skin complete — `Keyboard.tsx` with 44-key HP-41C SVG layout (9+8+9+9+9 rows), authentic color scheme, CSS `scale(0.92)` press animation with `transform-box: fill-box`; `handleKeyClick` dispatches to `dispatch_op`; all 23 named KEY_DEFS IDs pass `key_map::resolve()` (Wave 0 gate). 5/5 SC human-verified.
+
+v2.0 Phase 17 (2026-05-10): Persistence & Print Output complete — `persistence.rs` in `hp41-gui` with `dirs` dep; 30s auto-save thread; startup load from `~/.hp41/autosave.json` (shared with CLI); scrollable print panel with auto-show and history accumulation. 5/5 SC human-verified; 'p' key remapped to `prx` for Phase 17 SC-5.
+
+v2.0 Phase 18 (2026-05-10): Program Listing & CI/CD complete — `format_all_steps()` + `handle_sst`/`handle_bst` Tauri commands; `CalcStateView.program_steps`+`pc`; conditional PRGM panel in `App.tsx` with F7/F8 bindings and `activeStepRef` auto-scroll; `ci-gui.yml` 3-OS matrix CI independent from `ci.yml`. 5/5 SC verified.
+
+*Last updated: 2026-05-10 — v2.0 Tauri GUI milestone complete (Phases 13–18); next milestone v2.1*
