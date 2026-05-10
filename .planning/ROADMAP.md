@@ -252,7 +252,18 @@
   3. Pressing the BST key steps backward one position in the program and the listing scrolls to keep the highlighted step visible
   4. The cross-platform CI job runs on Windows, macOS, and Ubuntu; the build completes without error on all three platforms and is triggered only on changes to `hp41-gui/**` or `hp41-core/**`
   5. `just ci` (the CLI pipeline) and the new GUI CI job are independent — a GUI build failure does not block CLI CI and vice versa
-**Plans**: TBD
+**Plans**: 4 plans
+  **Wave 0**
+  - [ ] 18-01-PLAN.md — PROG-01: Wave 0 test stubs for handle_sst, handle_bst, format_all_steps, CalcStateView Phase 18 fields (RED)
+  **Wave 1** *(parallel -- no shared files)*
+  - [ ] 18-02-PLAN.md — PROG-01 (Rust backend): prgm_display.rs copy + format_all_steps; CalcStateView program_steps + pc; handle_sst/bst + sst_step/bst_step commands; permissions; window height 900
+  - [ ] 18-03-PLAN.md — PROG-01/SC-4/SC-5 (CI): .github/workflows/ci-gui.yml (3-OS matrix, path filter, WebKit deps)
+  **Wave 2** *(blocked on Wave 1 Plan 18-02)*
+  - [ ] 18-04-PLAN.md — PROG-01 (React frontend): program listing panel JSX + CSS; SST/BST routing in handleClick + handleKey; F7/F8 in resolveKeyId; Keyboard.tsx id sst/bst; human SC-1..SC-3 checkpoint
+  **Cross-cutting constraints:**
+  - Plan 18-02 must compile before Plan 18-04 can run (TypeScript CalcStateView must match Rust struct)
+  - ci.yml MUST NOT be modified; ci-gui.yml is a new independent file (SC-5 invariant)
+  - #![deny(clippy::unwrap_used)] -- new Rust code uses .unwrap_or_else(|e| e.into_inner()) on Mutex locks
 **UI hint**: yes
 
 ---
@@ -278,4 +289,4 @@
 | 15. Display & Keyboard | v2.0 | 3/3 | Complete | 2026-05-10 |
 | 16. SVG Skin | v2.0 | 2/2 | Complete | 2026-05-10 |
 | 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
-| 18. Program Listing & CI/CD | v2.0 | 0/? | Not started | - |
+| 18. Program Listing & CI/CD | v2.0 | 0/4 | In Progress | - |
