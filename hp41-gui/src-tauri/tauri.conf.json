@@ -1,0 +1,22 @@
+{
+  "productName": "HP-41 Calculator",
+  "identifier": "ch.talent-factory.hp41",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "HP-41 Calculator",
+        "width": 400,
+        "height": 900,
+        "resizable": false,
+        "decorations": true
+      }
+    ]
+  }
+}

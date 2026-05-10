@@ -4,6 +4,7 @@
 //! and hp41-core's dispatch() entry point.
 
 use std::cell::RefCell;
+use std::io::Write; // for writeln! and BufWriter::flush() in call_dispatch_and_drain
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -11,7 +12,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use ratatui::widgets::TableState;
 use ratatui::DefaultTerminal;
 
-use hp41_core::ops::Op;
+use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
 use hp41_core::{AngleMode, CalcState, DisplayMode};
 
 use crate::{keys, persistence, ui};
@@ -22,19 +23,21 @@ use crate::{keys, persistence, ui};
 pub enum PendingInput {
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
     RclRegister(String), // accumulating 2-digit register number for RCL [nn]
-    // STO arithmetic variants — handled in handle_pending_input() match arms.
-    // Keyboard binding deferred to v1.1 (multi-step modal flow out of scope for cleanup phase).
-    #[allow(dead_code)]
-    StoAdd(String), // STO+ [nn]
-    #[allow(dead_code)]
-    StoSub(String), // STO- [nn]
-    #[allow(dead_code)]
-    StoMul(String), // STO× [nn]
-    #[allow(dead_code)]
-    StoDiv(String), // STO÷ [nn]
-    AssignKey,                 // D-27 step 1: waiting for key char to assign
-    AssignLabel(char, String), // D-27 step 2: char received; accumulating label name
-    ConfirmLoad(usize),        // D-22: awaiting Y/n before overwriting program
+    // STO arithmetic step-3 variants (active in v1.1 modal flow — S → op-key → register).
+    StoAdd(String),                    // STO+ [nn or stack-reg]
+    StoSub(String),                    // STO- [nn or stack-reg]
+    StoMul(String),                    // STO× [nn or stack-reg]
+    StoDiv(String),                    // STO÷ [nn or stack-reg]
+    AssignKey,                         // D-27 step 1: waiting for key char to assign
+    AssignLabel(char, String),         // D-27 step 2: char received; accumulating label name
+    ConfirmLoad(usize),                // D-22: awaiting Y/n before overwriting program
+    FmtDigits(hp41_core::DisplayMode), // digit-count modal for FIX/SCI/ENG (opened by 'F')
+    PrintModal, // Phase 11 D-06: 'P'-prefix modal for print ops (PRX/PRA/PRSTK)
+    /// Phase 12: hex-byte insertion modal accumulator. Holds 0, 1, or 2 hex chars.
+    /// Triggered by uppercase 'X' in PRGM mode (D-14). On 2nd char, validates
+    /// against synthetic_byte_to_op() and either inserts Op::SyntheticByte at
+    /// state.pc or sets app.message = "INVALID" (D-13).
+    HexModal(String),
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -56,13 +59,44 @@ pub struct App {
     pub help_table_state: RefCell<TableState>,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
+    /// BufWriter for --print-log, if specified. None = no file logging.
+    pub print_log_writer: Option<std::io::BufWriter<std::fs::File>>,
 }
 
 impl App {
-    pub fn new(state: CalcState, state_path: PathBuf) -> Self {
+    pub fn new(
+        state: CalcState,
+        state_path: PathBuf,
+        print_log: Option<std::path::PathBuf>,
+    ) -> Self {
+        let (print_log_writer, initial_message) = match print_log {
+            None => (None, None),
+            Some(path) => {
+                match std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                {
+                    Ok(file) => (Some(std::io::BufWriter::new(file)), None),
+                    Err(e) => {
+                        // Surface the error in the TUI status bar via app.message.
+                        // Also write to stderr as a fallback for contexts where the TUI
+                        // may not yet be visible (e.g., early startup errors).
+                        eprintln!("Warning: cannot open print log '{}': {e}", path.display());
+                        (
+                            None,
+                            Some(format!(
+                                "Warning: cannot open print log '{}': {e}",
+                                path.display()
+                            )),
+                        )
+                    }
+                }
+            }
+        };
         App {
             state,
-            message: None,
+            message: initial_message,
             exit: false,
             last_save: Instant::now(),
             state_path,
@@ -71,6 +105,7 @@ impl App {
             help_table_state: RefCell::new(TableState::default()),
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
+            print_log_writer,
         }
     }
 
@@ -125,6 +160,15 @@ impl App {
             return;
         }
 
+        // Update last_key_code for physical HP-41 keys only:
+        // - None from keycode_to_hp41_code = no HP-41 equivalent (F5/F7/F8, unknown keys)
+        // - Ctrl-modified keys are TUI commands (save, quit), not calculator keypresses
+        if let Some(code) = keys::keycode_to_hp41_code(key.code) {
+            if !key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.state.last_key_code = code;
+            }
+        }
+
         // Quit: Ctrl+C only (D-16, D-22). 'q' was reassigned to SIN in Phase 8; quit is Ctrl+C only.
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.exit = true;
@@ -154,7 +198,15 @@ impl App {
             return;
         }
 
-        // Phase 5: pending input guard — intercept BEFORE alpha mode and digit entry (D-08, Pitfall 5).
+        // Phase 5: route to pending_input handler if modal is active — MUST come before
+        // the modal-opening interceptors below (CR-02). If any modal is active, 'S', 'R',
+        // and Ctrl+A must be handled by the active modal, not silently replaced.
+        if self.pending_input.is_some() {
+            self.handle_pending_input(key);
+            return;
+        }
+
+        // Only open new modals when no modal is currently active (D-08, Pitfall 5).
         // S key triggers StoRegister modal; R key triggers RclRegister modal.
         if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::StoRegister(String::new()));
@@ -166,15 +218,36 @@ impl App {
             self.message = None;
             return;
         }
+        // 'F' (Shift+f) opens the digit-count modal for the current display mode.
+        // The modal lets the user set an exact digit count for FIX/SCI/ENG via 0–9.
+        if key.code == KeyCode::Char('F') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::FmtDigits(self.state.display_mode));
+            self.message = None;
+            return;
+        }
+        // 'P' (Shift+p) opens the PrintModal for PRX/PRA/PRSTK selection (D-06, Phase 11).
+        if key.code == KeyCode::Char('P') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.pending_input = Some(PendingInput::PrintModal);
+            self.message = None;
+            return;
+        }
+        // [Phase 12 D-14] 'X' (Shift+X / uppercase) opens hex-byte insertion modal in PRGM mode.
+        // Lowercase 'x' is unchanged — it dispatches Op::XySwap via key_to_op() below.
+        // Gated on prgm_mode: hex insertion only makes sense while recording a program (D-18).
+        // 'X' is also a valid key code 21 (XEQ) — the last_key_code update above already ran.
+        if key.code == KeyCode::Char('X') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            if self.state.prgm_mode {
+                self.pending_input = Some(PendingInput::HexModal(String::new()));
+                self.message = None;
+            } else {
+                self.message = Some("PRGM mode required for hex insertion (X nn)".to_string());
+            }
+            return;
+        }
         // Ctrl+A triggers USER key assignment modal (D-27)
         if key.code == KeyCode::Char('a') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.pending_input = Some(PendingInput::AssignKey);
             self.message = None;
-            return;
-        }
-        // Route to pending_input handler if modal is active
-        if self.pending_input.is_some() {
-            self.handle_pending_input(key);
             return;
         }
 
@@ -205,7 +278,10 @@ impl App {
             if let Some(c) = user_char {
                 if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                     match hp41_core::run_program(&mut self.state, &label) {
-                        Ok(()) => self.message = None,
+                        Ok(()) => {
+                            self.message = None;
+                            self.drain_and_show_print_output();
+                        }
                         Err(e) => self.message = Some(format!("{e}")),
                     }
                 }
@@ -267,8 +343,20 @@ impl App {
         // dispatch() calls flush_entry_buf() automatically on the next non-digit op.
         // DO NOT call dispatch() here — that would push each digit as a separate PushNum.
         // Phase 8 (T-08-03, T-08-04): guards prevent malformed strings reaching flush_entry_buf.
+        // Phase 9 (D-05/D-06/D-07/D-08): EEX hardware fidelity — implicit "1" mantissa on
+        // empty-buffer EEX, 2-digit exponent cap, double-EEX still blocked.
         if let KeyCode::Char(c) = key.code {
             if c.is_ascii_digit() {
+                // Phase 9 D-05/D-06: cap exponent entry at 2 digits. If entry_buf contains 'e',
+                // count the digits AFTER 'e' (excluding optional leading '-'). If count >= 2,
+                // silently ignore the new digit (no message, no beep).
+                if let Some(e_pos) = self.state.entry_buf.find('e') {
+                    let after_e = &self.state.entry_buf[e_pos + 1..];
+                    let exp_digit_count = after_e.chars().filter(|ch| ch.is_ascii_digit()).count();
+                    if exp_digit_count >= 2 {
+                        return; // silently block 3rd exponent digit
+                    }
+                }
                 self.state.entry_buf.push(c);
                 self.message = None;
                 return;
@@ -283,11 +371,35 @@ impl App {
                 return;
             }
             if c == 'e' {
-                // Block EEX if entry is empty (no mantissa yet) or already has 'e'
-                if self.state.entry_buf.is_empty() || self.state.entry_buf.contains('e') {
-                    return; // silently ignore malformed input
+                // Phase 9 D-08: still block double-EEX (entry_buf already contains 'e').
+                if self.state.entry_buf.contains('e') {
+                    return; // silently ignore second EEX
                 }
-                self.state.entry_buf.push('e');
+                // Phase 9 D-07: empty-buffer EEX inserts implicit "1" mantissa.
+                // HP-41 hardware shows "1   _" in this state; we set entry_buf = "1e" and
+                // let format_entry_buf_display in ui.rs render it as "1E_ _".
+                if self.state.entry_buf.is_empty() {
+                    self.state.entry_buf.push_str("1e");
+                } else {
+                    self.state.entry_buf.push('e');
+                }
+                self.message = None;
+                return;
+            }
+            if c == 'n' && self.state.entry_buf.contains('e') {
+                // CHS during EEX entry: toggle exponent sign in-place — no flush, no dispatch.
+                // HP-41 hardware behavior: CHS while in EEX mode toggles the exponent sign.
+                // Find the 'e' position; everything after it is the (optional signed) exponent.
+                if let Some(e_pos) = self.state.entry_buf.find('e') {
+                    let after_e = &self.state.entry_buf[e_pos + 1..];
+                    if after_e.starts_with('-') {
+                        // Remove the minus: "1e-2" → "1e2", "1e-" → "1e"
+                        self.state.entry_buf.remove(e_pos + 1);
+                    } else {
+                        // Insert minus: "1e2" → "1e-2", "1e" → "1e-"
+                        self.state.entry_buf.insert(e_pos + 1, '-');
+                    }
+                }
                 self.message = None;
                 return;
             }
@@ -333,7 +445,10 @@ impl App {
         // F5 is handled here directly, not routed through key_to_op().
         if key.code == KeyCode::F(5) {
             match hp41_core::run_program(&mut self.state, "A") {
-                Ok(()) => self.message = None,
+                Ok(()) => {
+                    self.message = None;
+                    self.drain_and_show_print_output();
+                }
                 Err(e) => self.message = Some(format!("{e}")),
             }
             return;
@@ -352,47 +467,234 @@ impl App {
         let pending = self.pending_input.take();
         match pending {
             Some(PendingInput::StoRegister(ref acc)) => {
-                self.handle_reg_modal(key, acc.clone(), Op::StoReg, PendingInput::StoRegister)
+                // [Phase 12 D-08] M/N/O dispatch — ONLY valid as FIRST char (acc.is_empty() guard).
+                // If user has already typed a digit (e.g., "0"), ignore M/N/O — there's no
+                // valid register "0M" and we want plain numbered registers to keep working.
+                if acc.is_empty() {
+                    match key.code {
+                        KeyCode::Char('M') | KeyCode::Char('m') => {
+                            self.call_dispatch(Op::StoM);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('N') | KeyCode::Char('n') => {
+                            self.call_dispatch(Op::StoN);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('O') | KeyCode::Char('o') => {
+                            self.call_dispatch(Op::StoO);
+                            self.pending_input = None;
+                            return;
+                        }
+                        _ => {} // fall through to existing arithmetic-key + handle_reg_modal logic
+                    }
+                }
+                // Step 2: intercept arithmetic op keys before delegating to digit accumulator.
+                match key.code {
+                    KeyCode::Char('+') => {
+                        self.pending_input = Some(PendingInput::StoAdd(String::new()));
+                    }
+                    KeyCode::Char('-') => {
+                        self.pending_input = Some(PendingInput::StoSub(String::new()));
+                    }
+                    KeyCode::Char('*') => {
+                        self.pending_input = Some(PendingInput::StoMul(String::new()));
+                    }
+                    KeyCode::Char('/') => {
+                        self.pending_input = Some(PendingInput::StoDiv(String::new()));
+                    }
+                    _ => self.handle_reg_modal(
+                        key,
+                        acc.clone(),
+                        Op::StoReg,
+                        PendingInput::StoRegister,
+                    ),
+                }
             }
             Some(PendingInput::RclRegister(ref acc)) => {
+                // [Phase 12 D-08] M/N/O dispatch — first-char only.
+                if acc.is_empty() {
+                    match key.code {
+                        KeyCode::Char('M') | KeyCode::Char('m') => {
+                            self.call_dispatch(Op::RclM);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('N') | KeyCode::Char('n') => {
+                            self.call_dispatch(Op::RclN);
+                            self.pending_input = None;
+                            return;
+                        }
+                        KeyCode::Char('O') | KeyCode::Char('o') => {
+                            self.call_dispatch(Op::RclO);
+                            self.pending_input = None;
+                            return;
+                        }
+                        _ => {} // fall through to handle_reg_modal
+                    }
+                }
                 self.handle_reg_modal(key, acc.clone(), Op::RclReg, PendingInput::RclRegister)
             }
-            Some(PendingInput::StoAdd(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Add,
-                },
-                PendingInput::StoAdd,
-            ),
-            Some(PendingInput::StoSub(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Sub,
-                },
-                PendingInput::StoSub,
-            ),
-            Some(PendingInput::StoMul(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Mul,
-                },
-                PendingInput::StoMul,
-            ),
-            Some(PendingInput::StoDiv(ref acc)) => self.handle_reg_modal(
-                key,
-                acc.clone(),
-                |reg| Op::StoArith {
-                    reg,
-                    kind: hp41_core::ops::StoArithKind::Div,
-                },
-                PendingInput::StoDiv,
-            ),
+            Some(PendingInput::StoAdd(ref acc)) => {
+                // Step 3: Y/Z/T/L dispatch to stack registers immediately.
+                match key.code {
+                    KeyCode::Char('Y') | KeyCode::Char('y') => {
+                        self.call_dispatch(Op::StoArithStack {
+                            kind: StoArithKind::Add,
+                            stack_reg: StackReg::Y,
+                        });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('Z') | KeyCode::Char('z') => {
+                        self.call_dispatch(Op::StoArithStack {
+                            kind: StoArithKind::Add,
+                            stack_reg: StackReg::Z,
+                        });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('T') | KeyCode::Char('t') => {
+                        self.call_dispatch(Op::StoArithStack {
+                            kind: StoArithKind::Add,
+                            stack_reg: StackReg::T,
+                        });
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('L') | KeyCode::Char('l') => {
+                        self.call_dispatch(Op::StoArithStack {
+                            kind: StoArithKind::Add,
+                            stack_reg: StackReg::LastX,
+                        });
+                        self.pending_input = None;
+                    }
+                    _ => self.handle_reg_modal(
+                        key,
+                        acc.clone(),
+                        |reg| Op::StoArith {
+                            reg,
+                            kind: StoArithKind::Add,
+                        },
+                        PendingInput::StoAdd,
+                    ),
+                }
+            }
+            Some(PendingInput::StoSub(ref acc)) => match key.code {
+                KeyCode::Char('Y') | KeyCode::Char('y') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Sub,
+                        stack_reg: StackReg::Y,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('Z') | KeyCode::Char('z') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Sub,
+                        stack_reg: StackReg::Z,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('T') | KeyCode::Char('t') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Sub,
+                        stack_reg: StackReg::T,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('L') | KeyCode::Char('l') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Sub,
+                        stack_reg: StackReg::LastX,
+                    });
+                    self.pending_input = None;
+                }
+                _ => self.handle_reg_modal(
+                    key,
+                    acc.clone(),
+                    |reg| Op::StoArith {
+                        reg,
+                        kind: StoArithKind::Sub,
+                    },
+                    PendingInput::StoSub,
+                ),
+            },
+            Some(PendingInput::StoMul(ref acc)) => match key.code {
+                KeyCode::Char('Y') | KeyCode::Char('y') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Mul,
+                        stack_reg: StackReg::Y,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('Z') | KeyCode::Char('z') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Mul,
+                        stack_reg: StackReg::Z,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('T') | KeyCode::Char('t') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Mul,
+                        stack_reg: StackReg::T,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('L') | KeyCode::Char('l') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Mul,
+                        stack_reg: StackReg::LastX,
+                    });
+                    self.pending_input = None;
+                }
+                _ => self.handle_reg_modal(
+                    key,
+                    acc.clone(),
+                    |reg| Op::StoArith {
+                        reg,
+                        kind: StoArithKind::Mul,
+                    },
+                    PendingInput::StoMul,
+                ),
+            },
+            Some(PendingInput::StoDiv(ref acc)) => match key.code {
+                KeyCode::Char('Y') | KeyCode::Char('y') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Div,
+                        stack_reg: StackReg::Y,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('Z') | KeyCode::Char('z') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Div,
+                        stack_reg: StackReg::Z,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('T') | KeyCode::Char('t') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Div,
+                        stack_reg: StackReg::T,
+                    });
+                    self.pending_input = None;
+                }
+                KeyCode::Char('L') | KeyCode::Char('l') => {
+                    self.call_dispatch(Op::StoArithStack {
+                        kind: StoArithKind::Div,
+                        stack_reg: StackReg::LastX,
+                    });
+                    self.pending_input = None;
+                }
+                _ => self.handle_reg_modal(
+                    key,
+                    acc.clone(),
+                    |reg| Op::StoArith {
+                        reg,
+                        kind: StoArithKind::Div,
+                    },
+                    PendingInput::StoDiv,
+                ),
+            },
             Some(PendingInput::AssignKey) => {
                 // D-27 step 1: waiting for any printable char
                 match key.code {
@@ -453,7 +755,107 @@ impl App {
                     }
                 }
             }
-            None => {} // shouldn't happen (guard checked is_some() before calling)
+            Some(PendingInput::FmtDigits(mode)) => {
+                // Digit-count modal: 0–9 dispatches FmtFix/Sci/Eng(n), 'f' cycles mode,
+                // Esc cancels. Any other key silently restores the modal.
+                match key.code {
+                    KeyCode::Char(c) if c.is_ascii_digit() => {
+                        let n = c as u8 - b'0';
+                        let op = match mode {
+                            hp41_core::DisplayMode::Fix(_) => Op::FmtFix(n),
+                            hp41_core::DisplayMode::Sci(_) => Op::FmtSci(n),
+                            hp41_core::DisplayMode::Eng(_) => Op::FmtEng(n),
+                        };
+                        self.call_dispatch(op);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('f') => {
+                        // Cycle the pending format type: Fix → Sci → Eng → Fix.
+                        // The digit count in the stored mode is irrelevant — only the variant matters.
+                        let new_mode = match mode {
+                            hp41_core::DisplayMode::Fix(n) => hp41_core::DisplayMode::Sci(n),
+                            hp41_core::DisplayMode::Sci(n) => hp41_core::DisplayMode::Eng(n),
+                            hp41_core::DisplayMode::Eng(n) => hp41_core::DisplayMode::Fix(n),
+                        };
+                        self.pending_input = Some(PendingInput::FmtDigits(new_mode));
+                    }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Restore modal silently for unrecognized keys
+                        self.pending_input = Some(PendingInput::FmtDigits(mode));
+                    }
+                }
+            }
+            Some(PendingInput::PrintModal) => {
+                match key.code {
+                    KeyCode::Char('x') | KeyCode::Char('X') => {
+                        self.call_dispatch_and_drain(Op::PRX);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('a') | KeyCode::Char('A') => {
+                        self.call_dispatch_and_drain(Op::PRA);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Char('s') | KeyCode::Char('S') => {
+                        self.call_dispatch_and_drain(Op::PRSTK);
+                        self.pending_input = None;
+                    }
+                    KeyCode::Esc => {
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Silently ignore unrecognized keys — keep modal open (existing convention).
+                        self.pending_input = Some(PendingInput::PrintModal);
+                    }
+                }
+            }
+            Some(PendingInput::HexModal(ref acc)) => {
+                match key.code {
+                    KeyCode::Char(c) if c.is_ascii_hexdigit() => {
+                        // Normalize to uppercase for display consistency.
+                        let hex_char = c.to_ascii_uppercase();
+                        let mut new_acc = acc.clone();
+                        new_acc.push(hex_char);
+                        if new_acc.len() == 2 {
+                            // Two ASCII hex chars always parse as u8 — invariant guarantees no panic.
+                            let byte = u8::from_str_radix(&new_acc, 16)
+                                .expect("two ASCII hex digits must parse as u8");
+                            match synthetic_byte_to_op(byte) {
+                                Some(_) => {
+                                    // Clamp pc to program.len(): Vec::insert panics when index > len.
+                                    // state.pc can be program.len()+1 after ISG/DSE skip on the last step.
+                                    let insert_pos = self.state.pc.min(self.state.program.len());
+                                    self.state
+                                        .program
+                                        .insert(insert_pos, Op::SyntheticByte(byte));
+                                    self.state.pc = insert_pos + 1;
+                                    self.message = None;
+                                }
+                                None => {
+                                    // [Phase 12 D-13] Rejected: signal to user, leave program Vec untouched.
+                                    self.message = Some("INVALID".to_string());
+                                }
+                            }
+                            // [D-13] Modal always closes after the second digit (valid or not).
+                            self.pending_input = None;
+                        } else {
+                            // First digit accumulated — keep modal open for second digit.
+                            self.pending_input = Some(PendingInput::HexModal(new_acc));
+                        }
+                    }
+                    KeyCode::Esc => {
+                        // Cancel — no side effects (program unchanged, no INVALID message).
+                        self.pending_input = None;
+                    }
+                    _ => {
+                        // Non-hex key: keep modal open silently (existing modal convention).
+                        self.pending_input = Some(PendingInput::HexModal(acc.clone()));
+                    }
+                }
+            }
+            None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
         }
     }
 
@@ -540,7 +942,10 @@ impl App {
         if let KeyCode::Char(c) = key.code {
             if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                 match hp41_core::run_program(&mut self.state, &label) {
-                    Ok(()) => self.message = None,
+                    Ok(()) => {
+                        self.message = None;
+                        self.drain_and_show_print_output();
+                    }
                     Err(e) => self.message = Some(format!("{e}")),
                 }
                 return true; // consumed
@@ -549,12 +954,113 @@ impl App {
         false // not consumed — fall through to normal routing
     }
 
+    /// Drain print_buffer after a run_program() Ok(()) return and surface output in the TUI.
+    ///
+    /// Mirrors the drain branch inside call_dispatch_and_drain but decoupled from dispatch —
+    /// called after run_program() has already returned successfully.
+    ///
+    /// For 1 line (PRX/PRA): sets app.message to the formatted line.
+    /// For N > 1 lines (PRSTK or multiple print ops in one program): sets app.message to
+    ///   "PRSTK → N lines" summary consistent with D-01.
+    /// If print_log_writer is Some, writes each line to the file via
+    /// `write_lines_to_print_log()` which disables the writer on first I/O error.
+    /// Clears print_buffer via drain(..).
+    fn drain_and_show_print_output(&mut self) {
+        let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+        if !lines.is_empty() {
+            let log_failure = self.write_lines_to_print_log(&lines);
+            let summary = if lines.len() > 1 {
+                format!("PRSTK \u{2192} {} lines", lines.len())
+            } else {
+                lines.into_iter().next().unwrap_or_default()
+            };
+            self.message = Some(match log_failure {
+                Some(err) => format!("{summary} ({err})"),
+                None => summary,
+            });
+        }
+        // If lines is empty, leave self.message as None (caller already set it to None
+        // on the Ok(()) branch before calling this helper).
+    }
+
+    /// Write a batch of print lines to `print_log_writer`. On the first I/O error
+    /// (write or flush) disables the writer (sets to `None`) and returns a one-shot
+    /// `"print log disabled: {err}"` message so the caller can append it to
+    /// `self.message`. After this returns `Some(_)` once, subsequent calls are no-ops.
+    ///
+    /// This replaces the original `let _ = writeln!(...)` pattern that silently
+    /// dropped every line after the first failure (PR #5 silent-failure review).
+    fn write_lines_to_print_log(&mut self, lines: &[String]) -> Option<String> {
+        let failure: Option<String> = {
+            let writer = self.print_log_writer.as_mut()?;
+            let mut err_msg: Option<String> = None;
+            for line in lines {
+                if let Err(e) = writeln!(writer, "{line}") {
+                    err_msg = Some(format!("print log disabled: {e}"));
+                    break;
+                }
+            }
+            if err_msg.is_none() {
+                if let Err(e) = writer.flush() {
+                    err_msg = Some(format!("print log disabled: {e}"));
+                }
+            }
+            err_msg
+        };
+        if failure.is_some() {
+            self.print_log_writer = None;
+        }
+        failure
+    }
+
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
     fn call_dispatch(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => self.message = None,
             Err(e) => self.message = Some(format!("{e}")),
         }
+    }
+
+    /// Call hp41_core::ops::dispatch, then drain print_buffer.
+    /// For PRX/PRA (1 line): sets app.message to the formatted line (per D-01).
+    /// For PRSTK (6 lines): sets app.message to "PRSTK → N lines" summary (per D-01).
+    /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
+    pub(crate) fn call_dispatch_and_drain(&mut self, op: Op) {
+        match hp41_core::ops::dispatch(&mut self.state, op) {
+            Ok(()) => {
+                let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+                if !lines.is_empty() {
+                    let log_failure = self.write_lines_to_print_log(&lines);
+                    let summary = if lines.len() > 1 {
+                        format!("PRSTK \u{2192} {} lines", lines.len())
+                    } else {
+                        // lines.len() == 1; into_iter().next() is safe here
+                        lines.into_iter().next().unwrap_or_default()
+                    };
+                    self.message = Some(match log_failure {
+                        Some(err) => format!("{summary} ({err})"),
+                        None => summary,
+                    });
+                } else {
+                    self.message = None;
+                }
+            }
+            Err(e) => self.message = Some(format!("{e}")),
+        }
+    }
+}
+
+#[cfg(test)]
+impl App {
+    /// Test-only constructor: builds a minimal App suitable for handle_key
+    /// integration tests. Uses a temporary state path; persistence side effects
+    /// are harmless because tests do not call the auto-save path.
+    pub fn new_for_test() -> Self {
+        App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            None,
+        )
     }
 }
 
@@ -573,7 +1079,7 @@ mod tests {
         let state_path = tmp_dir.join("autosave_test.json");
 
         let state = hp41_core::CalcState::new();
-        let mut app = App::new(state, state_path.clone());
+        let mut app = App::new(state, state_path.clone(), None);
 
         // Wind last_save back 31 seconds — timer should fire immediately.
         app.last_save = Instant::now() - Duration::from_secs(31);
@@ -596,7 +1102,7 @@ mod tests {
         let state_path = tmp_dir.join("premature.json");
 
         let state = hp41_core::CalcState::new();
-        let mut app = App::new(state, state_path.clone());
+        let mut app = App::new(state, state_path.clone(), None);
 
         // last_save is Instant::now() — only 0ms elapsed; should NOT save.
         app.check_autosave();
@@ -613,6 +1119,7 @@ mod tests {
         App::new(
             hp41_core::CalcState::new(),
             std::path::PathBuf::from("/tmp/hp41_test_app.json"),
+            None,
         )
     }
 
@@ -748,13 +1255,15 @@ mod tests {
     }
 
     #[test]
-    fn test_eex_blocked_when_entry_buf_empty() {
+    fn test_eex_on_empty_entry_buf_inserts_implicit_one() {
+        // Phase 9 D-07: pressing 'e' on empty buffer inserts "1e" (implicit mantissa).
+        // The old behavior (blocking EEX when empty) was removed in Phase 9.
         let mut app = make_app();
         assert!(app.state.entry_buf.is_empty());
         app.handle_key(make_key(KeyCode::Char('e')));
-        assert!(
-            app.state.entry_buf.is_empty(),
-            "'e' must be blocked when entry_buf is empty"
+        assert_eq!(
+            app.state.entry_buf, "1e",
+            "'e' on empty entry_buf must insert implicit mantissa \"1e\" (D-07)"
         );
     }
 
@@ -829,6 +1338,597 @@ mod tests {
             format!("{}", app.state.stack.x),
             "30",
             "'q' closing help must not dispatch Op::Sin (x must remain 30, not become 0.5)"
+        );
+    }
+
+    // ── CHS during EEX entry (exponent sign toggle) ──────────────────────────
+
+    #[test]
+    fn test_chs_eex_inserts_minus_on_bare_e() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        assert_eq!(app.state.entry_buf, "1e");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1e-");
+        assert!(app.message.is_none());
+    }
+
+    #[test]
+    fn test_chs_eex_removes_minus_on_e_minus() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('n'))); // → "1e-"
+        app.handle_key(make_key(KeyCode::Char('n'))); // → "1e" (toggle back)
+        assert_eq!(app.state.entry_buf, "1e");
+    }
+
+    #[test]
+    fn test_chs_eex_inserts_minus_with_digits() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('2')));
+        assert_eq!(app.state.entry_buf, "1e2");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1e-2");
+    }
+
+    #[test]
+    fn test_chs_eex_removes_minus_with_digits() {
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // "1e-2"
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1e2"
+        assert_eq!(app.state.entry_buf, "1e2");
+    }
+
+    #[test]
+    fn test_chs_eex_toggle_long_mantissa() {
+        let mut app = make_app();
+        // Build "1.5e-23" then toggle → "1.5e23"
+        for c in "1.5e".chars() {
+            app.handle_key(make_key(KeyCode::Char(c)));
+        }
+        app.handle_key(make_key(KeyCode::Char('n'))); // "1.5e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // "1.5e-2"
+        app.handle_key(make_key(KeyCode::Char('3'))); // "1.5e-23"
+        assert_eq!(app.state.entry_buf, "1.5e-23");
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+    }
+
+    #[test]
+    fn test_integration_1_eex_chs_2_enter_gives_0_01() {
+        // Full keystroke sequence: 1, EEX, CHS, 2, Enter → X = 1E-2 = 0.01
+        let mut app = make_app();
+        app.handle_key(make_key(KeyCode::Char('1'))); // entry_buf = "1"
+        app.handle_key(make_key(KeyCode::Char('e'))); // entry_buf = "1e"
+        app.handle_key(make_key(KeyCode::Char('n'))); // entry_buf = "1e-"
+        app.handle_key(make_key(KeyCode::Char('2'))); // entry_buf = "1e-2"
+                                                      // Simulate Enter by dispatching Op::Enter directly
+        app.call_dispatch(Op::Enter);
+        assert!(
+            app.state.entry_buf.is_empty(),
+            "entry_buf must flush on Enter"
+        );
+        // X should be 0.01 = 1E-2. Verify via display format (FIX 4 default).
+        let formatted = hp41_core::format_hpnum(&app.state.stack.x, &app.state.display_mode);
+        assert_eq!(
+            formatted, "0.0100",
+            "1 EEX CHS 2 Enter must yield 0.01 (shown as 0.0100 in FIX 4)"
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod eex_integration_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use hp41_core::ops::dispatch;
+
+    fn make_app() -> App {
+        // Construct a minimal App with a default CalcState. The persistence path
+        // and TUI fields don't matter for these tests — we only exercise handle_key
+        // and the cli/core integration via dispatch.
+        App::new_for_test()
+    }
+
+    fn key(c: char) -> KeyEvent {
+        KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_eex_trailing_e_then_enter_pushes_mantissa() {
+        // Phase 9 success criterion #1: "1.5e" + ENTER pushes 1.5 to X (exponent 00).
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        // Now dispatch Enter — flush_entry_buf normalizes "1.5e" -> "1.5e00" -> 1.5.
+        dispatch(&mut app.state, Op::Enter).expect("Enter must succeed");
+        // Use format_hpnum with the state's display mode (Fix(4) by default) to
+        // verify the pushed value is 1.5. format_hpnum is re-exported by hp41-core.
+        let formatted = hp41_core::format_hpnum(&app.state.stack.x, &app.state.display_mode);
+        assert_eq!(
+            formatted, "1.5000",
+            "EEX trailing-e must push mantissa 1.5 (shown as 1.5000 in FIX 4)"
+        );
+        assert!(app.state.entry_buf.is_empty());
+    }
+
+    #[test]
+    fn test_empty_buffer_eex_inserts_implicit_one() {
+        // Phase 9 D-07: pressing 'e' on an empty buffer inserts "1e".
+        let mut app = make_app();
+        assert!(app.state.entry_buf.is_empty());
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1e");
+    }
+
+    #[test]
+    fn test_exponent_digit_cap_blocks_third_digit() {
+        // Phase 9 D-05/D-06: 3rd exponent digit silently blocked.
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        app.handle_key(key('2'));
+        app.handle_key(key('3'));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+        // Third digit must be silently ignored.
+        app.handle_key(key('4'));
+        assert_eq!(app.state.entry_buf, "1.5e23");
+        assert!(app.message.is_none(), "silent block — no message set");
+    }
+
+    #[test]
+    fn test_double_eex_blocked() {
+        // Phase 9 D-08: pressing 'e' when entry_buf already contains 'e' is ignored.
+        let mut app = make_app();
+        app.handle_key(key('1'));
+        app.handle_key(key('.'));
+        app.handle_key(key('5'));
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        app.handle_key(key('e'));
+        assert_eq!(app.state.entry_buf, "1.5e");
+        assert!(app.message.is_none(), "silent block — no message set");
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod print_modal_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use hp41_core::ops::Op;
+
+    #[allow(dead_code)]
+    fn key(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_print_modal_prx_sets_message() {
+        let mut app = App::new_for_test();
+        // Push a value onto the stack
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(42))).unwrap();
+        // Simulate 'P' key (opens modal)
+        let p_key = KeyEvent::new(KeyCode::Char('P'), KeyModifiers::NONE);
+        app.handle_key(p_key);
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::PrintModal)),
+            "Pressing 'P' must set PendingInput::PrintModal"
+        );
+        // Simulate 'x' key (dispatches PRX)
+        let x_key = KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE);
+        app.handle_key(x_key);
+        assert!(
+            app.pending_input.is_none(),
+            "After PrintModal 'x', pending_input must be None"
+        );
+        assert!(
+            app.message.is_some(),
+            "After PRX, app.message must contain the formatted line"
+        );
+        let msg = app.message.as_deref().unwrap_or("");
+        assert_eq!(msg.len(), 24, "PRX message must be 24 chars, got {msg:?}");
+    }
+
+    #[test]
+    fn test_print_modal_esc_cancels_without_dispatch() {
+        let mut app = App::new_for_test();
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(5))).unwrap();
+        let x_before = app.state.stack.x.clone();
+        // Open modal
+        let p_key = KeyEvent::new(KeyCode::Char('P'), KeyModifiers::NONE);
+        app.handle_key(p_key);
+        // Cancel
+        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        app.handle_key(esc_key);
+        assert!(app.pending_input.is_none(), "Esc must clear pending_input");
+        assert!(
+            app.state.print_buffer.is_empty(),
+            "Esc must not dispatch any print op"
+        );
+        assert_eq!(app.state.stack.x, x_before, "Esc must not modify stack");
+    }
+
+    #[test]
+    fn test_print_log_file_append() {
+        let tmp_dir = std::env::temp_dir().join("hp41_print_log_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let log_path = tmp_dir.join("print.txt");
+        // Remove if leftover from prior run
+        let _ = std::fs::remove_file(&log_path);
+
+        let mut app = App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            Some(log_path.clone()),
+        );
+        hp41_core::ops::dispatch(&mut app.state, Op::PushNum(hp41_core::HpNum::from(99))).unwrap();
+        // Trigger PRX via call_dispatch_and_drain directly
+        app.call_dispatch_and_drain(Op::PRX);
+
+        // Flush should have been called in call_dispatch_and_drain
+        let contents = std::fs::read_to_string(&log_path).unwrap();
+        assert!(
+            !contents.is_empty(),
+            "print log file must have content after PRX"
+        );
+        assert_eq!(
+            contents.lines().count(),
+            1,
+            "PRX must write exactly 1 line to the log file"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_print_log_invalid_path_sets_message() {
+        // Use a path that cannot be created (directory that does not exist, read-only root)
+        let bad_path = std::path::PathBuf::from("/no_such_dir_hp41/print.log");
+        let app = App::new(
+            CalcState::new(),
+            PathBuf::from("/tmp/hp41-cli-test-state.json"),
+            Some(bad_path),
+        );
+        assert!(
+            app.print_log_writer.is_none(),
+            "App::new with invalid --print-log path must set print_log_writer = None"
+        );
+        assert!(
+            app.message.is_some(),
+            "App::new with invalid --print-log path must set app.message to an error string"
+        );
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("Warning") || msg.contains("cannot open") || msg.contains("print log"),
+            "Error message must describe the open failure, got: {msg:?}"
+        );
+    }
+}
+
+/// Phase 12 CLI wiring tests: last_key_code, HexModal, and M/N/O modal extensions.
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod synthetic_modal_tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    fn make_app() -> App {
+        App::new_for_test()
+    }
+
+    fn press(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_last_key_code_updated_on_press() {
+        let mut app = make_app();
+        // Press '5' (KeyCode::Char('5')) — keycode_to_hp41_code maps to 62 (row 6, col 2).
+        app.handle_key(press(KeyCode::Char('5')));
+        assert_eq!(
+            app.state.last_key_code, 62,
+            "Press '5' must set last_key_code = 62"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_opens_only_in_prgm_mode() {
+        let mut app = make_app();
+        app.state.prgm_mode = false;
+        app.handle_key(press(KeyCode::Char('X')));
+        assert!(
+            !matches!(app.pending_input, Some(PendingInput::HexModal(_))),
+            "HexModal must NOT open outside PRGM mode"
+        );
+
+        let mut app2 = make_app();
+        app2.state.prgm_mode = true;
+        app2.handle_key(press(KeyCode::Char('X')));
+        assert!(
+            matches!(app2.pending_input, Some(PendingInput::HexModal(ref s)) if s.is_empty()),
+            "HexModal must open with empty accumulator in PRGM mode"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_invalid_byte_rejects_with_message() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        let prog_len_before = app.state.program.len();
+        // 0x00 is not in the safe subset → INVALID.
+        app.handle_key(press(KeyCode::Char('0')));
+        app.handle_key(press(KeyCode::Char('0')));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before,
+            "Invalid byte must NOT modify the program Vec"
+        );
+        assert_eq!(
+            app.message.as_deref(),
+            Some("INVALID"),
+            "Invalid byte must set app.message = 'INVALID'"
+        );
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after rejection"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_valid_byte_inserts_synthetic() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        app.state.pc = 0;
+        let pc_before = app.state.pc;
+        let prog_len_before = app.state.program.len();
+        // 0xCF is NULL — which is in the safe subset (maps to Op::Null).
+        // Check synthetic_byte_to_op(0xCF) is Some in Wave 1 implementation.
+        // If 0xCF is not in subset, use 0xCE (GetKey) which is confirmed in mod.rs.
+        app.handle_key(press(KeyCode::Char('c')));
+        app.handle_key(press(KeyCode::Char('e')));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before + 1,
+            "Valid byte must insert exactly 1 step"
+        );
+        assert_eq!(
+            app.state.program[0],
+            hp41_core::ops::Op::SyntheticByte(0xCE),
+            "Inserted step must be SyntheticByte(0xCE)"
+        );
+        assert_eq!(
+            app.state.pc,
+            pc_before + 1,
+            "PC must advance past inserted step"
+        );
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after insertion"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_esc_cancels_cleanly() {
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        let prog_len_before = app.state.program.len();
+        app.handle_key(press(KeyCode::Esc));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len_before,
+            "Esc must not modify program Vec"
+        );
+        assert!(app.pending_input.is_none(), "Esc must close HexModal");
+        assert!(app.message.is_none(), "Esc must not set INVALID message");
+    }
+
+    #[test]
+    fn test_hex_modal_esc_after_first_digit_cancels() {
+        // Esc must also cancel when one hex digit has already been typed
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        app.handle_key(press(KeyCode::Char('c'))); // first digit — acc = "c"
+        let prog_len = app.state.program.len();
+        app.handle_key(press(KeyCode::Esc));
+        assert_eq!(
+            app.state.program.len(),
+            prog_len,
+            "Esc must not insert anything"
+        );
+        assert!(app.pending_input.is_none(), "Esc must close modal");
+        assert!(app.message.is_none(), "Esc must not set INVALID");
+    }
+
+    #[test]
+    fn test_sto_n_via_modal() {
+        let mut app = make_app();
+        app.handle_key(press(KeyCode::Char('S')));
+        app.state.stack.x = hp41_core::HpNum::from(55i32);
+        app.handle_key(press(KeyCode::Char('N')));
+        assert!(app.pending_input.is_none(), "modal must close after N");
+        assert_eq!(
+            app.state.reg_n,
+            hp41_core::HpNum::from(55i32),
+            "STO N must store X into reg_n"
+        );
+    }
+
+    #[test]
+    fn test_rcl_o_via_modal() {
+        let mut app = make_app();
+        app.state.reg_o = hp41_core::HpNum::from(77i32);
+        app.handle_key(press(KeyCode::Char('R')));
+        app.handle_key(press(KeyCode::Char('o')));
+        assert!(app.pending_input.is_none(), "modal must close after o");
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(77i32),
+            "RCL O must recall reg_o into X"
+        );
+    }
+
+    #[test]
+    fn test_sto_m_via_modal() {
+        let mut app = make_app();
+        // Press 'S' to open StoRegister modal
+        app.handle_key(press(KeyCode::Char('S')));
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::StoRegister(_))),
+            "Pressing 'S' must open StoRegister modal"
+        );
+        // Set X to 42 before pressing 'M'
+        app.state.stack.x = hp41_core::HpNum::from(42i32);
+        // Press 'M' to dispatch StoM
+        app.handle_key(press(KeyCode::Char('M')));
+        assert!(
+            app.pending_input.is_none(),
+            "Modal must close after M dispatch"
+        );
+        assert_eq!(
+            app.state.reg_m,
+            hp41_core::HpNum::from(42i32),
+            "STO M must store X into reg_m"
+        );
+    }
+
+    #[test]
+    fn test_rcl_m_via_modal() {
+        let mut app = make_app();
+        // Pre-load reg_m with 99
+        app.state.reg_m = hp41_core::HpNum::from(99i32);
+        // Press 'R' to open RclRegister modal
+        app.handle_key(press(KeyCode::Char('R')));
+        assert!(
+            matches!(app.pending_input, Some(PendingInput::RclRegister(_))),
+            "Pressing 'R' must open RclRegister modal"
+        );
+        // Press 'm' (lowercase) to dispatch RclM
+        app.handle_key(press(KeyCode::Char('m')));
+        assert!(
+            app.pending_input.is_none(),
+            "Modal must close after m dispatch"
+        );
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(99i32),
+            "RCL M must recall reg_m into X"
+        );
+    }
+
+    #[test]
+    fn test_mno_guard_only_when_acc_empty() {
+        // If user already typed a digit '0' in StoRegister, pressing 'M' should NOT
+        // dispatch StoM — it should fall through to handle_reg_modal and be ignored
+        // (since '0M' is not a valid register number, handle_reg_modal will ignore 'M').
+        let mut app = make_app();
+        app.pending_input = Some(PendingInput::StoRegister("0".to_string()));
+        app.state.stack.x = hp41_core::HpNum::from(77i32);
+        app.handle_key(press(KeyCode::Char('M')));
+        // reg_m must NOT be updated because acc was non-empty ("0") when M was pressed.
+        assert!(
+            app.state.reg_m.is_zero(),
+            "STO M must not dispatch when accumulator is non-empty"
+        );
+    }
+
+    #[test]
+    fn test_hex_modal_insert_when_pc_past_end_does_not_panic() {
+        // Reproduces ISG/DSE skip-at-end scenario where pc = program.len() + 1.
+        // Vec::insert panics when index > len — the clamp in the Some(_) arm prevents this.
+        let mut app = make_app();
+        app.state.prgm_mode = true;
+        app.state.program = vec![hp41_core::ops::Op::Null]; // len = 1
+        app.state.pc = 2; // len + 1 — the dangerous value after ISG/DSE skip
+        app.pending_input = Some(PendingInput::HexModal(String::new()));
+        // 0xCF → Op::Null (valid) — must insert at clamped position without panic
+        app.handle_key(press(KeyCode::Char('c')));
+        app.handle_key(press(KeyCode::Char('f')));
+        assert_eq!(app.state.program.len(), 2, "one step must be inserted");
+        assert!(
+            app.pending_input.is_none(),
+            "HexModal must close after insertion"
+        );
+    }
+
+    #[test]
+    fn test_getkey_end_to_end_keypress_to_x() {
+        // UAT-1: keyboard press → last_key_code → GETKEY in program via run_program → X
+        // Tests the execute_op path (Op::GetKey arm in program.rs), not just dispatch.
+        let mut app = make_app();
+        // Press '5' — keycode_to_hp41_code maps it to 62 (row 6 × 10 + col 2)
+        app.handle_key(press(KeyCode::Char('5')));
+        assert_eq!(
+            app.state.last_key_code, 62,
+            "pressing '5' must record HP-41 code 62"
+        );
+
+        // Load program [LBL A, GetKey] and run via run_program — exercises execute_op
+        app.state.program = vec![
+            hp41_core::ops::Op::Lbl("A".to_string()),
+            hp41_core::ops::Op::GetKey,
+        ];
+        hp41_core::run_program(&mut app.state, "A").unwrap();
+
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(62i32),
+            "GETKEY in program must push last_key_code (62) into X"
+        );
+    }
+
+    #[test]
+    fn test_getkey_via_synthetic_byte_in_program() {
+        // SyntheticByte(0xCE) → GetKey path via execute_op (HexModal insertion flow)
+        let mut app = make_app();
+        app.handle_key(press(KeyCode::Char('7')));
+        assert_eq!(
+            app.state.last_key_code, 51,
+            "pressing '7' must record HP-41 code 51"
+        );
+
+        app.state.program = vec![
+            hp41_core::ops::Op::Lbl("A".to_string()),
+            hp41_core::ops::Op::SyntheticByte(0xCE), // 0xCE → GetKey
+        ];
+        hp41_core::run_program(&mut app.state, "A").unwrap();
+
+        assert_eq!(
+            app.state.stack.x,
+            hp41_core::HpNum::from(51i32),
+            "SyntheticByte(0xCE) in program must execute as GETKEY and push 51"
         );
     }
 }

@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default capability for hp41-gui — core + Phase 14 IPC commands",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "allow-dispatch-op",
+    "allow-get-state",
+    "allow-sst-step",
+    "allow-bst-step"
+  ]
+}

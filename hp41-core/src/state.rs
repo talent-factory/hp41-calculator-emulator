@@ -86,6 +86,32 @@ pub struct CalcState {
     /// User key assignments: maps key char → program label name.
     /// BTreeMap for deterministic JSON serialization order (D-25, D-29).
     pub key_assignments: BTreeMap<char, String>,
+    // ── Phase 11: Print emulation ─────────────────────────────────────────────
+    /// Buffer of formatted print lines from PRX/PRA/PRSTK.
+    /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
+    /// #[serde(default, skip)] — default enables backward-compat deserialization of v1.0
+    /// save files that lack this field; skip prevents serialization of transient state.
+    #[serde(default, skip)]
+    pub print_buffer: Vec<String>,
+    // ── Phase 12: Synthetic Programming ──────────────────────────────────────
+    /// Last HP-41 row-column key code pressed (row×10+col, 1-indexed). 0 = none since startup.
+    /// Updated by hp41-cli `handle_key()` on every Press event. Read by `Op::GetKey`.
+    /// Default: 0. Persistent across save/load (#[serde(default)]).
+    #[serde(default)]
+    pub last_key_code: u8,
+
+    /// Hidden register M — accessible via STO M / RCL M in programs.
+    /// Not part of the numbered `regs: Vec<HpNum>`. Default: HpNum::zero().
+    #[serde(default)]
+    pub reg_m: HpNum,
+
+    /// Hidden register N — accessible via STO N / RCL N in programs.
+    #[serde(default)]
+    pub reg_n: HpNum,
+
+    /// Hidden register O — accessible via STO O / RCL O in programs.
+    #[serde(default)]
+    pub reg_o: HpNum,
 }
 
 impl CalcState {
@@ -105,6 +131,11 @@ impl CalcState {
             is_running: false,
             user_mode: false,
             key_assignments: BTreeMap::new(),
+            print_buffer: Vec::new(),
+            last_key_code: 0,
+            reg_m: HpNum::zero(),
+            reg_n: HpNum::zero(),
+            reg_o: HpNum::zero(),
         }
     }
 }

@@ -63,9 +63,9 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('O') => Some(Op::Corr),
         KeyCode::Char('V') => Some(Op::ClSigmaStat),
         // Phase 6: HMS bindings
-        // Note: 'f' is intercepted in app.rs for format mode; use 'F' for →HMS.
+        // Note: 'f' is intercepted in app.rs for format mode.
+        // Note: 'F' is intercepted in app.rs for FmtDigits modal — HToHms is unbound.
         KeyCode::Char('h') => Some(Op::HmsToH),
-        KeyCode::Char('F') => Some(Op::HToHms),
         KeyCode::Char('j') => Some(Op::HmsAdd),
         KeyCode::Char('J') => Some(Op::HmsSub),
         // Phase 8: Tech Debt Cleanup — previously unmapped keys
@@ -118,7 +118,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("Y", "y^x  (Shift+y)"),
     ("p", "PRGM toggle"),
     ("d", "cycle DEG/RAD/GRAD"),
-    ("f", "cycle FIX/SCI/ENG"),
+    ("f", "cycle FIX/SCI/ENG (keeps digit count)"),
     ("F5", "R/S (run program A)"),
     ("F7", "SST (step forward)"),
     ("F8", "BST (step back)"),
@@ -158,11 +158,97 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
         "V",
         "CL\u{03A3} (clear \u{03A3} stats registers R01-R06 to zero)",
     ),
+    (
+        "F",
+        "FIX/SCI/ENG n modal (set exact digit count 0\u{2013}9)",
+    ),
     ("h", "HMS\u{2192} (H.MMSS to decimal hours)"),
-    ("F", "\u{2192}HMS (decimal hours to H.MMSS format)"),
     ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
     ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),
+    // Phase 12: synthetic programming
+    (
+        "X nn",
+        "Insert synthetic hex byte at current PC (PRGM mode only)",
+    ),
 ];
+
+/// Map a crossterm KeyCode to the HP-41 hardware key code (row×10 + col, 1-indexed).
+/// Returns 0 for keys with no HP-41 hardware equivalent (function keys, Ctrl combos, etc.).
+/// Called from `App::handle_key()` to update `CalcState.last_key_code` on every Press
+/// event (D-01). Read by `Op::GetKey` to push the last key code to X (SYNT-01).
+///
+/// HP-41C keyboard layout: 8 rows × 5 columns. Key code = row × 10 + col.
+/// Rows are numbered 1-8 top-to-bottom, columns 1-5 left-to-right.
+/// Row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15)
+/// Row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25)
+/// Row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35)
+/// Row 4: USER(41), f(42), g(43), ENTER(44), ÷(45)
+/// Row 5: 7(51), 8(52), 9(53), ×(54)
+/// Row 6: 4(61), 5(62), 6(63), −(64)
+/// Row 7: 1(71), 2(72), 3(73), +(74)
+/// Row 8: 0(81), .(82), EEX(83), R/S(84), ENTER(85) [rows from HP-41C Owner's Manual Appendix A]
+///
+/// [ASSUMED — rows 1-4 column assignments; rows 5-8 digit/arithmetic keys are certain.
+///  See CONTEXT.md D-02 and RESEARCH.md A1.]
+/// Returns `Some(code)` for keys that correspond to physical HP-41 calculator keys.
+/// Returns `None` for TUI-only keys (F5/F7/F8) and unmapped keys.
+///
+/// Callers must only update `last_key_code` when `Some` is returned — `None` means
+/// the keypress has no HP-41 hardware equivalent and must not corrupt GETKEY state.
+pub fn keycode_to_hp41_code(code: crossterm::event::KeyCode) -> Option<u8> {
+    use crossterm::event::KeyCode;
+    Some(match code {
+        // Row 8: 0(81), .(82), EEX(83), ENTER(84/85) — digit/arithmetic row (bottom)
+        KeyCode::Char('0') => 81,
+        KeyCode::Char('.') => 82,
+        KeyCode::Char('e') => 83, // EEX
+        KeyCode::Enter => 84,     // ENTER (row 8, col 4 in some HP-41C variants)
+        // Row 7: 1(71), 2(72), 3(73), +(74)
+        KeyCode::Char('1') => 71,
+        KeyCode::Char('2') => 72,
+        KeyCode::Char('3') => 73,
+        KeyCode::Char('+') => 74,
+        // Row 6: 4(61), 5(62), 6(63), −(64)
+        KeyCode::Char('4') => 61,
+        KeyCode::Char('5') => 62,
+        KeyCode::Char('6') => 63,
+        KeyCode::Char('-') => 64,
+        // Row 5: 7(51), 8(52), 9(53), ×(54)
+        KeyCode::Char('7') => 51,
+        KeyCode::Char('8') => 52,
+        KeyCode::Char('9') => 53,
+        KeyCode::Char('*') => 54,
+        // Row 4: USER(41), f(42), g(43), ENTER(44), ÷(45)
+        // [ASSUMED — row 4 column assignments from HP-41C Owner's Manual]
+        KeyCode::Char('u') | KeyCode::Char('U') => 41, // USER mode toggle
+        KeyCode::Char('f') => 42,                      // f-key (format cycle)
+        KeyCode::Char('g') => 43,                      // g-key (CLREG)
+        KeyCode::Char('/') => 45,                      // ÷
+        // Row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35)
+        // [ASSUMED — row 3 column assignments]
+        // F5/F7/F8 are TUI-only bindings with no physical HP-41 key equivalent.
+        // They must not update last_key_code — caller checks for None.
+        KeyCode::F(5) | KeyCode::F(7) | KeyCode::F(8) => return None,
+        KeyCode::Char('C') => 34, // COS (uppercase, Shift+C)
+        KeyCode::Char('T') => 35, // TAN (uppercase, Shift+T)
+        // Row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25)
+        // [ASSUMED — row 2 column assignments match Phase 8 TUI key assignments]
+        KeyCode::Char('X') => 21, // XEQ
+        KeyCode::Char('S') => 22, // STO modal opener
+        KeyCode::Char('R') => 23, // RCL modal opener
+        KeyCode::Char('r') => 24, // R↓ (lowercase r — roll down)
+        KeyCode::Char('q') => 25, // SIN (Phase 8 reassignment to 'q')
+        // Row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15) — top function row
+        // [ASSUMED — row 1 column assignments]
+        KeyCode::Char('z') => 11, // Σ+
+        KeyCode::Char('I') => 12, // 1/x (uppercase I, Shift+I)
+        KeyCode::Char('s') => 13, // √x (lowercase s)
+        KeyCode::Char('G') => 14, // LOG (uppercase G, Shift+G)
+        KeyCode::Char('L') => 15, // LN (uppercase L, Shift+L)
+        // All other keys: no HP-41 hardware equivalent.
+        _ => return None,
+    })
+}
 
 #[cfg(test)]
 mod tests {
@@ -180,8 +266,7 @@ mod tests {
         let result = hp41_core::ops::dispatch(&mut state, Op::UserMode);
         assert!(
             result.is_ok(),
-            "UserMode dispatch must not error: {:?}",
-            result
+            "UserMode dispatch must not error: {result:?}"
         );
         assert!(
             state.user_mode,

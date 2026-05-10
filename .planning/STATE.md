@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: planning
-current_phase: 9
-current_plan: Not started
-status: Milestone v1.0 complete — ready for v1.1 planning
-last_updated: "2026-05-08T10:00:00.000Z"
+milestone: v2.1
+milestone_name: Polish
+current_phase: 18
+current_plan: "04"
+status: milestone-complete
+last_updated: "2026-05-10T21:00:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 45
-  completed_plans: 45
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 19
   percent: 100
 ---
 
@@ -24,6 +24,9 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
+**Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
+**Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
+**Current focus:** v2.1 Polish — planning next milestone
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -31,21 +34,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-**Milestone v1.0:** Complete ✅
-**Current focus:** Planning v1.1
+Phase: 18 — Program Listing & CI/CD (COMPLETE)
+Plan: 18-04 (complete — all plans executed)
+Status: v2.0 milestone complete (2026-05-10); all 6 phases (13–18), 19 plans complete; awaiting /gsd-new-milestone for v2.1
+Last activity: 2026-05-10 — v2.0 archived; git tag v1.1 + v2.0 created.
 
-```
-Progress: [████████████████] 100% (all v1.0 phases complete)
-
-Phase 1: Foundation          [x] Complete (2026-05-06)
-Phase 2: Core Math           [x] Complete (2026-05-07)
-Phase 3: Programming Engine  [x] Complete (2026-05-07)
-Phase 4: TUI & Input         [x] Complete (2026-05-07)
-Phase 5: Persistence & UX    [x] Complete (2026-05-07)
-Phase 6: Science & Engineering [x] Complete (2026-05-07)
-Phase 7: Hardening           [x] Complete (2026-05-07)
-Phase 8: Tech Debt Cleanup   [x] Complete (2026-05-08)
-```
+Progress: [█████████████████████████████] 100% (6/6 phases complete)
 
 ---
 
@@ -55,10 +49,10 @@ Phase 8: Tech Debt Cleanup   [x] Complete (2026-05-08)
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% | 94.87% |
+| `hp41-core` test coverage | ≥ 80% | 94.87% (Phase 9: 94.22%) |
 | Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
-| CI platforms | Win/macOS/Ubuntu | All green (run #25539003811) |
+| CI platforms | Win/macOS/Ubuntu | All green |
 
 ---
 
@@ -77,40 +71,51 @@ Phase 8: Tech Debt Cleanup   [x] Complete (2026-05-08)
 | `serde_json` for persistence | Human-readable, diff-able, versioned JSON | Phase 5 |
 | No async in `hp41-core` | Single-threaded event loop | All |
 | `#![deny(clippy::unwrap_used)]` | Compile-time zero-panic guarantee | Phase 7 |
+| `print_buffer: Vec<String>` on CalcState | Keeps hp41-core I/O-free; hp41-cli drains buffer | Phase 11 |
+| EEX trailing-e → append "00" | Hardware fidelity; `flush_entry_buf` normalizes before parse chain | Phase 9 |
+| Empty-buffer EEX inserts "1e" | HP-41 hardware behavior; implicit mantissa | Phase 9 |
+| `format_entry_buf_display` in ui.rs | TUI exponent placeholder rendering separated from `get_display_string` | Phase 9 |
+| `pending_input` routing before modal interceptors | Prevents active dialogs being silently discarded by S/R/Ctrl+A | Phase 9 |
+| `entry_buf` preserved on parse failure | Silent data loss fix; clear only on successful parse | Phase 9 |
+| MSRV 1.85 with workspace inheritance | `rust-version.workspace = true` in member crates; CI job with llvm-tools | Phase 9 |
+| CHS during EEX entry toggles exponent sign | 'n' in EEX mode mutates entry_buf in-place (no flush); "e-" normalized to "e-00" in flush_entry_buf | Quick 260508-y30 |
+| Bundle identifier `ch.talent-factory.hp41` (D-02) | Overrides scaffold default `com.tauri.dev`; avoids macOS sandbox/keychain issues | Phase 13 |
+| capabilities/default.json core:default only | Minimum Tauri v2 capability; hp41-specific IPC permissions added in Phase 14 when commands are registered | Phase 13 |
+| Mutex lock: `.unwrap_or_else(\|e\| e.into_inner())` | Poisoned-lock recovery required by zero-panic policy; applies to all Phase 14+ command handlers | Phase 13 |
+| Tauri v2.11 app-command permissions: TOML files required | For inline app commands (not plugins), Tauri v2.11 does NOT auto-generate allow-<cmd> permissions. Create TOML in src-tauri/permissions/<cmd-kebab>.toml with `[[permission]] identifier + commands.allow = ["fn_name"]` | Phase 14 |
+| CalcStateView display_str priority: entry_buf → format_alpha(alpha_mode) → format_hpnum(stack.x) | Matches hp41-cli get_display_string logic; x_str always uses format_hpnum for Phase 15 stack panel | Phase 14 |
+| EEX-CHS gap in handle_op | In-buffer exponent sign toggle (Op::Chs during EEX entry) is missing from commands.rs handle_op; deferred to Phase 15 keyboard wiring. Frontend must send "eex_chs" key ID | Phase 14 |
+| KEY_DEFS has 44 entries, not 40 | HP-41C has 44 key positions (9+8+9+9+9 across 5 rows); ENTER is one entry with colSpan:2. Plan text said "40" in error; implementation follows the actual key list. | Phase 16 |
+| SVG shadow: manual rect over filter | Shadow implemented as 1px-offset black rect (45% opacity) rather than SVG feDropShadow filter — simpler, no GPU compositing overhead, no per-element filter allocation | Phase 16 |
+| transform-box: fill-box required for SVG animation | Without this CSS property, scale() transforms from SVG canvas origin rather than each key's own center — keys would translate instead of shrink in place | Phase 16 |
 
-### Critical Implementation Traps
+### Critical Implementation Traps (v1.1)
 
-- ISG/DSE counter fields must be extracted by string-splitting at the decimal point — never with `floor()`/`fmod()` on f64
-- Windows crossterm fires both `KeyEventKind::Press` and `KeyEventKind::Release` — filter to Press only or every operation executes twice
-- Always use `ratatui::init()` (not `Terminal::new()`) to install the panic hook
-- Use `event::poll(timeout)` not `event::read()` to support the 30-second auto-save timer
-- `cargo llvm-cov` accumulates stale `.profraw` data in worktree runs — always `cargo llvm-cov clean --workspace` before measuring coverage
+- Every new Op variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`
+- New CalcState fields need `#[serde(default)]` for backward compatibility with v1.0 save files
+- STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 adds StackReg enum + Op::StoArithStack variant + op_sto_arith_stack() function (core) and TUI routing (cli)
+- Phase 10 hp41-core changes: StackReg enum in ops/mod.rs, Op::StoArithStack variant, op_sto_arith_stack() in registers.rs, dispatch()/execute_op() arms
+- `pending_input` routing block must remain ABOVE modal-opening interceptors (S/R/Ctrl+A) to prevent modal interruption
 
----
-
-## Deferred Items
-
-Items acknowledged at v1.0 milestone close (2026-05-08):
-
-| Category | Item | Status |
-|----------|------|--------|
-| keyboard | STO arithmetic modals (STO+/-/×/÷) | Deferred to v1.1 |
-| behavior | EEX trailing-e-without-exponent discards silently | Documented with test; v1.1 |
-
----
-
-## Blockers
+### Blockers
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260508-y30 | CHS during EEX entry: toggle minus sign in exponent | 2026-05-08 | aa0904b | [260508-y30-eex-chs-exponent-sign-toggle](./quick/260508-y30-eex-chs-exponent-sign-toggle/) |
+| 260508-06h | FIX/SCI/ENG digit-count modal via F key (0–9) | 2026-05-08 | 7ff792c | [260508-06h-fix-sci-eng-digit-input](./quick/260508-06h-fix-sci-eng-digit-input/) |
 
 ---
 
 ## Session Continuity
 
-**Last active:** 2026-05-08
-**Last action:** v1.0 milestone complete — all phases done, REQUIREMENTS.md archived, tagged v1.0
-**Next action:** `/gsd-new-milestone` to plan v1.1
+**Last active:** 2026-05-10
+**Last action:** v2.0 Tauri GUI milestone complete — all 6 phases (13–18), 19 plans, archived to milestones/; git tags v1.1 + v2.0 created
+**Next action:** `/gsd-new-milestone` — plan v2.1 Polish milestone
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-08 after v1.0 milestone completion*
+*Last updated: 2026-05-10 — v2.0 Tauri GUI milestone archived; tags v1.1 + v2.0 created*

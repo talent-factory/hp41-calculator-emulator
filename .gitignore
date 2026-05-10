@@ -26,8 +26,8 @@ Desktop.ini
 .env.local
 .env.*.local
 
-# Tauri (hp41-gui — future)
-/dist/
+# Tauri (hp41-gui)
+hp41-gui/dist/
 node_modules/
 src-tauri/target/
 *.dmg

@@ -62,18 +62,30 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "Recall register nn (00–99) to X — press R then 2 digits",
     ),
     (
-        "Shift+R",
+        "S",
         "STO [nn]",
         "Store X to register nn (00–99) — press S then 2 digits",
     ),
     (
-        "Shift+R+",
+        "S +",
         "STO+ [nn]",
-        "Add X to register nn — press Shift+R+, then 2 digits",
+        "Add X to register nn or stack Y/Z/T/L — press S then +, then nn or Y/Z/T/L",
     ),
-    ("Shift+R-", "STO- [nn]", "Subtract X from register nn"),
-    ("Shift+R*", "STO× [nn]", "Multiply register nn by X"),
-    ("Shift+R/", "STO÷ [nn]", "Divide register nn by X"),
+    (
+        "S -",
+        "STO- [nn]",
+        "Subtract X from register nn or stack Y/Z/T/L — press S then -, then nn or Y/Z/T/L",
+    ),
+    (
+        "S *",
+        "STO× [nn]",
+        "Multiply register nn or stack Y/Z/T/L by X — press S then *, then nn or Y/Z/T/L",
+    ),
+    (
+        "S /",
+        "STO÷ [nn]",
+        "Divide register nn or stack Y/Z/T/L by X — press S then /, then nn or Y/Z/T/L",
+    ),
     ("g", "CLREG", "Clear all storage registers R00-R99 to zero"),
     // ── ALPHA ─────────────────────────────────────────────────────────────────
     ("", "", "=== ALPHA Mode ==="),
@@ -122,7 +134,12 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     (
         "f",
         "FIX/SCI/ENG",
-        "Cycle display format: FIX 4 → SCI 4 → ENG 4 → FIX 4",
+        "Cycle display format (FIX/SCI/ENG), keeps current digit count",
+    ),
+    (
+        "F",
+        "FIX/SCI/ENG n",
+        "Open digit-count modal: enter 0\u{2013}9 to set digits; f cycles format",
     ),
     ("0-9", "digit", "Digit entry (append to X entry buffer)"),
     (".", "decimal", "Decimal point in entry buffer"),
@@ -214,7 +231,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "HMS\u{2192}",
         "Convert H.MMSS (hours.minutesseconds) to decimal hours",
     ),
-    ("F", "\u{2192}HMS", "Convert decimal hours to H.MMSS format"),
+    (
+        "(none)",
+        "\u{2192}HMS",
+        "Convert decimal hours to H.MMSS format (key unbound; use dispatch)",
+    ),
     (
         "j",
         "HMS+",
@@ -224,6 +245,60 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "J",
         "HMS\u{2212}",
         "Subtract H.MMSS values: Y \u{2212} X \u{2192} X (base-60 borrow)",
+    ),
+    // ── Print ─────────────────────────────────────────────────────────────────
+    ("", "", "=== Print ==="),
+    (
+        "P X",
+        "PRX",
+        "Print X register to console (right-aligned, 24 chars)",
+    ),
+    (
+        "P A",
+        "PRA",
+        "Print ALPHA register to console (left-aligned, 24 chars)",
+    ),
+    (
+        "P S",
+        "PRSTK",
+        "Print full stack T/Z/Y/X/LASTX/ALPHA (6 lines) to console",
+    ),
+    // ── Synthetic Programming ─────────────────────────────────────────────────
+    ("", "", "=== Synthetic Programming ==="),
+    (
+        "X nn",
+        "HEX",
+        "Insert synthetic hex byte at current PC (PRGM mode) — press X then 2 hex digits",
+    ),
+    (
+        "S M",
+        "STO M",
+        "Store X to hidden register M — press S then M",
+    ),
+    (
+        "S N",
+        "STO N",
+        "Store X to hidden register N — press S then N",
+    ),
+    (
+        "S O",
+        "STO O",
+        "Store X to hidden register O — press S then O",
+    ),
+    (
+        "R M",
+        "RCL M",
+        "Recall hidden register M into X — press R then M",
+    ),
+    (
+        "R N",
+        "RCL N",
+        "Recall hidden register N into X — press R then N",
+    ),
+    (
+        "R O",
+        "RCL O",
+        "Recall hidden register O into X — press R then O",
     ),
     // ── Help ──────────────────────────────────────────────────────────────────
     ("", "", "=== Help ==="),
@@ -254,7 +329,8 @@ mod tests {
     }
 
     #[test]
-    fn test_all_thirteen_categories_present() {
+    fn test_all_fifteen_categories_present() {
+        // Phase 12 added "=== Synthetic Programming ===" — now 15 categories total.
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",
@@ -267,6 +343,8 @@ mod tests {
             "=== Persistence ===",
             "=== USER Mode ===",
             "=== Science & Engineering ===",
+            "=== Print ===",
+            "=== Synthetic Programming ===",
             "=== Help ===",
             "=== Quit ===",
         ];

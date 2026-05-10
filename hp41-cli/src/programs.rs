@@ -76,6 +76,12 @@ fn build_all_programs() -> Vec<SampleProgram> {
             description: "Count down from X to 1 using DSE loop (display demo).",
             ops: countdown_ops(),
         },
+        SampleProgram {
+            name: "Synthetic Demo",
+            description:
+                "Synthetic programming demo: GETKEY → STO M → NULL → RCL M. Press a key, then run.",
+            ops: synthetic_demo_ops(),
+        },
     ]
 }
 
@@ -412,6 +418,29 @@ fn countdown_ops() -> Vec<Op> {
     ]
 }
 
+fn synthetic_demo_ops() -> Vec<Op> {
+    // Phase 12 Synthetic Programming demo.
+    //
+    // Demonstrates GETKEY, STO M, NULL, and RCL M in a single program.
+    //
+    // Usage:
+    //   1. In RUN mode, press any key (e.g. '5') — this updates last_key_code.
+    //   2. Press Ctrl+P to open program library, select "Synthetic Demo", load.
+    //   3. Press F5 to run from LBL A.
+    //   4. X shows the HP-41 row-column key code of the key you pressed in step 1.
+    //   5. The NULL step is a no-op placeholder — it does not change any register.
+    //
+    // Expected result for key '5': X = 62 (row 6, col 2 in HP-41 layout).
+    vec![
+        Op::Lbl("A".to_string()),
+        Op::GetKey, // SYNT-01: push last_key_code to X (LiftEffect::Enable)
+        Op::StoM,   // SYNT-03: store X in hidden register M
+        Op::Null,   // SYNT-02: no-op, neutral stack-lift — X unchanged
+        Op::RclM,   // SYNT-03: recall M back to X (round-trip proof)
+        Op::Rtn,
+    ]
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -462,8 +491,7 @@ mod tests {
         let result = hp41_core::run_program(&mut state, "A");
         assert!(
             result.is_ok(),
-            "Fibonacci must run without error: {:?}",
-            result
+            "Fibonacci must run without error: {result:?}"
         );
     }
 

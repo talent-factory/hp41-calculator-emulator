@@ -892,12 +892,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Sin).unwrap();
-        case!(
-            "trig_deg",
-            &format!("sin({}deg)", deg),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("sin({deg}deg)"), *expected, get_x(&s));
     }
 
     // COS DEG cases 131–155
@@ -931,12 +926,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Cos).unwrap();
-        case!(
-            "trig_deg",
-            &format!("cos({}deg)", deg),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("cos({deg}deg)"), *expected, get_x(&s));
     }
 
     // TAN DEG cases 156–175
@@ -965,12 +955,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = new_deg_state();
         push(&mut s, deg);
         dispatch(&mut s, Op::Tan).unwrap();
-        case!(
-            "trig_deg",
-            &format!("tan({}deg)", deg),
-            *expected,
-            get_x(&s)
-        );
+        case!("trig_deg", &format!("tan({deg}deg)"), *expected, get_x(&s));
     }
 
     // ASIN/ACOS/ATAN DEG cases 176–195
@@ -1230,7 +1215,7 @@ fn test_numerical_accuracy_suite() {
         dispatch(&mut s, Op::Sin).unwrap();
         case!(
             "trig_grad",
-            &format!("sin({}grad)", grad),
+            &format!("sin({grad}grad)"),
             *expected,
             get_x(&s)
         );
@@ -1247,7 +1232,7 @@ fn test_numerical_accuracy_suite() {
         dispatch(&mut s, Op::Cos).unwrap();
         case!(
             "trig_grad",
-            &format!("cos({}grad)", grad),
+            &format!("cos({grad}grad)"),
             *expected,
             get_x(&s)
         );
@@ -1496,7 +1481,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, input);
         dispatch(&mut s, Op::Ln).unwrap();
-        case!("log_exp", &format!("ln({})", input), *expected, get_x(&s));
+        case!("log_exp", &format!("ln({input})"), *expected, get_x(&s));
     }
 
     // LOG cases 281–310
@@ -1535,7 +1520,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, input);
         dispatch(&mut s, Op::Log).unwrap();
-        case!("log_exp", &format!("log({})", input), *expected, get_x(&s));
+        case!("log_exp", &format!("log({input})"), *expected, get_x(&s));
     }
 
     // e^x cases 311–330
@@ -1564,7 +1549,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, input);
         dispatch(&mut s, Op::Exp).unwrap();
-        case!("log_exp", &format!("exp({})", input), *expected, get_x(&s));
+        case!("log_exp", &format!("exp({input})"), *expected, get_x(&s));
     }
 
     // 10^x cases 331–350
@@ -1593,7 +1578,7 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, input);
         dispatch(&mut s, Op::TenPow).unwrap();
-        case!("log_exp", &format!("10^{}", input), *expected, get_x(&s));
+        case!("log_exp", &format!("10^{input}"), *expected, get_x(&s));
     }
 
     // ── Domain 4: ISG/DSE edge cases (cases 351–400) ─────────────────────────
@@ -2435,13 +2420,13 @@ fn test_numerical_accuracy_suite() {
             if *wide {
                 case!(
                     "hms",
-                    &format!("HMS->H({})", input),
+                    &format!("HMS->H({input})"),
                     *expected,
                     get_x(&s),
                     wide
                 );
             } else {
-                case!("hms", &format!("HMS->H({})", input), *expected, get_x(&s));
+                case!("hms", &format!("HMS->H({input})"), *expected, get_x(&s));
             }
         }
     }
@@ -2467,13 +2452,13 @@ fn test_numerical_accuracy_suite() {
             if *wide {
                 case!(
                     "hms",
-                    &format!("H->HMS({})", input),
+                    &format!("H->HMS({input})"),
                     *expected,
                     get_x(&s),
                     wide
                 );
             } else {
-                case!("hms", &format!("H->HMS({})", input), *expected, get_x(&s));
+                case!("hms", &format!("H->HMS({input})"), *expected, get_x(&s));
             }
         }
     }
@@ -2500,7 +2485,7 @@ fn test_numerical_accuracy_suite() {
             if *wide {
                 case!(
                     "hms",
-                    &format!("roundtrip HMS({})", input),
+                    &format!("roundtrip HMS({input})"),
                     *expected,
                     get_x(&s),
                     wide
@@ -2508,7 +2493,7 @@ fn test_numerical_accuracy_suite() {
             } else {
                 case!(
                     "hms",
-                    &format!("roundtrip HMS({})", input),
+                    &format!("roundtrip HMS({input})"),
                     *expected,
                     get_x(&s)
                 );
@@ -2735,12 +2720,10 @@ fn test_numerical_accuracy_suite() {
         eprintln!("---");
     }
 
-    println!("Numerical accuracy: {}/{} cases passed", passes, total);
+    println!("Numerical accuracy: {passes}/{total} cases passed");
 
     assert!(
         passes >= 490,
-        "Numerical accuracy suite: {}/{} cases passed (need >= 490 for 98%). Failures above.",
-        passes,
-        total
+        "Numerical accuracy suite: {passes}/{total} cases passed (need >= 490 for 98%). Failures above."
     );
 }

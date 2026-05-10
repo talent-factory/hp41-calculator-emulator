@@ -1,206 +1,311 @@
 # Technology Stack
 
-**Project:** HP-41 Calculator Emulator
-**Researched:** 2026-05-06
+**Project:** HP-41 Calculator Emulator — v2.0 GUI Stack (Tauri v2 + React + TypeScript)
+**Researched:** 2026-05-09
+**Scope:** NEW dependencies needed for `hp41-gui` only. The existing v1.0/v1.1 Rust stack is validated and unchanged.
 
 ---
 
-## Recommended Stack
+## Summary
 
-### Rust Toolchain
+`hp41-gui` is a thin Tauri v2 binary that owns the desktop window, exposes `hp41-core` operations as Tauri commands, and renders an SVG HP-41 skin in a React 19 + TypeScript + Vite 8 frontend. The Rust side is a new Cargo workspace member (`hp41-gui/src-tauri`). The frontend lives in `hp41-gui/` alongside `src-tauri/`. The entire frontend communicates with `hp41-core` exclusively through `invoke()` — no CalcState logic is duplicated in TypeScript.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Rust stable | 1.85+ | Language | 2024 edition required for async closures, let-chains, improved temporary scoping. Matches clap 4.6 and proptest 1.11 MSRV. PROJECT.md specifies 1.78+ minimum; bumping to 1.85 costs nothing for a greenfield project. |
-| Cargo workspace | resolver v3 (2024 edition) | Monorepo | Enforces `hp41-core` / `hp41-cli` / `hp41-gui` boundary at the build system level. Dependency deduplication cuts clean build time 40-60% on medium projects. |
-| Edition | 2024 | Language semantics | Stabilised in Rust 1.85 (2025-02-20). Use it from day one — migrating later is painful. |
-
-### TUI Framework
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **ratatui** | 0.30.0 | Terminal UI rendering | The de-facto successor to the abandoned `tui-rs`. Immediate-mode rendering with intermediate buffers. Rich widget set (Block, Paragraph, Table, List, Gauge, Sparkline). 30-40% less memory and 15% lower CPU vs. equivalent Go Bubbletea apps. Actively maintained with a large ecosystem (awesome-ratatui). CrosstermBackend is the default. |
-
-**Confidence: HIGH** — verified against crates.io (released 2025-12-26), official docs at ratatui.rs, and ecosystem research.
-
-Do NOT use: `tui-rs` (unmaintained, archived), `cursive` (retained-mode, harder to adapt to HP-41 frame-by-frame redraw pattern).
-
-### Terminal Backend / Input Handling
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **crossterm** | 0.29.0 | Terminal raw mode, keyboard events, cursor, color | Default and recommended backend for ratatui. The only backend with full Windows 10+ support (termion is Unix-only). Ratatui's own docs flowchart says "choose Crossterm if Windows matters." Consistent API across Windows, macOS, Linux. |
-
-**Confidence: HIGH** — confirmed by ratatui.rs/concepts/backends/comparison/, crates.io (released 2025-04-05).
-
-Do NOT use: `termion` (Unix-only, would break NFR-5 Windows 10+ requirement), `termwiz` (WezTerm-specific; over-engineered for this use case).
-
-Note on version pinning: Ratatui 0.30 warns against pulling in semver-incompatible crossterm versions in the same binary (causes race conditions and raw-mode restore failures). Use `crossterm = "0.29"` and let ratatui re-export what it needs.
-
-### CLI Argument Parsing
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **clap** | 4.6.1 | `--help`, `--version`, `--state-file`, `--program` flags | The standard Rust CLI parser. Derive macro (`#[derive(Parser)]`) keeps arg definitions next to structs. Excellent shell-completion generation via `clap_complete`. No realistic alternative with the same ecosystem maturity. |
-
-**Confidence: HIGH** — verified against crates.io (released 2026-04-15).
-
-Do NOT use: `structopt` (merged into clap 3+, deprecated), `pico-args` (too minimal for the help/completion story).
-
-Use features: `derive` (required), `env` (for `HP41_STATE_FILE` env var override), `wrap_help` (nicer terminal wrapping).
-
-### Serialization
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **serde** | 1.0.228 | Derive `Serialize`/`Deserialize` on all state types | Industry standard. Zero-copy deserialization where needed. |
-| **serde_json** | 1.0.149 | State files, program files, save/load (FR-10) | Human-readable format is non-negotiable for a calculator emulator — users share programs as text files. JSON is universally understood. The format must be versioned (`"schema_version": 1` field) for forward-compatible migration. |
-
-**Confidence: HIGH** — verified against crates.io.
-
-Do NOT use: `bincode`/`postcard` as the primary format — binary formats are unreadable, complicating the program-sharing use case. Fine as a secondary fast-path cache if ever needed.
-
-Consider: wrapping the JSON schema version in a top-level envelope so `serde_json::from_value` can branch on version before full deserialization (avoids breaking existing save files on schema changes).
-
-### Async Runtime
-
-**Verdict: Do NOT add tokio for v1.0.**
-
-Ratatui's own FAQ states: "Ratatui isn't a native async library." For a keyboard-driven calculator emulator, the event loop is:
-
-```
-poll crossterm event (blocking, timeout = 30 s auto-save interval)
-→ update hp41-core state (pure, synchronous, < 1 ms)
-→ render frame (ratatui draw, < 1 ms)
-```
-
-There are no concurrent background operations in v1.0. Auto-save can run in the same thread after a poll timeout. Adding tokio for this use case imposes compile-time overhead (adds ~3 s to cold builds on CI), binary size overhead (~500 KB), and async function coloring complexity with zero payoff.
-
-**If v2.0 Tauri requires async channels** between the Rust backend and web frontend, tokio enters via the Tauri dependency — but that stays in `hp41-gui`, not `hp41-core` or `hp41-cli`.
-
-**Confidence: HIGH** — ratatui FAQ explicitly confirmed, event model analysis matches the HP-41 interaction model.
-
-### Error Handling
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **thiserror** | 2.0.18 | Error types in `hp41-core` | Derive macro for `std::error::Error`. Keeps core error types ergonomic without pulling in heavy dependencies. |
-| `anyhow` | (if needed) | Top-level error propagation in `hp41-cli` | For `main()` and CLI glue code where detailed error types are less important than useful messages. Evaluate at implementation time — may not be needed. |
-
-**Confidence: HIGH** — thiserror 2.x verified against crates.io (released 2026-01-18).
+All version numbers verified against npm and crates.io registries on 2026-05-09.
 
 ---
 
-## Testing Stack
+## New Dependencies
 
-### Unit and Integration Testing
+### Rust Side (hp41-gui/src-tauri/Cargo.toml)
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| Rust built-in `#[test]` | stdlib | Unit tests in `hp41-core` | All pure computation tests: stack operations, arithmetic, trig, register operations, stack-lift semantics |
-| **proptest** | 1.11.0 | Property-based testing for numerical correctness | Testing that HP-41 arithmetic invariants hold across arbitrary f64 inputs (e.g., `sin(x)^2 + cos(x)^2 ≈ 1.0`); regression to NFR-7 (≥98% numerical agreement with 500 reference cases) |
-| **insta** | 1.47.2 | Snapshot testing | Testing display formatting (FIX/SCI/ENG modes), annunciator state strings, program listing output — any "string that should look exactly like this" scenario |
-| **approx** (0.5.1) or `float-cmp` (0.10.0) | stable | Floating-point approximate equality | Asserting results within HP-41's 10-digit BCD precision tolerance. Use `assert_relative_eq!` from `approx` or `assert_approx_eq!` from `float-cmp`. |
-| `ratatui::backend::TestBackend` | 0.30.0 | TUI widget rendering tests | Rendering `Stack`, `Display`, `Annunciator` widgets to a buffer and asserting cell content — avoids needing a real terminal in CI |
+| Crate | Version | Purpose | Why |
+|-------|---------|---------|-----|
+| `tauri` | `"2.11"` | Desktop shell, webview, IPC runtime | Core Tauri runtime; v2.11.1 is current stable. |
+| `tauri-build` | `"2.6"` | Build-time codegen (`build.rs`) | Required by every Tauri project — generates platform-specific glue at compile time. |
+| `serde` | `{ workspace = true }` | Serialize/Deserialize for command args and return types | Already a workspace dependency; Tauri requires `serde::Serialize` on all command return types. `CalcState` already derives it. |
+| `serde_json` | `{ workspace = true }` | JSON serialization | Already a workspace dependency; Tauri IPC uses JSON internally. |
 
-**Why proptest over quickcheck:** proptest 1.11 requires Rust 1.85, has better shrinking, and is more actively maintained than quickcheck 1.1. For the 500-case HP-41 reference test suite (NFR-7), proptest's strategy combinators let you express "any valid HP-41 number" precisely.
-
-**Confidence: HIGH for proptest/insta** — verified against crates.io. **MEDIUM for approx** — 0.5.1 is the stable release but 0.6.0-rc2 exists; 0.5.1 is safe to pin.
-
-### Coverage
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **cargo-llvm-cov** | 0.8.5 | LLVM source-based coverage, targeting ≥80% on `hp41-core` (NFR-4) |
-
-Run in CI with:
-```bash
-cargo llvm-cov --workspace --exclude hp41-cli --lcov --output-path lcov.info
-```
-
-Note: `x86_64-pc-windows-gnu` target does not work with cargo-llvm-cov — use `x86_64-pc-windows-msvc` on Windows CI runners.
-
----
-
-## CI and Release Tooling
-
-| Tool | Purpose | Why |
-|------|---------|-----|
-| GitHub Actions | CI runner | Native Windows, macOS, Linux runners; matrix strategy for cross-platform |
-| `dtolnay/rust-toolchain` action | Pin Rust stable | Reproducible builds |
-| `houseabsolute/actions-rust-cross` | Cross-compilation | ARM Linux targets (aarch64-unknown-linux-musl) if desired; native cargo for Windows/macOS |
-| **cargo-dist** 0.31.0 | Release packaging | Automated GitHub Release creation with .tar.gz (Linux/macOS) and .zip (Windows) artifacts; installer scripts; designed for Rust CLI tools |
-| `taiki-e/install-action@cargo-llvm-cov` | Install coverage tool in CI | Fastest way to get cargo-llvm-cov on runners |
-
-**Confidence: MEDIUM** — cargo-dist 0.31.0 verified; cross-compilation matrix pattern verified via multiple 2025 blog posts. Exact workflow YAML requires validation against runner images at implementation time.
-
----
-
-## Cargo.toml Dependency Summary
+`hp41-core` is added as a path dependency:
 
 ```toml
-# hp41-core/Cargo.toml
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
-
-[dev-dependencies]
-proptest = "1.11"
-approx = "0.5"
-insta = { version = "1.47", features = ["json"] }
-
-# hp41-cli/Cargo.toml
-[dependencies]
-hp41-core = { path = "../hp41-core" }
-ratatui = { version = "0.30", default-features = true }   # pulls in crossterm 0.29 backend
-crossterm = "0.29"
-clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }
-serde_json = "1.0"
-thiserror = "2.0"
-
-[dev-dependencies]
-insta = "1.47"
+hp41-core = { path = "../../hp41-core" }
 ```
 
-Do NOT add `tokio` to either crate for v1.0.
+No additional Rust crates are needed. `std::sync::Mutex` (stdlib) wraps `CalcState` for thread-safe Tauri state management.
+
+**tauri-specta (NOT included):** `tauri-specta = "2.0.0-rc.25"` generates TypeScript bindings from Rust command signatures. It is still in release-candidate status (latest is rc.25 as of 2026-05-09 — no stable release). For an HP-41 emulator with a small, stable command surface (~5 commands), manually maintaining TypeScript interfaces is less risky than depending on an RC crate. Revisit once tauri-specta reaches 2.0.0 stable.
+
+### Frontend (hp41-gui/package.json)
+
+#### Runtime Dependencies
+
+| Package | Version | Purpose | Why |
+|---------|---------|---------|-----|
+| `react` | `^19.2` | UI framework | React 19 is current stable (Dec 2024). Concurrent mode, improved hooks, `use()` API. |
+| `react-dom` | `^19.2` | React DOM renderer | Companion to react; required for web rendering. |
+| `@tauri-apps/api` | `^2.11` | `invoke()`, `listen()`, `emit()` | Official Tauri JavaScript API for IPC. Core module provides `invoke`. Event module provides `listen` for backend-push updates. |
+
+#### Dev Dependencies
+
+| Package | Version | Purpose | Why |
+|---------|---------|---------|-----|
+| `@tauri-apps/cli` | `^2.11` | Tauri CLI (`tauri dev`, `tauri build`) | Orchestrates Vite dev server + Rust compilation. `npm run tauri dev` starts the app. |
+| `vite` | `^8.0` | Frontend build tool | Tauri's recommended bundler. Instant HMR, native ESM, fast production builds. v8.0.11 is current. |
+| `@vitejs/plugin-react` | `^6.0` | React HMR + JSX transform for Vite | Fast Refresh via Babel. v6.0.1 is current. Use `@vitejs/plugin-react` (Babel) rather than `@vitejs/plugin-react-swc` — SWC is faster but has less predictable TypeScript decorator handling; for this project Babel is sufficient and more battle-tested with Tauri templates. |
+| `typescript` | `^6.0` | TypeScript compiler | v6.0.3 is current. Strict mode enabled. |
+| `@types/react` | `^19.2` | React TypeScript types | Required for JSX type checking. |
+| `@types/react-dom` | `^19.2` | React DOM TypeScript types | Required for `render`/`createRoot` type checking. |
+| `tailwindcss` | `^4.3` | CSS utility framework | v4.3.0 is current. For the HP-41 skin, Tailwind handles layout, spacing, and color variables. The CSS-only approach (`@import "tailwindcss"` in index.css) is simpler than v3's PostCSS config. |
+| `@tailwindcss/vite` | `^4.3` | Tailwind v4 Vite plugin | Tailwind v4 dropped PostCSS-first in favor of a Vite plugin. Required when using Tailwind v4 with Vite — no `tailwind.config.js` needed. |
 
 ---
 
-## Alternatives Considered
+## Integration Points with Existing Workspace
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| TUI | ratatui 0.30 | cursive | Retained-mode; less suited to HP-41's fixed-frame layout; smaller ecosystem |
-| TUI | ratatui 0.30 | tui-rs | Archived/unmaintained; ratatui is its direct successor |
-| TUI | ratatui 0.30 | iocraft | Experimental React-like model; immature, no production track record |
-| Backend | crossterm | termion | Unix-only; breaks Windows support (NFR-5) |
-| Backend | crossterm | termwiz | WezTerm-specific; no meaningful advantage here |
-| CLI args | clap 4 | structopt | Merged into clap 3+; use clap directly |
-| CLI args | clap 4 | pico-args | Too minimal; no help generation or shell completion |
-| Serialization | serde_json | bincode | Binary format; users can't inspect/share program files |
-| Serialization | serde_json | ron | Rust-centric; lower tool support for non-Rust users |
-| Async | none (sync) | tokio | Zero benefit for synchronous keyboard-driven emulator; adds compile overhead |
-| Error handling | thiserror | anyhow in core | anyhow erases error types; unacceptable in a library crate |
-| Property testing | proptest | quickcheck | proptest has better shrinking and is more actively maintained |
-| Coverage | cargo-llvm-cov | tarpaulin | tarpaulin is Linux-only; cargo-llvm-cov works on all three target platforms |
+### 1. Cargo Workspace: Add hp41-gui as a Member
+
+`Cargo.toml` (root) changes:
+
+```toml
+[workspace]
+resolver = "2"
+members = ["hp41-core", "hp41-cli", "hp41-gui/src-tauri"]
+```
+
+`hp41-gui/src-tauri` is a standard Cargo package. It depends on `hp41-core` via path. All workspace.dependencies (`serde`, `serde_json`, `rust_decimal`, `thiserror`) are inherited as before. Tauri's own crates (`tauri`, `tauri-build`) are NOT added to `[workspace.dependencies]` — they are local to `hp41-gui/src-tauri/Cargo.toml` because no other workspace member needs them.
+
+### 2. Tauri State: CalcState wrapped in Mutex
+
+`hp41-gui/src-tauri/src/lib.rs`:
+
+```rust
+use hp41_core::state::CalcState;
+use std::sync::Mutex;
+
+pub struct AppState(pub Mutex<CalcState>);
+```
+
+All commands receive `state: tauri::State<'_, AppState>`, lock the mutex, call `hp41_core::ops::dispatch()`, and return the updated `CalcState` (which already derives `serde::Serialize`):
+
+```rust
+#[tauri::command]
+fn dispatch_op(op_name: String, state: tauri::State<'_, AppState>) -> Result<CalcState, String> {
+    let op = op_name.parse::<hp41_core::ops::Op>().map_err(|e| e.to_string())?;
+    let mut s = state.0.lock().unwrap();
+    hp41_core::ops::dispatch(op, &mut s).map_err(|e| e.to_string())?;
+    Ok(s.clone())
+}
+```
+
+`CalcState` already derives `Clone + Serialize + Deserialize` (confirmed in `hp41-core/src/state.rs` line 52). Returning the full state snapshot after every op is the correct pattern — the frontend never holds a partial view.
+
+### 3. Command Surface (Minimal — 5 Commands)
+
+| Command | Signature | Notes |
+|---------|-----------|-------|
+| `dispatch_op` | `(op_name: String) → Result<CalcState, String>` | All HP-41 ops go through this single entry point. Op enum serialized as string. |
+| `get_state` | `() → CalcState` | Initial state load. |
+| `load_state` | `(path: Option<String>) → Result<CalcState, String>` | Load persisted JSON (reuses hp41-core persistence logic). |
+| `save_state` | `(path: Option<String>) → Result<(), String>` | Save state to JSON. |
+| `get_display` | `() → String` | Convenience: formatted display string only (avoids deserializing full CalcState for display-only updates). Optional optimization. |
+
+Keeping the command surface to 5 endpoints is deliberate: all HP-41 logic stays in `hp41-core`. The frontend never implements calculator math.
+
+### 4. Frontend TypeScript Interfaces
+
+Manually maintained TypeScript interfaces mirror `CalcState` struct fields. Since `CalcState` derives `Serialize`, the JSON shape is stable. No codegen needed for 5 commands.
+
+```typescript
+// src/types/CalcState.ts
+export interface CalcState {
+  stack: Stack;
+  regs: string[];       // HpNum serializes as decimal string
+  alpha_reg: string;
+  alpha_mode: boolean;
+  display_mode: DisplayMode;
+  angle_mode: AngleMode;
+  // ... (match hp41-core/src/state.rs fields exactly)
+}
+```
+
+### 5. Tauri Configuration (tauri.conf.json)
+
+Placed at `hp41-gui/src-tauri/tauri.conf.json`:
+
+```json
+{
+  "productName": "HP-41",
+  "identifier": "ch.talent-factory.hp41",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{
+      "title": "HP-41",
+      "width": 400,
+      "height": 700,
+      "resizable": false,
+      "decorations": true
+    }]
+  }
+}
+```
+
+A fixed `400×700` non-resizable window matches the physical HP-41C form factor. The calculator skin is an SVG that fills this viewport.
+
+### 6. Vite Configuration (vite.config.ts)
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    port: 5173,
+    strictPort: true,
+    host: process.env.TAURI_DEV_HOST || 'localhost',
+  },
+  build: {
+    outDir: 'dist',
+  },
+})
+```
+
+`strictPort: true` is required because `tauri.conf.json` hardcodes `http://localhost:5173`. `TAURI_DEV_HOST` allows iOS physical device testing if that is ever needed.
+
+### 7. just Recipes
+
+New recipes added to the root `Justfile`:
+
+```just
+# Run hp41-gui in Tauri dev mode
+gui-dev:
+    cd hp41-gui && npm run tauri dev
+
+# Build hp41-gui for release
+gui-build:
+    cd hp41-gui && npm run tauri build
+
+# Install hp41-gui frontend dependencies
+gui-install:
+    cd hp41-gui && npm install
+```
+
+`just ci` (Rust lint + test + coverage) is unchanged — it targets `--workspace` Rust crates. The Tauri GUI build is not added to the Rust CI gate; it has its own CI job.
+
+---
+
+## SVG Skin Approach
+
+The HP-41C skin is a hand-crafted inline SVG component in React. The SVG contains one `<g>` element per key with an `onClick` handler. React handles pointer events natively on SVG elements.
+
+**Why inline SVG (not `<img src="...svg">`):** External SVG images cannot receive pointer events. Inline SVG embeds the element in the DOM, so React event delegation works.
+
+**Why not a third-party SVG-to-React converter:** The HP-41 key layout has ~70 keys with precise positions; auto-converted SVG is unmaintainable. A handcrafted component with a typed `KeyLayout` data structure is the right abstraction.
+
+**TypeScript pattern:**
+
+```typescript
+interface HpKey {
+  op: string;          // matches Op enum serialized name
+  label: string;       // visible key label
+  x: number; y: number; width: number; height: number;  // SVG coords
+  color: string;
+}
+
+const HP41_KEYS: HpKey[] = [ /* ~70 entries */ ];
+
+function Calculator({ onKey }: { onKey: (op: string) => void }) {
+  return (
+    <svg viewBox="0 0 400 700" xmlns="http://www.w3.org/2000/svg">
+      {HP41_KEYS.map(key => (
+        <g key={key.op} onClick={() => onKey(key.op)} role="button" aria-label={key.label}>
+          <rect x={key.x} y={key.y} width={key.width} height={key.height} fill={key.color} />
+          <text ...>{key.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+```
+
+---
+
+## What NOT to Add
+
+| Package | Reason to Exclude |
+|---------|-------------------|
+| `zustand` / `redux` / `jotai` | Global state stores are unnecessary. All state lives in `hp41-core`'s `CalcState` on the Rust side. The frontend receives a full `CalcState` snapshot after every `invoke()` call — React's `useState` with the returned snapshot is sufficient. Adding a client-side store would duplicate state and create sync bugs. |
+| `react-router` | Single-page app with one view (the calculator). No routing needed. |
+| `axios` / `fetch` wrappers | No HTTP calls. All communication is Tauri IPC via `invoke()`. |
+| `tauri-specta` | Still RC (2.0.0-rc.25). Command surface is small enough (5 commands) that manually written TypeScript interfaces are less risky. Revisit at stable release. |
+| `@tauri-apps/plugin-fs` | hp41-core handles persistence internally. The save/load Tauri commands call hp41-core functions directly — no frontend filesystem access needed. |
+| `vitest` / `@testing-library/react` | Not added in the initial GUI phase. The core arithmetic is tested at 94% coverage in hp41-core. GUI integration testing can be added in a follow-on phase once the skin is stable. |
+| `electron` | Not Tauri — noted only because it is sometimes suggested as an alternative. Tauri produces binaries 10–50x smaller and has a well-audited security model (capability system). |
+| `shadcn/ui` / `radix-ui` | Component libraries optimized for standard web UIs (forms, dialogs, tables). The HP-41 skin is a custom SVG widget — no generic UI component fits. These would add ~100 kB of unused components. |
+| `next.js` / `remix` | Server-side rendering frameworks — incompatible with Tauri's static-file webview model. Vite + React is the correct choice for a local desktop app with no server. |
+| Custom BCD arithmetic in TypeScript | hp41-core already implements all HP-41 arithmetic in Rust. Duplicating any of it in TypeScript violates the core invariant (GUI-05) and introduces divergence risk. |
+
+---
+
+## Directory Structure After Adding hp41-gui
+
+```
+hp41-calculator-emulator/
+├── Cargo.toml              (workspace — add "hp41-gui/src-tauri" to members)
+├── Justfile                (add gui-dev, gui-build, gui-install recipes)
+├── hp41-core/              (unchanged)
+├── hp41-cli/               (unchanged)
+└── hp41-gui/               (NEW — frontend root)
+    ├── package.json
+    ├── vite.config.ts
+    ├── tsconfig.json
+    ├── index.html
+    ├── src/
+    │   ├── main.tsx
+    │   ├── App.tsx
+    │   ├── components/
+    │   │   ├── Calculator.tsx    (SVG skin component)
+    │   │   └── Display.tsx       (12-char dot-matrix display)
+    │   ├── types/
+    │   │   └── CalcState.ts      (TypeScript mirror of hp41-core CalcState)
+    │   └── hooks/
+    │       └── useCalc.ts        (invoke() wrapper hook)
+    └── src-tauri/          (NEW — Rust Tauri binary)
+        ├── Cargo.toml
+        ├── tauri.conf.json
+        ├── build.rs
+        ├── capabilities/
+        │   └── default.json
+        └── src/
+            ├── main.rs
+            └── lib.rs            (AppState, #[tauri::command] handlers)
+```
 
 ---
 
 ## Sources
 
-- ratatui crates.io: https://crates.io/crates/ratatui (v0.30.0, released 2025-12-26)
-- crossterm crates.io: https://crates.io/crates/crossterm (v0.29.0, released 2025-04-05)
-- clap crates.io: https://crates.io/crates/clap (v4.6.1, released 2026-04-15)
-- serde crates.io: https://crates.io/crates/serde (v1.0.228)
-- serde_json crates.io: https://crates.io/crates/serde_json (v1.0.149)
-- thiserror crates.io: https://crates.io/crates/thiserror (v2.0.18)
-- proptest crates.io: https://crates.io/crates/proptest (v1.11.0, released 2026-03-24)
-- insta crates.io: https://crates.io/crates/insta (v1.47.2, released 2026-03-30)
-- approx crates.io: https://crates.io/crates/approx (v0.5.1 stable)
-- cargo-llvm-cov crates.io: https://crates.io/crates/cargo-llvm-cov (v0.8.5, released 2026-03-20)
-- cargo-dist crates.io: https://crates.io/crates/cargo-dist (v0.31.0, released 2026-02-23)
-- ratatui backend comparison: https://ratatui.rs/concepts/backends/comparison/
-- ratatui FAQ (async): https://ratatui.rs/faq/
-- Rust 1.85 / 2024 edition: https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/
-- ratatui vs tui-rs ecosystem: https://github.com/ratatui/ratatui
-- Cross-platform CI patterns: https://ahmedjama.com/blog/2025/12/cross-platform-rust-pipeline-github-actions/
+- `@tauri-apps/cli` version: npm registry — 2.11.1 (verified 2026-05-09)
+- `@tauri-apps/api` version: npm registry — 2.11.0 (verified 2026-05-09)
+- `create-tauri-app` version: npm registry — 4.6.2 (verified 2026-05-09)
+- `tauri` crate version: crates.io — 2.11.1 (verified 2026-05-09)
+- `tauri-build` crate version: crates.io — 2.6.1 (verified 2026-05-09)
+- `tauri-specta` crate version: crates.io — 2.0.0-rc.25, RC status confirmed (verified 2026-05-09)
+- `react` version: npm registry — 19.2.6 (verified 2026-05-09)
+- `vite` version: npm registry — 8.0.11 (verified 2026-05-09)
+- `@vitejs/plugin-react` version: npm registry — 6.0.1 (verified 2026-05-09)
+- `typescript` version: npm registry — 6.0.3 (verified 2026-05-09)
+- `tailwindcss` / `@tailwindcss/vite` version: npm registry — 4.3.0 (verified 2026-05-09)
+- Tauri v2 State Management: https://v2.tauri.app/develop/state-management/ (Context7 /tauri-apps/tauri-docs)
+- Tauri v2 Commands: https://v2.tauri.app/develop/calling-rust/ (Context7 /tauri-apps/tauri-docs)
+- Tauri v2 Project Structure: https://v2.tauri.app/start/project-structure/
+- Tauri v2 Vite Frontend: https://v2.tauri.app/start/frontend/vite/
+- Tailwind v4 + Vite setup: https://tailwindcss.com/docs (verified via npm package docs)
+- tauri-specta releases: https://github.com/specta-rs/tauri-specta/releases
+- CalcState derives: hp41-core/src/state.rs line 52 — `#[derive(Debug, Clone, Serialize, Deserialize)]`

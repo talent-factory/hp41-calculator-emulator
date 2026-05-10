@@ -4,7 +4,7 @@
 //! step string: "{pc:03} {op_name}" (D-14). Shown in the Display panel when
 //! CalcState::prgm_mode is true.
 
-use hp41_core::ops::{Op, StoArithKind};
+use hp41_core::ops::{Op, StackReg, StoArithKind};
 use hp41_core::CalcState;
 
 /// Format the current program step.
@@ -76,6 +76,21 @@ fn op_display_name(op: &Op) -> String {
             };
             format!("STO{op_sym} {reg:02}")
         }
+        Op::StoArithStack { kind, stack_reg } => {
+            let op_sym = match kind {
+                StoArithKind::Add => "+",
+                StoArithKind::Sub => "-",
+                StoArithKind::Mul => "\u{00D7}",
+                StoArithKind::Div => "\u{00F7}",
+            };
+            let reg_name = match stack_reg {
+                StackReg::Y => "Y",
+                StackReg::Z => "Z",
+                StackReg::T => "T",
+                StackReg::LastX => "L",
+            };
+            format!("STO{op_sym} {reg_name}")
+        }
         Op::Clreg => "CLREG".to_string(),
         // Phase 2: alpha
         Op::AlphaToggle => "ALPHA".to_string(),
@@ -106,5 +121,41 @@ fn op_display_name(op: &Op) -> String {
         Op::HToHms => "\u{2192}HMS".to_string(),
         Op::HmsAdd => "HMS+".to_string(),
         Op::HmsSub => "HMS-".to_string(),
+        // Phase 11: Print operations
+        Op::PRX => "PRX".to_string(),
+        Op::PRA => "PRA".to_string(),
+        Op::PRSTK => "PRSTK".to_string(),
+        // Phase 12: Synthetic Programming
+        Op::GetKey => "GETKEY".to_string(),
+        Op::Null => "NULL".to_string(),
+        Op::StoM => "STO M".to_string(),
+        Op::StoN => "STO N".to_string(),
+        Op::StoO => "STO O".to_string(),
+        Op::RclM => "RCL M".to_string(),
+        Op::RclN => "RCL N".to_string(),
+        Op::RclO => "RCL O".to_string(),
+        Op::SyntheticByte(b) => format!("SYN {b:02X}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_phase12_op_labels() {
+        // UAT-2: program listing shows correct labels for all Phase 12 Op variants.
+        assert_eq!(op_display_name(&Op::GetKey), "GETKEY");
+        assert_eq!(op_display_name(&Op::Null), "NULL");
+        assert_eq!(op_display_name(&Op::StoM), "STO M");
+        assert_eq!(op_display_name(&Op::StoN), "STO N");
+        assert_eq!(op_display_name(&Op::StoO), "STO O");
+        assert_eq!(op_display_name(&Op::RclM), "RCL M");
+        assert_eq!(op_display_name(&Op::RclN), "RCL N");
+        assert_eq!(op_display_name(&Op::RclO), "RCL O");
+        // SyntheticByte displays as "SYN <HEX>" — 0xCF = NULL, 0xCE = GETKEY
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xCF)), "SYN CF");
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xCE)), "SYN CE");
+        assert_eq!(op_display_name(&Op::SyntheticByte(0xA0)), "SYN A0");
     }
 }

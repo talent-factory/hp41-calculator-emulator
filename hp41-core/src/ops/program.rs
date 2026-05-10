@@ -225,7 +225,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_recip, op_set_deg,
         op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
     };
-    use crate::ops::registers::{op_clreg, op_rcl, op_sto, op_sto_arith};
+    use crate::ops::registers::{op_clreg, op_rcl, op_sto, op_sto_arith, op_sto_arith_stack};
     use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
     use crate::state::DisplayMode;
 
@@ -295,6 +295,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::StoReg(r) => op_sto(state, r),
         Op::RclReg(r) => op_rcl(state, r),
         Op::StoArith { reg, kind } => op_sto_arith(state, reg, kind),
+        Op::StoArithStack { kind, stack_reg } => op_sto_arith_stack(state, stack_reg, kind),
         Op::Clreg => op_clreg(state),
         Op::AlphaToggle => op_alpha_toggle(state),
         Op::AlphaAppend(ch) => op_alpha_append(state, ch),
@@ -318,6 +319,30 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::HToHms => super::hms::op_h_to_hms(state),
         Op::HmsAdd => super::hms::op_hms_add(state),
         Op::HmsSub => super::hms::op_hms_sub(state),
+        // ── Phase 11: Print operations ───────────────────────────────────────────────
+        Op::PRX => super::print::op_prx(state),
+        Op::PRA => super::print::op_pra(state),
+        Op::PRSTK => super::print::op_prstk(state),
+        // ── Phase 12: Synthetic Programming ─────────────────────────────────
+        Op::GetKey => super::registers::op_getkey(state),
+        Op::Null => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::StoM => super::registers::op_sto_m(state),
+        Op::StoN => super::registers::op_sto_n(state),
+        Op::StoO => super::registers::op_sto_o(state),
+        Op::RclM => super::registers::op_rcl_m(state),
+        Op::RclN => super::registers::op_rcl_n(state),
+        Op::RclO => super::registers::op_rcl_o(state),
+        Op::SyntheticByte(b) => {
+            if let Some(op) = super::synthetic_byte_to_op(b) {
+                // Recursive — safe per the same invariant as in dispatch().
+                execute_op(state, op)
+            } else {
+                Err(HpError::InvalidOp)
+            }
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -376,7 +401,7 @@ pub fn parse_counter(n: &HpNum) -> Result<(i64, i64, i64, String), HpError> {
     };
     let current: i64 = int_part.parse().map_err(|_| HpError::InvalidOp)?;
     // Pad RIGHT with zeros to exactly 5 chars (trailing-zero normalisation fix, RESEARCH Pitfall 3)
-    let frac_padded = format!("{:0<5}", frac_part);
+    let frac_padded = format!("{frac_part:0<5}");
     // Truncate if somehow longer than 5 (defensive; should not occur with valid HP-41 counters)
     let frac_padded = if frac_padded.len() > 5 {
         frac_padded[..5].to_string()
@@ -392,7 +417,7 @@ pub fn parse_counter(n: &HpNum) -> Result<(i64, i64, i64, String), HpError> {
 /// Reconstruct counter HpNum from updated current and the preserved frac_padded string.
 /// Preserves the FFFDD fields exactly (only CCCCC changes, D-12).
 fn build_counter(current: i64, frac_padded: &str) -> Result<HpNum, HpError> {
-    let s = format!("{}.{}", current, frac_padded);
+    let s = format!("{current}.{frac_padded}");
     let d = Decimal::from_str(&s).map_err(|_| HpError::InvalidOp)?;
     Ok(HpNum::rounded(d))
 }
