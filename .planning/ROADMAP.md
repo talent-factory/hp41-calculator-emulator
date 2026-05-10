@@ -215,7 +215,7 @@
   5. The SVG uses a `viewBox` and scales correctly on Retina/HiDPI displays and at the fixed 400×700 window size without pixelation or layout breakage
 **Plans**: 2 plans
   **Wave 0**
-  - [ ] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
+  - [x] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
   **Wave 1** *(blocked on Wave 0 completion)*
   - [ ] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
   **Cross-cutting constraints:**

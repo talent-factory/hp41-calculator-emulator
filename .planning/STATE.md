@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tauri GUI
 current_phase: 16
-current_plan: "16-00"
-status: ready_to_execute
-last_updated: "2026-05-10T00:00:00.000Z"
+current_plan: "16-02"
+status: executing
+last_updated: "2026-05-10T10:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 3
@@ -34,9 +34,9 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 16 — SVG Skin
-Plan: 16-00 READY TO EXECUTE — 2 plans in 2 waves
-Status: Phase 16 planned (2026-05-10); 2 plans verified, ready to execute
-Last activity: 2026-05-10 — Phase 16 SVG Skin planned: 2 plans (16-01 Wave 0, 16-02 Wave 1)
+Plan: 16-02 EXECUTING — Wave 1: SVG Keyboard skin + App wiring
+Status: Phase 16 executing (2026-05-10); Wave 1 in progress (16-01 complete)
+Last activity: 2026-05-10 — Wave 0 complete (16-01 key_map test passes); Wave 1 starting (16-02 Keyboard.tsx)
 
 Progress: [████████████████] 50% (3/6 phases complete — Phase 15 done, Phase 16 next)
 
