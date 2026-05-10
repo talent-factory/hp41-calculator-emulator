@@ -109,9 +109,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-10
-**Last action:** Phase 15 complete — 3 plans in 3 waves; all 5 SC human-verified; 13 Rust tests green
-**Next action:** `/gsd-discuss-phase 16` — discuss Phase 16 SVG Skin before planning
+**Last action:** Phase 16 context gathered — 4 areas discussed, 13 decisions locked (SVG authoring, key labels, component integration, click handler pattern)
+**Next action:** `/gsd-plan-phase 16` — plan Phase 16 SVG Skin
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-10 — Phase 15 Display & Keyboard complete*
+*Last updated: 2026-05-10 — Phase 16 context gathered*
