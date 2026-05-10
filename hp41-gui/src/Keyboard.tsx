@@ -51,7 +51,7 @@ const KEY_DEFS: KeyDef[] = [
   // Row 3 — entry keys + digits 4/5/6 (9 keys)
   { id: 'chs',  label: 'CHS',  row: 3, col: 0 },
   { id: 'e',    label: 'EEX',  row: 3, col: 1 },
-  { id: '',     label: 'SST',  row: 3, col: 2 },
+  { id: 'sst',  label: 'SST',  row: 3, col: 2 },
   { id: '4',    label: '4',    row: 3, col: 3 },
   { id: '5',    label: '5',    row: 3, col: 4 },
   { id: '6',    label: '6',    row: 3, col: 5 },
@@ -68,7 +68,7 @@ const KEY_DEFS: KeyDef[] = [
   { id: '3',     label: '3',    row: 4, col: 5 },
   { id: 'lastx', label: 'LSTx', row: 4, col: 6 },
   { id: 'clreg', label: 'CLRG', row: 4, col: 7 },
-  { id: '',      label: 'BST',  row: 4, col: 8 },
+  { id: 'bst',   label: 'BST',  row: 4, col: 8 },
 ];
 
 function isCreamKey(key: KeyDef): boolean {
