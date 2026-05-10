@@ -28,12 +28,13 @@ pub fn run() {
                 let thread_save_path = persistence::default_state_path();
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(30));
+                    // Clone state under lock, then drop guard before disk I/O (CR-01).
                     let state = handle.state::<AppState>();
-                    let calc = state.lock().unwrap_or_else(|e| e.into_inner());
-                    if let Err(e) = persistence::save_state(&thread_save_path, &calc) {
+                    let snapshot = state.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                    drop(state);
+                    if let Err(e) = persistence::save_state(&thread_save_path, &snapshot) {
                         eprintln!("auto-save failed: {e}");
                     }
-                    // calc (MutexGuard) is dropped here — lock released before next sleep
                 }
             });
 
