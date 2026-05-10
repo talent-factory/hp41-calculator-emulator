@@ -71,14 +71,21 @@ const KEY_DEFS: KeyDef[] = [
   { id: '',      label: 'BST',  row: 4, col: 8 },
 ];
 
-function getKeyColor(key: KeyDef): string {
-  if (key.row === 0) return '#3a2a1e';
-  if (key.id === 'enter') return '#1a3a1a';
+function getKeyGrad(key: KeyDef): string {
+  if (key.row === 0) return 'url(#grad-row0)';
+  if (key.id === 'enter') return 'url(#grad-enter)';
   if (
     ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
     (key.id === '' && (key.label === 'f' || key.label === 'g'))
-  ) return '#d4c9b0';
-  return '#1a1a1a';
+  ) return 'url(#grad-cream)';
+  return 'url(#grad-dark)';
+}
+
+function isCreamKey(key: KeyDef): boolean {
+  return (
+    ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
+    (key.id === '' && (key.label === 'f' || key.label === 'g'))
+  );
 }
 
 interface KeyboardProps {
@@ -90,8 +97,8 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
 
   const handleKeyClick = (keyId: string) => {
-    if (!keyId) return;                   // visual-only key guard (D-07, Pitfall 2)
-    if (busyRef.current) return;         // debounce guard (D-13)
+    if (!keyId) return;
+    if (busyRef.current) return;
     setPressedKey(keyId);
     setTimeout(() => setPressedKey(prev => prev === keyId ? null : prev), 150);
     onKey(keyId);
@@ -104,18 +111,61 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
       xmlns="http://www.w3.org/2000/svg"
       aria-label="HP-41C keyboard"
     >
-      <rect width="400" height="230" fill="#3d2b1f" rx={6} />
+      <defs>
+        {/* Body gradient: warm brown, lighter at top */}
+        <linearGradient id="body-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#5a3828" />
+          <stop offset="100%" stopColor="#1e100a" />
+        </linearGradient>
+
+        {/* Key cap gradients — lighter at top, darker at bottom (convex 3D look) */}
+        <linearGradient id="grad-dark" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#303030" />
+          <stop offset="60%"  stopColor="#181818" />
+          <stop offset="100%" stopColor="#080808" />
+        </linearGradient>
+        <linearGradient id="grad-row0" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#6a4830" />
+          <stop offset="60%"  stopColor="#3a2418" />
+          <stop offset="100%" stopColor="#1e1008" />
+        </linearGradient>
+        <linearGradient id="grad-enter" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#346034" />
+          <stop offset="60%"  stopColor="#1a3a1a" />
+          <stop offset="100%" stopColor="#0a180a" />
+        </linearGradient>
+        <linearGradient id="grad-cream" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#ede8d4" />
+          <stop offset="60%"  stopColor="#c8bd98" />
+          <stop offset="100%" stopColor="#a89870" />
+        </linearGradient>
+
+        {/* Drop shadow for each key cap */}
+        <filter id="key-shadow" x="-8%" y="-8%" width="116%" height="130%">
+          <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#00000070" />
+        </filter>
+
+        {/* Inner bevel highlight — white gradient fading out (top of key only) */}
+        <linearGradient id="bevel-hi" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Calculator body */}
+      <rect width="400" height="230" fill="url(#body-grad)" rx={8} />
+      {/* Body inner shadow at top edge */}
+      <rect width="400" height="12" fill="url(#bevel-hi)" rx={8} opacity={0.4} />
+
       {KEY_DEFS.map(key => {
         const cs = key.colSpan ?? 1;
         const x = PAD + key.col * (KEY_W + GAP);
         const rectY = PAD + key.row * (FSHIFT_H + KEY_H + GAP) + FSHIFT_H;
         const w = cs * KEY_W + (cs - 1) * GAP;
         const isPressed = pressedKey === key.id && Boolean(key.id);
-        const labelColor =
-          ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
-          (key.id === '' && (key.label === 'f' || key.label === 'g'))
-            ? '#2a1a0a'
-            : '#ffffff';
+        const cream = isCreamKey(key);
+        const labelColor = cream ? '#1e1008' : '#ffffff';
+
         return (
           <g
             key={`${key.row}-${key.col}`}
@@ -123,28 +173,58 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
             className={isPressed ? 'key key-pressed' : 'key'}
             style={{ pointerEvents: 'all' }}
           >
+            {/* f-shift label above key */}
             {key.fShiftLabel && (
               <text
                 x={x + w / 2}
                 y={rectY - 2}
                 textAnchor="middle"
-                fill="#c8a400"
+                fill="#d4a800"
                 fontSize={8}
+                fontWeight="bold"
               >
                 {key.fShiftLabel}
               </text>
             )}
+
+            {/* Key shadow (separate rect under the cap for depth) */}
+            <rect
+              x={x + 1}
+              y={rectY + 2}
+              width={w}
+              height={KEY_H}
+              rx={4}
+              ry={4}
+              fill="#000000"
+              opacity={0.45}
+            />
+
+            {/* Key cap with gradient fill */}
             <rect
               x={x}
               y={rectY}
               width={w}
               height={KEY_H}
+              rx={4}
+              ry={4}
+              fill={getKeyGrad(key)}
+              stroke={cream ? '#806848' : '#0a0a0a'}
+              strokeWidth={0.8}
+            />
+
+            {/* Bevel highlight — top portion of key cap */}
+            <rect
+              x={x + 1}
+              y={rectY + 1}
+              width={w - 2}
+              height={KEY_H / 2}
               rx={3}
               ry={3}
-              fill={getKeyColor(key)}
-              stroke="#111"
-              strokeWidth={0.5}
+              fill="url(#bevel-hi)"
+              style={{ pointerEvents: 'none' }}
             />
+
+            {/* Primary label */}
             <text
               x={x + w / 2}
               y={rectY + KEY_H / 2 + 4}
