@@ -234,7 +234,12 @@
   3. After 30 seconds of inactivity the auto-save fires silently in the background — the GUI remains responsive and no blocking occurs on the UI thread
   4. The `~/.hp41/autosave.json` path is used by both hp41-cli and hp41-gui — a state saved in the CLI is visible when the GUI starts next
   5. Executing PRX, PRA, or PRSTK causes formatted output lines to appear in the scrollable print panel; the panel retains previous output and new lines append to the bottom
-**Plans**: TBD
+**Plans**: 3 plans
+  **Wave 1** *(parallel)*
+  - [ ] 17-01-PLAN.md — PERS-01: Rust persistence module (dirs dep, persistence.rs copy, lib.rs startup load + 30s auto-save thread)
+  - [ ] 17-02-PLAN.md — PERS-02: React print panel (printLog state, accumulation useEffect, auto-scroll, collapsible JSX + CSS)
+  **Wave 2** *(blocked on Wave 1)*
+  - [ ] 17-03-PLAN.md — PERS-01/PERS-02: Integration verification (Rust tests, CLI regression, TypeScript build, human SC-1..SC-5)
 **UI hint**: yes
 
 ### Phase 18: Program Listing & CI/CD
