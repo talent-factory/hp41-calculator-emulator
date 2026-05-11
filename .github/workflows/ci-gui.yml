@@ -1,6 +1,6 @@
 name: ci-gui
 
-on:
+"on":
   push:
     branches: [main, develop]
     paths:

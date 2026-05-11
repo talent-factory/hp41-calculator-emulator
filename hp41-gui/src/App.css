@@ -26,6 +26,7 @@
   color: #555;
   opacity: 0.35;
   text-transform: uppercase;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -78,12 +79,14 @@
 .stack-label {
   color: #666;
   min-width: 20px;
+  -webkit-user-select: none;
   user-select: none;
 }
 
 /* SVG keyboard press animation — transform-box: fill-box is REQUIRED for SVG elements */
 .key {
   cursor: pointer;
+  pointer-events: all;
   transform-box: fill-box;    /* REQUIRED: makes transform-origin relative to element's own bounding box, not the SVG canvas */
   transform-origin: center;   /* center of the KEY element, not the SVG viewBox origin */
   transition: transform 80ms ease-out;
@@ -95,6 +98,10 @@
 
 .key:hover:not(.key-pressed) {
   opacity: 0.85;
+}
+
+.key-bevel {
+  pointer-events: none;
 }
 
 /* ── Print Panel (Phase 17: D-07, D-08, D-09) ─────────────────────────── */

@@ -163,7 +163,6 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
             key={`${key.row}-${key.col}`}
             onClick={() => handleKeyClick(key.id)}
             className={isPressed ? 'key key-pressed' : 'key'}
-            style={{ pointerEvents: 'all' }}
           >
             {/* f-shift label above key */}
             {key.fShiftLabel && (
@@ -213,7 +212,7 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
               rx={3}
               ry={3}
               fill="url(#bevel-hi)"
-              style={{ pointerEvents: 'none' }}
+              className="key-bevel"
             />
 
             {/* Primary label */}
