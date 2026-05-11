@@ -40,3 +40,9 @@ src-tauri/target/
 # Claude Code local agent data
 .claude/
 .clone/
+
+# Graphify (knowledge graph) — keep config + GRAPH_REPORT, ignore derived artifacts
+graphify-out/
+.planning/graphs/graph.json
+.planning/graphs/graph.html
+.planning/graphs/.last-build-snapshot.json
