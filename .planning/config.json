@@ -11,5 +11,8 @@
     "nyquist_validation": true,
     "auto_advance": false,
     "ai_integration_phase": true
+  },
+  "graphify": {
+    "enabled": true
   }
 }
