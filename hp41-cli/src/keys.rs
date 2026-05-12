@@ -117,7 +117,10 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("I", "1/x  (Shift+i)"),
     ("W", "x\u{00B2}   (Shift+w)"),
     ("Y", "y^x  (Shift+y)"),
-    ("%", "%CH (percent change: ((X\u{2212}Y)/Y)\u{00D7}100, Y preserved)"),
+    (
+        "%",
+        "%CH (percent change: ((X\u{2212}Y)/Y)\u{00D7}100, Y preserved)",
+    ),
     ("p", "PRGM toggle"),
     ("d", "cycle DEG/RAD/GRAD"),
     ("f", "cycle FIX/SCI/ENG (keeps digit count)"),
@@ -363,9 +366,20 @@ mod tests {
         state.stack.y = hp41_core::HpNum::from(100);
         state.stack.x = hp41_core::HpNum::from(125);
         let result = hp41_core::ops::dispatch(&mut state, Op::PctChange);
-        assert!(result.is_ok(), "Op::PctChange must not error on valid input");
-        assert_eq!(state.stack.x, hp41_core::HpNum::from(25), "%CH(100→125) must be 25");
-        assert_eq!(state.stack.y, hp41_core::HpNum::from(100), "Y must be preserved");
+        assert!(
+            result.is_ok(),
+            "Op::PctChange must not error on valid input"
+        );
+        assert_eq!(
+            state.stack.x,
+            hp41_core::HpNum::from(25),
+            "%CH(100→125) must be 25"
+        );
+        assert_eq!(
+            state.stack.y,
+            hp41_core::HpNum::from(100),
+            "Y must be preserved"
+        );
     }
 
     #[test]

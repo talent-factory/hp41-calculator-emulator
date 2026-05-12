@@ -27,7 +27,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("s", "√x", "Square root of X"),
     ("W", "x²", "Square of X"),
     ("Y", "Yˣ", "Y raised to power X"),
-    ("%", "%CH", "Percent change: ((X−Y)/Y)×100, Y preserved (% family)"),
+    (
+        "%",
+        "%CH",
+        "Percent change: ((X−Y)/Y)×100, Y preserved (% family)",
+    ),
     // ── Trig ──────────────────────────────────────────────────────────────────
     ("", "", "=== Trig ==="),
     ("q", "SIN", "Sine of X (in current angle mode)"),
