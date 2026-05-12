@@ -1,8 +1,12 @@
 //! Integration tests for MATH-01: unary math ops, binary YPow, 10-digit accuracy,
-//! LASTX save behavior, and stack-lift enable for all math ops.
+//! LASTX save behavior, stack-lift enable for all math ops, %CH op-level integration
+//! (stack mechanics, Y preservation, error atomicity), and %CH PRGM-mode recording
+//! and playback.
+
+#![allow(clippy::unwrap_used)]
 
 use hp41_core::ops::{dispatch, Op};
-use hp41_core::{CalcState, HpError, HpNum};
+use hp41_core::{run_program, CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -360,12 +364,12 @@ fn test_pct_change_recorded_into_program_when_prgm_mode() {
     assert_eq!(
         s.stack.x.inner(),
         Decimal::from(230),
-        "stack must be untouched in PRGM mode"
+        "X must be untouched in PRGM mode (op was executed instead of recorded)"
     );
     assert_eq!(
         s.stack.y.inner(),
         Decimal::from(200),
-        "stack must be untouched in PRGM mode"
+        "Y must be untouched in PRGM mode (op was executed instead of recorded)"
     );
 }
 
@@ -373,7 +377,6 @@ fn test_pct_change_recorded_into_program_when_prgm_mode() {
 fn test_pct_change_playback_via_run_program() {
     // Build a tiny program: LBL "T", PushNum(200), Enter, PushNum(230), PctChange, Rtn.
     // Run it. Expect X=15, Y=200.
-    use hp41_core::run_program;
     let mut s = CalcState::new();
     s.program = vec![
         Op::Lbl("T".to_string()),
