@@ -19,8 +19,8 @@ pub mod stats;
 use alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
 use arithmetic::{op_add, op_div, op_mul, op_sub};
 use math::{
-    op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_recip, op_set_deg,
-    op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
+    op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
+    op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
@@ -68,7 +68,7 @@ pub enum TestKind {
 /// HP-41 calculator operations.
 ///
 /// Phase 1: Add, Sub, Mul, Div, Enter, Clx, Chs, Rdn, XySwap, Lastx, PushNum
-/// Phase 2: Recip, Sqrt, Sq, YPow, Ln, Log, Exp, TenPow, Sin, Cos, Tan,
+/// Phase 2: Recip, Sqrt, Sq, YPow, PctChange, Ln, Log, Exp, TenPow, Sin, Cos, Tan,
 ///          Asin, Acos, Atan, SetDeg, SetRad, SetGrad,
 ///          FmtFix, FmtSci, FmtEng, StoReg, RclReg, StoArith, Clreg,
 ///          AlphaToggle, AlphaAppend, AlphaClear
@@ -102,6 +102,8 @@ pub enum Op {
     Sq,
     /// Y^X — Y raised to power X (binary). LiftEffect: Enable.
     YPow,
+    /// %CH — percent change ((X−Y)/Y)×100. Stack effect: unary (Y preserved, LASTX←X). LiftEffect: Enable.
+    PctChange,
     /// LN — natural logarithm. LiftEffect: Enable.
     Ln,
     /// LOG — log base 10. LiftEffect: Enable.
@@ -323,6 +325,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Sqrt => op_sqrt(state),
         Op::Sq => op_sq(state),
         Op::YPow => op_ypow(state),
+        Op::PctChange => op_pct_change(state),
         Op::Ln => op_ln(state),
         Op::Log => op_log(state),
         Op::Exp => op_exp(state),

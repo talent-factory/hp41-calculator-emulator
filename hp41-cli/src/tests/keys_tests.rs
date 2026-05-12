@@ -43,6 +43,10 @@ fn arithmetic_keys() {
     assert_eq!(key_to_op(press(KeyCode::Char('-')), &app), Some(Op::Sub));
     assert_eq!(key_to_op(press(KeyCode::Char('*')), &app), Some(Op::Mul));
     assert_eq!(key_to_op(press(KeyCode::Char('/')), &app), Some(Op::Div));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('%')), &app),
+        Some(Op::PctChange)
+    );
 }
 
 #[test]
@@ -119,17 +123,8 @@ fn unmapped_keys_return_none() {
 }
 
 #[test]
-fn key_ref_table_has_33_entries() {
-    // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
-    // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
-    // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
-    // Phase 12: added "X nn" hex modal entry (+1).
-    // Total is now 55. Test name preserved for history; count updated to 55.
-    assert_eq!(
-        crate::keys::KEY_REF_TABLE.len(),
-        55,
-        "KEY_REF_TABLE must have exactly 55 entries (54 Phase 1-8 + 1 Phase 12: X nn hex modal)"
-    );
+fn key_ref_table_has_56_entries() {
+    assert_eq!(crate::keys::KEY_REF_TABLE.len(), 56);
 }
 
 // Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller

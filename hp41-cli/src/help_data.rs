@@ -27,6 +27,11 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     ("s", "√x", "Square root of X"),
     ("W", "x²", "Square of X"),
     ("Y", "Yˣ", "Y raised to power X"),
+    (
+        "%",
+        "%CH",
+        "Percent change from Y (base) to X (new): ((X−Y)/Y)×100; Y preserved",
+    ),
     // ── Trig ──────────────────────────────────────────────────────────────────
     ("", "", "=== Trig ==="),
     ("q", "SIN", "Sine of X (in current angle mode)"),
@@ -354,6 +359,16 @@ mod tests {
                 "Missing category header: {cat}"
             );
         }
+    }
+
+    #[test]
+    fn test_help_data_has_pct_change_row() {
+        assert!(
+            HELP_DATA
+                .iter()
+                .any(|(key, op, _)| *key == "%" && *op == "%CH"),
+            "HELP_DATA must contain a '%' → %CH row"
+        );
     }
 
     #[test]

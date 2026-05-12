@@ -571,6 +571,92 @@ mod num_scalar_math_tests {
         let r = base.checked_powd(&exp).unwrap();
         assert_eq!(r.inner(), Decimal::from(-8));
     }
+
+    // ── checked_pct_change ────────────────────────────────────────────────
+    // %CH: ((X − self) / self) × 100, where self is Y (base) and x is X (new).
+    #[test]
+    fn checked_pct_change_plus_10_percent() {
+        // Y=100, X=110 → +10
+        let y = HpNum::from(100i32);
+        let x = HpNum::from(110i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::from(10i32));
+    }
+
+    #[test]
+    fn checked_pct_change_minus_10_percent() {
+        // Y=100, X=90 → −10
+        let y = HpNum::from(100i32);
+        let x = HpNum::from(90i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::from(-10i32));
+    }
+
+    #[test]
+    fn checked_pct_change_plus_50_percent() {
+        // Y=80, X=120 → +50
+        let y = HpNum::from(80i32);
+        let x = HpNum::from(120i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::from(50i32));
+    }
+
+    #[test]
+    fn checked_pct_change_zero_when_equal() {
+        // Y=42, X=42 → 0
+        let y = HpNum::from(42i32);
+        let x = HpNum::from(42i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::zero());
+    }
+
+    #[test]
+    fn checked_pct_change_negative_base() {
+        // Y=−100, X=−80: ((−80 − (−100)) / (−100)) × 100 = 20 / −100 × 100 = −20
+        let y = HpNum::from(-100i32);
+        let x = HpNum::from(-80i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::from(-20i32));
+    }
+
+    #[test]
+    fn checked_pct_change_sign_cross_zero() {
+        // Y=10, X=−5: (−5 − 10) / 10 × 100 = −15 / 10 × 100 = −150
+        let y = HpNum::from(10i32);
+        let x = HpNum::from(-5i32);
+        assert_eq!(y.checked_pct_change(&x).unwrap(), HpNum::from(-150i32));
+    }
+
+    #[test]
+    fn checked_pct_change_tiny_delta_rounds_to_10_sig_digits() {
+        // Y=1_000_000_000, X=1_000_000_001
+        // (1 / 1_000_000_000) × 100 = 1e−7 = 0.0000001
+        let y = HpNum::from(1_000_000_000i32);
+        let x = HpNum::from(1_000_000_001i32);
+        let expected = HpNum(Decimal::from_str("0.0000001").unwrap());
+        assert_eq!(y.checked_pct_change(&x).unwrap(), expected);
+    }
+
+    #[test]
+    fn checked_pct_change_y_zero_returns_divide_by_zero() {
+        let y = HpNum::zero();
+        let x = HpNum::from(42i32);
+        assert_eq!(y.checked_pct_change(&x), Err(HpError::DivideByZero));
+    }
+
+    #[test]
+    fn checked_pct_change_overflow_at_times_100() {
+        // Y=1, X=1e27 → ratio = (1e27 − 1) rounded to 10 sig digits = 1e27
+        // 1e27 × 100 = 1e29 → exceeds rust_decimal max (~7.9e28) → Overflow
+        let y = HpNum::from(1i32);
+        let x = HpNum(Decimal::from_str("1000000000000000000000000000").unwrap());
+        assert_eq!(y.checked_pct_change(&x), Err(HpError::Overflow));
+    }
+
+    #[test]
+    fn checked_pct_change_overflow_at_subtract() {
+        // X − Y overflows BEFORE the divide step.
+        // Y = -Decimal::MAX, X = +Decimal::MAX  →  X − Y = 2·MAX  →  Overflow at checked_sub.
+        // Confirms the error path surfaces as Overflow (not DivideByZero or any other variant).
+        let y = HpNum(-Decimal::MAX);
+        let x = HpNum(Decimal::MAX);
+        assert_eq!(y.checked_pct_change(&x), Err(HpError::Overflow));
+    }
 }
 
 #[cfg(test)]

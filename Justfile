@@ -1,3 +1,8 @@
+# On Windows, force just to use Git Bash. Cygwin's /usr/bin/sh (if present on PATH)
+# breaks rustup's cargo-proxy argv[0] detection, causing `cargo <subcmd>` to fall
+# through to `rustup` itself. Linux/macOS keep the default sh.
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-cu"]
+
 # Default — show available recipes
 default:
 	@just --list

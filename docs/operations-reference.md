@@ -291,6 +291,30 @@ The HP-41 uses registers R01–R06 for Σ-data (configurable via `ΣREG`).
 
 ---
 
+## Worked Examples
+
+### `%CH` — Percent Change
+
+**Question:** Sales were 200 units last quarter and 230 units this quarter. What is the percent change?
+
+**Keystrokes (CLI):** `200` `ENTER↑` `230` `%`
+**Keystrokes (GUI):** type `2 0 0`, press `Enter`, type `2 3 0`, press `%` on the physical keyboard
+
+| Step | Keystroke | T | Z | Y | X | LAST X | Notes |
+|------|-----------|---|---|---|---|--------|-------|
+| 1 | `200`      | 0 | 0 | 0 | 200 | — | Enter base value |
+| 2 | `ENTER↑`   | 0 | 0 | 200 | 200 | — | Lift X into Y |
+| 3 | `230`      | 0 | 0 | 200 | 230 | — | Enter new value (overwrites X, lift disabled by ENTER↑) |
+| 4 | `%CH`      | 0 | 0 | 200 | **15** | 230 | `((230−200)/200)×100 = 15` |
+
+**Result:** `15` — a 15 % increase. The base `Y = 200` is preserved on the stack so further calculations can chain against it without re-entering the value (the defining HP-41 % family behaviour). `LASTX` holds the original new-value `230`, so pressing `LASTX` recovers it.
+
+**Error case:** If `Y = 0`, `%CH` returns `Error: Divide by 0` and leaves the stack and `LASTX` unchanged.
+
+**Recording in a program:** `%CH` records and plays back like any other binary op. In PRGM mode, the step displays as `%CH`; during `R/S` execution it consumes the same Y/X operands and produces the same result.
+
+---
+
 ## See Also
 
 - [Keyboard Layout](keyboard-layout.md)
