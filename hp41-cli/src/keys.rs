@@ -25,10 +25,7 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('-') => Some(Op::Sub),
         KeyCode::Char('*') => Some(Op::Mul),
         KeyCode::Char('/') => Some(Op::Div),
-        // %CH — percent change: ((X−Y)/Y)×100, Y preserved (the HP-41 % family).
-        // '%' was unbound; crossterm delivers Shift+5 as KeyCode::Char('%') reliably,
-        // same mechanism as 'S'/'L'/'+'.
-        KeyCode::Char('%') => Some(Op::PctChange),
+        KeyCode::Char('%') => Some(Op::PctChange), // %CH — percent change (HP-41 % family)
         // Stack ops (lowercase)
         KeyCode::Char('n') => Some(Op::Chs),
         KeyCode::Char('r') => Some(Op::Rdn),
@@ -359,14 +356,16 @@ mod tests {
 
     #[test]
     fn test_pct_keystroke_dispatches_pct_change() {
-        // '%' maps to Op::PctChange — verify the op produces the right result and preserves Y.
+        // '%' maps to Op::PctChange — verify Y=100 base, X=125 new value → 25% change, Y preserved.
+        // Compare HpNum values directly (PartialEq) rather than Display strings, which are
+        // rust_decimal-scale-dependent and would break if HpNum::rounded() normalises trailing zeros.
         let mut state = CalcState::new();
         state.stack.y = hp41_core::HpNum::from(100);
         state.stack.x = hp41_core::HpNum::from(125);
         let result = hp41_core::ops::dispatch(&mut state, Op::PctChange);
         assert!(result.is_ok(), "Op::PctChange must not error on valid input");
-        assert_eq!(format!("{}", state.stack.x), "25.00000000", "%CH(100→125) must be 25");
-        assert_eq!(format!("{}", state.stack.y), "100", "Y must be preserved");
+        assert_eq!(state.stack.x, hp41_core::HpNum::from(25), "%CH(100→125) must be 25");
+        assert_eq!(state.stack.y, hp41_core::HpNum::from(100), "Y must be preserved");
     }
 
     #[test]
