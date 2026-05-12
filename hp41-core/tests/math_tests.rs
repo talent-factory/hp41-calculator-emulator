@@ -292,13 +292,15 @@ fn test_pct_change_divide_by_zero_leaves_stack_untouched() {
     s.stack.z = HpNum::from(7i32);
     s.stack.t = HpNum::from(13i32);
     let lastx_before = s.stack.lastx.clone();
+    let lift_enabled_before = s.stack.lift_enabled;
     let result = dispatch(&mut s, Op::PctChange);
     assert_eq!(result, Err(HpError::DivideByZero));
-    assert_eq!(s.stack.y, HpNum::zero(), "Y must be untouched on Err");
+    assert_eq!(s.stack.y.inner(), Decimal::from(0), "Y must be untouched on Err");
     assert_eq!(s.stack.x.inner(), Decimal::from(42), "X must be untouched on Err");
     assert_eq!(s.stack.z.inner(), Decimal::from(7), "Z must be untouched on Err");
     assert_eq!(s.stack.t.inner(), Decimal::from(13), "T must be untouched on Err");
-    assert_eq!(s.stack.lastx, lastx_before, "LASTX must be untouched on Err");
+    assert_eq!(s.stack.lastx.inner(), lastx_before.inner(), "LASTX must be untouched on Err");
+    assert_eq!(s.stack.lift_enabled, lift_enabled_before, "lift_enabled must be untouched on Err");
 }
 
 #[test]
