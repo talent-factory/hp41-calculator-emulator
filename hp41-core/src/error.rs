@@ -16,4 +16,13 @@ pub enum HpError {
     // Phase 6 addition — HMS field-range validation: minutes >= 60 or seconds >= 60 (D-06)
     #[error("invalid input")]
     InvalidInput,
+    // Phase 19 addition — Card Reader: WDTA/WPRGM with empty ALPHA register, or RDPRGM
+    // attempting to insert when the encoded form contains unsupported ops (hardware-faithful
+    // "ALPHA DATA" message shown on real HP-41 card reader).
+    #[error("alpha data")]
+    AlphaData,
+    // Phase 19 addition — Card Reader: card payload could not be encoded/decoded (corrupt
+    // V41 .raw bytes, malformed .card.json, or program contains ops not representable in V41).
+    #[error("card data")]
+    CardData,
 }

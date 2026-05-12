@@ -112,6 +112,13 @@ pub struct CalcState {
     /// Hidden register O — accessible via STO O / RCL O in programs.
     #[serde(default)]
     pub reg_o: HpNum,
+    // ── Phase 19: Card Reader ───────────────────────────────────────────────
+    /// Pending card I/O request set by `Op::Wdta`/`Op::Rdta`/`Op::Wprgm`/`Op::Rdprgm`.
+    /// The frontend (hp41-cli / hp41-gui) drains this after each `dispatch()` and
+    /// performs the actual disk I/O — keeps hp41-core UI-agnostic. Mirrors the
+    /// `print_buffer` pattern from Phase 11.
+    #[serde(default, skip)]
+    pub pending_card_op: Option<crate::cardreader::CardOpRequest>,
 }
 
 impl CalcState {
@@ -136,6 +143,7 @@ impl CalcState {
             reg_m: HpNum::zero(),
             reg_n: HpNum::zero(),
             reg_o: HpNum::zero(),
+            pending_card_op: None,
         }
     }
 }
