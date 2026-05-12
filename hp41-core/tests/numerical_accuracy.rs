@@ -2682,6 +2682,37 @@ fn test_numerical_accuracy_suite() {
         case!("stats", "sigma+([10,20,30]): Σx²=1400", 1400.0, sum_x2);
     }
 
+    // ── %CH (percent change) — additive cases on top of the 500-case baseline ─
+    // Case 501: +25%: Y=80, X=100 → 25
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "80");
+        push(&mut s, "100");
+        dispatch(&mut s, Op::PctChange).unwrap();
+        case!("arithmetic", "%CH(Y=80,X=100)=25", 25.0, get_x(&s));
+    }
+    // Case 502: −33.33333333% (10 sig digits): Y=300, X=200 → −33.33333333
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "300");
+        push(&mut s, "200");
+        dispatch(&mut s, Op::PctChange).unwrap();
+        case!(
+            "arithmetic",
+            "%CH(Y=300,X=200)=-33.33333333",
+            -33.333_333_33,
+            get_x(&s)
+        );
+    }
+    // Case 503: doubling: Y=50, X=100 → +100
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "50");
+        push(&mut s, "100");
+        dispatch(&mut s, Op::PctChange).unwrap();
+        case!("arithmetic", "%CH(Y=50,X=100)=100", 100.0, get_x(&s));
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();
