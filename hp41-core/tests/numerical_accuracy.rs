@@ -7,14 +7,14 @@
 #![allow(clippy::inconsistent_digit_grouping)]
 #![allow(clippy::unwrap_used)]
 
-//! 500-case numerical accuracy suite for QUAL-06.
+//! 503-case numerical accuracy suite for QUAL-06.
 //!
 //! Reference values derived from HP-41 Owner's Handbook formulas and known
 //! mathematical constants. Approach: document-derived (same as Free42, D-05).
 //!
 //! Tolerance: <= 1e-9 (9-digit relative accuracy threshold; 1e-10 cases use WIDE_TOL where BCD rounding compounds).
 //!
-//! Gate: passes >= 490 (98% of 500, D-08). Failing cases printed as diagnostics.
+//! Gate: passes >= 493 (98% of 503, D-08). Failing cases printed as diagnostics.
 
 use hp41_core::ops::program::op_dse;
 use hp41_core::ops::program::op_isg;
@@ -2682,7 +2682,7 @@ fn test_numerical_accuracy_suite() {
         case!("stats", "sigma+([10,20,30]): Σx²=1400", 1400.0, sum_x2);
     }
 
-    // ── %CH (percent change) — additive cases on top of the 500-case baseline ─
+    // ── Domain 8: %CH / Percent Change (cases 501–503) ───────────────────────
     // Case 501: +25%: Y=80, X=100 → 25
     {
         let mut s = CalcState::new();
@@ -2754,7 +2754,7 @@ fn test_numerical_accuracy_suite() {
     println!("Numerical accuracy: {passes}/{total} cases passed");
 
     assert!(
-        passes >= 490,
-        "Numerical accuracy suite: {passes}/{total} cases passed (need >= 490 for 98%). Failures above."
+        passes >= 493,
+        "Numerical accuracy suite: {passes}/{total} cases passed (need >= 493 for 98%). Failures above."
     );
 }
