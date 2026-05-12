@@ -318,10 +318,10 @@ mod tests {
         assert_eq!(calc.pc, 0, "BST must not underflow below 0");
     }
 
-    /// Spec §6.5 smoke test: full Tauri command-path for Op::PctChange.
+    /// Smoke test for Op::PctChange through the Tauri command path.
     /// Y=100 (base), X=125 (new value) → %CH = (125-100)/100 * 100 = 25; Y preserved at 100.
-    /// Seeds chosen to yield an exact integer result — avoids rust_decimal scale dependence.
-    /// Uses Option A (parse-back-to-Decimal) for scale-independent comparison.
+    /// Seeds chosen to yield an exact integer result. Parses x_str/y_str back to Decimal
+    /// so the comparison is independent of rust_decimal's trailing-zero scale.
     #[test]
     fn handle_op_pct_change_produces_expected_view() {
         use rust_decimal::Decimal;

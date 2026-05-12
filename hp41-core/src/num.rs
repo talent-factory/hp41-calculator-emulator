@@ -142,9 +142,9 @@ impl HpNum {
     /// Returns `DivideByZero` if self is zero; `Overflow` on intermediate or final overflow.
     /// Sign emerges naturally from the arithmetic — negative bases are not special-cased.
     pub fn checked_pct_change(&self, new_val: &HpNum) -> Result<HpNum, HpError> {
-        let delta = new_val.checked_sub(self)?; // X − Y
-        let ratio = delta.checked_div(self)?; // / Y  (DivideByZero if Y=0)
-        ratio.checked_mul(&HpNum::from(100i32)) // × 100
+        let delta = new_val.checked_sub(self)?;
+        let ratio = delta.checked_div(self)?; // DivideByZero if self == 0
+        ratio.checked_mul(&HpNum::from(100i32))
     }
 
     // ── Trigonometric methods (angle in RADIANS) ──────────────────────────────

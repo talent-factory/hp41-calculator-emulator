@@ -136,8 +136,8 @@ pub fn op_ypow(state: &mut CalcState) -> Result<(), HpError> {
 ///
 /// HP-41 % family — reads Y as base and X as new value, but does NOT
 /// consume Y. Stack effect is unary (LASTX←oldX, X←result, Y/Z/T fixed) —
-/// we reuse `unary_result()` even though the math is binary. Future base `%`
-/// and `Δ%` ops will follow the same pattern.
+/// we reuse `unary_result()` even though the math is binary; do NOT
+/// refactor to `binary_result` or Y will be silently consumed.
 /// LiftEffect: Enable (via unary_result).
 pub fn op_pct_change(state: &mut CalcState) -> Result<(), HpError> {
     let result = state.stack.y.checked_pct_change(&state.stack.x)?;

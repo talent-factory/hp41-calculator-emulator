@@ -25,7 +25,7 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('-') => Some(Op::Sub),
         KeyCode::Char('*') => Some(Op::Mul),
         KeyCode::Char('/') => Some(Op::Div),
-        KeyCode::Char('%') => Some(Op::PctChange), // %CH — percent change (HP-41 % family)
+        KeyCode::Char('%') => Some(Op::PctChange),
         // Stack ops (lowercase)
         KeyCode::Char('n') => Some(Op::Chs),
         KeyCode::Char('r') => Some(Op::Rdn),
