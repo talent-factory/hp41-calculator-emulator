@@ -304,10 +304,11 @@ The HP-41 uses registers R01–R06 for Σ-data (configurable via `ΣREG`).
 |------|-----------|---|---|---|---|--------|-------|
 | 1 | `200`      | 0 | 0 | 0 | 200 | — | Enter base value |
 | 2 | `ENTER↑`   | 0 | 0 | 200 | 200 | — | Lift X into Y |
-| 3 | `230`      | 0 | 0 | 200 | 230 | — | Enter new value (overwrites X, lift disabled by ENTER↑) |
-| 4 | `%CH`      | 0 | 0 | 200 | **15** | 230 | `((230−200)/200)×100 = 15` |
+| 3 | `230`      | 0 | 0 | 200 | 230 | — | Enter new value (overwrites X, lift disabled by `ENTER↑`) |
+| 4 | `%CH`      | 0 | 0 | 200 | **15** | 230 | `((230−200)/200)×100 = 15`; Y preserved |
+| 5 | `LASTX`    | 0 | 200 | 15 | **230** | 230 | Stack lifts (Lift = Enable); old Y/X move up; LASTX itself is unchanged |
 
-**Result:** `15` — a 15 % increase. The base `Y = 200` is preserved on the stack so further calculations can chain against it without re-entering the value (the defining HP-41 % family behaviour). `LASTX` holds the original new-value `230`, so pressing `LASTX` recovers it.
+**Result:** `15` — a 15 % increase. The base `Y = 200` is preserved on the stack (the defining HP-41 % family behaviour), so you can chain further calculations without re-entering the value. To bring the base back to X for direct inspection, use `x↔y`; to recover the original new value `230`, use `LASTX` — note that `LASTX` lifts the stack (Step 5 above), so the previous Y and X are pushed up into Z and Y rather than being discarded. The hidden `LASTX` register is itself unchanged by the `LASTX` op; only ops that modify X update it.
 
 **Error case:** If `Y = 0`, `%CH` returns `Error: Divide by 0` and leaves the stack and `LASTX` unchanged.
 
