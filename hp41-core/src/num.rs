@@ -137,6 +137,16 @@ impl HpNum {
             .ok_or(HpError::Domain)
     }
 
+    /// %CH — percent change from self (base, Y) to x (new value, X).
+    /// Computes `((x − self) / self) × 100`.
+    /// Returns `DivideByZero` if self is zero; `Overflow` on intermediate or final overflow.
+    /// Sign emerges naturally from the arithmetic — negative bases are not special-cased.
+    pub fn checked_pct_change(&self, x: &HpNum) -> Result<HpNum, HpError> {
+        let delta = x.checked_sub(self)?; // X − Y
+        let ratio = delta.checked_div(self)?; // / Y  (DivideByZero if Y=0)
+        ratio.checked_mul(&HpNum::from(100i32)) // × 100
+    }
+
     // ── Trigonometric methods (angle in RADIANS) ──────────────────────────────
     // All trig methods expect/return values in radians.
     // Angle mode conversion (DEG/GRAD ↔ RAD) is the caller's responsibility.
