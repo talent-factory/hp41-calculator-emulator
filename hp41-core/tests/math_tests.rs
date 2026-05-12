@@ -332,3 +332,66 @@ fn test_pct_change_chained_invocation() {
     assert_eq!(s.stack.x.inner(), Decimal::from(150));
     assert_eq!(s.stack.y.inner(), Decimal::from(25), "Y after lift is prior X (25)");
 }
+
+// ── %CH PRGM mode: recording and playback ─────────────────────────────────────
+
+#[test]
+fn test_pct_change_recorded_into_program_when_prgm_mode() {
+    // In prgm_mode = true, dispatching Op::PctChange must APPEND to state.program
+    // (recording) and MUST NOT touch the stack.
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    s.prgm_mode = true;
+    let program_len_before = s.program.len();
+
+    dispatch(&mut s, Op::PctChange).unwrap();
+
+    assert_eq!(
+        s.program.len(),
+        program_len_before + 1,
+        "PctChange must be appended to program Vec"
+    );
+    assert_eq!(
+        s.program.last(),
+        Some(&Op::PctChange),
+        "the appended op must be PctChange"
+    );
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(230),
+        "stack must be untouched in PRGM mode"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(200),
+        "stack must be untouched in PRGM mode"
+    );
+}
+
+#[test]
+fn test_pct_change_playback_via_run_program() {
+    // Build a tiny program: LBL "T", PushNum(200), Enter, PushNum(230), PctChange, Rtn.
+    // Run it. Expect X=15, Y=200.
+    use hp41_core::run_program;
+    let mut s = CalcState::new();
+    s.program = vec![
+        Op::Lbl("T".to_string()),
+        Op::PushNum(HpNum::from(200i32)),
+        Op::Enter,
+        Op::PushNum(HpNum::from(230i32)),
+        Op::PctChange,
+        Op::Rtn,
+    ];
+    run_program(&mut s, "T").unwrap();
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(15),
+        "playback result must equal 15"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(200),
+        "Y preserved after playback"
+    );
+}
