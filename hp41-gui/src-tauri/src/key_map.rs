@@ -33,6 +33,7 @@ pub fn resolve(key_id: &str) -> Result<Op, GuiError> {
         "sqrt" => Ok(Op::Sqrt),
         "sq" => Ok(Op::Sq),
         "ypow" => Ok(Op::YPow),
+        "pct_change" => Ok(Op::PctChange),
         "recip" => Ok(Op::Recip),
         "ln" => Ok(Op::Ln),
         "log" => Ok(Op::Log),
@@ -242,6 +243,11 @@ mod tests {
             resolve("sto_arith_minus_y").unwrap(),
             Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::Y }
         );
+    }
+
+    #[test]
+    fn resolve_pct_change_id() {
+        assert_eq!(resolve("pct_change").unwrap(), Op::PctChange);
     }
 
     #[test]

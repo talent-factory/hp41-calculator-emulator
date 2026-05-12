@@ -46,6 +46,7 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
     'a': 'asin', 'c': 'acos', 'k': 'atan',
     'C': 'cos', 'T': 'tan', 'L': 'ln', 'G': 'log', 'E': 'exp',
     'H': 'tenpow', 'I': 'recip', 'W': 'sq', 'Y': 'ypow',
+    '%': 'pct_change',
     'u': 'user_mode',
     'z': 'sigma_plus', 'Z': 'sigma_minus', 'm': 'mean', 'D': 'sdev',
     'y': 'yhat', 'b': 'lr', 'O': 'corr', 'V': 'cl_sigma_stat',
