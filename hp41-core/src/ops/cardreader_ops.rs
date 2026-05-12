@@ -1,4 +1,4 @@
-//! Card Reader op handlers (Phase 19) — `WDTA`, `RDTA`, `WPRGM`, `RDPRGM`.
+//! Card Reader op handlers — `WDTA`, `RDTA`, `WPRGM`, `RDPRGM`.
 //!
 //! These handlers do not perform any disk I/O. They validate the ALPHA
 //! register (hardware-faithful: empty → `ALPHA DATA` error) and stage a
@@ -6,6 +6,11 @@
 //! The frontend (hp41-cli, hp41-gui) performs the actual file read/write
 //! and, for read ops, calls back into the core helpers
 //! `cardreader::insert_program_ops` / `cardreader::load_data_card`.
+//!
+//! Each handler refuses to overwrite an un-drained request — back-to-back
+//! card ops (e.g. `WDTA` immediately followed by `WPRGM` inside a program
+//! before the host has had a chance to act) surface as `CardData` instead of
+//! silently losing the prior request.
 
 use crate::cardreader::CardOpRequest;
 use crate::error::HpError;
@@ -19,7 +24,17 @@ fn alpha_name(state: &CalcState) -> Result<String, HpError> {
     Ok(state.alpha_reg.clone())
 }
 
+fn ensure_no_pending(state: &CalcState) -> Result<(), HpError> {
+    if state.pending_card_op.is_some() {
+        return Err(HpError::CardData(
+            "a previous card operation is still pending — frontend must drain it first".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn op_wdta(state: &mut CalcState) -> Result<(), HpError> {
+    ensure_no_pending(state)?;
     let name = alpha_name(state)?;
     state.pending_card_op = Some(CardOpRequest::WriteData { name });
     apply_lift_effect(state, LiftEffect::Neutral);
@@ -27,6 +42,7 @@ pub fn op_wdta(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 pub fn op_rdta(state: &mut CalcState) -> Result<(), HpError> {
+    ensure_no_pending(state)?;
     let name = alpha_name(state)?;
     state.pending_card_op = Some(CardOpRequest::ReadData { name });
     apply_lift_effect(state, LiftEffect::Neutral);
@@ -34,6 +50,7 @@ pub fn op_rdta(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 pub fn op_wprgm(state: &mut CalcState) -> Result<(), HpError> {
+    ensure_no_pending(state)?;
     let name = alpha_name(state)?;
     state.pending_card_op = Some(CardOpRequest::WriteProgram { name });
     apply_lift_effect(state, LiftEffect::Neutral);
@@ -41,6 +58,7 @@ pub fn op_wprgm(state: &mut CalcState) -> Result<(), HpError> {
 }
 
 pub fn op_rdprgm(state: &mut CalcState) -> Result<(), HpError> {
+    ensure_no_pending(state)?;
     let name = alpha_name(state)?;
     state.pending_card_op = Some(CardOpRequest::ReadProgram { name });
     apply_lift_effect(state, LiftEffect::Neutral);
@@ -102,5 +120,25 @@ mod tests {
         op_wprgm(&mut state).unwrap();
         // Neutral lift effect: flag stays as it was (false).
         assert!(!state.stack.lift_enabled);
+    }
+
+    #[test]
+    fn second_card_op_before_drain_returns_card_data() {
+        // Regression guard: the first op_wdta stages a request; a follow-up
+        // op_wprgm before the frontend drains must NOT silently overwrite —
+        // it must surface as CardData so the host or the program sees it.
+        let mut state = CalcState::new();
+        state.alpha_reg = "A".into();
+        op_wdta(&mut state).unwrap();
+        let staged_before = state.pending_card_op.clone();
+        assert!(staged_before.is_some());
+
+        let err = op_wprgm(&mut state).unwrap_err();
+        assert!(
+            matches!(&err, HpError::CardData(msg) if msg.contains("pending")),
+            "expected pending-overwrite diagnostic, got: {err:?}"
+        );
+        // The original request must still be intact for the frontend to drain.
+        assert_eq!(state.pending_card_op, staged_before);
     }
 }

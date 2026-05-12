@@ -32,14 +32,24 @@ pub struct DataCard {
 
 /// Serialize a `DataCard` to pretty JSON bytes (UTF-8) ready for disk write.
 pub fn encode_data(card: &DataCard) -> Result<Vec<u8>, HpError> {
-    serde_json::to_vec_pretty(card).map_err(|_| HpError::CardData)
+    serde_json::to_vec_pretty(card).map_err(|e| HpError::CardData(e.to_string()))
 }
 
-/// Parse `.card.json` bytes into a `DataCard`, validating magic header.
+/// Parse `.card.json` bytes into a `DataCard`, validating magic header and version.
 pub fn decode_data(bytes: &[u8]) -> Result<DataCard, HpError> {
-    let card: DataCard = serde_json::from_slice(bytes).map_err(|_| HpError::CardData)?;
+    let card: DataCard =
+        serde_json::from_slice(bytes).map_err(|e| HpError::CardData(e.to_string()))?;
     if card.format != FORMAT_TAG {
-        return Err(HpError::CardData);
+        return Err(HpError::CardData(format!(
+            "wrong format tag: expected {FORMAT_TAG:?}, got {:?}",
+            card.format
+        )));
+    }
+    if card.version != FORMAT_VERSION {
+        return Err(HpError::CardData(format!(
+            "unsupported version: expected {FORMAT_VERSION}, got {}",
+            card.version
+        )));
     }
     Ok(card)
 }
@@ -68,12 +78,27 @@ mod tests {
     #[test]
     fn decode_rejects_wrong_format_tag() {
         let bad = br#"{"format":"some-other-format","version":1,"registers":[]}"#;
-        assert!(matches!(decode_data(bad), Err(HpError::CardData)));
+        let err = decode_data(bad).unwrap_err();
+        assert!(
+            matches!(&err, HpError::CardData(msg) if msg.contains("wrong format tag")),
+            "expected wrong-format-tag diagnostic, got: {err:?}"
+        );
     }
 
     #[test]
     fn decode_rejects_malformed_json() {
-        assert!(matches!(decode_data(b"not json"), Err(HpError::CardData)));
+        let err = decode_data(b"not json").unwrap_err();
+        assert!(matches!(err, HpError::CardData(_)));
+    }
+
+    #[test]
+    fn decode_rejects_unsupported_version() {
+        let bad = br#"{"format":"hp41-data-v1","version":99,"registers":[]}"#;
+        let err = decode_data(bad).unwrap_err();
+        assert!(
+            matches!(&err, HpError::CardData(msg) if msg.contains("unsupported version")),
+            "expected unsupported-version diagnostic, got: {err:?}"
+        );
     }
 
     #[test]

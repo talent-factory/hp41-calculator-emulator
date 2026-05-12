@@ -240,7 +240,7 @@ pub enum Op {
     /// dispatches to the corresponding Op via `synthetic_byte_to_op()` lookup.
     /// LiftEffect: varies (delegates to the mapped op).
     SyntheticByte(u8),
-    // ── Card Reader (Phase 19) ──────────────────────────────────────────────
+    // ── Card Reader ─────────────────────────────────────────────────────────
     /// WDTA — write data registers R00..R(SIZE-1) to the card named in the
     /// ALPHA register. Stages a `CardOpRequest::WriteData` for the frontend
     /// to drain. Empty ALPHA → `HpError::AlphaData`. LiftEffect: Neutral.
@@ -248,7 +248,7 @@ pub enum Op {
     /// RDTA — read a data card named in ALPHA and replace data registers.
     /// Stages a `CardOpRequest::ReadData`. LiftEffect: Neutral.
     Rdta,
-    /// WPRGM — write current program to the V41 `.raw` card named in ALPHA.
+    /// WPRGM — write current program to the `.raw` card named in ALPHA.
     /// Stages a `CardOpRequest::WriteProgram`. LiftEffect: Neutral.
     Wprgm,
     /// RDPRGM — read a `.raw` card named in ALPHA and insert its ops
@@ -446,7 +446,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
-        // ── Phase 19: Card Reader ─────────────────────────────────────────
+        // ── Card Reader ───────────────────────────────────────────────────
         Op::Wdta => op_wdta(state),
         Op::Rdta => op_rdta(state),
         Op::Wprgm => op_wprgm(state),

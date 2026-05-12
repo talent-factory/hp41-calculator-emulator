@@ -135,7 +135,7 @@ fn op_display_name(op: &Op) -> String {
         Op::RclN => "RCL N".to_string(),
         Op::RclO => "RCL O".to_string(),
         Op::SyntheticByte(b) => format!("SYN {b:02X}"),
-        // Phase 19: Card Reader
+        // Card Reader
         Op::Wdta => "WDTA".to_string(),
         Op::Rdta => "RDTA".to_string(),
         Op::Wprgm => "WPRGM".to_string(),

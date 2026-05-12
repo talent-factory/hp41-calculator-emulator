@@ -1,4 +1,4 @@
-//! Card Reader (Phase 19) — HP 82104A peripheral emulation.
+//! Card Reader — HP 82104A peripheral emulation.
 //!
 //! Provides UI-agnostic codecs and state helpers for the four MVP operations:
 //! `WDTA`, `RDTA`, `WPRGM`, `RDPRGM`. Disk I/O is performed by the frontends
@@ -6,8 +6,8 @@
 //! `CalcState::pending_card_op`.
 //!
 //! Formats:
-//! - Programs: V41/Free42 bare `.raw` byte stream — community-standard, byte-
-//!   exact instruction sequence with a trailing END marker (D-19).
+//! - Programs: bare `.raw` byte stream — community-standard instruction
+//!   sequence with a trailing END marker.
 //! - Data: `.card.json` — our own format (no de-facto standard exists for
 //!   emulator data cards) with a `format: "hp41-data-v1"` magic header.
 
@@ -17,6 +17,7 @@ pub mod raw;
 pub use data::{decode_data, encode_data, DataCard};
 pub use raw::{decode_program, encode_program};
 
+use crate::num::HpNum;
 use crate::ops::Op;
 use crate::state::CalcState;
 
@@ -36,7 +37,7 @@ pub enum CardOpRequest {
     ReadData { name: String },
 }
 
-/// Insert decoded program ops per RDPRGM semantics (decision: 2026-05-12):
+/// Insert decoded program ops per RDPRGM semantics:
 /// - If `state.program` is empty → replace (also resets `pc` to 0).
 /// - Otherwise → insert immediately AFTER `state.pc` (caller may advance pc afterwards).
 ///
@@ -63,10 +64,23 @@ pub fn capture_data_card(state: &CalcState) -> DataCard {
     }
 }
 
-/// Load a `DataCard` into `state.regs`. Resizes `state.regs` to match the card's SIZE
-/// (HP-41 hardware reallocates SIZE to fit the card on RDTA).
+/// Minimum register vector length maintained after `load_data_card`. The rest
+/// of the engine gates `STO`/`RCL` on `reg < 100` (not `reg < regs.len()`), so
+/// shrinking below 100 would turn `STO 50` after a small-card load into a
+/// runtime index panic.
+const MIN_REGS_AFTER_LOAD: usize = 100;
+
+/// Load a `DataCard` into `state.regs`.
+///
+/// Replaces the live registers with the card's payload, then zero-pads up to
+/// `MIN_REGS_AFTER_LOAD` so subsequent `STO`/`RCL nn` operations stay in
+/// bounds. The HP-41 hardware grows SIZE to fit a larger card; we additionally
+/// guarantee it never shrinks below 100 to keep the rest of the engine sound.
 pub fn load_data_card(state: &mut CalcState, card: DataCard) {
     state.regs = card.registers;
+    if state.regs.len() < MIN_REGS_AFTER_LOAD {
+        state.regs.resize(MIN_REGS_AFTER_LOAD, HpNum::zero());
+    }
 }
 
 #[cfg(test)]
@@ -124,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn load_data_card_resizes_regs() {
+    fn load_data_card_pads_small_card_to_min_size() {
         let mut state = CalcState::new(); // 100 regs
         let small_card = DataCard {
             format: data::FORMAT_TAG.to_string(),
@@ -132,6 +146,49 @@ mod tests {
             registers: vec![HpNum::from(1i32); 16],
         };
         load_data_card(&mut state, small_card);
-        assert_eq!(state.regs.len(), 16);
+        assert_eq!(
+            state.regs.len(),
+            MIN_REGS_AFTER_LOAD,
+            "load_data_card must keep regs.len() >= MIN_REGS_AFTER_LOAD so STO/RCL nn stays in bounds"
+        );
+        assert_eq!(state.regs[0], HpNum::from(1i32));
+        assert_eq!(state.regs[15], HpNum::from(1i32));
+        assert_eq!(
+            state.regs[50],
+            HpNum::zero(),
+            "padded slots must be zero, not garbage"
+        );
+    }
+
+    #[test]
+    fn load_data_card_keeps_oversize_card_intact() {
+        // A card with > MIN_REGS_AFTER_LOAD regs must not be truncated.
+        let mut state = CalcState::new();
+        let big_card = DataCard {
+            format: data::FORMAT_TAG.to_string(),
+            version: data::FORMAT_VERSION,
+            registers: vec![HpNum::from(7i32); 150],
+        };
+        load_data_card(&mut state, big_card);
+        assert_eq!(state.regs.len(), 150);
+        assert_eq!(state.regs[149], HpNum::from(7i32));
+    }
+
+    #[test]
+    fn sto_after_small_card_load_does_not_panic() {
+        // Regression guard for the review-flagged out-of-bounds panic:
+        // load_data_card with a 16-register card used to leave regs.len() == 16,
+        // and a subsequent op_sto on register 50 would index-panic on raw access
+        // (op_sto gates on reg < 100, not on reg < state.regs.len()).
+        let mut state = CalcState::new();
+        state.stack.x = HpNum::from(42i32);
+        let small_card = DataCard {
+            format: data::FORMAT_TAG.to_string(),
+            version: data::FORMAT_VERSION,
+            registers: vec![HpNum::zero(); 16],
+        };
+        load_data_card(&mut state, small_card);
+        crate::ops::registers::op_sto(&mut state, 50).expect("op_sto must succeed after card load");
+        assert_eq!(state.regs[50], HpNum::from(42i32));
     }
 }

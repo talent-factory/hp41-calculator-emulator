@@ -343,10 +343,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
-        // ── Phase 19: Card Reader ─────────────────────────────────────────
         // Inside a running program, card ops stage a request just like in
-        // interactive dispatch. The host event loop drains pending_card_op
-        // between program steps (frontend responsibility).
+        // interactive dispatch. Back-to-back card ops without a frontend
+        // drain in between surface as `HpError::CardData` rather than
+        // silently dropping the prior request.
         Op::Wdta => super::cardreader_ops::op_wdta(state),
         Op::Rdta => super::cardreader_ops::op_rdta(state),
         Op::Wprgm => super::cardreader_ops::op_wprgm(state),

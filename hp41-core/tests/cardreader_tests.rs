@@ -1,4 +1,4 @@
-//! Integration tests for the Card Reader (Phase 19).
+//! Integration tests for the Card Reader.
 //!
 //! Drives the full pipeline a frontend would execute:
 //!   1. `dispatch(Op::Wdta)` stages a `pending_card_op`
@@ -13,6 +13,7 @@ use hp41_core::cardreader::{
 };
 use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
+use hp41_core::ops::program::run_program;
 use hp41_core::ops::{dispatch, Op};
 use hp41_core::state::CalcState;
 
@@ -82,7 +83,7 @@ fn wprgm_full_pipeline_round_trips_program() {
     // Simulate the frontend: encode → bytes.
     let bytes = encode_program(&state.program).expect("encode_program must succeed");
 
-    // Verify END marker present (D-19: always appended on write).
+    // END marker is always appended on encode.
     assert_eq!(&bytes[bytes.len() - 3..], &[0xC0, 0x00, 0x0D]);
 
     // Read back into a fresh calculator: empty program → replace.
@@ -123,10 +124,10 @@ fn wdta_with_empty_alpha_is_alpha_data_error() {
 }
 
 #[test]
-fn wprgm_unsupported_op_surfaces_card_data_error() {
-    // FmtFix is outside the Phase 19 encoding subset — encode_program rejects it.
-    let bytes = encode_program(&[Op::FmtFix(4)]);
-    assert_eq!(bytes.unwrap_err(), HpError::CardData);
+fn encode_program_rejects_unsupported_op() {
+    // FmtFix is outside the encoding subset — encode_program rejects it.
+    let err = encode_program(&[Op::FmtFix(4)]).unwrap_err();
+    assert!(matches!(err, HpError::CardData(_)));
 }
 
 #[test]
@@ -160,5 +161,63 @@ fn pending_card_op_is_not_serialized_to_save_state() {
     assert!(
         !json.contains("pending_card_op"),
         "pending_card_op must be skipped from serialization"
+    );
+}
+
+#[test]
+fn card_op_recorded_in_program_stages_request_via_run_program() {
+    // The four card ops route through execute_op() in the program interpreter,
+    // not the interactive dispatch path. Build a program that contains
+    // Op::Wdta, run it via run_program(), and verify the request is staged
+    // and lift behaviour stayed Neutral.
+    let mut state = CalcState::new();
+    state.alpha_reg = "BACKUP".into();
+    state.program = vec![Op::Lbl("A".into()), Op::Wdta, Op::Rtn];
+    state.stack.lift_enabled = false;
+
+    run_program(&mut state, "A").expect("program with WDTA must run cleanly");
+    assert_eq!(
+        state.pending_card_op,
+        Some(CardOpRequest::WriteData {
+            name: "BACKUP".into()
+        })
+    );
+    assert!(
+        !state.stack.lift_enabled,
+        "Neutral lift effect must survive the run_program path too"
+    );
+}
+
+#[test]
+fn back_to_back_card_ops_in_program_surface_card_data_error() {
+    // Two card ops in a row, with no chance for the frontend to drain in
+    // between, must NOT silently overwrite. The second op surfaces a CardData
+    // error so the program halts and the user sees that the first request
+    // never completed.
+    let mut state = CalcState::new();
+    state.alpha_reg = "A".into();
+    state.program = vec![Op::Lbl("A".into()), Op::Wdta, Op::Wprgm, Op::Rtn];
+
+    let err = run_program(&mut state, "A").unwrap_err();
+    assert!(
+        matches!(&err, HpError::CardData(msg) if msg.contains("pending")),
+        "expected pending-overwrite diagnostic, got: {err:?}"
+    );
+    // First request must still be intact.
+    assert_eq!(
+        state.pending_card_op,
+        Some(CardOpRequest::WriteData { name: "A".into() })
+    );
+}
+
+#[test]
+fn unsupported_version_surfaces_card_data_error() {
+    // A future schema bump (or a hand-edited file) must be rejected, not
+    // silently loaded as v1.
+    let bad = br#"{"format":"hp41-data-v1","version":2,"registers":[]}"#;
+    let err = decode_data(bad).unwrap_err();
+    assert!(
+        matches!(&err, HpError::CardData(msg) if msg.contains("version")),
+        "expected unsupported-version diagnostic, got: {err:?}"
     );
 }

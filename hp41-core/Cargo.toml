@@ -8,7 +8,7 @@ rust-version.workspace = true
 rust_decimal = { workspace = true, features = ["maths", "serde-with-str"] }
 thiserror = { workspace = true }
 serde = { workspace = true }
-# Card Reader (Phase 19): .card.json codec uses serde_json. Promoted from dev-dep.
+# `.card.json` codec needs serde_json at runtime.
 serde_json = { workspace = true }
 
 [dev-dependencies]
