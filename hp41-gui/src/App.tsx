@@ -77,6 +77,9 @@ function App() {
   }, []);
 
   const handleClick = useCallback((keyId: string) => {
+    // Contract: keystrokes that arrive during an in-flight invoke() are dropped.
+    // The state-machine guarantees one IPC round-trip at a time; the OS key-repeat
+    // path is gated separately by `e.repeat` in handleKey.
     if (busyRef.current) return;
     busyRef.current = true;
     let invokePromise: Promise<CalcStateView>;
