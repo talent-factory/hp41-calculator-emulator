@@ -132,6 +132,19 @@ pub fn op_ypow(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
+/// %CH: ((X − Y) / Y) × 100, leaving Y on the stack.
+///
+/// HP-41 % family — reads Y as base and X as new value, but does NOT
+/// consume Y. Stack effect is unary (LASTX←oldX, X←result, Y/Z/T fixed) —
+/// we reuse `unary_result()` even though the math is binary. Future base `%`
+/// and `Δ%` ops will follow the same pattern.
+/// LiftEffect: Enable (via unary_result).
+pub fn op_pct_change(state: &mut CalcState) -> Result<(), HpError> {
+    let result = state.stack.y.checked_pct_change(&state.stack.x)?;
+    unary_result(state, result);
+    Ok(())
+}
+
 // ── Trig ops — forward ────────────────────────────────────────────────────
 //
 // Forward trig uses a direct f64 bridge (same rationale as inverse trig):
