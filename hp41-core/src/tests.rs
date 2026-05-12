@@ -647,6 +647,16 @@ mod num_scalar_math_tests {
         let x = HpNum(Decimal::from_str("1000000000000000000000000000").unwrap());
         assert_eq!(y.checked_pct_change(&x), Err(HpError::Overflow));
     }
+
+    #[test]
+    fn checked_pct_change_overflow_at_subtract() {
+        // X − Y overflows BEFORE the divide step.
+        // Y = -Decimal::MAX, X = +Decimal::MAX  →  X − Y = 2·MAX  →  Overflow at checked_sub.
+        // Confirms the error path surfaces as Overflow (not DivideByZero or any other variant).
+        let y = HpNum(-Decimal::MAX);
+        let x = HpNum(Decimal::MAX);
+        assert_eq!(y.checked_pct_change(&x), Err(HpError::Overflow));
+    }
 }
 
 #[cfg(test)]

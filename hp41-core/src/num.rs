@@ -137,12 +137,12 @@ impl HpNum {
             .ok_or(HpError::Domain)
     }
 
-    /// %CH — percent change from self (base, Y) to x (new value, X).
-    /// Computes `((x − self) / self) × 100`.
+    /// %CH — percent change from self (base, Y) to new_val (the new value, X).
+    /// Computes `((new_val − self) / self) × 100`.
     /// Returns `DivideByZero` if self is zero; `Overflow` on intermediate or final overflow.
     /// Sign emerges naturally from the arithmetic — negative bases are not special-cased.
-    pub fn checked_pct_change(&self, x: &HpNum) -> Result<HpNum, HpError> {
-        let delta = x.checked_sub(self)?; // X − Y
+    pub fn checked_pct_change(&self, new_val: &HpNum) -> Result<HpNum, HpError> {
+        let delta = new_val.checked_sub(self)?; // X − Y
         let ratio = delta.checked_div(self)?; // / Y  (DivideByZero if Y=0)
         ratio.checked_mul(&HpNum::from(100i32)) // × 100
     }
