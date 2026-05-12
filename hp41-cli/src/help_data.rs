@@ -30,7 +30,7 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
     (
         "%",
         "%CH",
-        "Percent change: ((X−Y)/Y)×100, Y preserved (% family)",
+        "Percent change from Y (base) to X (new): ((X−Y)/Y)×100; Y preserved",
     ),
     // ── Trig ──────────────────────────────────────────────────────────────────
     ("", "", "=== Trig ==="),
@@ -359,6 +359,16 @@ mod tests {
                 "Missing category header: {cat}"
             );
         }
+    }
+
+    #[test]
+    fn test_help_data_has_pct_change_row() {
+        assert!(
+            HELP_DATA
+                .iter()
+                .any(|(key, op, _)| *key == "%" && *op == "%CH"),
+            "HELP_DATA must contain a '%' → %CH row"
+        );
     }
 
     #[test]
