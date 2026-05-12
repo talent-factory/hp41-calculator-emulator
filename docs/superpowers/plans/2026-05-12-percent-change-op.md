@@ -726,7 +726,7 @@ If the suite uses a different harness pattern (a `cases` array consumed by a loo
 
 Run: `just test-core --test numerical_accuracy`
 
-Expected: still ≥98% pass rate (the gate). The added cases are additive — the suite gate is the count of passes among the canonical 500 cases. New cases must all pass deterministically.
+Expected: still ≥98% pass rate (the gate). As-shipped: the suite total moves from 500 → 503; tighten the gate proportionally to `passes >= 493` in the same commit so the 98% policy strength is preserved at the new total. New cases must all pass deterministically.
 
 - [ ] **Step 3: Commit**
 

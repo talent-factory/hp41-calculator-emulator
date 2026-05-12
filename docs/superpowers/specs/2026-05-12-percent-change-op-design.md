@@ -36,17 +36,17 @@ The stack effect is unary even though the math is binary — `%CH` reads `Y` as 
 ### 2.1 `hp41-core/src/num.rs` — pure math method
 
 ```rust
-/// %CH — percent change from self (base) to x (new value).
-/// Computes ((x - self) / self) × 100.
+/// %CH — percent change from self (base, Y) to new_val (the new value, X).
+/// Computes ((new_val − self) / self) × 100.
 /// Returns DivideByZero if self is zero; Overflow on intermediate or final overflow.
-pub fn checked_pct_change(&self, x: &HpNum) -> Result<HpNum, HpError> {
-    let delta = x.checked_sub(self)?;                  // X − Y
-    let ratio = delta.checked_div(self)?;              // / Y  (DivideByZero if Y=0)
-    ratio.checked_mul(&HpNum::from(100))               // × 100
+pub fn checked_pct_change(&self, new_val: &HpNum) -> Result<HpNum, HpError> {
+    let delta = new_val.checked_sub(self)?;            // X − Y
+    let ratio = delta.checked_div(self)?;              // DivideByZero if Y=0
+    ratio.checked_mul(&HpNum::from(100i32))            // × 100
 }
 ```
 
-Convention: `self` = Y (left/base), param = X (right/new) — matches every other binary `HpNum::checked_*` method.
+Convention: `self` = Y (left/base), param = X (right/new) — matches every other binary `HpNum::checked_*` method. As-shipped: the parameter is named `new_val` rather than `x` for symmetry with the rustdoc and to avoid confusion with the stack register `x`.
 
 ### 2.2 `hp41-core/src/ops/math.rs` — op fn
 
@@ -207,7 +207,7 @@ This is required by the CLAUDE.md v2.0 invariant — every new `Op` variant land
 
 ### 6.6 Numerical-accuracy suite — `hp41-core/tests/numerical_accuracy.rs`
 
-Add 3–5 `%CH` cases (additive — the suite gate is "≥98%, currently 99% (495/500)"; new cases do not re-baseline).
+Add 3 `%CH` cases. As-shipped: the suite is now 503 cases (500 + 3 `%CH`); the gate was tightened proportionally from `passes >= 490` to `passes >= 493` to maintain the 98% policy strength at the new total. New cases must all pass deterministically.
 
 ### 6.7 Coverage
 
