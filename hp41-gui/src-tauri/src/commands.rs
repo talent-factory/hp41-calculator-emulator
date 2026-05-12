@@ -317,4 +317,29 @@ mod tests {
         handle_bst(&mut calc).unwrap();
         assert_eq!(calc.pc, 0, "BST must not underflow below 0");
     }
+
+    /// Spec §6.5 smoke test: full Tauri command-path for Op::PctChange.
+    /// Y=100 (base), X=125 (new value) → %CH = (125-100)/100 * 100 = 25; Y preserved at 100.
+    /// Seeds chosen to yield an exact integer result — avoids rust_decimal scale dependence.
+    /// Uses Option A (parse-back-to-Decimal) for scale-independent comparison.
+    #[test]
+    fn handle_op_pct_change_produces_expected_view() {
+        use rust_decimal::Decimal;
+        let mut state = CalcState::new();
+        state.stack.y = HpNum::from(100i32);
+        state.stack.x = HpNum::from(125i32);
+        let view = handle_op(&mut state, "pct_change")
+            .expect("pct_change must dispatch successfully");
+
+        let x_val: Decimal = view
+            .x_str
+            .parse()
+            .expect("x_str must parse as Decimal");
+        let y_val: Decimal = view
+            .y_str
+            .parse()
+            .expect("y_str must parse as Decimal");
+        assert_eq!(x_val, Decimal::from(25), "%CH(100→125) must be 25");
+        assert_eq!(y_val, Decimal::from(100), "Y must be preserved at 100");
+    }
 }
