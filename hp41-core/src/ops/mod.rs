@@ -68,7 +68,7 @@ pub enum TestKind {
 /// HP-41 calculator operations.
 ///
 /// Phase 1: Add, Sub, Mul, Div, Enter, Clx, Chs, Rdn, XySwap, Lastx, PushNum
-/// Phase 2: Recip, Sqrt, Sq, YPow, Ln, Log, Exp, TenPow, Sin, Cos, Tan,
+/// Phase 2: Recip, Sqrt, Sq, YPow, PctChange, Ln, Log, Exp, TenPow, Sin, Cos, Tan,
 ///          Asin, Acos, Atan, SetDeg, SetRad, SetGrad,
 ///          FmtFix, FmtSci, FmtEng, StoReg, RclReg, StoArith, Clreg,
 ///          AlphaToggle, AlphaAppend, AlphaClear
@@ -102,7 +102,7 @@ pub enum Op {
     Sq,
     /// Y^X — Y raised to power X (binary). LiftEffect: Enable.
     YPow,
-    /// %CH — percent change ((X−Y)/Y)×100; Y preserved. LiftEffect: Enable.
+    /// %CH — percent change ((X−Y)/Y)×100. Stack effect: unary (Y preserved, LASTX←X). LiftEffect: Enable.
     PctChange,
     /// LN — natural logarithm. LiftEffect: Enable.
     Ln,
