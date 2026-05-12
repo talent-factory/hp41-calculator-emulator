@@ -124,11 +124,12 @@ fn key_ref_table_has_33_entries() {
     // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
     // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
     // Phase 12: added "X nn" hex modal entry (+1).
-    // Total is now 55. Test name preserved for history; count updated to 55.
+    // Task 5 (%CH): added "%" entry (+1).
+    // Total is now 56. Test name preserved for history; count updated to 56.
     assert_eq!(
         crate::keys::KEY_REF_TABLE.len(),
-        55,
-        "KEY_REF_TABLE must have exactly 55 entries (54 Phase 1-8 + 1 Phase 12: X nn hex modal)"
+        56,
+        "KEY_REF_TABLE must have exactly 56 entries (55 prior + 1 Task 5: % pct-change)"
     );
 }
 

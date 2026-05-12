@@ -25,6 +25,10 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('-') => Some(Op::Sub),
         KeyCode::Char('*') => Some(Op::Mul),
         KeyCode::Char('/') => Some(Op::Div),
+        // %CH — percent change: ((X−Y)/Y)×100, Y preserved (the HP-41 % family).
+        // '%' was unbound; crossterm delivers Shift+5 as KeyCode::Char('%') reliably,
+        // same mechanism as 'S'/'L'/'+'.
+        KeyCode::Char('%') => Some(Op::PctChange),
         // Stack ops (lowercase)
         KeyCode::Char('n') => Some(Op::Chs),
         KeyCode::Char('r') => Some(Op::Rdn),
@@ -116,6 +120,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("I", "1/x  (Shift+i)"),
     ("W", "x\u{00B2}   (Shift+w)"),
     ("Y", "y^x  (Shift+y)"),
+    ("%", "%CH (percent change: ((X\u{2212}Y)/Y)\u{00D7}100, Y preserved)"),
     ("p", "PRGM toggle"),
     ("d", "cycle DEG/RAD/GRAD"),
     ("f", "cycle FIX/SCI/ENG (keeps digit count)"),
@@ -350,5 +355,25 @@ mod tests {
             state.regs.iter().all(|r| r.is_zero()),
             "CLREG must zero all storage registers"
         );
+    }
+
+    #[test]
+    fn test_pct_keystroke_dispatches_pct_change() {
+        // '%' maps to Op::PctChange — verify the op produces the right result and preserves Y.
+        let mut state = CalcState::new();
+        state.stack.y = hp41_core::HpNum::from(100);
+        state.stack.x = hp41_core::HpNum::from(125);
+        let result = hp41_core::ops::dispatch(&mut state, Op::PctChange);
+        assert!(result.is_ok(), "Op::PctChange must not error on valid input");
+        assert_eq!(format!("{}", state.stack.x), "25.00000000", "%CH(100→125) must be 25");
+        assert_eq!(format!("{}", state.stack.y), "100", "Y must be preserved");
+    }
+
+    #[test]
+    fn test_key_ref_table_has_pct_entry() {
+        let has_pct = KEY_REF_TABLE
+            .iter()
+            .any(|(k, desc)| *k == "%" && desc.contains("%CH"));
+        assert!(has_pct, "KEY_REF_TABLE must contain a '%' → %CH entry");
     }
 }
