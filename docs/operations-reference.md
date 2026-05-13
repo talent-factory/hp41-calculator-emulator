@@ -322,6 +322,7 @@ DATA` until the first request has been drained.
 
 ## See Also
 
+- [Verifying the Card Reader](verifying-card-reader.md) — step-by-step manual round-trip procedure for CLI and GUI
 - [Keyboard Layout](keyboard-layout.md)
 - [Programming Guide](programming-guide.md)
 - [HP-41C/CV Advanced Functions Handbook](https://www.hpmuseum.org/41advfun.htm) — complete flag/system register reference

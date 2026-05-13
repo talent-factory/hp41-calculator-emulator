@@ -299,6 +299,7 @@ In USER mode, keys A–J (the top row) execute whatever function is stored in th
 
 ## See Also
 
+- [Verifying the Card Reader](verifying-card-reader.md) — step-by-step manual round-trip procedure for CLI and GUI
 - [Operations Reference](operations-reference.md)
 - [HP-41C/CV Owner's Manual, Vol. 2](https://www.hpmuseum.org/41ownman.htm) — Programming chapters
 - [HP-41C/CV Advanced Functions Handbook](https://www.hpmuseum.org/41advfun.htm) — Flags, system registers, indirect addressing
