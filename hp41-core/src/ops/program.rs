@@ -204,12 +204,12 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                         state.pc = target + 1;
                     }
                     Err(_) => {
-                        if let Some(op) = builtin_card_op(&label) {
-                            // No pc adjustment — line 177 already advanced pc
-                            // past the XEQ. A card op is a single instruction
-                            // (not a control-flow change), so pc resumes at
-                            // the step that follows the XEQ.
-                            crate::ops::dispatch(state, op)?;
+                        if let Some(card_op) = builtin_card_op(&label) {
+                            // No pc adjustment — the main run_loop advance at the top of
+                            // this iteration already moved pc past the XEQ. A card op is a
+                            // single instruction (not a control-flow change), so pc resumes
+                            // at the step that follows the XEQ.
+                            crate::ops::dispatch(state, card_op)?;
                         } else {
                             return Err(HpError::InvalidOp);
                         }
