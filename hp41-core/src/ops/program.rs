@@ -56,7 +56,7 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 /// XEQ: subroutine call. Enforces 4-level call stack limit (D-14).
 ///
 /// Interactive XEQ (not running): tries the four-entry Card Reader
-/// XEQ-by-name fallback (Phase 19 spec) before erroring. This is the
+/// XEQ-by-name fallback before erroring. This is the
 /// path the GUI uses — `dispatch(Op::Xeq("WPRGM"))` with `is_running=false`.
 ///
 /// Programmatic XEQ inside `run_loop` is handled there directly (with
@@ -141,8 +141,8 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     let program = state.program.clone();
 
     // Linear scan for entry label (D-02). On miss, try the XEQ-by-name
-    // fallback for the four Card Reader ops (Phase 19 spec). User labels
-    // always take precedence — fallback only fires on a true miss.
+    // fallback for the four Card Reader ops. User labels always take
+    // precedence — fallback only fires on a true miss.
     let start = match program
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == entry_label))
@@ -207,9 +207,9 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
                 }
                 // User-label lookup first; on miss fall back to the four
-                // Card Reader built-ins (Phase 19 spec). Built-in dispatch
-                // does NOT push the call stack — it's a single op, not a
-                // subroutine call, so pc just advances.
+                // Card Reader built-ins. Built-in dispatch does NOT push
+                // the call stack — it's a single op, not a subroutine
+                // call, so pc just advances.
                 match find_in_program(program, &label) {
                     Ok(target) => {
                         state.call_stack.push(state.pc);
@@ -492,10 +492,9 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
 /// `Op` variants. Returns `None` for anything else — including unknown
 /// names, lowercase variants, and any built-in not in the Card Reader set.
 ///
-/// Intended as the label-miss fallback in `run_program`, `run_loop` (the
-/// `Op::Xeq` arm), and `op_xeq` — wired up in subsequent commits. User
-/// `LBL "name"` matches will take precedence, matching real HP-41
-/// `XEQ "name"` resolution order.
+/// Used as the label-miss fallback in `op_xeq`, `run_program`, and the
+/// `Op::Xeq` arm of `run_loop`. User `LBL "name"` matches take precedence,
+/// matching real HP-41 `XEQ "name"` resolution order.
 ///
 /// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
 pub(super) fn builtin_card_op(name: &str) -> Option<Op> {

@@ -185,9 +185,17 @@ pub fn decode_program(bytes: &[u8]) -> Result<Vec<Op>, HpError> {
     let mut i = 0;
     let mut saw_end = false;
     while i < bytes.len() {
-        // Stop at END marker.
+        // Stop at END marker. Any bytes after the marker are an error —
+        // multi-program concatenation is unsupported and a truncated-then-
+        // appended file would otherwise silently load only the first program.
         if bytes[i..].starts_with(&END_MARKER) {
             saw_end = true;
+            if i + END_MARKER.len() < bytes.len() {
+                return Err(HpError::CardData(format!(
+                    "trailing bytes after END marker: {} extra byte(s)",
+                    bytes.len() - (i + END_MARKER.len())
+                )));
+            }
             break;
         }
         let b = bytes[i];
@@ -480,10 +488,19 @@ mod tests {
 
     #[test]
     fn decode_stops_at_end_marker() {
-        // Bytes after END must be ignored.
-        let bytes = vec![0x40, 0xC0, 0x00, 0x0D, 0x41, 0x42];
+        // END marker terminates parsing cleanly when no bytes follow.
+        let bytes = vec![0x40, 0xC0, 0x00, 0x0D];
         let ops = decode_program(&bytes).unwrap();
         assert_eq!(ops, vec![Op::Add]);
+    }
+
+    #[test]
+    fn decode_rejects_trailing_bytes_after_end_marker() {
+        // Bytes after END are an error — silently truncating would hide
+        // either a concatenated second program or a corrupted file.
+        let bytes = vec![0x40, 0xC0, 0x00, 0x0D, 0x41, 0x42];
+        let err = decode_program(&bytes).unwrap_err();
+        assert!(matches!(err, HpError::CardData(msg) if msg.contains("trailing bytes")));
     }
 
     #[test]
@@ -589,6 +606,29 @@ mod tests {
         // the LBL prefix).
         let bytes = encode_program(&[Op::SyntheticByte(0xCF)]).unwrap();
         assert_eq!(bytes[0], NULL_BYTE);
+    }
+
+    #[test]
+    fn standalone_cf_byte_is_lossy_but_canonical_round_trip() {
+        // Decode → re-encode of a standalone 0xCF MUST produce 0xCD (the
+        // canonical NULL_BYTE), not the original 0xCF. Two passes of
+        // round-trip must then be stable: 0xCF → SyntheticByte(0xCF) → 0xCD
+        // → Op::Null → 0xCD. Lock in the lossy-but-stable contract so a
+        // future refactor that "fixes" the byte mismatch does not silently
+        // reintroduce the 0xCF/LBL-prefix clash.
+        let original = append_end(vec![0xCF]);
+        let ops_first = decode_program(&original).unwrap();
+        let bytes_second = encode_program(&ops_first).unwrap();
+        assert_eq!(
+            bytes_second[0], NULL_BYTE,
+            "first re-encode normalises 0xCF → 0xCD"
+        );
+        let ops_second = decode_program(&bytes_second).unwrap();
+        let bytes_third = encode_program(&ops_second).unwrap();
+        assert_eq!(
+            bytes_second, bytes_third,
+            "second round-trip must be byte-stable"
+        );
     }
 
     // ── New tests covering decode error paths (review I3, I5) ────────────────

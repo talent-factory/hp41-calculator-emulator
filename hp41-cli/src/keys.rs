@@ -170,7 +170,7 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
         "X nn",
         "Insert synthetic hex byte at current PC (PRGM mode only)",
     ),
-    // Phase 19: Card Reader comfort shortcuts
+    // Card Reader comfort shortcuts (Ctrl+W/R/D/F)
     ("Ctrl+W", "WPRGM (write current program to card)"),
     ("Ctrl+R", "RDPRGM (read program from card)"),
     ("Ctrl+D", "WDTA (write data registers to card)"),

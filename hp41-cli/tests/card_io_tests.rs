@@ -184,3 +184,64 @@ fn dispatch_op_xeq_then_drain_works_for_gui_path() {
         "FROMGUI.raw must exist after dispatch(Op::Xeq(\"WPRGM\")) + drain"
     );
 }
+
+/// Reviewer-flagged coverage gap: the only existing end-to-end RDPRGM test
+/// reads into a deliberately-cleared program. The `insert_program_ops`
+/// helper has a second branch — insert-after-pc when the program is
+/// non-empty — that was unit-tested in `hp41-core` but never integration-
+/// tested through the CLI's drain path. A regression that swapped the two
+/// branches, or that reset `pc` to 0 unconditionally, would slip past CI.
+#[test]
+fn rdprgm_into_non_empty_program_inserts_and_preserves_pc() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    // Stage 1: write a card whose contents differ from what we'll load it into.
+    let mut writer = CalcState::new();
+    writer.program = vec![Op::Lbl("ADDED".to_string()), Op::Add, Op::Rtn];
+    writer.alpha_reg = "INSERTME".to_string();
+    run_program(&mut writer, "WPRGM").unwrap();
+    drain_pending_card_op(&mut writer, tmp.path()).unwrap();
+
+    // Stage 2: read it back into a state that already has a different program
+    // and a non-zero pc.
+    let mut reader = CalcState::new();
+    reader.program = vec![
+        Op::Lbl("HOST".to_string()),
+        Op::Sub,
+        Op::Mul,
+        Op::Div,
+        Op::Rtn,
+    ];
+    reader.pc = 1; // mid-program, NOT at start
+    let len_before = reader.program.len();
+
+    reader.alpha_reg = "INSERTME".to_string();
+    run_program(&mut reader, "RDPRGM").unwrap();
+    drain_pending_card_op(&mut reader, tmp.path()).unwrap();
+
+    assert!(
+        reader.program.len() > len_before,
+        "non-empty RDPRGM must extend the program, not replace it; \
+         was {len_before} steps, became {}",
+        reader.program.len()
+    );
+    assert!(
+        reader
+            .program
+            .iter()
+            .any(|op| matches!(op, Op::Lbl(s) if s == "HOST")),
+        "host LBL must still be present after the insertion",
+    );
+    assert!(
+        reader
+            .program
+            .iter()
+            .any(|op| matches!(op, Op::Lbl(s) if s == "ADDED")),
+        "card LBL must be inserted into the host program",
+    );
+    assert_ne!(
+        reader.pc, 0,
+        "RDPRGM into a non-empty program must NOT reset pc to 0 — \
+         the insert-after-pc branch must preserve the user's position",
+    );
+}

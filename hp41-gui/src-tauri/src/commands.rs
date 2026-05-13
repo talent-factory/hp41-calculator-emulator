@@ -15,6 +15,7 @@
 //! `#[tauri::command]` thunks are 2-line glue (lock + call helper). Tests target the
 //! helpers and cover SC-2 (unknown key → GuiError) and SC-3 (print_buffer drain).
 
+use crate::cards;
 use crate::key_map;
 use crate::types::{CalcStateView, GuiError};
 use crate::AppState;
@@ -22,33 +23,111 @@ use hp41_core::ops::dispatch;
 use hp41_core::CalcState;
 use tauri::State;
 
+#[cfg(test)]
+use std::path::Path;
+
 /// Tauri command: dispatch an op identified by a string key ID.
 ///
-/// Locks AppState (with poisoned-lock recovery) and delegates to `handle_op`. The command
-/// MUST stay tiny — all logic lives in the helper so it is unit-testable without a Tauri
-/// runtime.
+/// Uses the three-phase card-op drain so the AppState mutex is released
+/// during disk I/O — without this split, a WPRGM on a large program or a
+/// network-mounted `~/.hp41/cards/` would block every concurrent
+/// `get_state` poll and freeze the UI.
+///
+/// Phase 1 (locked): dispatch, take any pending card request, encode
+/// outgoing bytes for writes.
+/// Phase 2 (unlocked): perform the actual filesystem I/O.
+/// Phase 3 (locked): apply any read result, drain print_buffer, build view.
+///
+/// Concurrency note: between phase 1 (lock drop) and phase 3 (lock
+/// re-acquire), another `dispatch_op` thunk could observe and mutate
+/// `CalcState`. For writes this is fine — phase 1 captured an immutable
+/// `PreparedCardOp` snapshot of the bytes to write. For reads, phase 3
+/// overwrites whatever the interim thunk did to `program` (RDPRGM) or
+/// `regs` (RDTA). This is acceptable given Tauri's single-channel command
+/// queue and the single-user UI: a card-read overwriting concurrent state
+/// matches user expectations ("the read landed").
 #[tauri::command]
 pub fn dispatch_op(key_id: &str, state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    // Phase 1: in-lock dispatch + prepare card op (no I/O).
+    let prepared = {
+        let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+        handle_op_prepare(&mut calc, key_id)?
+    };
+
+    // Phase 2: lock-free I/O. cards_dir_required surfaces "no $HOME" as a
+    // CardData error instead of silently dropping the user's write.
+    let read_result = match prepared {
+        Some(p) => {
+            let dir = cards::cards_dir_required().map_err(GuiError::from)?;
+            cards::execute_prepared_card_op(p, &dir).map_err(GuiError::from)?
+        }
+        None => None,
+    };
+
+    // Phase 3: in-lock apply + view assembly.
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    handle_op(&mut calc, key_id)
+    handle_op_finalize(&mut calc, read_result)
 }
 
 /// Tauri command: get current state without executing any op.
 ///
 /// Locks AppState (with poisoned-lock recovery) and delegates to `handle_get_state`.
+/// Does NOT touch `pending_card_op` — that field is `#[serde(skip)]` and therefore
+/// cannot survive a process restart, so there is no "stale request" case to defend
+/// against here. The drain belongs in `dispatch_op` (the only path that stages a
+/// request) and nowhere else.
 #[tauri::command]
 pub fn get_state(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
     handle_get_state(&mut calc)
 }
 
-/// Pure-Rust helper containing the dispatch_op logic — called by the Tauri thunk above
-/// and exercised directly by unit tests. No Tauri State<> extractor needed.
+/// Single-phase test helper composing prepare + execute + apply + view.
 ///
-/// Routing logic mirrors hp41-cli/src/app.rs lines 342–388 (digit entry) and lines
-/// 998–1019 (call_dispatch_and_drain). Digit keys append to entry_buf and bypass
-/// `dispatch`; named/parameterized keys flow through key_map → dispatch → drain.
+/// `cards_dir` is injected so unit tests can drive the full card-op path
+/// through a `tempfile::tempdir()`. Production code uses the three-phase
+/// `dispatch_op` thunk instead, which releases the AppState mutex during I/O.
+#[cfg(test)]
+pub fn handle_op_with_cards_dir(
+    calc: &mut CalcState,
+    key_id: &str,
+    cards_dir: &Path,
+) -> Result<CalcStateView, GuiError> {
+    let prepared = handle_op_prepare(calc, key_id)?;
+    let read_result = match prepared {
+        Some(p) => cards::execute_prepared_card_op(p, cards_dir).map_err(GuiError::from)?,
+        None => None,
+    };
+    handle_op_finalize(calc, read_result)
+}
+
+/// Backwards-compatible single-phase entry point for tests and callers that
+/// do not exercise the card-op path. Equivalent to `handle_op_with_cards_dir`
+/// with a junk directory — any pending card op would error out at phase 2,
+/// but the existing handle_op tests do not stage one.
+#[cfg(test)]
 pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, GuiError> {
+    // Use a never-created tempdir path — tests using this helper never stage
+    // a card op, so phase 2 is never reached. Staging one would panic the
+    // test, which is the correct signal that the test should switch to
+    // `handle_op_with_cards_dir`.
+    let never = Path::new("/this/path/should/never/be/created/by/handle_op/tests");
+    handle_op_with_cards_dir(calc, key_id, never)
+}
+
+/// Pure-Rust phase-1 helper: entry-buf branches return `Ok(None)` directly
+/// because there is no dispatched op (and hence no card request). For named
+/// ops, dispatches against `CalcState` and then takes any staged
+/// `pending_card_op` out so the caller can release its state lock before
+/// performing disk I/O.
+///
+/// Routing logic mirrors hp41-cli/src/app.rs digit-entry and dispatch
+/// helpers. Digit keys append to entry_buf and bypass `dispatch`;
+/// named/parameterized keys flow through key_map → dispatch → prepare.
+pub fn handle_op_prepare(
+    calc: &mut CalcState,
+    key_id: &str,
+) -> Result<Option<cards::PreparedCardOp>, GuiError> {
     // ── Digit keys 0..=9 — bypass dispatch, append to entry_buf ───────────────
     if matches!(
         key_id,
@@ -59,9 +138,9 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
             let after_e = &calc.entry_buf[e_pos + 1..];
             let exp_digits = after_e.chars().filter(|ch| ch.is_ascii_digit()).count();
             if exp_digits >= 2 {
-                // Silently block third exponent digit — return current view unchanged.
-                let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-                return Ok(CalcStateView::from_state(calc, print_lines));
+                // Silently block third exponent digit — caller's finalize will
+                // drain print_buffer and rebuild the view unchanged.
+                return Ok(None);
             }
         }
         // key_id is exactly one ASCII char — safe to take .next().
@@ -70,8 +149,7 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
             .next()
             .expect("digit key_id has at least one char");
         calc.entry_buf.push(ch);
-        let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-        return Ok(CalcStateView::from_state(calc, print_lines));
+        return Ok(None);
     }
 
     // ── '.' — block duplicate '.' and '.' after 'e' ──────────────────────────
@@ -79,8 +157,7 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
         if !calc.entry_buf.contains('.') && !calc.entry_buf.contains('e') {
             calc.entry_buf.push('.');
         }
-        let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-        return Ok(CalcStateView::from_state(calc, print_lines));
+        return Ok(None);
     }
 
     // ── 'e' (EEX) — implicit "1" mantissa on empty entry_buf (Phase 9 D-07) ──
@@ -92,12 +169,11 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
                 calc.entry_buf.push('e');
             }
         }
-        let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-        return Ok(CalcStateView::from_state(calc, print_lines));
+        return Ok(None);
     }
 
     // ── "eex_chs" — toggle exponent sign in entry_buf (Phase 15 D-06) ────────────
-    // Source: hp41-cli/src/app.rs lines 389-404 (entry_buf direct mutation, no dispatch).
+    // Source: hp41-cli/src/app.rs (entry_buf direct mutation, no dispatch).
     // MUST come before key_map::resolve() — no Op::EexChs variant exists.
     if key_id == "eex_chs" {
         if let Some(e_pos) = calc.entry_buf.find('e') {
@@ -111,37 +187,41 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
             }
         }
         // No-op if entry_buf has no 'e' — React guards this but Rust is defensive.
-        let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-        return Ok(CalcStateView::from_state(calc, print_lines));
+        return Ok(None);
     }
 
     // ── Named / parameterized op — resolve and dispatch ──────────────────────
     let op = key_map::resolve(key_id)?;
     dispatch(calc, op).map_err(GuiError::from)?;
 
-    // Drain any staged Card Reader request (WPRGM/RDPRGM/WDTA/RDTA) before
-    // serialising state back to the frontend. cards_dir() returns None only on
-    // headless systems with no $HOME, which is an operational error — surface it.
-    if let Some(dir) = crate::cards::cards_dir() {
-        crate::cards::drain_pending_card_op(calc, &dir).map_err(GuiError::from)?;
-    }
+    // Take any staged Card Reader request out so the caller can release the
+    // AppState mutex before performing disk I/O. encode-for-write happens
+    // here too (against the just-dispatched state) so phase 2 sees a frozen
+    // snapshot even if a concurrent thunk later mutates `calc`.
+    cards::prepare_pending_card_op(calc).map_err(GuiError::from)
+}
 
+/// Phase 3 of `dispatch_op`: apply any read result back to state, drain
+/// `print_buffer`, and build the `CalcStateView` the frontend renders.
+pub fn handle_op_finalize(
+    calc: &mut CalcState,
+    read_result: Option<cards::CardReadResult>,
+) -> Result<CalcStateView, GuiError> {
+    if let Some(r) = read_result {
+        cards::apply_card_read_result(calc, r);
+    }
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
     Ok(CalcStateView::from_state(calc, print_lines))
 }
 
 /// Pure-Rust helper for get_state — drains print_buffer and builds a CalcStateView.
 ///
-/// Returns Result for symmetry with handle_op (and to allow future error paths) even
-/// though the current implementation is infallible.
+/// Intentionally does NOT touch `pending_card_op`: that field is
+/// `#[serde(skip)]` and therefore cannot survive a process restart, so the
+/// "stale-request-from-crash" hazard the prior version defended against
+/// does not exist. Draining here also triggered `fs::create_dir_all` on
+/// every React poll — a syscall in the redraw path.
 pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
-    // Defensive drain: handle_op should already have consumed any pending_card_op,
-    // but a stale request (e.g. from a crash-recovered state) would otherwise
-    // leak. This is always a no-op in the happy path.
-    if let Some(dir) = crate::cards::cards_dir() {
-        crate::cards::drain_pending_card_op(calc, &dir).map_err(GuiError::from)?;
-    }
-
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
     Ok(CalcStateView::from_state(calc, print_lines))
 }
@@ -343,5 +423,76 @@ mod tests {
         calc.pc = 0;
         handle_bst(&mut calc).unwrap();
         assert_eq!(calc.pc, 0, "BST must not underflow below 0");
+    }
+
+    /// I5 regression: dispatching a card op through `handle_op_with_cards_dir`
+    /// (the test-injected mirror of the production `dispatch_op` thunk) must
+    /// drive the full three-phase path: dispatch → prepare → execute (real
+    /// fs::write) → finalize. A regression that skipped phase 2 or any of
+    /// the new helpers would leave `pending_card_op` populated AND no file
+    /// on disk. Uses `xeq_WPRGM` — the canonical GUI key_id form per
+    /// `key_map.rs` (card ops are XEQ-by-name, not bare named keys).
+    #[test]
+    fn test_handle_op_drives_full_card_op_via_thunk_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut calc = CalcState::new();
+        calc.alpha_reg = "GUI_TEST".to_string();
+        calc.program = vec![Op::Lbl("X".to_string()), Op::Rtn];
+
+        let view = handle_op_with_cards_dir(&mut calc, "xeq_WPRGM", tmp.path())
+            .expect("WPRGM via thunk path must succeed");
+
+        assert!(
+            calc.pending_card_op.is_none(),
+            "thunk path must drain pending_card_op via prepare()"
+        );
+        assert!(
+            tmp.path().join("GUI_TEST.raw").exists(),
+            "thunk path must perform the actual fs::write"
+        );
+        // View still gets built (print_buffer drained, even when empty).
+        assert_eq!(view.print_lines.len(), 0);
+    }
+
+    /// I5: a missing card file routed through the thunk path must surface
+    /// `CardData` to the caller (Tauri serialises this as GuiError to the
+    /// frontend) instead of silently succeeding.
+    #[test]
+    fn test_handle_op_card_read_error_routed_to_gui_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut calc = CalcState::new();
+        calc.alpha_reg = "DOES_NOT_EXIST".to_string();
+
+        let result = handle_op_with_cards_dir(&mut calc, "xeq_RDPRGM", tmp.path());
+        let err = result.expect_err("missing card must produce GuiError");
+        assert!(
+            err.message.contains("card data") || err.message.contains("io: read"),
+            "expected card-data diagnostic, got: {}",
+            err.message
+        );
+        assert!(
+            calc.pending_card_op.is_none(),
+            "request must be cleared even on error so user is not locked out"
+        );
+    }
+
+    /// I1 regression guard: handle_get_state must NOT touch pending_card_op
+    /// and must NOT perform any disk I/O. If a future change re-introduces
+    /// a defensive drain here, the assertion that the staged request is
+    /// preserved verbatim will fail.
+    #[test]
+    fn test_handle_get_state_does_not_drain_pending_card_op() {
+        use hp41_core::cardreader::CardOpRequest;
+        let mut calc = CalcState::new();
+        calc.pending_card_op = Some(CardOpRequest::WriteProgram {
+            name: "STAGED".to_string(),
+        });
+
+        let _ = handle_get_state(&mut calc).unwrap();
+
+        assert!(
+            calc.pending_card_op.is_some(),
+            "handle_get_state must leave pending_card_op untouched — drain belongs in dispatch_op"
+        );
     }
 }

@@ -35,7 +35,7 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
   // single printable A-Z / 0-9 / space keys to alpha_<X> so the backend
   // resolves them as Op::AlphaAppend.  This must come BEFORE the normal key
   // map so typing "QUAD" in ALPHA mode appends to the alpha register rather
-  // than dispatching SIN/UNDEF/ASIN/SDEV (Phase 19 fix).
+  // than dispatching SIN/UNDEF/ASIN/SDEV.
   if (state?.annunciators?.alpha && e.key.length === 1) {
     const ch = e.key.toUpperCase();
     if (/^[A-Z0-9 ]$/.test(ch)) {

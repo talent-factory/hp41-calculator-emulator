@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn test_all_sixteen_categories_present() {
-        // Phase 19 added "=== Card Reader ===" — now 16 categories total.
+        // 16 categories total (incl. Card Reader).
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",

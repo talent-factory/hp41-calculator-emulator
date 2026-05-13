@@ -61,12 +61,16 @@ pub struct App {
     pub programs_table_state: RefCell<TableState>,
     /// BufWriter for --print-log, if specified. None = no file logging.
     pub print_log_writer: Option<std::io::BufWriter<std::fs::File>>,
-    /// Default `~/.hp41/cards/` (or a relative `.hp41/cards` fallback if
-    /// `dirs::home_dir()` is unavailable on this platform). Drain helper
-    /// receives this by reference; tests can inject a tempdir at the
-    /// module-level `cards::drain_pending_card_op` instead of going through
-    /// App.
-    cards_dir: std::path::PathBuf,
+    /// `~/.hp41/cards/`. `None` when `dirs::home_dir()` is unavailable (rare;
+    /// CI / containers with no $HOME) — in that case `drain_pending_card_op`
+    /// surfaces a "cannot resolve" diagnostic to `self.message` and clears
+    /// `pending_card_op` so the modal does not get stuck. We deliberately
+    /// do NOT fall back to a relative `.hp41/cards` path: a relative path
+    /// would scatter cards across whatever directory the user happened to
+    /// launch the binary from, and would NOT be readable by the GUI that
+    /// expects `~/.hp41/cards/` — breaking the documented "shared dir"
+    /// invariant in CLAUDE.md.
+    cards_dir: Option<std::path::PathBuf>,
 }
 
 impl App {
@@ -75,7 +79,7 @@ impl App {
         state_path: PathBuf,
         print_log: Option<std::path::PathBuf>,
     ) -> Self {
-        let (print_log_writer, initial_message) = match print_log {
+        let (print_log_writer, mut initial_message) = match print_log {
             None => (None, None),
             Some(path) => {
                 match std::fs::OpenOptions::new()
@@ -100,6 +104,20 @@ impl App {
                 }
             }
         };
+        let cards_dir = crate::cards::cards_dir();
+        if cards_dir.is_none() {
+            // Non-fatal: card ops will report the same diagnostic when invoked,
+            // but a startup warning saves the user a confused round-trip.
+            // Combine with any pre-existing warning (e.g. failed --print-log
+            // open) instead of suppressing either — both are independently
+            // actionable and `initial_message` has only one slot.
+            let card_warn =
+                "Warning: cannot resolve ~/.hp41/cards (no $HOME) — card ops disabled";
+            initial_message = Some(match initial_message {
+                Some(existing) => format!("{existing}; {card_warn}"),
+                None => card_warn.to_string(),
+            });
+        }
         App {
             state,
             message: initial_message,
@@ -112,8 +130,7 @@ impl App {
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
             print_log_writer,
-            cards_dir: crate::cards::cards_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from(".hp41/cards")),
+            cards_dir,
         }
     }
 
@@ -259,7 +276,7 @@ impl App {
             return;
         }
 
-        // Phase 19: Card Reader comfort shortcuts — Ctrl+W/R/D/F dispatch the four card ops
+        // Card Reader comfort shortcuts — Ctrl+W/R/D/F dispatch the four card ops
         // directly without typing ALPHA + XEQ. Hardware-faithful path still works in parallel.
         if key.code == KeyCode::Char('w') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.call_dispatch_and_drain(Op::Wprgm);
@@ -306,11 +323,12 @@ impl App {
                 if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                     match hp41_core::run_program(&mut self.state, &label) {
                         Ok(()) => {
-                            // Clear any stale error message from a previous dispatch, then drain
-                            // card op first (may surface CARD DATA), then drain print output.
+                            // Clear stale message, drain card op (capturing any error
+                            // so the print drain cannot overwrite it), then drain
+                            // print output with the card error threaded in.
                             self.message = None;
-                            self.drain_pending_card_op();
-                            self.drain_and_show_print_output();
+                            let card_err = self.drain_pending_card_op();
+                            self.drain_and_show_print_output(card_err);
                         }
                         Err(e) => self.message = Some(format!("{e}")),
                     }
@@ -476,11 +494,9 @@ impl App {
         if key.code == KeyCode::F(5) {
             match hp41_core::run_program(&mut self.state, "A") {
                 Ok(()) => {
-                    // Clear any stale error message from a previous dispatch, then drain
-                    // card op first (may surface CARD DATA), then drain print output.
                     self.message = None;
-                    self.drain_pending_card_op();
-                    self.drain_and_show_print_output();
+                    let card_err = self.drain_pending_card_op();
+                    self.drain_and_show_print_output(card_err);
                 }
                 Err(e) => self.message = Some(format!("{e}")),
             }
@@ -976,11 +992,9 @@ impl App {
             if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                 match hp41_core::run_program(&mut self.state, &label) {
                     Ok(()) => {
-                        // Clear any stale error message from a previous dispatch, then drain
-                        // card op first (may surface CARD DATA), then drain print output.
                         self.message = None;
-                        self.drain_pending_card_op();
-                        self.drain_and_show_print_output();
+                        let card_err = self.drain_pending_card_op();
+                        self.drain_and_show_print_output(card_err);
                     }
                     Err(e) => self.message = Some(format!("{e}")),
                 }
@@ -992,12 +1006,25 @@ impl App {
 
     /// Drain the staged Card Reader request (if any), performing the disk I/O.
     ///
-    /// Mirrors `drain_and_show_print_output` — same call sites, surfaces
-    /// `HpError::CardData(msg)` into `self.message` so the CLI display shows
-    /// "CARD DATA" with a diagnostic suffix.
-    fn drain_pending_card_op(&mut self) {
-        if let Err(e) = crate::cards::drain_pending_card_op(&mut self.state, &self.cards_dir) {
-            self.message = Some(format!("{e}"));
+    /// Returns `Some(msg)` on failure (caller is responsible for routing it
+    /// into `self.message` while preserving any subsequent print-output
+    /// summary). `None` on success or no-op. Also returns `Some(msg)` —
+    /// without touching state — when `cards_dir` is unresolved.
+    ///
+    /// Returning rather than writing `self.message` directly is what fixes
+    /// the message-clobber bug: a CARD DATA error inside a program that
+    /// also prints (PRX) would otherwise be replaced by the print summary.
+    fn drain_pending_card_op(&mut self) -> Option<String> {
+        self.state.pending_card_op.as_ref()?;
+        let Some(dir) = self.cards_dir.as_ref() else {
+            // Clear the staged request — leaving it pending would lock the
+            // user out of every subsequent card op via `ensure_no_pending`.
+            self.state.pending_card_op = None;
+            return Some("card op failed: cannot resolve ~/.hp41/cards (no $HOME)".to_string());
+        };
+        match crate::cards::drain_pending_card_op(&mut self.state, dir) {
+            Ok(()) => None,
+            Err(e) => Some(format!("{e}")),
         }
     }
 
@@ -1006,13 +1033,18 @@ impl App {
     /// Mirrors the drain branch inside call_dispatch_and_drain but decoupled from dispatch —
     /// called after run_program() has already returned successfully.
     ///
+    /// `card_error` is the result of `drain_pending_card_op` for the same
+    /// call site, threaded in so the card diagnostic is not clobbered by the
+    /// print summary. When both are present they are combined into a single
+    /// status line so the user sees both signals at once.
+    ///
     /// For 1 line (PRX/PRA): sets app.message to the formatted line.
     /// For N > 1 lines (PRSTK or multiple print ops in one program): sets app.message to
     ///   "PRSTK → N lines" summary consistent with D-01.
     /// If print_log_writer is Some, writes each line to the file via
     /// `write_lines_to_print_log()` which disables the writer on first I/O error.
     /// Clears print_buffer via drain(..).
-    fn drain_and_show_print_output(&mut self) {
+    fn drain_and_show_print_output(&mut self, card_error: Option<String>) {
         let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
         if !lines.is_empty() {
             let log_failure = self.write_lines_to_print_log(&lines);
@@ -1021,13 +1053,19 @@ impl App {
             } else {
                 lines.into_iter().next().unwrap_or_default()
             };
-            self.message = Some(match log_failure {
+            let print_msg = match log_failure {
                 Some(err) => format!("{summary} ({err})"),
                 None => summary,
+            };
+            self.message = Some(match card_error {
+                Some(err) => format!("{err}; {print_msg}"),
+                None => print_msg,
             });
+        } else if let Some(err) = card_error {
+            // No print output to summarise — surface the card error directly.
+            self.message = Some(err);
         }
-        // If lines is empty, leave self.message as None (caller already set it to None
-        // on the Ok(()) branch before calling this helper).
+        // Empty lines AND no card error: leave self.message as the caller set it.
     }
 
     /// Write a batch of print lines to `print_log_writer`. On the first I/O error
@@ -1075,7 +1113,7 @@ impl App {
     pub(crate) fn call_dispatch_and_drain(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => {
-                self.drain_pending_card_op();
+                let card_err = self.drain_pending_card_op();
                 let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
                 if !lines.is_empty() {
                     let log_failure = self.write_lines_to_print_log(&lines);
@@ -1085,11 +1123,21 @@ impl App {
                         // lines.len() == 1; into_iter().next() is safe here
                         lines.into_iter().next().unwrap_or_default()
                     };
-                    self.message = Some(match log_failure {
+                    let print_msg = match log_failure {
                         Some(err) => format!("{summary} ({err})"),
                         None => summary,
+                    };
+                    self.message = Some(match card_err {
+                        Some(err) => format!("{err}; {print_msg}"),
+                        None => print_msg,
                     });
+                } else if let Some(err) = card_err {
+                    // Pure card op (no print output) — surface the diagnostic.
+                    self.message = Some(err);
                 }
+                // No card error and no print output: leave self.message alone;
+                // call_dispatch (used by non-print ops) is the canonical place
+                // that clears stale messages on Ok.
             }
             Err(e) => self.message = Some(format!("{e}")),
         }
@@ -1988,7 +2036,7 @@ mod synthetic_modal_tests {
         }
     }
 
-    /// Phase 19: Ctrl+W dispatches WPRGM (write program to card).
+    /// Ctrl+W dispatches WPRGM (write program to card).
     /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
     /// Proves the correct op was dispatched: WPRGM writes TESTCARD.raw; a W↔R or
     /// W↔D mapping swap would produce a different file extension (or an error message).
@@ -1996,7 +2044,7 @@ mod synthetic_modal_tests {
     fn test_ctrl_w_dispatches_wprgm() {
         let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
-        app.cards_dir = tmp.path().to_path_buf();
+        app.cards_dir = Some(tmp.path().to_path_buf());
         app.state.alpha_reg = "TESTCARD".to_string();
         // Give the program something to encode (avoid empty-program edge cases).
         app.state.program = vec![Op::Lbl("X".to_string()), Op::Rtn];
@@ -2012,7 +2060,7 @@ mod synthetic_modal_tests {
         );
     }
 
-    /// Phase 19: Ctrl+R dispatches RDPRGM (read program from card).
+    /// Ctrl+R dispatches RDPRGM (read program from card).
     /// Sandboxed: injects a tempdir as cards_dir (no MISSING.raw present).
     /// Proves the correct op was dispatched: RDPRGM on a missing file surfaces
     /// "card data" in app.message; a R↔W swap would write a file instead of erroring.
@@ -2020,7 +2068,7 @@ mod synthetic_modal_tests {
     fn test_ctrl_r_dispatches_rdprgm() {
         let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
-        app.cards_dir = tmp.path().to_path_buf();
+        app.cards_dir = Some(tmp.path().to_path_buf());
         app.state.alpha_reg = "MISSING".to_string();
 
         app.handle_key(make_ctrl_key('r'));
@@ -2035,7 +2083,7 @@ mod synthetic_modal_tests {
         );
     }
 
-    /// Phase 19: Ctrl+D dispatches WDTA (write data registers to card).
+    /// Ctrl+D dispatches WDTA (write data registers to card).
     /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
     /// Proves the correct op was dispatched: WDTA writes TESTCARD.card.json; a D↔F or
     /// D↔W mapping swap would produce a different file extension (or an error message).
@@ -2043,7 +2091,7 @@ mod synthetic_modal_tests {
     fn test_ctrl_d_dispatches_wdta() {
         let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
-        app.cards_dir = tmp.path().to_path_buf();
+        app.cards_dir = Some(tmp.path().to_path_buf());
         app.state.alpha_reg = "TESTCARD".to_string();
 
         app.handle_key(make_ctrl_key('d'));
@@ -2057,7 +2105,7 @@ mod synthetic_modal_tests {
         );
     }
 
-    /// Phase 19: Ctrl+F dispatches RDTA (read data registers from card).
+    /// Ctrl+F dispatches RDTA (read data registers from card).
     /// Sandboxed: injects a tempdir as cards_dir (no MISSING.card.json present).
     /// Proves the correct op was dispatched: RDTA on a missing file surfaces
     /// "card data" in app.message; an F↔D swap would write a file instead of erroring.
@@ -2065,7 +2113,7 @@ mod synthetic_modal_tests {
     fn test_ctrl_f_dispatches_rdta() {
         let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
-        app.cards_dir = tmp.path().to_path_buf();
+        app.cards_dir = Some(tmp.path().to_path_buf());
         app.state.alpha_reg = "MISSING".to_string();
 
         app.handle_key(make_ctrl_key('f'));
@@ -2077,6 +2125,65 @@ mod synthetic_modal_tests {
         assert!(
             msg.contains("card data") || msg.contains("CARD DATA"),
             "Ctrl+F on missing file must surface CARD DATA via app.message; got {msg:?}",
+        );
+    }
+
+    /// Card error must NOT be clobbered by a print-output summary fired in
+    /// the same dispatch tick. Before the I3 fix, the print drain wrote
+    /// straight into `self.message` and overwrote whatever the card drain
+    /// had recorded — so a user running a program that mixed `PRX` with a
+    /// failed card op only saw the print line and never knew the card op
+    /// failed.
+    #[test]
+    fn card_error_combined_with_print_output() {
+        use hp41_core::cardreader::CardOpRequest;
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        // Stage a card op whose name will fail sanitize so the drain returns
+        // a CardData diagnostic without needing a real fs failure.
+        app.state.pending_card_op = Some(CardOpRequest::WriteProgram {
+            name: "BAD/SEP".to_string(),
+        });
+        // Stage a print line so the print drain's summary path also fires.
+        app.state.print_buffer.push("PRX line".to_string());
+
+        let card_err = app.drain_pending_card_op();
+        assert!(card_err.is_some(), "bad name must yield a card error");
+        app.drain_and_show_print_output(card_err);
+
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("path separator"),
+            "card diagnostic must survive print drain; got {msg:?}",
+        );
+        assert!(
+            msg.contains("PRX line"),
+            "print line must still appear; got {msg:?}",
+        );
+    }
+
+    /// $HOME unavailable: card op must surface a clear diagnostic AND clear
+    /// `pending_card_op` so the user is not locked out of subsequent ops
+    /// via `ensure_no_pending`.
+    #[test]
+    fn card_op_with_no_cards_dir_surfaces_diagnostic() {
+        use hp41_core::cardreader::CardOpRequest;
+        let mut app = make_app();
+        app.cards_dir = None; // simulate no $HOME
+        app.state.pending_card_op = Some(CardOpRequest::WriteProgram {
+            name: "OK".to_string(),
+        });
+
+        let err = app.drain_pending_card_op();
+        let msg = err.expect("missing cards_dir must produce an error");
+        assert!(
+            msg.contains("no $HOME") || msg.contains("cannot resolve"),
+            "diagnostic must name the real cause; got {msg:?}",
+        );
+        assert!(
+            app.state.pending_card_op.is_none(),
+            "request must be cleared so user is not locked out of next card op",
         );
     }
 }
