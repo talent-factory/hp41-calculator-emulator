@@ -61,6 +61,10 @@ fn roundtrip_program_via_tempdir() {
         state.program, original_program,
         "program after RDPRGM + drain must equal the original"
     );
+    assert_eq!(
+        state.pc, 0,
+        "RDPRGM into an empty program must reset pc to 0 (cardreader::insert_program_ops contract)"
+    );
 
     // 4. Re-save and compare hashes — encoding must be byte-stable.
     state.alpha_reg = "QUAD".to_string();
