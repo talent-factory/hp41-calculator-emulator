@@ -60,6 +60,7 @@ pub fn run() {
             commands::get_state,
             commands::sst_step,   // Phase 18 D-05
             commands::bst_step,   // Phase 18 D-05
+            commands::run_stop,   // Phase 19 (v2.1) — R/S key toggle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
