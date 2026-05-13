@@ -81,8 +81,8 @@ pub fn drain_pending_card_op(state: &mut CalcState, cards_dir: &Path) -> Result<
         CardOpRequest::WriteData { name } => {
             let safe = sanitize_name(&name)?;
             let card = capture_data_card(state);
-            let bytes = encode_data(&card)
-                .map_err(|e| HpError::CardData(format!("encode-json: {e}")))?;
+            let bytes =
+                encode_data(&card).map_err(|e| HpError::CardData(format!("encode-json: {e}")))?;
             let path = cards_dir.join(safe).with_extension("card.json");
             fs::write(&path, &bytes)
                 .map_err(|e| HpError::CardData(format!("io: write {}: {e}", path.display())))?;
@@ -93,8 +93,8 @@ pub fn drain_pending_card_op(state: &mut CalcState, cards_dir: &Path) -> Result<
             let path = cards_dir.join(safe).with_extension("raw");
             let bytes = fs::read(&path)
                 .map_err(|e| HpError::CardData(format!("io: read {}: {e}", path.display())))?;
-            let ops = decode_program(&bytes)
-                .map_err(|e| HpError::CardData(format!("decode: {e}")))?;
+            let ops =
+                decode_program(&bytes).map_err(|e| HpError::CardData(format!("decode: {e}")))?;
             insert_program_ops(state, ops);
             Ok(())
         }
@@ -103,8 +103,8 @@ pub fn drain_pending_card_op(state: &mut CalcState, cards_dir: &Path) -> Result<
             let path = cards_dir.join(safe).with_extension("card.json");
             let bytes = fs::read(&path)
                 .map_err(|e| HpError::CardData(format!("io: read {}: {e}", path.display())))?;
-            let card = decode_data(&bytes)
-                .map_err(|e| HpError::CardData(format!("decode-json: {e}")))?;
+            let card =
+                decode_data(&bytes).map_err(|e| HpError::CardData(format!("decode-json: {e}")))?;
             load_data_card(state, card);
             Ok(())
         }
@@ -124,7 +124,10 @@ mod tests {
         assert!(matches!(sanitize_name("a\0b"), Err(HpError::CardData(_))));
         assert!(matches!(sanitize_name("."), Err(HpError::CardData(_))));
         assert!(matches!(sanitize_name(".."), Err(HpError::CardData(_))));
-        assert!(matches!(sanitize_name(".hidden"), Err(HpError::CardData(_))));
+        assert!(matches!(
+            sanitize_name(".hidden"),
+            Err(HpError::CardData(_))
+        ));
         assert_eq!(sanitize_name("QUAD"), Ok("QUAD"));
         assert_eq!(sanitize_name("BACKUP-1"), Ok("BACKUP-1"));
     }

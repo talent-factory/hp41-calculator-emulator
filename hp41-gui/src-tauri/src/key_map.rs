@@ -165,16 +165,20 @@ fn resolve_parameterized(key_id: &str) -> Result<Op, GuiError> {
 /// Parse the body of `sto_arith_*` keys. `rest` is the substring after the
 /// `"sto_arith_"` prefix; `original` is the full key_id (for error messages).
 fn resolve_sto_arith(rest: &str, original: &str) -> Result<Op, GuiError> {
-    let (kind_str, reg_str) = rest
-        .rsplit_once('_')
-        .ok_or_else(|| GuiError { message: format!("unknown key: {original}") })?;
+    let (kind_str, reg_str) = rest.rsplit_once('_').ok_or_else(|| GuiError {
+        message: format!("unknown key: {original}"),
+    })?;
 
     let kind = match kind_str {
         "plus" => StoArithKind::Add,
         "minus" => StoArithKind::Sub,
         "mul" => StoArithKind::Mul,
         "div" => StoArithKind::Div,
-        _ => return Err(GuiError { message: format!("unknown key: {original}") }),
+        _ => {
+            return Err(GuiError {
+                message: format!("unknown key: {original}"),
+            })
+        }
     };
 
     if let Ok(n) = reg_str.parse::<u8>() {
@@ -186,7 +190,11 @@ fn resolve_sto_arith(rest: &str, original: &str) -> Result<Op, GuiError> {
         "z" => StackReg::Z,
         "t" => StackReg::T,
         "lastx" => StackReg::LastX,
-        _ => return Err(GuiError { message: format!("unknown key: {original}") }),
+        _ => {
+            return Err(GuiError {
+                message: format!("unknown key: {original}"),
+            })
+        }
     };
 
     Ok(Op::StoArithStack { kind, stack_reg })
@@ -236,11 +244,17 @@ mod tests {
         assert_eq!(resolve("eng_3").unwrap(), Op::FmtEng(3));
         assert_eq!(
             resolve("sto_arith_plus_05").unwrap(),
-            Op::StoArith { reg: 5, kind: StoArithKind::Add }
+            Op::StoArith {
+                reg: 5,
+                kind: StoArithKind::Add
+            }
         );
         assert_eq!(
             resolve("sto_arith_minus_y").unwrap(),
-            Op::StoArithStack { kind: StoArithKind::Sub, stack_reg: StackReg::Y }
+            Op::StoArithStack {
+                kind: StoArithKind::Sub,
+                stack_reg: StackReg::Y
+            }
         );
     }
 
@@ -250,12 +264,28 @@ mod tests {
         // Digit keys ("0"-"9", ".", "e") are handled by handle_op() digit branch — not here.
         // Empty-string ids are visual-only and are never sent to dispatch_op.
         let named_ids = [
-            "sigma_plus", "recip", "sqrt", "log", "ln",
-            "sin", "cos", "tan", "rdn", "xy_swap",
-            "enter", "div", "mul",
-            "user_mode", "minus", "prgm_mode", "alpha_toggle",
-            "chs", "plus",
-            "lastx", "clreg", "clx",
+            "sigma_plus",
+            "recip",
+            "sqrt",
+            "log",
+            "ln",
+            "sin",
+            "cos",
+            "tan",
+            "rdn",
+            "xy_swap",
+            "enter",
+            "div",
+            "mul",
+            "user_mode",
+            "minus",
+            "prgm_mode",
+            "alpha_toggle",
+            "chs",
+            "plus",
+            "lastx",
+            "clreg",
+            "clx",
         ];
         for id in named_ids {
             assert!(

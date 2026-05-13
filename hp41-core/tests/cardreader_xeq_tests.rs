@@ -21,7 +21,9 @@ fn run_program_xeq_wprgm_stages_write_program_request() {
     run_program(&mut state, "WPRGM").expect("XEQ WPRGM via run_program must succeed");
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::WriteProgram { name: "QUAD".to_string() }),
+        Some(CardOpRequest::WriteProgram {
+            name: "QUAD".to_string()
+        }),
     );
 }
 
@@ -31,7 +33,9 @@ fn run_program_xeq_rdprgm_stages_read_program_request() {
     run_program(&mut state, "RDPRGM").expect("XEQ RDPRGM via run_program must succeed");
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::ReadProgram { name: "QUAD".to_string() }),
+        Some(CardOpRequest::ReadProgram {
+            name: "QUAD".to_string()
+        }),
     );
 }
 
@@ -41,7 +45,9 @@ fn run_program_xeq_wdta_stages_write_data_request() {
     run_program(&mut state, "WDTA").unwrap();
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::WriteData { name: "BACKUP".to_string() }),
+        Some(CardOpRequest::WriteData {
+            name: "BACKUP".to_string()
+        }),
     );
 }
 
@@ -51,7 +57,9 @@ fn run_program_xeq_rdta_stages_read_data_request() {
     run_program(&mut state, "RDTA").unwrap();
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::ReadData { name: "BACKUP".to_string() }),
+        Some(CardOpRequest::ReadData {
+            name: "BACKUP".to_string()
+        }),
     );
 }
 
@@ -72,10 +80,7 @@ fn user_label_takes_precedence_over_builtin() {
     // If the operator's program has LBL "WPRGM", that label must win.
     // Guards against accidental shadowing of legitimate user code.
     let mut state = state_with_alpha("QUAD");
-    state.program = vec![
-        Op::Lbl("WPRGM".to_string()),
-        Op::Rtn,
-    ];
+    state.program = vec![Op::Lbl("WPRGM".to_string()), Op::Rtn];
     run_program(&mut state, "WPRGM").expect("user LBL WPRGM must run, not stage a card op");
     assert!(
         state.pending_card_op.is_none(),
@@ -97,7 +102,9 @@ fn run_loop_xeq_wprgm_inside_program_stages_request() {
     run_program(&mut state, "MAIN").expect("MAIN must run cleanly");
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::WriteProgram { name: "CARD1".to_string() }),
+        Some(CardOpRequest::WriteProgram {
+            name: "CARD1".to_string()
+        }),
     );
 }
 
@@ -110,7 +117,7 @@ fn run_loop_xeq_card_op_does_not_skip_next_instruction() {
     state.program = vec![
         Op::Lbl("MAIN".to_string()),
         Op::Xeq("WPRGM".to_string()), // stages a card op via the builtin fallback
-        Op::StoReg(1),                 // MUST execute — proves pc advanced exactly one step
+        Op::StoReg(1),                // MUST execute — proves pc advanced exactly one step
         Op::Rtn,
     ];
     run_program(&mut state, "MAIN").expect("MAIN must run cleanly");
@@ -120,7 +127,10 @@ fn run_loop_xeq_card_op_does_not_skip_next_instruction() {
         "STO 01 after XEQ \"WPRGM\" must execute — proves the fallback did not over-advance pc",
     );
     // And the card op should still be staged.
-    assert!(state.pending_card_op.is_some(), "card op must still be staged");
+    assert!(
+        state.pending_card_op.is_some(),
+        "card op must still be staged"
+    );
 }
 
 #[test]
@@ -132,7 +142,9 @@ fn op_xeq_interactive_dispatch_stages_card_request() {
     dispatch(&mut state, Op::Xeq("WPRGM".to_string())).expect("interactive XEQ WPRGM must succeed");
     assert_eq!(
         state.pending_card_op,
-        Some(CardOpRequest::WriteProgram { name: "QUAD".to_string() }),
+        Some(CardOpRequest::WriteProgram {
+            name: "QUAD".to_string()
+        }),
     );
 }
 

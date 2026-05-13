@@ -28,10 +28,7 @@ use tauri::State;
 /// MUST stay tiny — all logic lives in the helper so it is unit-testable without a Tauri
 /// runtime.
 #[tauri::command]
-pub fn dispatch_op(
-    key_id: &str,
-    state: State<'_, AppState>,
-) -> Result<CalcStateView, GuiError> {
+pub fn dispatch_op(key_id: &str, state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
     handle_op(&mut calc, key_id)
 }
@@ -210,7 +207,10 @@ mod tests {
         calc.stack.x = HpNum::from(42);
         // Ensure the buffer has at least one line via direct dispatch (sanity).
         dispatch(&mut calc, Op::PRX).unwrap();
-        assert!(!calc.print_buffer.is_empty(), "PRX should populate print_buffer");
+        assert!(
+            !calc.print_buffer.is_empty(),
+            "PRX should populate print_buffer"
+        );
         // Now exercise handle_op via the "prx" key — Wave 1 will produce another line
         // (or we'd have to reset buffer; we instead test the drain via handle_get_state).
         calc.print_buffer.clear();
@@ -280,9 +280,15 @@ mod tests {
         let mut calc = CalcState::new();
         calc.entry_buf = "1e2".to_string();
         handle_op(&mut calc, "eex_chs").unwrap();
-        assert_eq!(calc.entry_buf, "1e-2", "first eex_chs must insert minus sign");
+        assert_eq!(
+            calc.entry_buf, "1e-2",
+            "first eex_chs must insert minus sign"
+        );
         handle_op(&mut calc, "eex_chs").unwrap();
-        assert_eq!(calc.entry_buf, "1e2", "second eex_chs must remove minus sign");
+        assert_eq!(
+            calc.entry_buf, "1e2",
+            "second eex_chs must remove minus sign"
+        );
     }
 
     #[test]
@@ -291,8 +297,14 @@ mod tests {
         let mut calc = CalcState::new();
         calc.entry_buf = "42".to_string();
         let result = handle_op(&mut calc, "eex_chs");
-        assert!(result.is_ok(), "eex_chs with no 'e' must not error or panic");
-        assert_eq!(calc.entry_buf, "42", "entry_buf must be unchanged when no 'e' present");
+        assert!(
+            result.is_ok(),
+            "eex_chs with no 'e' must not error or panic"
+        );
+        assert_eq!(
+            calc.entry_buf, "42",
+            "entry_buf must be unchanged when no 'e' present"
+        );
     }
 
     #[test]

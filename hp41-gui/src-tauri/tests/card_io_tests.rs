@@ -65,7 +65,10 @@ fn gui_program_round_trip_via_run_program() {
     run_program(&mut state, "WPRGM").unwrap();
     drain_pending_card_op(&mut state, tmp.path()).unwrap();
     let bytes_b = fs::read(&raw_path).unwrap();
-    assert_eq!(bytes_a, bytes_b, "QUAD.raw must be byte-stable across save→load→save");
+    assert_eq!(
+        bytes_a, bytes_b,
+        "QUAD.raw must be byte-stable across save→load→save"
+    );
 }
 
 #[test]
@@ -77,16 +80,14 @@ fn gui_wprgm_produces_non_trivial_raw_file() {
     // (sha256 of the same card from both UIs).
     let tmp = tempfile::tempdir().unwrap();
     let mut state = CalcState::new();
-    state.program = vec![
-        Op::Lbl("SAME".to_string()),
-        Op::Add,
-        Op::Sub,
-        Op::Rtn,
-    ];
+    state.program = vec![Op::Lbl("SAME".to_string()), Op::Add, Op::Sub, Op::Rtn];
     state.alpha_reg = "SAME".to_string();
 
     dispatch(&mut state, Op::Xeq("WPRGM".to_string())).unwrap();
     drain_pending_card_op(&mut state, tmp.path()).unwrap();
     let bytes = fs::read(tmp.path().join("SAME.raw")).unwrap();
-    assert!(bytes.len() > 5, "encoded program must contain at least the END marker bytes");
+    assert!(
+        bytes.len() > 5,
+        "encoded program must contain at least the END marker bytes"
+    );
 }

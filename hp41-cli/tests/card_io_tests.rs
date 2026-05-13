@@ -90,14 +90,21 @@ fn roundtrip_data_via_tempdir() {
     run_program(&mut state, "WDTA").unwrap();
     drain_pending_card_op(&mut state, tmp.path()).unwrap();
     let path = tmp.path().join("BACKUP.card.json");
-    assert!(path.exists(), "BACKUP.card.json must exist after WDTA + drain");
+    assert!(
+        path.exists(),
+        "BACKUP.card.json must exist after WDTA + drain"
+    );
     let hash_c = sha256_hex(&fs::read(&path).unwrap());
 
     // Clear registers.
     for r in &mut state.regs {
         *r = HpNum::zero();
     }
-    assert_eq!(state.regs[0], HpNum::zero(), "registers must be zeroed before reload");
+    assert_eq!(
+        state.regs[0],
+        HpNum::zero(),
+        "registers must be zeroed before reload"
+    );
 
     // Load.
     state.alpha_reg = "BACKUP".to_string();

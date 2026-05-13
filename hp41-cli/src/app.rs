@@ -2006,7 +2006,10 @@ mod synthetic_modal_tests {
         assert!(!app.exit, "Ctrl+W must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+W must not activate ALPHA mode");
         let raw_path = tmp.path().join("TESTCARD.raw");
-        assert!(raw_path.exists(), "Ctrl+W must write TESTCARD.raw via WPRGM");
+        assert!(
+            raw_path.exists(),
+            "Ctrl+W must write TESTCARD.raw via WPRGM"
+        );
     }
 
     /// Phase 19: Ctrl+R dispatches RDPRGM (read program from card).
@@ -2048,7 +2051,10 @@ mod synthetic_modal_tests {
         assert!(!app.exit, "Ctrl+D must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+D must not activate ALPHA mode");
         let json_path = tmp.path().join("TESTCARD.card.json");
-        assert!(json_path.exists(), "Ctrl+D must write TESTCARD.card.json via WDTA");
+        assert!(
+            json_path.exists(),
+            "Ctrl+D must write TESTCARD.card.json via WDTA"
+        );
     }
 
     /// Phase 19: Ctrl+F dispatches RDTA (read data registers from card).

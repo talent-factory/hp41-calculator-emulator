@@ -1035,7 +1035,11 @@ mod program_tests {
         assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
         assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
         assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
-        assert_eq!(builtin_card_op("wprgm"), None, "case-sensitive — HP-41 names are uppercase");
+        assert_eq!(
+            builtin_card_op("wprgm"),
+            None,
+            "case-sensitive — HP-41 names are uppercase"
+        );
         assert_eq!(builtin_card_op("UNKNOWN"), None);
         assert_eq!(builtin_card_op(""), None);
     }

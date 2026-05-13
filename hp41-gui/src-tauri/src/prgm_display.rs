@@ -181,8 +181,14 @@ mod tests {
         let mut state = hp41_core::CalcState::new();
         state.program = vec![Op::Add, Op::Enter];
         let steps = format_all_steps(&state);
-        assert_eq!(steps[0], "000 + ", "step 0 must match op_display_name(Op::Add)");
-        assert_eq!(steps[1], "001 ENTER", "step 1 must match op_display_name(Op::Enter)");
+        assert_eq!(
+            steps[0], "000 + ",
+            "step 0 must match op_display_name(Op::Add)"
+        );
+        assert_eq!(
+            steps[1], "001 ENTER",
+            "step 1 must match op_display_name(Op::Enter)"
+        );
     }
 
     /// PR #5 review (pr-test-analyzer) — the whole point of commit 3372ec3
