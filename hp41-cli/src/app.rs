@@ -61,6 +61,12 @@ pub struct App {
     pub programs_table_state: RefCell<TableState>,
     /// BufWriter for --print-log, if specified. None = no file logging.
     pub print_log_writer: Option<std::io::BufWriter<std::fs::File>>,
+    /// Default `~/.hp41/cards/` (or a relative `.hp41/cards` fallback if
+    /// `dirs::home_dir()` is unavailable on this platform). Drain helper
+    /// receives this by reference; tests can inject a tempdir at the
+    /// module-level `cards::drain_pending_card_op` instead of going through
+    /// App.
+    cards_dir: std::path::PathBuf,
 }
 
 impl App {
@@ -106,6 +112,8 @@ impl App {
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
             print_log_writer,
+            cards_dir: crate::cards::cards_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from(".hp41/cards")),
         }
     }
 
@@ -280,6 +288,7 @@ impl App {
                     match hp41_core::run_program(&mut self.state, &label) {
                         Ok(()) => {
                             self.message = None;
+                            self.drain_pending_card_op();
                             self.drain_and_show_print_output();
                         }
                         Err(e) => self.message = Some(format!("{e}")),
@@ -447,6 +456,7 @@ impl App {
             match hp41_core::run_program(&mut self.state, "A") {
                 Ok(()) => {
                     self.message = None;
+                    self.drain_pending_card_op();
                     self.drain_and_show_print_output();
                 }
                 Err(e) => self.message = Some(format!("{e}")),
@@ -944,6 +954,7 @@ impl App {
                 match hp41_core::run_program(&mut self.state, &label) {
                     Ok(()) => {
                         self.message = None;
+                        self.drain_pending_card_op();
                         self.drain_and_show_print_output();
                     }
                     Err(e) => self.message = Some(format!("{e}")),
@@ -952,6 +963,17 @@ impl App {
             }
         }
         false // not consumed — fall through to normal routing
+    }
+
+    /// Drain the staged Card Reader request (if any), performing the disk I/O.
+    ///
+    /// Mirrors `drain_and_show_print_output` — same call sites, surfaces
+    /// `HpError::CardData(msg)` into `self.message` so the CLI display shows
+    /// "CARD DATA" with a diagnostic suffix.
+    fn drain_pending_card_op(&mut self) {
+        if let Err(e) = crate::cards::drain_pending_card_op(&mut self.state, &self.cards_dir) {
+            self.message = Some(format!("{e}"));
+        }
     }
 
     /// Drain print_buffer after a run_program() Ok(()) return and surface output in the TUI.
@@ -1021,13 +1043,14 @@ impl App {
         }
     }
 
-    /// Call hp41_core::ops::dispatch, then drain print_buffer.
+    /// Call hp41_core::ops::dispatch, then drain card op and print_buffer.
     /// For PRX/PRA (1 line): sets app.message to the formatted line (per D-01).
     /// For PRSTK (6 lines): sets app.message to "PRSTK → N lines" summary (per D-01).
     /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
     pub(crate) fn call_dispatch_and_drain(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => {
+                self.drain_pending_card_op();
                 let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
                 if !lines.is_empty() {
                     let log_failure = self.write_lines_to_print_log(&lines);
@@ -1041,7 +1064,8 @@ impl App {
                         Some(err) => format!("{summary} ({err})"),
                         None => summary,
                     });
-                } else {
+                } else if self.message.is_none() {
+                    // Only clear message when drain_pending_card_op did not set an error.
                     self.message = None;
                 }
             }
