@@ -43,6 +43,10 @@ fn arithmetic_keys() {
     assert_eq!(key_to_op(press(KeyCode::Char('-')), &app), Some(Op::Sub));
     assert_eq!(key_to_op(press(KeyCode::Char('*')), &app), Some(Op::Mul));
     assert_eq!(key_to_op(press(KeyCode::Char('/')), &app), Some(Op::Div));
+    assert_eq!(
+        key_to_op(press(KeyCode::Char('%')), &app),
+        Some(Op::PctChange)
+    );
 }
 
 #[test]
@@ -119,18 +123,10 @@ fn unmapped_keys_return_none() {
 }
 
 #[test]
-fn key_ref_table_has_33_entries() {
-    // Phase 5 added 7 new entries (u, ?, Ctrl+S, Ctrl+P, Ctrl+A, F1-F4, R modal);
-    // Phase 6 added 12 new entries (z, Z, m, D, y, b, O, V, h, F, j, J).
-    // Phase 8: quit entry "q/^C" replaced by "^C" (same count), added q->SIN and g->CLREG (+2).
-    // Phase 12: added "X nn" hex modal entry (+1).
-    // Card reader shortcuts contribute the last 4 entries (Ctrl+W/R/D/F).
-    // Total is now 59. Test name preserved for history; count updated to 59.
-    assert_eq!(
-        crate::keys::KEY_REF_TABLE.len(),
-        59,
-        "KEY_REF_TABLE must have exactly 59 entries (55 baseline + 4 card reader shortcuts)"
-    );
+fn key_ref_table_has_60_entries() {
+    // 55 baseline entries through Phase 12, plus '%' (%CH) and the four
+    // Card Reader shortcuts (Ctrl+W/R/D/F) — 60 total.
+    assert_eq!(crate::keys::KEY_REF_TABLE.len(), 60);
 }
 
 // Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller

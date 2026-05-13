@@ -59,6 +59,7 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
     'a': 'asin', 'c': 'acos', 'k': 'atan',
     'C': 'cos', 'T': 'tan', 'L': 'ln', 'G': 'log', 'E': 'exp',
     'H': 'tenpow', 'I': 'recip', 'W': 'sq', 'Y': 'ypow',
+    '%': 'pct_change',
     'u': 'user_mode',
     'z': 'sigma_plus', 'Z': 'sigma_minus', 'm': 'mean', 'D': 'sdev',
     'y': 'yhat', 'b': 'lr', 'O': 'corr', 'V': 'cl_sigma_stat',
@@ -89,6 +90,9 @@ function App() {
   }, []);
 
   const handleClick = useCallback((keyId: string) => {
+    // Contract: keystrokes that arrive during an in-flight invoke() are dropped.
+    // The state-machine guarantees one IPC round-trip at a time; the OS key-repeat
+    // path is gated separately by `e.repeat` in handleKey.
     if (busyRef.current) return;
     busyRef.current = true;
     let invokePromise: Promise<CalcStateView>;

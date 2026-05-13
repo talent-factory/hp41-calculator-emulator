@@ -1,8 +1,12 @@
 //! Integration tests for MATH-01: unary math ops, binary YPow, 10-digit accuracy,
-//! LASTX save behavior, and stack-lift enable for all math ops.
+//! LASTX save behavior, stack-lift enable for all math ops, %CH op-level integration
+//! (stack mechanics, Y preservation, error atomicity), and %CH PRGM-mode recording
+//! and playback.
+
+#![allow(clippy::unwrap_used)]
 
 use hp41_core::ops::{dispatch, Op};
-use hp41_core::{CalcState, HpError, HpNum};
+use hp41_core::{run_program, CalcState, HpError, HpNum};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -231,4 +235,204 @@ fn test_unary_op_does_not_modify_y_z_t() {
     dispatch(&mut s, Op::Sq).unwrap(); // 1² = 1, Y/Z/T unchanged
     assert_eq!(s.stack.y.inner(), y_before, "Sq must not modify Y");
     assert_eq!(s.stack.z.inner(), z_before, "Sq must not modify Z");
+}
+
+// ── %CH (percent change) op-level integration tests ───────────────────────────
+// These cover the stack mechanics: Y preservation (the defining feature of
+// the HP-41 % family), LASTX capture, lift_enabled, and error atomicity.
+
+#[test]
+fn test_pct_change_basic_plus_15_percent() {
+    // 200 ENTER 230 %CH → X=15
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(15));
+}
+
+#[test]
+fn test_pct_change_preserves_y() {
+    // The DEFINING test for this op. Y must survive intact.
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    s.stack.z = HpNum::from(7i32);
+    s.stack.t = HpNum::from(13i32);
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(15), "X must be the result");
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(200),
+        "Y must be preserved (% family)"
+    );
+    assert_eq!(s.stack.z.inner(), Decimal::from(7), "Z must be untouched");
+    assert_eq!(s.stack.t.inner(), Decimal::from(13), "T must be untouched");
+}
+
+#[test]
+fn test_pct_change_saves_old_x_to_lastx() {
+    // LASTX must capture the *old* X (230), not the result (15).
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert_eq!(s.stack.lastx.inner(), Decimal::from(230));
+}
+
+#[test]
+fn test_pct_change_enables_lift() {
+    // After %CH, the next number-entry must lift the stack (not overwrite X).
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(100i32);
+    s.stack.x = HpNum::from(125i32);
+    s.stack.lift_enabled = false;
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert!(
+        s.stack.lift_enabled,
+        "%CH must enable stack lift after execution"
+    );
+}
+
+#[test]
+fn test_pct_change_divide_by_zero_leaves_stack_untouched() {
+    // Atomicity invariant: Err path makes no partial writes.
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::zero();
+    s.stack.x = HpNum::from(42i32);
+    s.stack.z = HpNum::from(7i32);
+    s.stack.t = HpNum::from(13i32);
+    let lastx_before = s.stack.lastx.clone();
+    let lift_enabled_before = s.stack.lift_enabled;
+    let result = dispatch(&mut s, Op::PctChange);
+    assert_eq!(result, Err(HpError::DivideByZero));
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(0),
+        "Y must be untouched on Err"
+    );
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(42),
+        "X must be untouched on Err"
+    );
+    assert_eq!(
+        s.stack.z.inner(),
+        Decimal::from(7),
+        "Z must be untouched on Err"
+    );
+    assert_eq!(
+        s.stack.t.inner(),
+        Decimal::from(13),
+        "T must be untouched on Err"
+    );
+    assert_eq!(
+        s.stack.lastx.inner(),
+        lastx_before.inner(),
+        "LASTX must be untouched on Err"
+    );
+    assert_eq!(
+        s.stack.lift_enabled, lift_enabled_before,
+        "lift_enabled must be untouched on Err"
+    );
+}
+
+#[test]
+fn test_pct_change_lastx_round_trip() {
+    // 200 ENTER 230 %CH LASTX  →  X is the *original* 230 (not 15).
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(15)); // sanity
+    dispatch(&mut s, Op::Lastx).unwrap();
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(230),
+        "LASTX must restore old X"
+    );
+}
+
+#[test]
+fn test_pct_change_chained_invocation() {
+    // Y=100, X=125 → %CH → X=25, Y=100 (preserved).
+    // Then push 150 via Op::PushNum — lift_enabled is true after %CH, so 150
+    // lifts the stack: T←Z, Z←Y(=100), Y←X(=25), X=150.
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(100i32);
+    s.stack.x = HpNum::from(125i32);
+    dispatch(&mut s, Op::PctChange).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(25));
+    assert_eq!(s.stack.y.inner(), Decimal::from(100));
+    // Push 150 via the public dispatch path (integration tests don't import
+    // crate::stack::enter_number — Op::PushNum is the equivalent and honours lift_enabled).
+    dispatch(&mut s, Op::PushNum(HpNum::from(150i32))).unwrap();
+    assert_eq!(s.stack.x.inner(), Decimal::from(150));
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(25),
+        "Y after lift is prior X (25)"
+    );
+}
+
+// ── %CH PRGM mode: recording and playback ─────────────────────────────────────
+
+#[test]
+fn test_pct_change_recorded_into_program_when_prgm_mode() {
+    // In prgm_mode = true, dispatching Op::PctChange must APPEND to state.program
+    // (recording) and MUST NOT touch the stack.
+    let mut s = CalcState::new();
+    s.stack.y = HpNum::from(200i32);
+    s.stack.x = HpNum::from(230i32);
+    s.prgm_mode = true;
+    let program_len_before = s.program.len();
+
+    dispatch(&mut s, Op::PctChange).unwrap();
+
+    assert_eq!(
+        s.program.len(),
+        program_len_before + 1,
+        "PctChange must be appended to program Vec"
+    );
+    assert_eq!(
+        s.program.last(),
+        Some(&Op::PctChange),
+        "the appended op must be PctChange"
+    );
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(230),
+        "X must be untouched in PRGM mode (op was executed instead of recorded)"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(200),
+        "Y must be untouched in PRGM mode (op was executed instead of recorded)"
+    );
+}
+
+#[test]
+fn test_pct_change_playback_via_run_program() {
+    // Build a tiny program: LBL "T", PushNum(200), Enter, PushNum(230), PctChange, Rtn.
+    // Run it. Expect X=15, Y=200.
+    let mut s = CalcState::new();
+    s.program = vec![
+        Op::Lbl("T".to_string()),
+        Op::PushNum(HpNum::from(200i32)),
+        Op::Enter,
+        Op::PushNum(HpNum::from(230i32)),
+        Op::PctChange,
+        Op::Rtn,
+    ];
+    run_program(&mut s, "T").unwrap();
+    assert_eq!(
+        s.stack.x.inner(),
+        Decimal::from(15),
+        "playback result must equal 15"
+    );
+    assert_eq!(
+        s.stack.y.inner(),
+        Decimal::from(200),
+        "Y preserved after playback"
+    );
 }

@@ -45,6 +45,7 @@ fn op_display_name(op: &Op) -> String {
         Op::Sqrt => "\u{221a}x".to_string(),
         Op::Sq => "x\u{00B2}".to_string(),
         Op::YPow => "Y^X".to_string(),
+        Op::PctChange => "%CH".to_string(),
         Op::Ln => "LN".to_string(),
         Op::Log => "LOG".to_string(),
         Op::Exp => "e^x".to_string(),

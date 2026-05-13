@@ -495,4 +495,23 @@ mod tests {
             "handle_get_state must leave pending_card_op untouched — drain belongs in dispatch_op"
         );
     }
+
+    /// Smoke test for Op::PctChange through the Tauri command path.
+    /// Y=100 (base), X=125 (new value) → %CH = (125-100)/100 * 100 = 25; Y preserved at 100.
+    /// Seeds chosen to yield an exact integer result. Parses x_str/y_str back to Decimal
+    /// so the comparison is independent of rust_decimal's trailing-zero scale.
+    #[test]
+    fn handle_op_pct_change_produces_expected_view() {
+        use rust_decimal::Decimal;
+        let mut state = CalcState::new();
+        state.stack.y = HpNum::from(100i32);
+        state.stack.x = HpNum::from(125i32);
+        let view = handle_op(&mut state, "pct_change")
+            .expect("pct_change must dispatch successfully");
+
+        let x_val: Decimal = view.x_str.parse().expect("x_str must parse as Decimal");
+        let y_val: Decimal = view.y_str.parse().expect("y_str must parse as Decimal");
+        assert_eq!(x_val, Decimal::from(25), "%CH(100→125) must be 25");
+        assert_eq!(y_val, Decimal::from(100), "Y must be preserved at 100");
+    }
 }

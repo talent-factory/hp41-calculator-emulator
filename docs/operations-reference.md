@@ -320,6 +320,31 @@ DATA` until the first request has been drained.
 
 ---
 
+## Worked Examples
+
+### `%CH` — Percent Change
+
+**Question:** Sales were 200 units last quarter and 230 units this quarter. What is the percent change?
+
+**Keystrokes (CLI):** `200` `ENTER↑` `230` `%`
+**Keystrokes (GUI):** type `2 0 0`, press `Enter`, type `2 3 0`, press `%` on the physical keyboard
+
+| Step | Keystroke | T | Z | Y | X | LAST X | Notes |
+|------|-----------|---|---|---|---|--------|-------|
+| 1 | `200`      | 0 | 0 | 0 | 200 | — | Enter base value |
+| 2 | `ENTER↑`   | 0 | 0 | 200 | 200 | — | Lift X into Y |
+| 3 | `230`      | 0 | 0 | 200 | 230 | — | Enter new value (overwrites X, lift disabled by `ENTER↑`) |
+| 4 | `%CH`      | 0 | 0 | 200 | **15** | 230 | `((230−200)/200)×100 = 15`; Y preserved |
+| 5 | `LASTX`    | 0 | 200 | 15 | **230** | 230 | Stack lifts (Lift = Enable); old Y/X move up; LASTX itself is unchanged |
+
+**Result:** `15` — a 15 % increase. The base `Y = 200` is preserved on the stack (the defining HP-41 % family behaviour), so you can chain further calculations without re-entering the value. To bring the base back to X for direct inspection, use `x↔y`; to recover the original new value `230`, use `LASTX` — note that `LASTX` lifts the stack (Step 5 above), so the previous Y and X are pushed up into Z and Y rather than being discarded. The hidden `LASTX` register is itself unchanged by the `LASTX` op; only ops that modify X update it.
+
+**Error case:** If `Y = 0`, `%CH` returns `Error: Divide by 0` and leaves the stack and `LASTX` unchanged.
+
+**Recording in a program:** `%CH` records and plays back like any other binary op. In PRGM mode, the step displays as `%CH`; during `R/S` execution it consumes the same Y/X operands and produces the same result.
+
+---
+
 ## See Also
 
 - [Verifying the Card Reader](verifying-card-reader.md) — step-by-step manual round-trip procedure for CLI and GUI
