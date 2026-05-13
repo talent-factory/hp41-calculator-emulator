@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
-import { Keyboard } from './Keyboard';
+import { Keyboard, type KeyDef } from './Keyboard';
 
 interface Annunciators {
   user: boolean;
@@ -23,6 +23,33 @@ interface CalcStateView {
   print_lines: string[];
   program_steps: string[];  // Phase 18 D-01: pre-formatted step strings from Rust
   pc: number;               // Phase 18 D-01: current program counter index
+}
+
+// Tauri rejects with GuiError { message: string } — String(err) yields
+// "[object Object]". Extract the message field so toasts are readable.
+// For other object-shaped rejections (raw Tauri framework errors, third-
+// party rejections without `.message`) fall back to JSON.stringify so the
+// "[object Object]" failure mode this helper exists to prevent cannot leak
+// through. Strings, numbers, null, undefined fall through to String().
+function extractErrMessage(err: unknown): string {
+  if (typeof err === 'object' && err !== null) {
+    if ('message' in err) return String((err as { message: unknown }).message);
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // Circular reference or non-serialisable value — fall through to String.
+    }
+  }
+  return String(err);
+}
+
+// Route a resolved op id to the right Tauri command. SST/BST/R-S have
+// dedicated commands; everything else flows through dispatch_op.
+async function invokeForKey(effectiveId: string): Promise<CalcStateView> {
+  if (effectiveId === 'sst') return invoke<CalcStateView>('sst_step');
+  if (effectiveId === 'bst') return invoke<CalcStateView>('bst_step');
+  if (effectiveId === 'r_s') return invoke<CalcStateView>('run_stop');
+  return invoke<CalcStateView>('dispatch_op', { keyId: effectiveId });
 }
 
 function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | null {
@@ -81,6 +108,28 @@ function App() {
   const [printPanelOpen, setPrintPanelOpen] = useState(false);
   const printEndRef = useRef<HTMLDivElement>(null);
   const activeStepRef = useRef<HTMLDivElement>(null);
+  // Frontend-owned SHIFT one-shot prefix (no IPC round-trip).
+  const [shiftActive, setShiftActive] = useState(false);
+  // Toast overlay for GuiError responses (single-toast policy, 2s auto-dismiss).
+  // The monotonic `seq` is required because two clicks on the same stubbed
+  // key produce identical message strings — setting state to the same value
+  // does not re-run the auto-dismiss effect, so the second toast would be
+  // dismissed by the first click's still-running timer. `seq` makes the
+  // state value distinct on each call.
+  const [toast, setToast] = useState<{ msg: string; seq: number } | null>(null);
+  const toastSeqRef = useRef(0);
+  const showToast = useCallback((msg: string) => {
+    toastSeqRef.current += 1;
+    setToast({ msg, seq: toastSeqRef.current });
+  }, []);
+
+  // Auto-dismiss toast after 2 seconds. Re-runs on every showToast() call
+  // because the `seq` field changes even when `msg` is the same.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Mount: load initial state via get_state (D-11 — no polling)
   useEffect(() => {
@@ -89,36 +138,93 @@ function App() {
       .catch(err => setErrorMessage(`Load failed: ${err}`));
   }, []);
 
-  const handleClick = useCallback((keyId: string) => {
-    // Contract: keystrokes that arrive during an in-flight invoke() are dropped.
-    // The state-machine guarantees one IPC round-trip at a time; the OS key-repeat
-    // path is gated separately by `e.repeat` in handleKey.
+  // Physical-keyboard dispatch (option B): string-id path, no SHIFT/ALPHA frontend
+  // mediation. resolveKeyId already maps physical keys to op ids directly. SST/BST
+  // route to their dedicated Tauri commands; everything else goes through dispatch_op.
+  // Errors surface as a toast (consistent with on-screen keyboard).
+  const dispatchKeyId = useCallback((keyId: string) => {
     if (busyRef.current) return;
     busyRef.current = true;
-    let invokePromise: Promise<CalcStateView>;
-    if (keyId === 'sst') {
-      invokePromise = invoke<CalcStateView>('sst_step');
-    } else if (keyId === 'bst') {
-      invokePromise = invoke<CalcStateView>('bst_step');
-    } else {
-      invokePromise = invoke<CalcStateView>('dispatch_op', { keyId });
-    }
-    invokePromise
+    invokeForKey(keyId)
       .then(view => { setCalcState(view); setErrorMessage(null); })
-      .catch(err => setErrorMessage(String(err)))
+      .catch(err => showToast(extractErrMessage(err)))
       .finally(() => { busyRef.current = false; });
   }, []);
 
-  // Keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode
+  // On-screen keyboard click router. Resolution order:
+  //   1. SHIFT key toggles local shiftActive, no dispatch.
+  //   2. ALPHA mode + alphaChar → alpha_<char> (SHIFT ignored in ALPHA mode).
+  //   3. shiftActive + key.shifted → shifted.id, consumes the one-shot.
+  //   4. otherwise → primary id.
+  // Special routes: sst/bst/r_s go to dedicated commands; clx_or_a branches on
+  // the live ALPHA annunciator into clx | alpha_clear.
+  const handleClick = useCallback(async (key: KeyDef) => {
+    if (busyRef.current) return;
+
+    // SHIFT key itself toggles state, no dispatch (rule 1 above).
+    if (key.id === 'shift') {
+      setShiftActive(prev => !prev);
+      return;
+    }
+
+    // Resolve the effective id per rules 2-4.
+    const alphaOn = calcState?.annunciators.alpha ?? false;
+    let effectiveId: string;
+    let consumesShift = false;
+
+    if (alphaOn && key.alphaChar) {
+      effectiveId = `alpha_${key.alphaChar}`;
+    } else if (shiftActive && key.shifted) {
+      effectiveId = key.shifted.id;
+      consumesShift = true;
+    } else {
+      effectiveId = key.id;
+    }
+
+    if (!effectiveId) return;
+
+    busyRef.current = true;
+    try {
+      let view: CalcStateView;
+      if (effectiveId === 'clx_or_a') {
+        // CL X/A — branch on alpha mode at click time. (On-screen-specific:
+        // physical-keyboard has no equivalent path, so this stays out of
+        // invokeForKey and lives here in handleClick.)
+        const targetId = alphaOn ? 'alpha_clear' : 'clx';
+        view = await invoke<CalcStateView>('dispatch_op', { keyId: targetId });
+      } else {
+        view = await invokeForKey(effectiveId);
+      }
+      setCalcState(view);
+      setErrorMessage(null);
+    } catch (err) {
+      showToast(extractErrMessage(err));
+    } finally {
+      if (consumesShift) setShiftActive(false);
+      busyRef.current = false;
+    }
+  }, [calcState, shiftActive]);
+
+  // Physical-keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode.
+  // Tab toggles SHIFT, Esc cancels SHIFT (no IPC).
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.repeat) return;        // SC-4 fix: ignore OS key-repeat events — each IPC round-trip
                                  // completes before the next repeat fires, defeating busyRef alone
+    if (e.key === 'Escape') {
+      setShiftActive(false);
+      return;
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      setShiftActive(prev => !prev);
+      return;
+    }
     if (busyRef.current) return; // debounce: ignore while invoke pending
     const keyId = resolveKeyId(e, calcState);
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
     e.preventDefault();
-    handleClick(keyId);
-  }, [calcState, handleClick]);
+    dispatchKeyId(keyId);
+  }, [calcState, dispatchKeyId]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -150,7 +256,16 @@ function App() {
     return <div className="calculator"><div className="display">Loading...</div></div>;
   }
 
-  const annunciatorNames = ['user', 'prgm', 'alpha', 'rad', 'grad'] as const;
+  const annunciatorNames = ['user', 'shift', 'prgm', 'alpha', 'rad', 'grad'] as const;
+  // SHIFT is a frontend-derived annunciator; the rest come from the backend CalcStateView.
+  const annunciators: Record<typeof annunciatorNames[number], boolean> = {
+    user:  calcState.annunciators.user,
+    shift: shiftActive,
+    prgm:  calcState.annunciators.prgm,
+    alpha: calcState.annunciators.alpha,
+    rad:   calcState.annunciators.rad,
+    grad:  calcState.annunciators.grad,
+  };
   const stackRows: [string, string][] = [
     ['X', calcState.x_str],
     ['Y', calcState.y_str],
@@ -165,13 +280,16 @@ function App() {
         {annunciatorNames.map(name => (
           <span
             key={name}
-            className={`annunciator${calcState.annunciators[name] ? ' active' : ''}`}
+            className={`annunciator annunciator-${name}${annunciators[name] ? ' active' : ''}`}
           >
             {name.toUpperCase()}
           </span>
         ))}
       </div>
       <div className="display">{calcState.display_str}</div>
+      {toast && (
+        <div key={toast.seq} className="toast" role="status">{toast.msg}</div>
+      )}
       {errorMessage && (
         <div className="error-row" role="alert">{errorMessage}</div>
       )}
@@ -183,7 +301,12 @@ function App() {
           </div>
         ))}
       </div>
-      <Keyboard onKey={handleClick} busyRef={busyRef} />
+      <Keyboard
+        onKey={handleClick}
+        busyRef={busyRef}
+        shiftActive={shiftActive}
+        alphaActive={calcState.annunciators.alpha}
+      />
       {calcState.annunciators.prgm && (
         <div className="prgm-panel">
           <div className="prgm-panel-header">

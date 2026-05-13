@@ -84,10 +84,24 @@ pub fn resolve(key_id: &str) -> Result<Op, GuiError> {
         "h_to_hms" => Ok(Op::HToHms),
         "hms_add" => Ok(Op::HmsAdd),
         "hms_sub" => Ok(Op::HmsSub),
+        // ── Comparison (Test variants — keyboard-accessible without label arg) ───
+        "xge_y" => Ok(Op::Test(hp41_core::ops::TestKind::XGeY)),
         // ── Print ────────────────────────────────────────────────────────────
         "prx" => Ok(Op::PRX),
         "pra" => Ok(Op::PRA),
         "prstk" => Ok(Op::PRSTK),
+        // ── Stub-error arm: ids that are clickable in the skin but not yet ──
+        // Includes the three label-bearing prompt ids (xeq_prompt, gto_prompt,
+        // lbl_prompt) which would otherwise be swallowed by the label-bearing
+        // prefixes in resolve_parameterized and resolve to Op::Xeq("prompt") /
+        // Op::Gto("prompt") / Op::Lbl("prompt"). The other prompt ids
+        // (sto_prompt, fix_prompt, sf_prompt, …) fall through to
+        // resolve_parameterized and surface as the existing "unknown key"
+        // error — both paths surface to the user, never silent discard.
+        "pi" | "polar_to_rect" | "rect_to_polar" | "beep" | "asn" | "catalog" | "view"
+        | "xeq_prompt" | "gto_prompt" | "lbl_prompt" => Err(GuiError {
+            message: format!("'{key_id}' is planned for a future phase"),
+        }),
         // ── Parameterized & unknown ──────────────────────────────────────────
         _ => resolve_parameterized(key_id),
     }
@@ -262,6 +276,101 @@ mod tests {
     #[test]
     fn resolve_pct_change_id() {
         assert_eq!(resolve("pct_change").unwrap(), Op::PctChange);
+    }
+
+    #[test]
+    fn test_new_named_op_resolvers() {
+        // Clickable named ops that route directly to a core Op variant.
+        assert_eq!(resolve("sq").unwrap(), Op::Sq);
+        assert_eq!(resolve("ypow").unwrap(), Op::YPow);
+        assert_eq!(resolve("tenpow").unwrap(), Op::TenPow);
+        assert_eq!(resolve("exp").unwrap(), Op::Exp);
+        assert_eq!(
+            resolve("xge_y").unwrap(),
+            Op::Test(hp41_core::ops::TestKind::XGeY)
+        );
+    }
+
+    #[test]
+    fn test_stub_error_for_v22_backlog_ops() {
+        // These ids resolve to an explicit GuiError, not Ok(Op). A regression
+        // that returns Ok(...) here would silently discard the user click.
+        let stub_ids = [
+            "pi",
+            "polar_to_rect",
+            "rect_to_polar",
+            "beep",
+            "asn",
+            "catalog",
+            "view",
+        ];
+        for id in stub_ids {
+            let err = resolve(id).unwrap_err();
+            assert!(
+                err.message.contains("planned for a future phase"),
+                "id {id:?} expected stub message, got: {}",
+                err.message
+            );
+            assert!(
+                err.message.contains(id),
+                "id {id:?} expected message to contain id, got: {}",
+                err.message
+            );
+        }
+    }
+
+    #[test]
+    fn test_modal_prompt_ids_are_stubs_for_now() {
+        // Modal-opener prompts stub until modal infrastructure lands.
+        // Frontend MUST NOT send these to dispatch_op (App.tsx routes them
+        // to in-progress modals or shows a not-yet-implemented toast). The
+        // backend stub is defence-in-depth.
+        let prompt_ids = [
+            "sto_prompt",
+            "rcl_prompt",
+            "xeq_prompt",
+            "gto_prompt",
+            "lbl_prompt",
+            "isg_prompt",
+            "fix_prompt",
+            "sci_prompt",
+            "eng_prompt",
+            "sf_prompt",
+            "cf_prompt",
+            "fs_prompt",
+            "x_eq_y_prompt",
+            "x_le_y_prompt",
+            "x_gt_y_prompt",
+            "x_eq_0_prompt",
+        ];
+        for id in prompt_ids {
+            assert!(
+                resolve(id).is_err(),
+                "prompt id {id:?} must not resolve to an Op without its modal"
+            );
+        }
+    }
+
+    /// The three label-bearing prompt ids (xeq_prompt, gto_prompt, lbl_prompt)
+    /// have an explicit stub arm in `resolve` that MUST sit before the
+    /// `resolve_parameterized` fallthrough — otherwise they would be silently
+    /// dispatched as `Op::Xeq("prompt")` / `Op::Gto("prompt")` / `Op::Lbl("prompt")`.
+    /// Pinning the exact stub diagnostic locks the arm ordering: a regression
+    /// that moves the stub below the prefix routes would fail this assertion
+    /// rather than passing the looser `is_err()` check above (since the
+    /// fallthrough also returns Err, just with a different message).
+    #[test]
+    fn test_label_bearing_prompts_hit_explicit_stub_arm() {
+        for id in ["xeq_prompt", "gto_prompt", "lbl_prompt"] {
+            let err = resolve(id).unwrap_err();
+            assert!(
+                err.message.contains("planned for a future phase"),
+                "id {id:?} must hit the stub arm (which produces \
+                 'planned for a future phase'), not the parameterized \
+                 fallthrough. Got: {}",
+                err.message
+            );
+        }
     }
 
     #[test]

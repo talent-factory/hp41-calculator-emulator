@@ -242,6 +242,18 @@ pub fn bst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     handle_bst(&mut calc)
 }
 
+/// Tauri command: toggle program run/stop state (R/S key).
+///
+/// Mirrors sst_step/bst_step shape — never goes through dispatch_op because
+/// R/S is not a single Op variant (it toggles CalcState.is_running).
+/// Toggles the flag only; no run loop is spawned here (the IPC thread cannot
+/// block on a run loop, so actual stepping requires a separate tick thread).
+#[tauri::command]
+pub fn run_stop(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    handle_run_stop(&mut calc)
+}
+
 /// Pure-Rust helper for sst_step — unit-testable without a Tauri runtime.
 /// Advances pc by 1, capped at program.len() (no wrap-around, matching HP-41 hardware behavior).
 pub fn handle_sst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
@@ -255,6 +267,14 @@ pub fn handle_sst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
 /// Pure-Rust helper for bst_step — decrements pc via saturating_sub, clamped at 0.
 pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     calc.pc = calc.pc.saturating_sub(1);
+    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines))
+}
+
+/// Pure-Rust helper for run_stop — toggles `is_running`. Unit-testable
+/// without a Tauri runtime. Flag-toggle only; no run loop spawned here.
+pub fn handle_run_stop(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
+    calc.is_running = !calc.is_running;
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
     Ok(CalcStateView::from_state(calc, print_lines))
 }
@@ -425,6 +445,25 @@ mod tests {
         assert_eq!(calc.pc, 0, "BST must not underflow below 0");
     }
 
+    #[test]
+    fn test_handle_run_stop_toggles_is_running() {
+        let mut calc = CalcState::new();
+        assert!(
+            !calc.is_running,
+            "fresh CalcState must start with is_running == false"
+        );
+        handle_run_stop(&mut calc).unwrap();
+        assert!(
+            calc.is_running,
+            "first run_stop must flip is_running to true"
+        );
+        handle_run_stop(&mut calc).unwrap();
+        assert!(
+            !calc.is_running,
+            "second run_stop must flip is_running back to false"
+        );
+    }
+
     /// I5 regression: dispatching a card op through `handle_op_with_cards_dir`
     /// (the test-injected mirror of the production `dispatch_op` thunk) must
     /// drive the full three-phase path: dispatch → prepare → execute (real
@@ -506,8 +545,8 @@ mod tests {
         let mut state = CalcState::new();
         state.stack.y = HpNum::from(100i32);
         state.stack.x = HpNum::from(125i32);
-        let view = handle_op(&mut state, "pct_change")
-            .expect("pct_change must dispatch successfully");
+        let view =
+            handle_op(&mut state, "pct_change").expect("pct_change must dispatch successfully");
 
         let x_val: Decimal = view.x_str.parse().expect("x_str must parse as Decimal");
         let y_val: Decimal = view.y_str.parse().expect("y_str must parse as Decimal");

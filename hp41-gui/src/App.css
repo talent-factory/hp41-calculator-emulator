@@ -10,6 +10,8 @@
   overflow: hidden;
   font-family: system-ui, sans-serif;
   margin: 16px auto;
+  /* Anchor for absolutely-positioned .toast overlay (Phase 19 D-4). */
+  position: relative;
 }
 
 /* Annunciator row — D-09: always visible, dim=inactive (~35% opacity), bright=active */
@@ -198,4 +200,46 @@
 .step-active {
   background: #1e3a1e;
   color: #c8e6c9;
+}
+
+/* ── Phase 19: SHIFT armed glow, toast overlay, SHIFT annunciator ────── */
+
+/* SHIFT key visual feedback when shift is armed (one-shot prefix).
+   Pattern matches existing `.key-pressed` which targets `.key` directly,
+   not a child `rect`. `key-shift-active` and `key-pressed` are mutually
+   exclusive in Keyboard.tsx, so no override rule is needed. */
+.key.key-shift-active {
+  filter: brightness(1.18) drop-shadow(0 0 4px #f5a423);
+}
+
+/* Toast overlay for GuiError responses (single-toast, 2s auto-dismiss).
+   Anchored to `.calculator` via its `position: relative` rule above. */
+.toast {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: rgba(20, 20, 20, 0.92);
+  color: #f5a423;
+  font: 11px/1.4 monospace;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 50;
+  animation: toast-fade 2s ease-out forwards;
+}
+
+@keyframes toast-fade {
+  0%   { opacity: 0; transform: translate(-50%, -4px); }
+  10%  { opacity: 1; transform: translate(-50%, 0); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -2px); }
+}
+
+/* SHIFT annunciator uses the same orange as the SHIFT key cap (#d68a1c)
+   so the armed state reads as one coordinated visual cue. */
+.annunciator-shift.active {
+  color: #d68a1c;
 }
