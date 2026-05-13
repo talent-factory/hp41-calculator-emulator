@@ -338,6 +338,16 @@ mod tests {
         assert_eq!(calc.pc, 0, "BST must not underflow below 0");
     }
 
+    #[test]
+    fn test_handle_run_stop_toggles_is_running() {
+        let mut calc = CalcState::new();
+        assert!(!calc.is_running, "fresh CalcState must start with is_running == false");
+        handle_run_stop(&mut calc).unwrap();
+        assert!(calc.is_running, "first run_stop must flip is_running to true");
+        handle_run_stop(&mut calc).unwrap();
+        assert!(!calc.is_running, "second run_stop must flip is_running back to false");
+    }
+
     /// Smoke test for Op::PctChange through the Tauri command path.
     /// Y=100 (base), X=125 (new value) → %CH = (125-100)/100 * 100 = 25; Y preserved at 100.
     /// Seeds chosen to yield an exact integer result. Parses x_str/y_str back to Decimal
