@@ -184,29 +184,52 @@ codec logic in the UI layers.
 
 **`LBL "QUAD"` — quadratic-formula solver hardcoded for `x² − 5x + 6 = 0`.**
 
+**Codec note:** The `.raw` codec does not encode `Op::PushNum`, so literal
+constants must be preloaded into registers in the preparation step before
+the program runs. This is a known limitation of the v1 codec subset.
+
+**Constants preloaded in section 1b (before entering the program):**
+
+```
+1     STO 00    ← a  = 1
+5 CHS STO 01    ← b  = -5
+6     STO 02    ← c  = 6
+4     STO 04    ← constant 4
+2     STO 05    ← constant 2
+```
+
+**Program (28 steps, all ops encodable by the `.raw` codec):**
+
 ```
 01 LBL "QUAD"          ; alpha-label path  →  raw codec: F4 51 55 41 44
-02   5         ENTER
-03   ENTER
-04   *                 ; X = 25
-05   4         ENTER
-06   1         *
-07   6         *
-08   −                 ; discriminant = 1
-09   SQRT
-10   STO 01            ; two-digit register prefix  →  E1 01
-11   5         ENTER
-12   RCL 01            ; E0 01
-13   +
-14   2         /       ; x₁ = 3
-15   STO 02
-16   5         ENTER
-17   RCL 01
-18   −
-19   2         /       ; x₂ = 2
-20   STO 03
-21   RCL 02            ; X = x₁ for display
-22 END
+02   RCL 01            ; b = -5            E0 01
+03   X²                ; 25
+04   RCL 04            ; 4                 E0 04
+05   RCL 00            ; a = 1             E0 00
+06   ×                 ; 4
+07   RCL 02            ; c = 6             E0 02
+08   ×                 ; 24
+09   −                 ; discriminant = 1
+10   SQRT              ; √D = 1
+11   STO 03            ; R03 = √D = 1      E1 03
+12   RCL 01            ; -5                E0 01
+13   CHS               ; 5                 0x4F
+14   ENTER             ; duplicate 5 to Y
+15   RCL 03            ; √D = 1            E0 03
+16   +                 ; 5 + 1 = 6
+17   RCL 05            ; 2                 E0 05
+18   ÷                 ; 3
+19   STO 06            ; R06 = x1 = 3      E1 06
+20   RCL 01            ; -5                E0 01
+21   CHS               ; 5
+22   ENTER
+23   RCL 03            ; √D = 1            E0 03
+24   −                 ; 5 - 1 = 4
+25   RCL 05            ; 2                 E0 05
+26   ÷                 ; 2
+27   STO 07            ; R07 = x2 = 2      E1 07
+28   RCL 06            ; x1 back in X for display
+END                    ; auto-appended on exiting PRGM mode
 ```
 
 **Expected end-state after `XEQ "QUAD" + ENTER`:**
@@ -214,15 +237,16 @@ codec logic in the UI layers.
 | Slot | Value |
 |------|-------|
 | X (display) | `3.` |
-| R01 | `1.` |
-| R02 | `3.` |
-| R03 | `2.` |
+| R03 | `1.` |
+| R06 | `3.` |
+| R07 | `2.` |
 
 **Why this program.** It triggers every non-trivial codec path: alpha
 labels (`F<len>` prefix), two-digit `STO nn` / `RCL nn` (`0xE1` /
-`0xE0` prefix collisions tested), constant entry via `flush_entry_buf`,
-a representative spread of single-byte FOCAL ops, and the appended
-`END` marker (`C0 00 0D`).
+`0xE0` prefix collisions tested), `CHS` (single-byte `0x4F`),
+`ENTER`, `SQRT`, arithmetic ops, and the appended
+`END` marker (`C0 00 0D`). Using `RCL` for constants avoids `Op::PushNum`
+which the v1 `.raw` codec cannot encode.
 
 **Data setup for the WDTA/RDTA half** (run after the program completes):
 
@@ -231,7 +255,7 @@ a representative spread of single-byte FOCAL ops, and the appended
 1 CHS STO 99     ; R99 := -1   (boundary: highest valid register index)
 ```
 
-R00–R03 already carry the values from the program run. Combined, the
+R00–R07 already carry the values from the program run. Combined, the
 data card exercises: small positive integer, small negative integer,
 irrational floating-point (mantissa test), and full `0..=99` coverage.
 
@@ -253,16 +277,16 @@ $ hp41             # or: just gui-dev
 
 ### 2. Enter and Verify the Program
 
-22 numbered keypresses (the program in the previous section). After
+28 numbered keypresses (the program in the previous section). After
 the program is entered, the operator runs a **reference run**:
 
 ```
 XEQ "QUAD" + ENTER
 Expected:
   X:   3.
-  R01: 1.
-  R02: 3.
-  R03: 2.
+  R03: 1.
+  R06: 3.
+  R07: 2.
 ```
 
 This is the reference run against which the post-restore run is
@@ -272,12 +296,12 @@ compared.
 
 ```
 1.  ALPHA   Q U A D   ALPHA            ; ALPHA = "QUAD"
-2.  XEQ "WPRGM" + ENTER                ; → ~/.hp41/cards/QUAD.raw exists (~30–40 B)
+2.  XEQ "WPRGM" + ENTER                ; → ~/.hp41/cards/QUAD.raw exists (~40–50 B)
 3.  $ sha256sum ~/.hp41/cards/QUAD.raw → hash A
-4.  PRGM mode → CLP → confirm          ; listing shows only "00 END."
+4.  PRGM mode → CLP → confirm          ; listing shows only "000 END"
 5.  ALPHA   Q U A D   ALPHA
-6.  XEQ "RDPRGM" + ENTER               ; listing identical to original (22 lines)
-7.  XEQ "QUAD" + ENTER                 ; X=3., R01=1., R02=3., R03=2.  ← behavioural identity
+6.  XEQ "RDPRGM" + ENTER               ; listing identical to original (28 lines)
+7.  XEQ "QUAD" + ENTER                 ; X=3., R03=1., R06=3., R07=2.  ← behavioural identity
 8.  XEQ "WPRGM" + ENTER                ; QUAD.raw overwritten
 9.  $ sha256sum ~/.hp41/cards/QUAD.raw → hash B
 10. ASSERT hash A == hash B            ; byte-stable round-trip
@@ -302,10 +326,10 @@ compared.
 ### 5. Error Paths
 
 ```
-F1.  ALPHA empty + XEQ "WPRGM"          → "ALPHA DATA"
-F2.  ALPHA "NOPE" + XEQ "RDPRGM"        → "CARD DATA"   (file missing)
+F1.  ALPHA empty + XEQ "WPRGM"          → "alpha data"
+F2.  ALPHA "NOPE" + XEQ "RDPRGM"        → "card data: io: ..."   (file missing)
 F3.  $ echo 'kaputt' > ~/.hp41/cards/BAD.card.json
-     ALPHA "BAD" + XEQ "RDTA"           → "CARD DATA"   (bad JSON / wrong tag)
+     ALPHA "BAD" + XEQ "RDTA"           → "card data: decode-json: ..."   (bad JSON / wrong tag)
 ```
 
 ### 6. Same Procedure in the GUI
