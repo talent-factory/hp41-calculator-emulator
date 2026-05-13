@@ -40,7 +40,8 @@ pub fn sanitize_name(name: &str) -> Result<&str, HpError> {
     if name.contains('/') || name.contains('\\') || name.contains('\0') {
         return Err(HpError::CardData(format!("invalid card name: {name:?}")));
     }
-    if name == "." || name == ".." {
+    if name.starts_with('.') {
+        // Rejects ".", "..", and any hidden-file-style name like ".hidden".
         return Err(HpError::CardData(format!("invalid card name: {name:?}")));
     }
     Ok(name)
@@ -118,6 +119,7 @@ mod tests {
         assert!(matches!(sanitize_name("a\0b"), Err(HpError::CardData(_))));
         assert!(matches!(sanitize_name("."), Err(HpError::CardData(_))));
         assert!(matches!(sanitize_name(".."), Err(HpError::CardData(_))));
+        assert!(matches!(sanitize_name(".hidden"), Err(HpError::CardData(_))));
         assert_eq!(sanitize_name("QUAD"), Ok("QUAD"));
         assert_eq!(sanitize_name("BACKUP-1"), Ok("BACKUP-1"));
     }
@@ -131,8 +133,15 @@ mod tests {
     fn drain_with_no_request_is_noop() {
         let mut state = CalcState::new();
         let tmp = tempfile::tempdir().unwrap();
+        // Pass a subdirectory that does NOT yet exist. The early-return path
+        // must skip create_dir_all entirely; otherwise this assertion fails.
+        let subdir = tmp.path().join("never_should_be_created");
         assert!(state.pending_card_op.is_none());
-        drain_pending_card_op(&mut state, tmp.path()).unwrap();
+        drain_pending_card_op(&mut state, &subdir).unwrap();
         assert!(state.pending_card_op.is_none());
+        assert!(
+            !subdir.exists(),
+            "no-op drain must not call create_dir_all on cards_dir",
+        );
     }
 }
