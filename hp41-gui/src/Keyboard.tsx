@@ -1,75 +1,75 @@
 import { useState, type MutableRefObject } from 'react';
 
-type KeyDef = {
-  id: string;
-  label: string;
-  fShiftLabel?: string;
-  row: number;
-  col: number;
-  colSpan?: number;
+export type KeyDef = {
+  id: string;                                  // primary op key id; '' = shift key (handled specially)
+  label: string;                               // primary visible label
+  shifted?: { id: string; label: string };    // shifted op + orange label above
+  alphaChar?: string;                          // ALPHA-mode character (blue label below)
+  row: number;                                 // 0 = top-row band, 1..8 = main grid rows
+  col: number;                                 // 0..4 within row
+  colSpan?: number;                            // default 1 (ENTER spans 2)
+  variant?: 'top' | 'shift' | 'enter';        // styling hint
 };
 
-const KEY_W = 39;
-const KEY_H = 26;
-const GAP = 4;
-const PAD = 8;
-const FSHIFT_H = 12;
-
-const KEY_DEFS: KeyDef[] = [
-  // Row 0 — top math/function row (9 keys)
-  { id: 'sigma_plus', label: 'Σ+',   fShiftLabel: 'x²',   row: 0, col: 0 },
-  { id: 'recip',      label: '1/x',  fShiftLabel: 'yˣ',   row: 0, col: 1 },
-  { id: 'sqrt',       label: '√x',                         row: 0, col: 2 },
-  { id: 'log',        label: 'LOG',  fShiftLabel: '10ˣ',  row: 0, col: 3 },
-  { id: 'ln',         label: 'LN',   fShiftLabel: 'eˣ',   row: 0, col: 4 },
-  { id: '',           label: 'XEQ',                        row: 0, col: 5 },
-  { id: '',           label: 'STO',                        row: 0, col: 6 },
-  { id: '',           label: 'RCL',                        row: 0, col: 7 },
-  { id: 'clx',        label: '←',                          row: 0, col: 8 },
-
-  // Row 1 — trig row with double-wide ENTER (8 physical keys, 9 column-slots)
-  { id: 'sin',     label: 'SIN',   fShiftLabel: 'ASIN', row: 1, col: 0 },
-  { id: 'cos',     label: 'COS',   fShiftLabel: 'ACOS', row: 1, col: 1 },
-  { id: 'tan',     label: 'TAN',   fShiftLabel: 'ATAN', row: 1, col: 2 },
-  { id: 'rdn',     label: 'R↓',                         row: 1, col: 3 },
-  { id: 'xy_swap', label: 'x↔y',                        row: 1, col: 4 },
-  { id: 'enter',   label: 'ENTER',                       row: 1, col: 5, colSpan: 2 },
-  { id: 'div',     label: '÷',                           row: 1, col: 7 },
-  { id: 'mul',     label: '×',                           row: 1, col: 8 },
-
-  // Row 2 — mode keys + digits 7/8/9 (9 keys)
-  { id: 'user_mode',    label: 'USER',  row: 2, col: 0 },
-  { id: '',             label: 'f',     row: 2, col: 1 },
-  { id: '',             label: 'g',     row: 2, col: 2 },
-  { id: '7',            label: '7',     row: 2, col: 3 },
-  { id: '8',            label: '8',     row: 2, col: 4 },
-  { id: '9',            label: '9',     row: 2, col: 5 },
-  { id: 'minus',        label: '−',     row: 2, col: 6 },
-  { id: 'prgm_mode',    label: 'PRGM',  row: 2, col: 7 },
-  { id: 'alpha_toggle', label: 'ALPHA', row: 2, col: 8 },
-
-  // Row 3 — entry keys + digits 4/5/6 (9 keys)
-  { id: 'chs',  label: 'CHS',  row: 3, col: 0 },
-  { id: 'e',    label: 'EEX',  row: 3, col: 1 },
-  { id: 'sst',  label: 'SST',  row: 3, col: 2 },
-  { id: '4',    label: '4',    row: 3, col: 3 },
-  { id: '5',    label: '5',    row: 3, col: 4 },
-  { id: '6',    label: '6',    row: 3, col: 5 },
-  { id: 'plus', label: '+',    row: 3, col: 6 },
-  { id: '',     label: 'GTO',  row: 3, col: 7 },
-  { id: '',     label: 'R/S',  row: 3, col: 8 },
-
-  // Row 4 — digits 0/1/2/3 + special (9 keys)
-  { id: '0',     label: '0',    row: 4, col: 0 },
-  { id: '.',     label: '.',    row: 4, col: 1 },
-  { id: '',      label: 'ON',   row: 4, col: 2 },
-  { id: '1',     label: '1',    row: 4, col: 3 },
-  { id: '2',     label: '2',    row: 4, col: 4 },
-  { id: '3',     label: '3',    row: 4, col: 5 },
-  { id: 'lastx', label: 'LSTx', row: 4, col: 6 },
-  { id: 'clreg', label: 'CLRG', row: 4, col: 7 },
-  { id: 'bst',   label: 'BST',  row: 4, col: 8 },
+// Top row — separated from main grid by gap. ON/USER on the left, PRGM/ALPHA on the right.
+// Row 0 reserved for top row. No shift/alpha labels on top-row buttons.
+const TOP_ROW: KeyDef[] = [
+  { id: '',             label: 'ON',    row: 0, col: 0, variant: 'top' },
+  { id: 'user_mode',    label: 'USER',  row: 0, col: 1, variant: 'top' },
+  { id: 'prgm_mode',    label: 'PRGM',  row: 0, col: 3, variant: 'top' },
+  { id: 'alpha_toggle', label: 'ALPHA', row: 0, col: 4, variant: 'top' },
 ];
+
+// Main grid — 5 columns × 8 rows. ENTER spans 2 columns in row 4.
+// Stub labels (ASN, CATALOG, BEEP, P→R, R→P, x=y?, x≤y?, x>y?, x=0?, π, VIEW, SF, CF, FS?)
+// resolve via key_map.rs stub branch and surface a toast.
+const MAIN_GRID: KeyDef[] = [
+  // Row 1 — math
+  { id: 'sigma_plus', label: 'Σ+',  shifted: { id: 'sigma_minus', label: 'Σ−' },   alphaChar: 'A', row: 1, col: 0 },
+  { id: 'recip',      label: '1/x', shifted: { id: 'ypow',        label: 'yˣ' },   alphaChar: 'B', row: 1, col: 1 },
+  { id: 'sqrt',       label: '√x',  shifted: { id: 'sq',          label: 'x²' },   alphaChar: 'C', row: 1, col: 2 },
+  { id: 'log',        label: 'LOG', shifted: { id: 'tenpow',      label: '10ˣ' }, alphaChar: 'D', row: 1, col: 3 },
+  { id: 'ln',         label: 'LN',  shifted: { id: 'exp',         label: 'eˣ' },   alphaChar: 'E', row: 1, col: 4 },
+  // Row 2 — trig + stack
+  { id: 'xge_y',      label: 'x≥y', shifted: { id: 'cl_sigma_stat', label: 'CLΣ' }, alphaChar: 'F', row: 2, col: 0 },
+  { id: 'rdn',        label: 'R↓',  shifted: { id: 'pct_change',  label: '%' },    alphaChar: 'G', row: 2, col: 1 },
+  { id: 'sin',        label: 'SIN', shifted: { id: 'asin',        label: 'SIN⁻¹' }, alphaChar: 'H', row: 2, col: 2 },
+  { id: 'cos',        label: 'COS', shifted: { id: 'acos',        label: 'COS⁻¹' }, alphaChar: 'I', row: 2, col: 3 },
+  { id: 'tan',        label: 'TAN', shifted: { id: 'atan',        label: 'TAN⁻¹' }, alphaChar: 'J', row: 2, col: 4 },
+  // Row 3 — program
+  { id: 'shift',      label: '',    row: 3, col: 0, variant: 'shift' },
+  { id: 'xeq_prompt', label: 'XEQ', shifted: { id: 'asn',     label: 'ASN' }, alphaChar: 'K', row: 3, col: 1 },
+  { id: 'sto_prompt', label: 'STO', shifted: { id: 'lbl_prompt', label: 'LBL' }, alphaChar: 'L', row: 3, col: 2 },
+  { id: 'rcl_prompt', label: 'RCL', shifted: { id: 'gto_prompt', label: 'GTO' }, alphaChar: 'M', row: 3, col: 3 },
+  { id: 'sst',        label: 'SST', shifted: { id: 'bst',     label: 'BST' }, row: 3, col: 4 },
+  // Row 4 — entry (ENTER spans 2)
+  { id: 'enter',      label: 'ENTER↑', shifted: { id: 'catalog', label: 'CATALOG' }, alphaChar: 'N', row: 4, col: 0, colSpan: 2, variant: 'enter' },
+  { id: 'chs',        label: 'CHS', shifted: { id: 'isg_prompt', label: 'ISG' }, alphaChar: 'O', row: 4, col: 2 },
+  { id: 'e',          label: 'EEX', shifted: { id: 'rtn',         label: 'RTN' }, alphaChar: 'P', row: 4, col: 3 },
+  { id: 'clx_or_a',   label: '←',   shifted: { id: 'clx_or_a',    label: 'CL X/A' }, row: 4, col: 4 },
+  // Row 5 — operator − + digits 7/8/9
+  { id: 'minus',      label: '−', shifted: { id: 'x_eq_y_prompt', label: 'x=y?' }, alphaChar: 'Q', row: 5, col: 0 },
+  { id: '7',          label: '7', shifted: { id: 'sf_prompt',     label: 'SF' },   alphaChar: 'R', row: 5, col: 1 },
+  { id: '8',          label: '8', shifted: { id: 'cf_prompt',     label: 'CF' },   alphaChar: 'S', row: 5, col: 2 },
+  { id: '9',          label: '9', shifted: { id: 'fs_prompt',     label: 'FS?' },  alphaChar: 'T', row: 5, col: 3 },
+  // Row 6 — operator + + digits 4/5/6
+  { id: 'plus',       label: '+', shifted: { id: 'x_le_y_prompt', label: 'x≤y?' }, alphaChar: 'U', row: 6, col: 0 },
+  { id: '4',          label: '4', shifted: { id: 'beep',          label: 'BEEP' }, alphaChar: 'V', row: 6, col: 1 },
+  { id: '5',          label: '5', shifted: { id: 'polar_to_rect', label: 'P→R' },  alphaChar: 'W', row: 6, col: 2 },
+  { id: '6',          label: '6', shifted: { id: 'rect_to_polar', label: 'R→P' },  alphaChar: 'X', row: 6, col: 3 },
+  // Row 7 — operator × + digits 1/2/3
+  { id: 'mul',        label: '×', shifted: { id: 'x_gt_y_prompt', label: 'x>y?' }, alphaChar: 'Y', row: 7, col: 0 },
+  { id: '1',          label: '1', shifted: { id: 'fix_prompt',    label: 'FIX' },  alphaChar: 'Z', row: 7, col: 1 },
+  { id: '2',          label: '2', shifted: { id: 'sci_prompt',    label: 'SCI' },  alphaChar: '=', row: 7, col: 2 },
+  { id: '3',          label: '3', shifted: { id: 'eng_prompt',    label: 'ENG' },  alphaChar: '?', row: 7, col: 3 },
+  // Row 8 — operator ÷ + 0 . R/S
+  { id: 'div',        label: '÷', shifted: { id: 'x_eq_0_prompt', label: 'x=0?' }, alphaChar: ':', row: 8, col: 0 },
+  { id: '0',          label: '0', shifted: { id: 'pi',            label: 'π' },    alphaChar: ' ', row: 8, col: 1 },
+  { id: '.',          label: '.', shifted: { id: 'lastx',         label: 'LAST X' }, alphaChar: ',', row: 8, col: 2 },
+  { id: 'r_s',        label: 'R/S', shifted: { id: 'view',        label: 'VIEW' }, row: 8, col: 3 },
+];
+
+const KEY_DEFS: KeyDef[] = [...TOP_ROW, ...MAIN_GRID];
 
 function isCreamKey(key: KeyDef): boolean {
   return (
