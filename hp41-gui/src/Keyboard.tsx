@@ -1,5 +1,20 @@
 import { useState, type MutableRefObject } from 'react';
 
+const COLS = 5;
+const KEY_W = 64;
+const KEY_H = 44;
+const GAP = 6;
+const PAD = 10;
+const TOP_GAP = 12;         // gap between top-row band and main grid
+const TOP_CENTER_GAP = 96;  // visible gap between ON/USER and PRGM/ALPHA
+const SHIFT_LABEL_H = 11;   // space reserved above each key for orange shift label
+const ALPHA_LABEL_H = 11;   // space reserved below each key for blue alpha letter
+
+const KEYBOARD_W = PAD * 2 + COLS * KEY_W + (COLS - 1) * GAP;
+const TOP_ROW_H = KEY_H;
+const GRID_ROW_H = SHIFT_LABEL_H + KEY_H + ALPHA_LABEL_H + GAP;
+const KEYBOARD_H = PAD * 2 + TOP_ROW_H + TOP_GAP + 8 * GRID_ROW_H;
+
 export type KeyDef = {
   id: string;                                  // primary op key id; '' = shift key (handled specially)
   label: string;                               // primary visible label
@@ -71,6 +86,26 @@ const MAIN_GRID: KeyDef[] = [
 
 const KEY_DEFS: KeyDef[] = [...TOP_ROW, ...MAIN_GRID];
 
+function keyPosition(key: KeyDef): { x: number; y: number; w: number; h: number } {
+  const cs = key.colSpan ?? 1;
+  const w = cs * KEY_W + (cs - 1) * GAP;
+  const h = KEY_H;
+
+  if (key.row === 0) {
+    // Top row: ON/USER on left (cols 0-1), PRGM/ALPHA on right (cols 3-4) with center gap.
+    const leftWidth = 2 * KEY_W + GAP;
+    const xLeftStart = PAD;
+    const xRightStart = PAD + leftWidth + TOP_CENTER_GAP;
+    const xCols = [xLeftStart, xLeftStart + KEY_W + GAP, 0, xRightStart, xRightStart + KEY_W + GAP];
+    return { x: xCols[key.col], y: PAD, w, h };
+  }
+
+  const gridRow = key.row - 1; // rows 1..8 → indices 0..7
+  const x = PAD + key.col * (KEY_W + GAP);
+  const y = PAD + TOP_ROW_H + TOP_GAP + gridRow * GRID_ROW_H + SHIFT_LABEL_H;
+  return { x, y, w, h };
+}
+
 function isCreamKey(key: KeyDef): boolean {
   return (
     ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
@@ -104,15 +139,14 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
   return (
     <svg
       width="100%"
-      viewBox="0 0 400 230"
+      viewBox={`0 0 ${KEYBOARD_W} ${KEYBOARD_H}`}
       xmlns="http://www.w3.org/2000/svg"
       aria-label="HP-41C keyboard"
     >
       <defs>
-        {/* Body gradient: warm brown, lighter at top */}
         <linearGradient id="body-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#5a3828" />
-          <stop offset="100%" stopColor="#1e100a" />
+          <stop offset="0%"   stopColor="#1a1a1a" />
+          <stop offset="100%" stopColor="#000000" />
         </linearGradient>
 
         {/* Key cap gradients — lighter at top, darker at bottom (convex 3D look) */}
@@ -145,9 +179,8 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
       </defs>
 
       {/* Calculator body */}
-      <rect width="400" height="230" fill="url(#body-grad)" rx={8} />
-      {/* Body inner shadow at top edge */}
-      <rect width="400" height="12" fill="url(#bevel-hi)" rx={8} opacity={0.4} />
+      <rect width={KEYBOARD_W} height={KEYBOARD_H} fill="url(#body-grad)" rx={10} />
+      <rect width={KEYBOARD_W} height={14} fill="url(#bevel-hi)" rx={10} opacity={0.4} />
 
       {KEY_DEFS.map(key => {
         const cs = key.colSpan ?? 1;
