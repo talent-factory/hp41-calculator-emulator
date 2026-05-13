@@ -249,7 +249,7 @@ function App() {
         {annunciatorNames.map(name => (
           <span
             key={name}
-            className={`annunciator${annunciators[name] ? ' active' : ''}`}
+            className={`annunciator annunciator-${name}${annunciators[name] ? ' active' : ''}`}
           >
             {name.toUpperCase()}
           </span>
