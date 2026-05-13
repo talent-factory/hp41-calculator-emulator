@@ -84,6 +84,8 @@ pub fn resolve(key_id: &str) -> Result<Op, GuiError> {
         "h_to_hms" => Ok(Op::HToHms),
         "hms_add" => Ok(Op::HmsAdd),
         "hms_sub" => Ok(Op::HmsSub),
+        // ── Comparison (Test variants — keyboard-accessible without label arg) ───
+        "xge_y" => Ok(Op::Test(hp41_core::ops::TestKind::XGeY)),
         // ── Print ────────────────────────────────────────────────────────────
         "prx" => Ok(Op::PRX),
         "pra" => Ok(Op::PRA),
@@ -248,6 +250,16 @@ mod tests {
     #[test]
     fn resolve_pct_change_id() {
         assert_eq!(resolve("pct_change").unwrap(), Op::PctChange);
+    }
+
+    #[test]
+    fn test_new_named_op_resolvers() {
+        // Newly exposed ops that became clickable in Phase 19.
+        assert_eq!(resolve("sq").unwrap(), Op::Sq);
+        assert_eq!(resolve("ypow").unwrap(), Op::YPow);
+        assert_eq!(resolve("tenpow").unwrap(), Op::TenPow);
+        assert_eq!(resolve("exp").unwrap(), Op::Exp);
+        assert_eq!(resolve("xge_y").unwrap(), Op::Test(hp41_core::ops::TestKind::XGeY));
     }
 
     #[test]
