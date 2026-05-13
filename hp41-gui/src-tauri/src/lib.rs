@@ -3,8 +3,7 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
-#[allow(dead_code)] // wired in T10 (commands.rs)
-mod cards;
+pub mod cards;
 mod commands;
 mod key_map;
 mod persistence;

@@ -121,6 +121,16 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
     // ── Named / parameterized op — resolve and dispatch ──────────────────────
     let op = key_map::resolve(key_id)?;
     dispatch(calc, op).map_err(GuiError::from)?;
+
+    // Drain any staged Card Reader request (WPRGM/RDPRGM/WDTA/RDTA) before
+    // serialising state back to the frontend. cards_dir() returns None only on
+    // headless systems with no $HOME, which is an operational error — surface it.
+    if let Some(dir) = crate::cards::cards_dir() {
+        if let Err(e) = crate::cards::drain_pending_card_op(calc, &dir) {
+            return Err(GuiError::from(e));
+        }
+    }
+
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
     Ok(CalcStateView::from_state(calc, print_lines))
 }
@@ -130,6 +140,15 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
 /// Returns Result for symmetry with handle_op (and to allow future error paths) even
 /// though the current implementation is infallible.
 pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
+    // Defensive drain: handle_op should already have consumed any pending_card_op,
+    // but a stale request (e.g. from a crash-recovered state) would otherwise
+    // leak. This is always a no-op in the happy path.
+    if let Some(dir) = crate::cards::cards_dir() {
+        if let Err(e) = crate::cards::drain_pending_card_op(calc, &dir) {
+            return Err(GuiError::from(e));
+        }
+    }
+
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
     Ok(CalcStateView::from_state(calc, print_lines))
 }
