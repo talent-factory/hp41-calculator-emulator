@@ -111,8 +111,7 @@ impl App {
             // Combine with any pre-existing warning (e.g. failed --print-log
             // open) instead of suppressing either — both are independently
             // actionable and `initial_message` has only one slot.
-            let card_warn =
-                "Warning: cannot resolve ~/.hp41/cards (no $HOME) — card ops disabled";
+            let card_warn = "Warning: cannot resolve ~/.hp41/cards (no $HOME) — card ops disabled";
             initial_message = Some(match initial_message {
                 Some(existing) => format!("{existing}; {card_warn}"),
                 None => card_warn.to_string(),
