@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Polish
-current_phase: 18
-current_plan: "04"
-status: milestone-complete
-last_updated: "2026-05-10T21:00:00.000Z"
+milestone: v2.2
+milestone_name: HP-41CV Feature Completeness
+current_phase: null
+current_plan: null
+status: awaiting-milestone-planning
+last_updated: "2026-05-13T00:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 19
-  completed_plans: 19
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -26,20 +26,21 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Shipped:** v1.0 CLI (2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
-**Current focus:** v2.1 Polish — planning next milestone
+**Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
+**Current focus:** v2.2 HP-41CV Feature Completeness — awaiting milestone planning (130-function ROM-built-in set; modules deferred to v3.x)
 **Repo:** hp41-calculator-emulator
-**Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
+**Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
 ---
 
 ## Current Position
 
-Phase: 18 — Program Listing & CI/CD (COMPLETE)
-Plan: 18-04 (complete — all plans executed)
-Status: v2.0 milestone complete (2026-05-10); all 6 phases (13–18), 19 plans complete; awaiting /gsd-new-milestone for v2.1
-Last activity: 2026-05-10 — v2.0 archived; git tag v1.1 + v2.0 created.
+Phase: — (between milestones)
+Plan: —
+Status: v2.1 complete (2026-05-13); recorded as quick tasks (no Phase 19 directory). Awaiting `/gsd-new-milestone "v2.2 HP-41CV Feature Completeness"`.
+Last activity: 2026-05-13 — STATE.md / MILESTONES.md / PROJECT.md reconciled with shipped v2.1 work (50 commits since v2.0 tag).
 
-Progress: [█████████████████████████████] 100% (6/6 phases complete)
+Progress: — (v2.2 not yet planned)
 
 ---
 
@@ -107,15 +108,17 @@ None.
 |---|-------------|------|--------|-----------|
 | 260508-y30 | CHS during EEX entry: toggle minus sign in exponent | 2026-05-08 | aa0904b | [260508-y30-eex-chs-exponent-sign-toggle](./quick/260508-y30-eex-chs-exponent-sign-toggle/) |
 | 260508-06h | FIX/SCI/ENG digit-count modal via F key (0–9) | 2026-05-08 | 7ff792c | [260508-06h-fix-sci-eng-digit-input](./quick/260508-06h-fix-sci-eng-digit-input/) |
+| 260513-v21a | v2.1 Card Reader: WDTA/RDTA/WPRGM/RDPRGM + XEQ-by-name + cards module + PR #9 fixes | 2026-05-13 | 72530dc…f4b3f8b | — (no GSD dir; see MILESTONES.md v2.1) |
+| 260513-v21b | v2.1 Keyboard Authenticity: 5-col grid, three-label keys, one-shot SHIFT, run_stop Tauri cmd, stub-error pattern, toast overlay, PR #10 fixes | 2026-05-13 | 8cd2de4…ff56b97 | — (no GSD dir; see MILESTONES.md v2.1) |
 
 ---
 
 ## Session Continuity
 
-**Last active:** 2026-05-10
-**Last action:** v2.0 Tauri GUI milestone complete — all 6 phases (13–18), 19 plans, archived to milestones/; git tags v1.1 + v2.0 created
-**Next action:** `/gsd-new-milestone` — plan v2.1 Polish milestone
+**Last active:** 2026-05-13
+**Last action:** v2.1 (Card Reader + Keyboard Authenticity) reconciled into GSD state as two quick-task entries; no Phase 19 directory created. PROJECT.md + MILESTONES.md updated. Git tag `v2.1` not yet created.
+**Next action:** `/gsd-new-milestone "v2.2 HP-41CV Feature Completeness"` — strict ROM built-in 130-function set; module emulation (Math/Stat/Time/Advantage Pacs) deferred to v3.x. Include the three v2.1 Polish items (14-seg font, ?-overlay, USER keyboard display) as a final GUI Polish phase of v2.2.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-10 — v2.0 Tauri GUI milestone archived; tags v1.1 + v2.0 created*
+*Last updated: 2026-05-13 — v2.1 reconciled (Card Reader + Keyboard Authenticity); awaiting v2.2 planning*
