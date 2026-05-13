@@ -132,4 +132,68 @@ None deferred for v2.x. Module-Pacs explicitly out of scope (→ v3.x).
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| _Pending roadmap generation_ | — | — |
+| FN-MATH-01 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-02 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-03 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-04 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-05 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-06 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-07 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-08 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-09 | Phase 20 — Core Math & Conversions | TBD |
+| FN-STACK-01 | Phase 20 — Core Math & Conversions | TBD |
+| FN-FLAG-01 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-FLAG-02 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-DISP-01 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-DISP-02 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-DISP-03 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-DISP-04 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-DISP-05 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-SOUND-01 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-SOUND-02 | Phase 21 — Flags, Display Control & Sound | TBD |
+| FN-PROG-01 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-02 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-03 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-04 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-05 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-06 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-PROG-07 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-MEM-01 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-MEM-02 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-MEM-03 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-MEM-04 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-MEM-05 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-KEY-01 | Phase 22 — Program Control & Memory Ops | TBD |
+| FN-ALPHA-01 | Phase 23 — ALPHA Operations | TBD |
+| FN-ALPHA-02 | Phase 23 — ALPHA Operations | TBD |
+| FN-ALPHA-03 | Phase 23 — ALPHA Operations | TBD |
+| FN-ALPHA-04 | Phase 23 — ALPHA Operations | TBD |
+| FN-ALPHA-05 | Phase 23 — ALPHA Operations | TBD |
+| FN-ALPHA-06 | Phase 23 — ALPHA Operations | TBD |
+| FN-IND-01 | Phase 24 — Indirect Addressing (Cross-Cutting) | TBD |
+| FN-IND-02 | Phase 24 — Indirect Addressing (Cross-Cutting) | TBD |
+| FN-TEST-01 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-CLI-01 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-CLI-02 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-CLI-03 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-CLI-04 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-DOC-01 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-DOC-02 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-DOC-03 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-DOC-04 | Phase 25 — CLI Integration & Documentation | TBD |
+| FN-GUI-01 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-GUI-02 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-GUI-03 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-GUI-04 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-GUI-05 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-POLISH-01 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-POLISH-02 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-POLISH-03 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-POLISH-04 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-QUAL-01 | Phase 27 — Test Hardening | TBD |
+| FN-QUAL-02 | Phase 27 — Test Hardening | TBD |
+| FN-QUAL-03 | Phase 27 — Test Hardening | TBD |
+| FN-QUAL-04 | Phase 27 — Test Hardening | TBD |
+| FN-QUAL-05 | Phase 27 — Test Hardening | TBD |
+
+**Coverage:** 63 / 63 requirements mapped ✓

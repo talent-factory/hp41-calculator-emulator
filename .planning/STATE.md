@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: HP-41CV Feature Completeness
-current_phase: null
+current_phase: 20
 current_plan: null
 status: planning
 last_updated: "2026-05-13T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
-**Current focus:** v2.2 HP-41CV Feature Completeness — awaiting milestone planning (130-function ROM-built-in set; modules deferred to v3.x)
+**Current focus:** v2.2 HP-41CV Feature Completeness — roadmap complete (Phases 20–27); awaiting first phase planning
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -35,12 +35,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 20: Core Math & Conversions
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-13 — Milestone v2.2 HP-41CV Feature Completeness started; research skipped (codebase mature, HP-41CV well-documented); REQUIREMENTS.md generation next.
+Status: Ready to plan first phase
+Last activity: 2026-05-13 — v2.2 Roadmap created (Phases 20–27, 63 requirements mapped); ready for `/gsd-plan-phase 20`
 
-Progress: 0 / TBD phases (roadmap pending)
+Progress: 0 / 8 phases
 
 ---
 
@@ -50,10 +50,27 @@ Progress: 0 / TBD phases (roadmap pending)
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% | 94.87% (Phase 9: 94.22%) |
+| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.5% lines / 89.9% regions (v2.1 baseline; v2.2 target ≥ 95%) |
 | Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
-| CI platforms | Win/macOS/Ubuntu | All green |
+| CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml`) |
+
+---
+
+## v2.2 Phase Plan (Phases 20–27)
+
+| Phase | Name | Requirements | Build Stage |
+|-------|------|--------------|-------------|
+| 20 | Core Math & Conversions | FN-MATH-01..09, FN-STACK-01 (10) | core |
+| 21 | Flags, Display Control & Sound | FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02 (9) | core |
+| 22 | Program Control & Memory Ops | FN-PROG-01..07, FN-MEM-01..05, FN-KEY-01 (13) | core |
+| 23 | ALPHA Operations | FN-ALPHA-01..06 (6) | core |
+| 24 | Indirect Addressing (Cross-Cutting) | FN-IND-01..02 (2) | core |
+| 25 | CLI Integration & Documentation | FN-TEST-01, FN-CLI-01..04, FN-DOC-01..04 (9) | cli + docs |
+| 26 | GUI Integration & Polish | FN-GUI-01..05, FN-POLISH-01..04 (9) | gui |
+| 27 | Test Hardening | FN-QUAL-01..05 (5) | tests |
+
+**Total: 63 requirements across 8 phases — 100% coverage.**
 
 ---
 
@@ -90,13 +107,14 @@ Progress: 0 / TBD phases (roadmap pending)
 | SVG shadow: manual rect over filter | Shadow implemented as 1px-offset black rect (45% opacity) rather than SVG feDropShadow filter — simpler, no GPU compositing overhead, no per-element filter allocation | Phase 16 |
 | transform-box: fill-box required for SVG animation | Without this CSS property, scale() transforms from SVG canvas origin rather than each key's own center — keys would translate instead of shrink in place | Phase 16 |
 
-### Critical Implementation Traps (v1.1)
+### Critical Implementation Traps (v2.2 — adapted for new milestone)
 
-- Every new Op variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`
-- New CalcState fields need `#[serde(default)]` for backward compatibility with v1.0 save files
-- STO arithmetic core (`op_sto_arith`) is already implemented in hp41-core — Phase 10 adds StackReg enum + Op::StoArithStack variant + op_sto_arith_stack() function (core) and TUI routing (cli)
-- Phase 10 hp41-core changes: StackReg enum in ops/mod.rs, Op::StoArithStack variant, op_sto_arith_stack() in registers.rs, dispatch()/execute_op() arms
-- `pending_input` routing block must remain ABOVE modal-opening interceptors (S/R/Ctrl+A) to prevent modal interruption
+- **Every new Op variant must be added to 4 places (not 2!):** `dispatch()` in `ops/mod.rs` + `execute_op()` in `ops/program.rs` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. The exhaustive matches will fail to compile if any of these is missed.
+- **New CalcState fields need `#[serde(default)]`** for backward compatibility with v1.0/v1.1/v2.0/v2.1 save files. Critical for `flags`, `display_override`, `event_buffer`.
+- **SC-4 invariant (no core duplication in hp41-gui):** Use stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` — `op_display_name` is the only intentional exception.
+- **No `println!`/`eprintln!` in hp41-core:** `BEEP`/`TONE` must route through a buffer (existing `print_buffer` or new `event_buffer`).
+- **`pending_input` routing block must remain ABOVE modal-opening interceptors** (S/R/Ctrl+A) to prevent active dialogs being silently discarded.
+- **D-07 (no silent discards) preserved in GUI:** Phase 26 modal routing replaces toast for HP-41CV builtins, but unhandled IDs still produce `GuiError` toast — never silent.
 
 ### Blockers
 
@@ -116,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-13
-**Last action:** v2.1 (Card Reader + Keyboard Authenticity) reconciled into GSD state as two quick-task entries; no Phase 19 directory created. PROJECT.md + MILESTONES.md updated. Git tag `v2.1` not yet created.
-**Next action:** `/gsd-new-milestone "v2.2 HP-41CV Feature Completeness"` — strict ROM built-in 130-function set; module emulation (Math/Stat/Time/Advantage Pacs) deferred to v3.x. Include the three v2.1 Polish items (14-seg font, ?-overlay, USER keyboard display) as a final GUI Polish phase of v2.2.
+**Last action:** v2.2 Roadmap created — 8 phases (20–27), 63 requirements mapped 100% coverage. Build sequence locked: core (20–24) → cli + docs (25) → gui (26) → tests (27). FN-IND-01/02 placed as cross-cutting Phase 24 after direct-address variants exist (Phases 20–23). FN-POLISH-01..04 folded into Phase 26 alongside FN-GUI. FN-QUAL final phase.
+**Next action:** `/gsd-plan-phase 20` — start planning Phase 20: Core Math & Conversions (PI, P→R, R→P, RND, FRC, MOD, ABS, FACT, SIGN, R↑).
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-13 — v2.1 reconciled (Card Reader + Keyboard Authenticity); awaiting v2.2 planning*
+*Last updated: 2026-05-13 — v2.2 Roadmap complete; Phase 20 ready for planning*

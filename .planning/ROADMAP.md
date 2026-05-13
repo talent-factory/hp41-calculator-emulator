@@ -1,7 +1,7 @@
 # Roadmap: HP-41 Calculator Emulator
 
 **Project:** HP-41 Calculator Emulator
-**Current milestone:** v2.0 Tauri GUI (in progress)
+**Current milestone:** v2.2 HP-41CV Feature Completeness (planning)
 
 ---
 
@@ -10,264 +10,175 @@
 - ✅ **v1.0 CLI** — Phases 1–8, shipped 2026-05-08 · [Archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09 · [Archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v2.0 Tauri GUI** — Phases 13–18, pixel-perfect HP-41C desktop app — SHIPPED 2026-05-10 · [Archive](milestones/v2.0-ROADMAP.md)
+- ✅ **v2.1 Card Reader + Keyboard Authenticity** — recorded as two quick tasks (no Phase 19 GSD directory); SHIPPED 2026-05-13 · see MILESTONES.md
+- 🟡 **v2.2 HP-41CV Feature Completeness** — Phases 20–27, ROM built-in 130-function set + docs + GUI integration + polish + test hardening (in planning)
 
 ---
 
 ## Phases
 
-<details>
-<summary>✅ v1.0 CLI (Phases 1–8) — SHIPPED 2026-05-08</summary>
+### v2.2 — HP-41CV Feature Completeness (Phases 20–27)
 
-- [x] **Phase 1: Foundation** — Cargo workspace, CalcState, 4-level HP-41 stack with lift semantics (completed 2026-05-06)
-- [x] **Phase 2: Core Math** — Arithmetic, trig, formatting, registers, ALPHA mode (completed 2026-05-07)
-- [x] **Phase 3: Programming Engine** — LBL/GTO/XEQ/RTN/conditionals/ISG/DSE (completed 2026-05-07)
-- [x] **Phase 4: TUI & Input** — ratatui display, annunciators, keyboard mapping (completed 2026-05-07)
-- [x] **Phase 5: Persistence & UX** — JSON state, auto-save, USER mode, sample programs (completed 2026-05-07)
-- [x] **Phase 6: Science & Engineering** — Statistics, HMS/H conversions (completed 2026-05-07)
-- [x] **Phase 7: Hardening** — Zero panics, 94.87% coverage, 500-case accuracy, CI matrix (completed 2026-05-07)
-- [x] **Phase 8: Tech Debt Cleanup** — EEX fix, SIN/'q', CLREG/'g', AlphaClear/Delete, help accuracy (completed 2026-05-08)
-
-**Full phase details:** [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.1 CLI Feature Completeness (Phases 9–12) — SHIPPED 2026-05-09</summary>
-
-- [x] **Phase 9: Infrastructure & EEX Fix** - Bump MSRV + rust_decimal; correct EEX trailing-e-without-exponent to hardware behavior (completed 2026-05-08)
-- [x] **Phase 10: STO Arithmetic Modals** - Wire the existing op_sto_arith core to a 3-step keyboard modal (S → op → register) (completed 2026-05-08)
-- [x] **Phase 11: Print Emulation** - Add PRX/PRA/PRSTK ops with print_buffer on CalcState; optional file log via --print-log (completed 2026-05-08)
-- [x] **Phase 12: Synthetic Programming** - GETKEY, NULL, hidden registers M/N/O, and a hex-byte insertion modal (completed 2026-05-09)
-
-</details>
-
-<details>
-<summary>✅ v2.0 Tauri GUI (Phases 13–18) — SHIPPED 2026-05-10</summary>
-
-- [x] **Phase 13: Workspace Skeleton** - Add hp41-gui as a nested Tauri v2 workspace member; just gui-dev launches an empty window; just ci stays green (completed 2026-05-09)
-- [x] **Phase 14: IPC Layer** - Tauri commands dispatch_op/get_state; CalcStateView ~200 bytes; key_map.rs; GuiError; print_buffer drained per call (completed 2026-05-09)
-- [x] **Phase 15: Display & Keyboard** - React display panel with 12-char output and annunciators; physical keyboard wiring with same bindings as hp41-cli (completed 2026-05-10)
-- [x] **Phase 16: SVG Skin** - Pixel-perfect HP-41C SVG key layout (9×5, ENTER double-width, HP colors); click handlers; CSS press animation (completed 2026-05-10)
-- [x] **Phase 17: Persistence & Print Output** - Shared ~/.hp41/autosave.json save/load; 30s auto-save; scrollable print output panel (completed 2026-05-10)
-- [x] **Phase 18: Program Listing & CI/CD** - PRGM mode program listing with SST/BST navigation; F7/F8 bindings; cross-platform GUI CI job (completed 2026-05-10)
-
-**Full phase details:** [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROADMAP.md)
-
-</details>
+- [ ] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage
+- [ ] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core
+- [ ] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep)
+- [ ] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core
+- [ ] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer
+- [ ] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + `KEY_REF_TABLE` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs`; ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README
+- [ ] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode`
+- [ ] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; Playwright GUI E2E smoke test
 
 ---
 
 ## Phase Details
 
-### Phase 9: Infrastructure & EEX Fix
-**Goal**: The project compiles on MSRV 1.85, all dependency versions are consistent, and EEX entry behaves identically to HP-41 hardware — trailing e without exponent digits commits as exponent 00; empty-buffer EEX inserts implicit mantissa 1; TUI shows exponent placeholder cursor.
-**Depends on**: Phase 8 (v1.0 codebase)
-**Requirements**: INFRA-01, INPUT-01, INPUT-02, INPUT-03
+### Phase 20: Core Math & Conversions
+**Goal**: Users can execute the 10 missing HP-41CV ROM math/stack operations from the CLI and inside keystroke programs with hardware-faithful semantics — `PI` pushes the constant, `P→R`/`R→P` respect the current angle mode, `RND` rounds to the current display digit count, `FRC` returns sign-preserving fractional parts, `MOD` returns Y mod X with HP-41 sign semantics, `FACT` rejects X > 69 and non-integer inputs, `R↑` mirrors `Rdn`.
+**Depends on**: v2.1 baseline (Card Reader, Keyboard Authenticity, all v1.0/v1.1/v2.0 work)
+**Requirements**: FN-MATH-01, FN-MATH-02, FN-MATH-03, FN-MATH-04, FN-MATH-05, FN-MATH-06, FN-MATH-07, FN-MATH-08, FN-MATH-09, FN-STACK-01
 **Success Criteria** (what must be TRUE):
-  1. Typing `1.5` then EEX then ENTER pushes `1.5` to the stack (exponent treated as 00), not a silent discard
-  2. Pressing EEX on an empty entry buffer shows `1   _` in exponent entry mode, matching HP-41 hardware behavior
-  3. While in partial-exponent state the TUI display shows a cursor placeholder (e.g., `1.5E_ _`) confirming exponent entry is pending
-  4. `just ci` passes with Rust 1.85 toolchain; `Cargo.toml` declares `rust-version = "1.85"` and `rust_decimal` is pinned to 1.42
-  5. The previously-inverted test `test_flush_trailing_e_without_exponent_returns_err` passes with corrected (hardware-faithful) assertion
-**Plans**: 3 plans
-  - [x] 09-01-PLAN.md — INFRA-01: Bump workspace MSRV to 1.85, rust_decimal to 1.42, add MSRV CI job
-  - [x] 09-02-PLAN.md — INPUT-01 (core): flush_entry_buf trailing-e normalization + invert wrong-behavior test
-  - [x] 09-03-PLAN.md — INPUT-01/02/03 (cli): EEX guards + 2-digit cap + exponent placeholder rendering
+  1. From the CLI, typing the keystroke for `PI` followed by ENTER pushes 3.1415926536 (10-digit rounded) onto X and lifts the stack
+  2. In DEG mode, entering `3 ENTER 4 ENTER 5` and pressing `R→P` produces magnitude ≈ 5 in Y and angle ≈ 53.13° in X; in RAD mode the same inputs return the angle in radians
+  3. `5.7 CHS RND` with FIX 1 active produces `-5.7`; with FIX 0 active produces `-6`; `FACT` with X=70 returns `HpError::OutOfRange` and is observable in the CLI display
+  4. Starting from stack X=1 Y=2 Z=3 T=4, pressing `R↑` produces X=4 Y=1 Z=2 T=3 (mirror of `Rdn`)
+  5. Every one of the 10 new `Op` variants appears in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), and BOTH `prgm_display.rs` copies (hp41-cli + hp41-gui); compile-time exhaustive matches confirm coverage
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - `#![deny(clippy::unwrap_used)]` applies — all new code uses `?`-propagation or `.expect("reason")`
+  - Each `Op` variant must land in 4 places: `dispatch()` + `execute_op()` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs` (the built-in trap from CLAUDE.md)
+  - SC-4 invariant preserved: no math/calculator logic in `hp41-gui/src-tauri/`
+  - `LiftEffect` declared for each new op (PI=Enable, R↑=Neutral, others follow `Rdn`/`Sin` precedent)
 
-### Phase 10: STO Arithmetic Modals
-**Goal**: Users can perform STO+, STO-, STO×, STO÷ to any numbered register (R00–R99) or stack register (Y/Z/T/LASTX) via a 3-step keyboard modal, with Esc cancellation at any step producing no side effects.
-**Depends on**: Phase 9
-**Requirements**: STOA-01, STOA-02, STOA-03
+### Phase 21: Flags, Display Control & Sound
+**Goal**: `CalcState` carries 56 user flags + system flags as `flags: u64` (or equivalent bitfield with `#[serde(default)]`); users can `SF/CF/FS?/FC?/FS?C/FC?C` any flag from the keyboard and inside programs with conditional-skip behavior; `VIEW`/`AVIEW`/`PROMPT`/`AON`/`AOFF`/`CLD` modify the display layer without touching the stack; `BEEP` and `TONE n` emit events into an `event_buffer` (or extend `print_buffer`) so hp41-core stays I/O-free.
+**Depends on**: Phase 20
+**Requirements**: FN-FLAG-01, FN-FLAG-02, FN-DISP-01, FN-DISP-02, FN-DISP-03, FN-DISP-04, FN-DISP-05, FN-SOUND-01, FN-SOUND-02
 **Success Criteria** (what must be TRUE):
-  1. Pressing `S`, then `+`, then `05` executes STO+ into R05 — X is added to R05 in place, no other state changes
-  2. Pressing `S`, then `-`, then `Y` executes STO- into the stack Y register, leaving X unchanged
-  3. Pressing Esc at any modal step (after `S`, after the arithmetic op key, or after the first register digit) cancels the operation with no state change
-  4. The TUI shows the current modal step (e.g., `STO _` after `S`, `STO+ _` after the op key) so the user always knows which step they are on
-**Plans**: 3 plans
-  **Wave 1** *(parallel)*
-  - [x] 10-01-PLAN.md — STOA-03 (core): StackReg enum, Op::StoArithStack variant, op_sto_arith_stack function, dispatch() + execute_op() arms
-  - [x] 10-03-PLAN.md — STOA-01/02/03 (help): fix 4 placeholder entries in help_data.rs
-  **Wave 2** *(blocked on Wave 1 Plan 10-01 completion)*
-  - [x] 10-02-PLAN.md — STOA-01/02 (cli): step-2 routing in StoRegister arm, Y/Z/T/L stack-reg dispatch in StoAdd/Sub/Mul/Div arms, remove dead_code
-  **Cross-cutting constraints:**
-  - `Op::StoArithStack` variant from 10-01 must be visible before 10-02 can compile
-  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new code uses `?`-propagation
+  1. From the CLI, executing `SF 05` followed by `FS? 05` causes the next program step to execute (flag set → test passes); `CF 05` followed by `FS? 05` skips the next step
+  2. `FS?C 10` on a set flag clears it as a side effect; `FS?C 10` on a clear flag leaves it clear — both observable via `FS? 10` after
+  3. `VIEW 03` shows the contents of register R03 in HP-41 display format until the next key is pressed; stack remains unchanged; `CLD` clears the display without touching stack/ALPHA
+  4. Executing `BEEP` or `TONE 5` from a program adds a structured event line into the print/event buffer (the exact channel is a settled decision recorded in CLAUDE.md); no `println!`/`eprintln!` appears in hp41-core
+  5. A v1.x JSON save file (created before the `flags` field existed) loads in hp41-cli/hp41-gui without error — `#[serde(default)]` initializes flags to 0
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - `flags: u64` (or `[u8; N]`) field on `CalcState` carries `#[serde(default)]` — non-negotiable for save-file backward compat
+  - `BEEP`/`TONE` MUST route through a buffer pattern (extends print_buffer OR a new `event_buffer: Vec<String>` with `#[serde(skip)]`) — NO direct I/O in hp41-core
+  - Conditional flag tests (`FS?`/`FC?`/`FS?C`/`FC?C`) must apply the skip-next-step semantic inside `run_loop` exactly like the existing `X=Y` family
+  - Display-control ops (`VIEW`/`AVIEW`/`PROMPT`/`CLD`) likely need a `display_override: Option<String>` on CalcState — also `#[serde(default)]`
+  - All new `Op` variants land in 4 places (dispatch + execute_op + 2× prgm_display)
+  - `#![deny(clippy::unwrap_used)]` enforced
+
+### Phase 22: Program Control & Memory Ops
+**Goal**: Users can pause/resume programs (`STOP`, `PSE`), edit programs in PRGM mode (`CLP`, `DEL`, `INS`), branch indirectly (`GTO IND`, `XEQ IND` — direct-form only here; IND-resolver lives in Phase 24), and manage memory (`SIZE`, `CLA`, `CLST`, `PACK`, `CATALOG 1..4`, `ASN`). All in hp41-core.
+**Depends on**: Phase 21
+**Requirements**: FN-PROG-01, FN-PROG-02, FN-PROG-03, FN-PROG-04, FN-PROG-05, FN-PROG-06, FN-PROG-07, FN-MEM-01, FN-MEM-02, FN-MEM-03, FN-MEM-04, FN-MEM-05, FN-KEY-01
+**Success Criteria** (what must be TRUE):
+  1. A program containing `STOP` halts execution at that step; pressing R/S in the CLI resumes from the next step
+  2. A program containing `PSE` briefly displays the current X then continues; `CLP "MYPRG"` removes every step from `LBL MYPRG` to the next `END`/`.END.`
+  3. `DEL 005` from PRGM mode removes 5 steps starting at the current PC; `INS` adds one blank step at PC; `PACK` returns success (no-op in our flat-Vec model but the `Op` variant exists and dispatches cleanly)
+  4. `CATALOG 2` (programs) emits a structured listing into `print_buffer`; `CATALOG 1` (registers) lists R00–R99 with values; `CLST` zeroes X/Y/Z/T while LASTX is preserved; `CLA` clears ALPHA
+  5. `ASN "SIN" 11` records a key assignment that survives a JSON save/load round-trip (existing `assignments` map extended with the new `Op::Asn` variant)
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - `STOP` interacts with `run_loop` — needs a `paused: bool` state transition; `PSE` requires a pause-then-resume marker the CLI/GUI can observe
+  - `CLP`/`DEL`/`INS` operate on the existing `Vec<ProgramStep>` — must keep PC consistent (existing CR-01-style fixes apply)
+  - `GTO IND nn` / `XEQ IND nn` use the same indirect-resolver groundwork that Phase 24 generalizes; Phase 22 lands the direct PROG-side calls, Phase 24 implements the shared `resolve_indirect()` helper
+  - `CATALOG` output goes into `print_buffer` (existing pattern); no direct I/O
+  - `Op::Asn` integrates with the existing `assignments: HashMap<u8, Op>` field; `#[serde(default)]` already present
+  - All new `Op` variants land in 4 places; `#![deny(clippy::unwrap_used)]` enforced
+
+### Phase 23: ALPHA Operations
+**Goal**: Users can manipulate the ALPHA register beyond v1.0's append/clear primitives — `ARCL nn` appends a register's formatted value; `ASTO nn` packs the first 6 ALPHA chars into a register; `ATOX`/`XTOA` interconvert the first ALPHA char with its ASCII code in X; `AROT n` rotates ALPHA (negative N rotates right); `POSA` returns the substring position. Direct-address forms only; IND variants come in Phase 24.
+**Depends on**: Phase 22
+**Requirements**: FN-ALPHA-01, FN-ALPHA-02, FN-ALPHA-03, FN-ALPHA-04, FN-ALPHA-05, FN-ALPHA-06
+**Success Criteria** (what must be TRUE):
+  1. With ALPHA="HELLO" and R05 containing 3.14 (FIX 2 active), `ARCL 05` produces ALPHA="HELLO3.14"; switching to SCI 3 then `ARCL 05` again appends in SCI format
+  2. With ALPHA="GOODBYE", `ASTO 12` packs "GOODBY" (first 6 chars) into R12 as packed text; `RCL 12` and `ARCL 12` reproduce "GOODBY" in ALPHA
+  3. With ALPHA="A" (capital A, ASCII 65), `ATOX` puts 65 in X; with X=66 and ALPHA="", `XTOA` makes ALPHA="B"
+  4. With ALPHA="HELLO", `AROT 2` produces ALPHA="LLOHE"; `AROT -1` (i.e. `AROT` with X=-1) produces ALPHA="OHELL"
+  5. With ALPHA="THE QUICK BROWN FOX" and X holding "QUICK" (or however POSA encodes the search arg), `POSA` returns 4 in X; for a missing substring returns -1
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - ALPHA register packing (`ASTO`) uses HP-41 6-char ASCII pack — document the exact encoding in CLAUDE.md so future ops match
+  - `ARCL` formatting respects the current display mode (FIX/SCI/ENG) — re-uses `format_hpnum()` from `hp41-core/src/format.rs`
+  - `AROT` must accept N from the X register per HP-41 hardware behavior (not as immediate operand) — note in plan
+  - All new `Op` variants land in 4 places
+  - `#![deny(clippy::unwrap_used)]` enforced — particular care with byte-slicing the ALPHA register; use `chars()` not byte indices
+
+### Phase 24: Indirect Addressing (Cross-Cutting)
+**Goal**: A single `resolve_indirect(state, reg) -> Result<u8, HpError>` helper in `hp41-core` lets every addressable op (`STO`, `RCL`, `ISG`, `DSE`, `SF`, `CF`, `FS?`, `FC?`, `FS?C`, `FC?C`, `STO+/-/×/÷`, `ARCL`, `ASTO`, `VIEW`) accept an `_IND` form that reads the register-N integer part as the effective address. Non-integer register contents return `HpError::InvalidOp`.
+**Depends on**: Phase 23 (all direct-address variants must exist first — IND is layered on top)
+**Requirements**: FN-IND-01, FN-IND-02
+**Success Criteria** (what must be TRUE):
+  1. With R05 containing 12 and R12 containing 99, `RCL IND 05` puts 99 in X; `STO IND 05` followed by `RCL 12` confirms the indirect store wrote to R12
+  2. With R05 containing 03 and flag 03 currently clear, `SF IND 05` sets flag 03; `FS? IND 05` then succeeds (no skip)
+  3. With R07 containing 12.345 (non-integer pointer), `RCL IND 07` returns `HpError::InvalidOp` in the CLI display — never panics, never silently rounds
+  4. With R10 containing 25 and ALPHA empty, `ARCL IND 10` appends the formatted contents of R25 to ALPHA; `ASTO IND 10` packs the first 6 ALPHA chars into R25
+  5. `GTO IND 05` (with R05=42) jumps to LBL 42 or step 42 per HP-41 semantics; `XEQ IND 05` similarly invokes the subroutine — verified by program execution test in `hp41-core/tests/`
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - `resolve_indirect()` is the ONE place that converts register-N to a u8 address — no duplication across ops
+  - All IND variants are NEW `Op` enum variants (e.g. `StoInd(u8)`, `RclInd(u8)`, `SfInd(u8)`, …) — they MUST land in dispatch + execute_op + both prgm_display copies
+  - Non-integer rejection uses `HpError::InvalidOp` (not a new error type) — keeps the error surface stable
+  - This is the LARGEST single-phase Op variant count in v2.2 (≈15 new IND variants); plan for a Wave-0 test scaffold then a single Wave-1 implementation plan
+  - `#![deny(clippy::unwrap_used)]` enforced — IND resolution path is heavily tested via Phase 27 proptest
+
+### Phase 25: CLI Integration & Documentation
+**Goal**: Every new `Op` from Phases 20–24 is reachable from the hp41-cli keyboard with explicit `KEY_REF_TABLE` entries; new `PendingInput` modal variants (`SfPrompt`, `CfPrompt`, `FsPrompt`, `FcPrompt`, `ViewPrompt`, `TonePrompt`, `DelPrompt`, `ClpLabelPrompt`, IND variants) are exhaustively handled by `pending_prompt()`; all 12 conditional tests are keyboard-reachable; `help_data.rs::HELP_DATA` is the up-to-date single source of truth; and the v2.2 documentation deliverables ship together — HP-41CV function matrix (≥130 entries with status column), CLAUDE.md settled-architecture additions (flag storage, indirect resolution, sound buffer), README "feature-complete HP-41CV" claim with cross-link.
+**Depends on**: Phase 24 (all `Op` variants must exist before keyboard wiring can compile)
+**Requirements**: FN-TEST-01, FN-CLI-01, FN-CLI-02, FN-CLI-03, FN-CLI-04, FN-DOC-01, FN-DOC-02, FN-DOC-03, FN-DOC-04
+**Success Criteria** (what must be TRUE):
+  1. Every `Op` variant added in Phases 20–24 has a matching entry in `key_to_op()` and `KEY_REF_TABLE` in `hp41-cli/src/keys.rs`; pressing the documented key in the CLI dispatches the correct op
+  2. Pressing the `?` help key in the CLI lists every new v2.2 op grouped under a recognizable category (math, flags, display, program control, ALPHA, IND) — `help_data.rs` is updated
+  3. All 12 conditional tests (`X=Y`, `X≠Y`, `X<Y`, `X>Y`, `X≤Y`, `X≥Y`, `X=0`, `X≠0`, `X<0`, `X>0`, `X≤0`, `X≥0`) are reachable from the CLI keyboard — verified by typing each one and observing the dispatch result
+  4. `docs/hp41cv-function-matrix.md` exists and lists ≥130 HP-41CV ROM ops with an implementation-status column (`✓ v2.x` / `⏳ v3.x module` / `— N/A`); CLAUDE.md "Settled Architecture Decisions" section gains a "v2.2 additions" block; README.md links to the function matrix
+  5. `pending_prompt()` in `hp41-cli/src/ui.rs` handles every new `PendingInput` variant without `unreachable!()` or `_ =>` catch-all — verified by exhaustive match compile-check
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - This phase ONLY touches `hp41-cli` and `docs/` and project-root `*.md` — no `hp41-core` changes (all core Ops landed in Phases 20–24)
+  - Documentation runs synchronously with CLI integration per PROJECT.md "Build sequence: core → cli → docs → gui → tests" — the two are bundled here so the function matrix has authoritative coverage data
+  - Function matrix entry format: one row per HP-41CV ROM op with columns `Op | Category | Status | Phase | Notes`
+  - `help_data.rs` remains the SINGLE SOURCE OF TRUTH for key descriptions — `?` overlay reads from it; no hardcoded help strings elsewhere
+
+### Phase 26: GUI Integration & Polish
+**Goal**: Every new v2.2 key ID resolves via `hp41-gui/src-tauri/src/key_map.rs::resolve` (both bare and parameterized prefixes); `KEY_DEFS` in `Keyboard.tsx` carries correct three-label (primary/shifted/alphaChar) bindings for every new HP-41C keyboard-reachable function; previously-stubbed prompt IDs (`sto_prompt`, `rcl_prompt`, `fix_prompt`, `sci_prompt`, `eng_prompt`, `isg_prompt`, `sf_prompt`, `cf_prompt`, `fs_prompt`, `x_eq_y_prompt`, `x_le_y_prompt`, `x_gt_y_prompt`, `x_eq_0_prompt`) route to real modal flows in the React frontend — no more `unknown key` toasts for HP-41CV built-ins; the stub-error arm shrinks to v3.x module ops only. GUI Polish ships in the same phase: 14-seg SVG LCD font replaces the CSS-text display; `?` keyboard shortcut overlay ports from `help_data.rs`; USER mode shows current key assignments overlaid on the skin; the `p` key remaps from `prx` to `prgm_mode` (resolves the v2.0 deferred conflict).
+**Depends on**: Phase 25 (CLI must be fully wired with all `Op` variants before GUI key_map can reference them; help_data.rs is the source for the `?`-overlay port)
+**Requirements**: FN-GUI-01, FN-GUI-02, FN-GUI-03, FN-GUI-04, FN-GUI-05, FN-POLISH-01, FN-POLISH-02, FN-POLISH-03, FN-POLISH-04
+**Success Criteria** (what must be TRUE):
+  1. Every new v2.2 op key ID (e.g. `pi`, `p_to_r`, `r_to_p`, `rnd`, `frc`, `mod_op`, `abs`, `fact`, `sign`, `r_up`, `sf`, `cf`, `fs_q`, `view`, `aview`, `prompt`, `beep`, `tone`, `arcl`, `asto`, `atox`, `xtoa`, `arot`, `posa`, …) resolves via `key_map::resolve` and clicking the corresponding `KEY_DEFS` entry in the GUI dispatches the correct op — verified by `test_all_keyboard_skin_ids_are_valid` (Phase 16 pattern, extended)
+  2. Clicking the SHIFT-modified key for previously-stubbed prompt IDs opens an in-app modal (frontend React component, not a toast) — e.g. clicking `STO` (with SHIFT off) opens a register-picker modal; clicking the `f`-prefixed `SF` key opens a flag-picker (0–55); the modal dispatches the final parameterized op via `dispatch_op`
+  3. The HP-41 12-char display in the GUI renders via a 14-segment SVG font (one `<g>` per character with 14 line/polygon segments) — visually distinguishable from the previous CSS-text version; matches HP-41C hardware look
+  4. Pressing `?` in the GUI opens a keyboard shortcut overlay populated from a TypeScript port of `help_data.rs`; toggling USER mode (existing `Op::User` already wired) overlays current `Op::Asn` mappings on the SVG skin keys
+  5. Pressing the `p` key now opens PRGM mode (not PRX); the SC-4 invariant grep (`fn op_(add|sub|...|format_hpnum)`) returns nothing in `hp41-gui/src-tauri/src/` — no calculator/math logic duplicated; `CalcStateView` size stays ≤500 bytes (relaxed from ≤300 to accommodate `flags` field — recorded in CLAUDE.md)
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - **SC-4 invariant non-negotiable**: NEVER add `op_*` / `flush_entry_*` / `format_hpnum` to `hp41-gui/src-tauri/` — `op_display_name` in `prgm_display.rs` remains the ONLY display-formatter exception
+  - Stub-error arm shrinks to v3.x-only — every HP-41CV ROM op resolves successfully; only module-Pac functions (Math 1 / Stat 1 / Time / Advantage) remain as stubs
+  - D-07 (no silent discards) preserved — unhandled IDs still produce `GuiError` toast, never silent
+  - Modal frontend components are React-only (TypeScript); they call `dispatch_op` with the resolved parameterized ID (e.g. `sto_05`, `sf_12`)
+  - `CalcStateView` may gain `flags`, `display_override`, `event_buffer` fields — JSON budget relaxed to ≤500 bytes (FN-GUI-05); document the new size envelope in CLAUDE.md
+  - 14-seg font: a single TypeScript SVG component with 14 segments per glyph; new `Display14Seg.tsx` replaces the `.display-text` CSS span; HP-41C character set (A–Z, 0–9, period, comma, minus, special chars)
+  - `?` overlay ports `help_data.rs` to TypeScript — extract a JSON-shape data file in Phase 25 that both Rust and TypeScript can read, OR maintain a TypeScript mirror with a doctest enforcing parity
+  - `p` key remap: existing `KEY_DEFS` entry for `p` changes from `prx` to `prgm_mode`; `prx` migrates to a different key (e.g. shifted variant)
 **UI hint**: yes
 
-### Phase 11: Print Emulation
-**Goal**: PRX, PRA, and PRSTK operations produce formatted print output — visible in the console and optionally appended to a file — while hp41-core remains free of any I/O dependency by buffering output through a new `print_buffer: Vec<String>` field on CalcState.
-**Depends on**: Phase 10
-**Requirements**: PRNT-01, PRNT-02, PRNT-03, PRNT-04
+### Phase 27: Test Hardening
+**Goal**: `hp41-core` line coverage returns to ≥95% (recovering from the 92.5% slip recorded in v1.1/v2.1); the 500-case numerical accuracy suite is extended with cases for every new math/conversion op (PI, P→R, R→P, RND, FRC, MOD, FACT) and maintains the ≥98% pass rate gate; proptest covers flag set/clear/test invariants across all 56 user flags; integration tests verify indirect addressing resolution and non-integer rejection on every `_IND` op; a Playwright E2E smoke test in `ci-gui.yml` boots the Tauri app, clicks a representative subset of keys, and asserts display state.
+**Depends on**: Phase 26 (all functionality must be in place before final coverage push and E2E test)
+**Requirements**: FN-QUAL-01, FN-QUAL-02, FN-QUAL-03, FN-QUAL-04, FN-QUAL-05
 **Success Criteria** (what must be TRUE):
-  1. Executing PRX writes X in current display format (FIX/SCI/ENG), right-aligned to 24 characters, to the console
-  2. Executing PRA writes the ALPHA register contents, left-aligned to 24 characters, to the console
-  3. Executing PRSTK writes the full stack in hardware order (T, Z, Y, X, LASTX, ALPHA), one line per register, to the console
-  4. Starting `hp41-cli` with `--print-log <path>` causes all PRX/PRA/PRSTK output to be appended to the specified file in addition to the console
-  5. Existing v1.0 JSON save files load without error after CalcState gains the `print_buffer` field (the field carries `#[serde(default)]`)
-**Plans**: 4 plans (3 original + 1 gap closure)
-  **Wave 0**
-  - [x] 11-00-PLAN.md — PRNT-01/02/03/04: test scaffold (print_tests.rs with RED failing tests)
-  **Wave 1** *(blocked on Wave 0)*
-  - [x] 11-01-PLAN.md — PRNT-01/02/03 (core): print_buffer on CalcState, ops/print.rs module, Op::PRX/PRA/PRSTK variants, dispatch() + execute_op() arms
-  **Wave 2** *(blocked on Wave 1)*
-  - [x] 11-02-PLAN.md — PRNT-01/02/03/04 (cli): PrintModal keyboard modal, 'P' interceptor, call_dispatch_and_drain, print_log_writer, --print-log arg, PRNT: _ display, help entries
-  **Wave 3** *(blocked on Wave 2 completion — gap closure)*
-  - [x] 11-03-PLAN.md — CR-01/CR-03: drain_and_show_print_output() helper + 3 run_program call sites + serde(skip) on print_buffer
-  **Cross-cutting constraints:**
-  - `Op::PRX/PRA/PRSTK` variants from 11-01 must be visible before 11-02 can compile
-  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new core code uses `?`-propagation
-  - `print_buffer.push()` is hp41-core-only; no `println!`/`eprintln!` allowed in `ops/print.rs`
-
-### Phase 12: Synthetic Programming
-**Goal**: Users can use GETKEY, NULL, and the hidden registers M/N/O inside keystroke programs, and can insert a synthetic op via a 2-digit hex byte modal that enforces a curated safe subset, expanding programmable power without unsafe byte codes.
-**Depends on**: Phase 11
-**Requirements**: SYNT-01, SYNT-02, SYNT-03, SYNT-04
-**Success Criteria** (what must be TRUE):
-  1. A program containing GETKEY pushes the HP-41 row-column key code of the last pressed key to X when the step executes
-  2. A program containing NULL executes without changing any stack register, any numbered register, or the lift flag (Neutral stack-lift effect)
-  3. `STO M` / `RCL M`, `STO N` / `RCL N`, `STO O` / `RCL O` work in programs identically to numbered registers and survive a JSON save/load round-trip
-  4. The hex-byte insertion modal accepts a 2-digit hex code from a curated safe subset and inserts the synthetic op at the current program step; codes outside the safe subset are rejected with a visible error in the HP-41 display area
-**Plans**: 3 plans
-  **Wave 0**
-  - [x] 12-00-PLAN.md — SYNT-01/02/03/04: test scaffold (synthetic_tests.rs with RED failing tests)
-  **Wave 1** *(blocked on Wave 0)*
-  - [x] 12-01-PLAN.md — SYNT-01/02/03/04 (core): CalcState fields (last_key_code, reg_m/n/o), 9 new Op variants, dispatch + execute_op arms, registers.rs functions, synthetic_byte_to_op, prgm_display arms
-  **Wave 2** *(blocked on Wave 1)*
-  - [x] 12-02-PLAN.md — SYNT-01/03/04 (cli): keycode_to_hp41_code, last_key_code update, 'X' interceptor (PRGM-mode gated), HexModal handler with synthetic_byte_to_op validation, M/N/O branches in StoRegister/RclRegister, ui.rs HexModal arm, help_data.rs Synthetic Programming category
-  **Cross-cutting constraints:**
-  - All 9 new `Op` variants from 12-01 must be visible before 12-02 can compile
-  - `prgm_display.rs` exhaustive match means 12-01 MUST land core variants AND display arms together
-  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-core — all new core code uses `?`-propagation or `.expect("reason")`
-  - HexModal byte validation MUST happen before `state.program.insert()` (security invariant T-12-W2-02)
-**UI hint**: yes
-
-### Phase 13: Workspace Skeleton
-**Goal**: Users can launch an empty Tauri v2 window via `just gui-dev`, the hp41-gui crate is a nested workspace member that does not affect `cargo build --workspace`, and `just ci` (the CLI pipeline) remains green without modification.
-**Depends on**: Phase 12
-**Requirements**: WSPC-01, WSPC-02
-**Success Criteria** (what must be TRUE):
-  1. Running `just gui-dev` on macOS opens a blank Tauri window with the title "HP-41 Calculator" and exits cleanly on close
-  2. Running `just ci` after adding hp41-gui completes with the same pass/fail outcome as before — zero regressions in hp41-cli or hp41-core
-  3. Running `cargo build --workspace` from the repo root builds hp41-core and hp41-cli but does NOT attempt to build the Tauri binary (nested workspace isolation confirmed)
-  4. The `tauri` and `tauri-build` crates appear only in `hp41-gui/src-tauri/Cargo.toml`, not in the root `[workspace.dependencies]`
-  5. The CI matrix (Windows, macOS, Ubuntu) continues to pass the existing CLI jobs with no new failures introduced
-**Plans**: 3 plans
-  **Wave 1** *(parallel)*
-  - [x] 13-01-PLAN.md — WSPC-01/02: Rust nested workspace skeleton (Cargo.toml, build.rs, main.rs, lib.rs) + four Justfile gui-* recipes
-  - [x] 13-02-PLAN.md — WSPC-01: Frontend scaffold (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/App.tsx, src/index.css)
-  **Wave 2** *(blocked on Wave 1)*
-  - [x] 13-03-PLAN.md — WSPC-01/02: tauri.conf.json + capabilities + npm install + full integration validation + human window verify
-  **Cross-cutting constraints:**
-  - Root Cargo.toml members MUST stay `["hp41-core", "hp41-cli"]` — hp41-gui is a nested standalone workspace, NOT a root member
-  - `tauri`/`tauri-build` MUST appear only in `hp41-gui/src-tauri/Cargo.toml`, never in root `[workspace.dependencies]`
-**UI hint**: yes
-
-### Phase 14: IPC Layer
-**Goal**: All calculator operations reach `hp41-core` via Tauri Rust commands; the IPC response is a lean `CalcStateView` (~200 bytes) that never duplicates core logic; `print_buffer` is explicitly drained on every command; a `key_map.rs` module in hp41-gui resolves string key IDs to `Op` variants so the frontend never references Rust enums directly.
-**Depends on**: Phase 13
-**Requirements**: IPC-01
-**Success Criteria** (what must be TRUE):
-  1. Invoking `dispatch_op` with a valid key ID (e.g., `"enter"`, `"plus"`, `"sin"`) updates CalcState and returns a `CalcStateView` JSON payload of ≤300 bytes
-  2. Invoking `dispatch_op` with an unknown key ID returns a serialized `GuiError` — no panic, no silent discard
-  3. The `print_buffer` field is drained and its contents included in `CalcStateView.print_lines` on every command response — no print output is silently dropped
-  4. `CalcState` logic (stack operations, dispatch, arithmetic) is entirely within `hp41-core`; `hp41-gui/src-tauri` contains zero duplicated calculator logic
-  5. A `type AppState = Mutex<CalcState>` alias is used throughout command handlers, making incorrect state extraction a compile error rather than a runtime panic
-**Plans**: 4 plans
-  **Wave 0**
-  - [x] 14-00-PLAN.md — IPC-01: test scaffold (types.rs, key_map.rs, commands.rs with RED failing tests using `unimplemented!()`) — Complete 2026-05-09
-  **Wave 1** *(blocked on Wave 0; 01 and 02 can run in parallel)*
-  - [x] 14-01-PLAN.md — IPC-01 (data layer): types.rs (CalcStateView, Annunciators, GuiError, From<HpError>) + key_map.rs (resolve fn for ~50 named ops + 7 prefix-parameterized families) — Complete 2026-05-09
-  - [x] 14-02-PLAN.md — IPC-01 (command layer): commands.rs (dispatch_op, get_state Tauri thunks + handle_op, handle_get_state pure helpers) + lib.rs `generate_handler!` registration — Complete 2026-05-09
-  **Wave 2** *(blocked on Wave 1)*
-  - [x] 14-03-PLAN.md — IPC-01 (capabilities): capabilities/default.json + permission TOML files for allow-dispatch-op and allow-get-state (D-12) — Complete 2026-05-09
-  **Cross-cutting constraints:**
-  - Wave 0 scaffolds the public signatures (`from_state`, `From<HpError>`, `resolve`, `handle_op`, `handle_get_state`, Tauri thunks) — Plans 01/02 implement against them exactly
-  - Plan 03 MUST NOT run before Plan 02's first successful `cargo check` (which generates `gen/schemas/*.json` permission identifiers — Pitfall 2 in 14-RESEARCH.md)
-  - `#![deny(clippy::unwrap_used)]` applies throughout hp41-gui/src-tauri — Mutex locks use `.unwrap_or_else(|e| e.into_inner())`; tests carry `#[allow(clippy::unwrap_used)]` at the test mod level
-  - SC-4 invariant: `grep -rn "fn op_\|fn flush_entry\|fn format_hpnum" hp41-gui/src-tauri/src/` MUST return nothing — no calculator logic duplicated in hp41-gui
-**UI hint**: yes
-
-### Phase 15: Display & Keyboard
-**Goal**: Users can see the HP-41 12-character display string and all five annunciators update in the GUI after every operation, and can drive all calculator functions from the physical keyboard using the same key bindings as hp41-cli — without requiring mouse input.
-**Depends on**: Phase 14
-**Requirements**: DISP-01, DISP-02, IPC-02
-**Success Criteria** (what must be TRUE):
-  1. Pressing any key (e.g., `3`, `+`, `ENTER`) from the physical keyboard triggers the correct `dispatch_op` call and the 12-char display updates within one frame
-  2. All five annunciators (USER, PRGM, ALPHA, RAD, GRAD) reflect the current CalcState and change visually when mode is toggled (e.g., RAD annunciator lights when switching to radians mode)
-  3. The stack register panel shows current X/Y/Z/T/LASTX values and updates after every operation, matching the values that hp41-cli would show
-  4. Physical keyboard event listeners use `useCallback` and always return a cleanup function in `useEffect`, so no duplicate IPC calls fire on a single keypress even in React StrictMode
-  5. The key binding set covers all bindings present in hp41-cli's `key_to_op()` function — no key that works in the CLI is silently ignored in the GUI
-**Plans**: 3 plans
-  **Wave 0** *(Tailwind strip + test stubs)*
-  - [x] 15-01-PLAN.md — DISP-01/IPC-02: Strip Tailwind from index.css + vite.config.ts; write 4 RED test stubs in types.rs + commands.rs
-  **Wave 1** *(blocked on Wave 0)*
-  - [x] 15-02-PLAN.md — DISP-01/DISP-02/IPC-02: Extend CalcStateView (y_str/z_str/t_str/lastx_str/in_eex_mode) + add eex_chs branch in handle_op
-  **Wave 2** *(blocked on Wave 1)*
-  - [x] 15-03-PLAN.md — DISP-01/DISP-02/IPC-02: Build App.tsx (display + annunciators + stack panel + keyboard listener) + App.css + human-verify SC-1..SC-5
-**UI hint**: yes
-
-### Phase 16: SVG Skin
-**Goal**: Users see a pixel-perfect HP-41C calculator skin rendered as SVG — dark brown body, gold shift legends, 9×5 key grid with ENTER spanning two columns — where every key is individually clickable and shows a CSS scale-down press animation on each click.
-**Depends on**: Phase 14
-**Requirements**: SKIN-01, SKIN-02, SKIN-03
-**Success Criteria** (what must be TRUE):
-  1. The SVG skin renders all 40 HP-41C keys in the correct 9×5 grid layout with ENTER occupying a double-width position, matching HP-41C hardware proportions
-  2. The color scheme matches HP-41C hardware: dark brown body, light-colored key caps for the top row, gold shift legends, white primary legends
-  3. Clicking any key in the SVG invokes `dispatch_op` with the correct key ID — the result is identical to pressing the equivalent key in hp41-cli
-  4. Each key click triggers a visible CSS scale-down animation (scale to ~0.92, then bounce back) that completes within 150ms without blocking further input
-  5. The SVG uses a `viewBox` and scales correctly on Retina/HiDPI displays and at the fixed 400×700 window size without pixelation or layout breakage
-**Plans**: 2 plans
-  **Wave 0**
-  - [x] 16-01-PLAN.md — SKIN-01/02: Add test_all_keyboard_skin_ids_are_valid to key_map.rs mod tests
-  **Wave 1** *(blocked on Wave 0 completion)*
-  - [x] 16-02-PLAN.md — SKIN-01/02/03: Create Keyboard.tsx SVG component; wire App.tsx; update App.css + tauri.conf.json; human verify SC-1..SC-5
-  **Cross-cutting constraints:**
-  - All 23 named KEY_DEFS `id` values MUST pass `key_map::resolve()` — validated by Wave 0 test before Wave 1 runs
-  - CSS MUST include `transform-box: fill-box` + `transform-origin: center` on `.key` — required for SVG scale() to animate from key center, not canvas origin
-  - Empty-id guard (`if (!keyId) return`) MUST be present in `handleKeyClick` for 10 visual-only keys (XEQ, STO, RCL, SST, BST, R/S, ON, f, g)
-**UI hint**: yes
-
-### Phase 17: Persistence & Print Output
-**Goal**: Users can close and reopen the GUI calculator without losing state — the same `~/.hp41/autosave.json` file used by hp41-cli is loaded on startup and written every 30 seconds; v1.x save files from the CLI load without error; print output from PRX/PRA/PRSTK is visible in a scrollable panel rather than silently discarded.
-**Depends on**: Phase 15
-**Requirements**: PERS-01, PERS-02
-**Success Criteria** (what must be TRUE):
-  1. After performing operations in the GUI and restarting the app, the stack and register values are restored to their state at last save — no data loss across restarts
-  2. A save file created by hp41-cli v1.x loads in the GUI without a parse error or panic — the `print_buffer` field absence is handled by `#[serde(default)]`
-  3. After 30 seconds of inactivity the auto-save fires silently in the background — the GUI remains responsive and no blocking occurs on the UI thread
-  4. The `~/.hp41/autosave.json` path is used by both hp41-cli and hp41-gui — a state saved in the CLI is visible when the GUI starts next
-  5. Executing PRX, PRA, or PRSTK causes formatted output lines to appear in the scrollable print panel; the panel retains previous output and new lines append to the bottom
-**Plans**: 3 plans
-  **Wave 1** *(parallel)*
-  - [x] 17-01-PLAN.md — PERS-01: Rust persistence module (dirs dep, persistence.rs copy, lib.rs startup load + 30s auto-save thread)
-  - [x] 17-02-PLAN.md — PERS-02: React print panel (printLog state, accumulation useEffect, auto-scroll, collapsible JSX + CSS)
-  **Wave 2** *(blocked on Wave 1)*
-  - [ ] 17-03-PLAN.md — PERS-01/PERS-02: Integration verification (Rust tests, CLI regression, TypeScript build, human SC-1..SC-5)
-**UI hint**: yes
-
-### Phase 18: Program Listing & CI/CD
-**Goal**: Users in PRGM mode can view the complete program listing and step through it with SST and BST in the GUI; a cross-platform CI job (macOS, Windows, Ubuntu) builds and tests hp41-gui on every push to paths that affect the GUI or core.
-**Depends on**: Phase 17
-**Requirements**: PROG-01
-**Success Criteria** (what must be TRUE):
-  1. Entering PRGM mode in the GUI displays the program listing with step numbers and mnemonic labels matching the format shown in hp41-cli
-  2. Pressing the SST key (via keyboard binding or SVG click) advances the program counter by one step and highlights the current step in the listing
-  3. Pressing the BST key steps backward one position in the program and the listing scrolls to keep the highlighted step visible
-  4. The cross-platform CI job runs on Windows, macOS, and Ubuntu; the build completes without error on all three platforms and is triggered only on changes to `hp41-gui/**` or `hp41-core/**`
-  5. `just ci` (the CLI pipeline) and the new GUI CI job are independent — a GUI build failure does not block CLI CI and vice versa
-**Plans**: 4 plans
-  **Wave 0**
-  - [x] 18-01-PLAN.md — PROG-01: Wave 0 test stubs for handle_sst, handle_bst, format_all_steps, CalcStateView Phase 18 fields (RED)
-  **Wave 1** *(parallel -- no shared files)*
-  - [x] 18-02-PLAN.md — PROG-01 (Rust backend): prgm_display.rs copy + format_all_steps; CalcStateView program_steps + pc; handle_sst/bst + sst_step/bst_step commands; permissions; window height 900
-  - [x] 18-03-PLAN.md — PROG-01/SC-4/SC-5 (CI): .github/workflows/ci-gui.yml (3-OS matrix, path filter, WebKit deps)
-  **Wave 2** *(blocked on Wave 1 Plan 18-02)*
-  - [x] 18-04-PLAN.md — PROG-01 (React frontend): program listing panel JSX + CSS; SST/BST routing in handleClick + handleKey; F7/F8 in resolveKeyId; Keyboard.tsx id sst/bst; human SC-1..SC-3 checkpoint
-  **Cross-cutting constraints:**
-  - Plan 18-02 must compile before Plan 18-04 can run (TypeScript CalcStateView must match Rust struct)
-  - ci.yml MUST NOT be modified; ci-gui.yml is a new independent file (SC-5 invariant)
-  - #![deny(clippy::unwrap_used)] -- new Rust code uses .unwrap_or_else(|e| e.into_inner()) on Mutex locks
-**UI hint**: yes
+  1. `just coverage` reports `hp41-core` line coverage ≥ 95.0% — the gate config in `justfile` is updated to enforce this threshold (raised from 80%)
+  2. `hp41-core/tests/numerical_accuracy.rs` reports ≥ 490 / 500 cases passing (≥98%) with the v2.2 case extensions for PI, P→R, R→P, RND, FRC, MOD, FACT added
+  3. A proptest module (e.g. `hp41-core/tests/flag_properties.rs`) asserts: for all u8 n in 0..56, `SF(n); FS?(n) == true`; `CF(n); FC?(n) == true`; `SF(n); FS?C(n); FC?(n) == true` — runs in CI as part of `just test`
+  4. Integration tests in `hp41-core/tests/indirect_addressing.rs` verify every `_IND` op (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — happy path + non-integer rejection
+  5. A Playwright spec runs as a new job in `.github/workflows/ci-gui.yml` on Linux, boots `just gui-dev` (or production build), clicks `2 ENTER 3 +`, and asserts the display reads `5.0000` (or current display-mode equivalent) — green on the Ubuntu runner
+**Plans**: TBD
+**Cross-cutting constraints:**
+  - Coverage gate raise (80% → 95%) is a `justfile`/`just coverage` recipe change — must be committed atomically with the test additions or CI will fail
+  - Proptest cases should NOT exceed 256 iterations per case to keep CI runtime reasonable; flag invariants are fast — 1024 iterations is fine for those
+  - Playwright runs ONLY on Ubuntu in `ci-gui.yml` (macOS/Windows runners are slow and Playwright headless is best supported on Linux); document this scope in CLAUDE.md
+  - No new `Op` variants in this phase — purely test and gate work
+  - `#![deny(clippy::unwrap_used)]` continues to apply; test modules carry `#[allow(clippy::unwrap_used)]` at the test mod level
 
 ---
 
@@ -293,3 +204,12 @@
 | 16. SVG Skin | v2.0 | 2/2 | Complete | 2026-05-10 |
 | 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
 | 18. Program Listing & CI/CD | v2.0 | 4/4 | Complete | 2026-05-10 |
+| 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
+| 20. Core Math & Conversions | v2.2 | 0/TBD | Not started | — |
+| 21. Flags, Display Control & Sound | v2.2 | 0/TBD | Not started | — |
+| 22. Program Control & Memory Ops | v2.2 | 0/TBD | Not started | — |
+| 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
+| 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
+| 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
+| 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
+| 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
