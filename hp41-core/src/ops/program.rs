@@ -447,6 +447,25 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
         .ok_or(HpError::InvalidOp)
 }
 
+/// XEQ-by-name fallback: resolves the four Card Reader op names to their
+/// `Op` variants. Returns `None` for anything else — including unknown
+/// names, lowercase variants, and any built-in not in the Card Reader set.
+///
+/// Used only as a label-miss fallback in `run_program`, `run_loop` (the
+/// `Op::Xeq` arm), and `op_xeq`. User `LBL "name"` matches take precedence,
+/// matching real HP-41 `XEQ "name"` resolution order.
+///
+/// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
+pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
+    match name {
+        "WPRGM" => Some(Op::Wprgm),
+        "RDPRGM" => Some(Op::Rdprgm),
+        "WDTA" => Some(Op::Wdta),
+        "RDTA" => Some(Op::Rdta),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod program_tests {
@@ -964,5 +983,18 @@ mod program_tests {
         let mut state = state_with_program(program);
         crate::ops::program::run_program(&mut state, "A").unwrap();
         assert_eq!(state.stack.x, HpNum(Decimal::from_str("15").unwrap()));
+    }
+
+    #[test]
+    fn builtin_card_op_resolves_four_names() {
+        use crate::ops::program::builtin_card_op;
+        use crate::ops::Op;
+        assert_eq!(builtin_card_op("WPRGM"), Some(Op::Wprgm));
+        assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
+        assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
+        assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
+        assert_eq!(builtin_card_op("wprgm"), None, "case-sensitive — HP-41 names are uppercase");
+        assert_eq!(builtin_card_op("UNKNOWN"), None);
+        assert_eq!(builtin_card_op(""), None);
     }
 }
