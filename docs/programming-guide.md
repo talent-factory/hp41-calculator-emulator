@@ -233,6 +233,55 @@ This enables dynamically-addressed arrays and dispatch tables.
 
 ---
 
+## Saving and Loading via Card Reader
+
+The card reader operations `WDTA`, `RDTA`, `WPRGM`, and `RDPRGM` exchange the
+current program or data registers with a named card. The card name is read
+from the **ALPHA register** at the moment the op runs — set the name first,
+then trigger the op.
+
+```
+ALPHA "QUAD" ALPHA   ← put the card name in ALPHA, leave alpha mode
+WPRGM                ← write current program to "QUAD"
+```
+
+```
+ALPHA "BACKUP" ALPHA
+WDTA                 ← write data registers to "BACKUP"
+```
+
+To read back:
+
+```
+ALPHA "QUAD" ALPHA
+RDPRGM               ← merges into the current program (insert-after-pc) or
+                       replaces it when program memory is empty
+```
+
+```
+ALPHA "BACKUP" ALPHA
+RDTA                 ← replaces data registers from "BACKUP"
+```
+
+Two error paths to know:
+
+- An empty ALPHA register produces `ALPHA DATA` — the op halts before staging
+  the request, and the registers / program are untouched.
+- Two card ops in a row, without giving the host time to perform the I/O
+  between them, produce `CARD DATA` ("a previous card operation is still
+  pending"). The earlier request is preserved; the program halts so the user
+  can resolve the conflict.
+
+The codecs themselves also surface `CARD DATA` if the file is truncated, the
+JSON tag does not match, the on-card version is not supported, or the
+program contains an op outside the encodable subset. The accompanying message
+explains which case applied.
+
+See [Operations Reference → Card Reader](operations-reference.md#card-reader-hp-82104a)
+for the per-op stack and lift effects.
+
+---
+
 ## USER Mode
 
 In USER mode, keys A–J (the top row) execute whatever function is stored in the corresponding user key register (via `ASIGN`). This allows personalised keyboard layouts for a specific application.
@@ -250,6 +299,10 @@ In USER mode, keys A–J (the top row) execute whatever function is stored in th
 
 ## See Also
 
+- [Verifying the Card Reader](verifying-card-reader.md) — step-by-step manual round-trip procedure for CLI and GUI
 - [Operations Reference](operations-reference.md)
 - [HP-41C/CV Owner's Manual, Vol. 2](https://www.hpmuseum.org/41ownman.htm) — Programming chapters
 - [HP-41C/CV Advanced Functions Handbook](https://www.hpmuseum.org/41advfun.htm) — Flags, system registers, indirect addressing
+- [HP Museum — HP-41 Software Library](https://www.hpmuseum.org/software/soft41.htm) — curated programs, ROM images, utilities
+- [hp41.org](http://www.hp41.org/) — community archive: sample programs, module documentation, scanned manuals
+- [HP Calculator Literature Archive](https://literature.hpcalc.org/all) — scanned manuals, journals, application pacs

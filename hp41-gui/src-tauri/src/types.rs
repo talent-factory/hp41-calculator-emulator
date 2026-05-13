@@ -26,15 +26,15 @@ pub struct Annunciators {
 pub struct CalcStateView {
     pub display_str: String,
     pub x_str: String,
-    pub y_str: String,      // Phase 15 D-01: stack Y register
-    pub z_str: String,      // Phase 15 D-01: stack Z register
-    pub t_str: String,      // Phase 15 D-01: stack T register
-    pub lastx_str: String,  // Phase 15 D-01: LASTX register
-    pub in_eex_mode: bool,  // Phase 15 D-02: entry_buf.contains('e')
+    pub y_str: String,     // Phase 15 D-01: stack Y register
+    pub z_str: String,     // Phase 15 D-01: stack Z register
+    pub t_str: String,     // Phase 15 D-01: stack T register
+    pub lastx_str: String, // Phase 15 D-01: LASTX register
+    pub in_eex_mode: bool, // Phase 15 D-02: entry_buf.contains('e')
     pub annunciators: Annunciators,
     pub print_lines: Vec<String>,
-    pub program_steps: Vec<String>,  // Phase 18 D-01: pre-formatted step strings
-    pub pc: usize,                   // Phase 18 D-01: current program counter
+    pub program_steps: Vec<String>, // Phase 18 D-01: pre-formatted step strings
+    pub pc: usize,                  // Phase 18 D-01: current program counter
 }
 
 impl CalcStateView {
@@ -173,7 +173,10 @@ mod tests {
         assert!(!view.t_str.is_empty(), "t_str must be populated");
         assert!(!view.lastx_str.is_empty(), "lastx_str must be populated");
         // in_eex_mode: entry_buf "1e2" contains 'e' → true
-        assert!(view.in_eex_mode, "in_eex_mode must be true when entry_buf contains 'e'");
+        assert!(
+            view.in_eex_mode,
+            "in_eex_mode must be true when entry_buf contains 'e'"
+        );
     }
 
     #[test]
@@ -181,7 +184,10 @@ mod tests {
         let mut state = CalcState::new();
         state.entry_buf = "42".to_string();
         let view = CalcStateView::from_state(&state, vec![]);
-        assert!(!view.in_eex_mode, "in_eex_mode must be false when entry_buf has no 'e'");
+        assert!(
+            !view.in_eex_mode,
+            "in_eex_mode must be false when entry_buf has no 'e'"
+        );
     }
 
     #[test]

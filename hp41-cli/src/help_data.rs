@@ -305,6 +305,28 @@ pub const HELP_DATA: &[(&str, &str, &str)] = &[
         "RCL O",
         "Recall hidden register O into X — press R then O",
     ),
+    // ── Card Reader ───────────────────────────────────────────────────────────
+    ("", "", "=== Card Reader ==="),
+    (
+        "Ctrl+W",
+        "WPRGM",
+        "Write current program to card (uses ALPHA register as filename)",
+    ),
+    (
+        "Ctrl+R",
+        "RDPRGM",
+        "Read program from card (uses ALPHA register as filename)",
+    ),
+    (
+        "Ctrl+D",
+        "WDTA",
+        "Write data registers to card (uses ALPHA register as filename)",
+    ),
+    (
+        "Ctrl+F",
+        "RDTA",
+        "Read data registers from card (uses ALPHA register as filename)",
+    ),
     // ── Help ──────────────────────────────────────────────────────────────────
     ("", "", "=== Help ==="),
     ("?", "HELP", "Toggle this function reference overlay"),
@@ -334,8 +356,8 @@ mod tests {
     }
 
     #[test]
-    fn test_all_fifteen_categories_present() {
-        // Phase 12 added "=== Synthetic Programming ===" — now 15 categories total.
+    fn test_all_sixteen_categories_present() {
+        // 16 categories total (incl. Card Reader).
         let categories = [
             "=== Stack ===",
             "=== Arithmetic ===",
@@ -350,6 +372,7 @@ mod tests {
             "=== Science & Engineering ===",
             "=== Print ===",
             "=== Synthetic Programming ===",
+            "=== Card Reader ===",
             "=== Help ===",
             "=== Quit ===",
         ];

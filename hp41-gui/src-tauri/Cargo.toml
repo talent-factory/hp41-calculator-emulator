@@ -24,6 +24,8 @@ dirs = "6"
 
 [dev-dependencies]
 rust_decimal = "1.42"
+tempfile = "3"
+
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }

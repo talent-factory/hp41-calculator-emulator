@@ -6,6 +6,7 @@
 #![deny(clippy::unwrap_used)]
 
 mod app;
+pub mod cards;
 mod help_data;
 mod keys;
 mod persistence;

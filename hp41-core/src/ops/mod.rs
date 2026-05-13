@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 pub mod alpha;
 pub mod arithmetic;
+pub mod cardreader_ops;
 pub mod hms;
 pub mod math;
 pub mod print;
@@ -18,6 +19,7 @@ pub mod stats;
 
 use alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
 use arithmetic::{op_add, op_div, op_mul, op_sub};
+use cardreader_ops::{op_rdprgm, op_rdta, op_wdta, op_wprgm};
 use math::{
     op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
     op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
@@ -240,6 +242,20 @@ pub enum Op {
     /// dispatches to the corresponding Op via `synthetic_byte_to_op()` lookup.
     /// LiftEffect: varies (delegates to the mapped op).
     SyntheticByte(u8),
+    // ── Card Reader ─────────────────────────────────────────────────────────
+    /// WDTA — write data registers R00..R(SIZE-1) to the card named in the
+    /// ALPHA register. Stages a `CardOpRequest::WriteData` for the frontend
+    /// to drain. Empty ALPHA → `HpError::AlphaData`. LiftEffect: Neutral.
+    Wdta,
+    /// RDTA — read a data card named in ALPHA and replace data registers.
+    /// Stages a `CardOpRequest::ReadData`. LiftEffect: Neutral.
+    Rdta,
+    /// WPRGM — write current program to the `.raw` card named in ALPHA.
+    /// Stages a `CardOpRequest::WriteProgram`. LiftEffect: Neutral.
+    Wprgm,
+    /// RDPRGM — read a `.raw` card named in ALPHA and insert its ops
+    /// (replace if program empty, else insert after PC). LiftEffect: Neutral.
+    Rdprgm,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -433,6 +449,11 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
+        // ── Card Reader ───────────────────────────────────────────────────
+        Op::Wdta => op_wdta(state),
+        Op::Rdta => op_rdta(state),
+        Op::Wprgm => op_wprgm(state),
+        Op::Rdprgm => op_rdprgm(state),
     }
 }
 

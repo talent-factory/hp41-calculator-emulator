@@ -3,10 +3,11 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
+pub mod cards;
 mod commands;
 mod key_map;
 mod persistence;
-mod prgm_display;   // Phase 18 D-03
+mod prgm_display; // Phase 18 D-03
 mod types;
 
 pub type AppState = Mutex<hp41_core::CalcState>;
@@ -44,9 +45,10 @@ pub fn run() {
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(30));
                     // Clone state under lock, then drop guard before disk I/O (CR-01).
+                    // Note: the MutexGuard is released when the .clone() above returns;
+                    // `state` here is just a tauri::State reference wrapper, not the guard.
                     let state = handle.state::<AppState>();
                     let snapshot = state.lock().unwrap_or_else(|e| e.into_inner()).clone();
-                    drop(state);
                     if let Err(e) = persistence::save_state(&thread_save_path, &snapshot) {
                         eprintln!("auto-save failed: {e}");
                     }
@@ -58,8 +60,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::dispatch_op,
             commands::get_state,
-            commands::sst_step,   // Phase 18 D-05
-            commands::bst_step,   // Phase 18 D-05
+            commands::sst_step, // Phase 18 D-05
+            commands::bst_step, // Phase 18 D-05
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

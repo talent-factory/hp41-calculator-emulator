@@ -3,6 +3,7 @@
 //!
 //! Zero UI/CLI dependencies. All state is in [`state::CalcState`].
 
+pub mod cardreader;
 pub mod error;
 pub mod format;
 pub mod num;
