@@ -128,11 +128,23 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     // Clone program — borrow conflict guard (D-06, RESEARCH Pitfall 1)
     let program = state.program.clone();
 
-    // Linear scan for entry label (D-02)
-    let start = program
+    // Linear scan for entry label (D-02). On miss, try the XEQ-by-name
+    // fallback for the four Card Reader ops (Phase 19 spec). User labels
+    // always take precedence — fallback only fires on a true miss.
+    let start = match program
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == entry_label))
-        .ok_or(HpError::InvalidOp)?;
+    {
+        Some(idx) => idx,
+        None => {
+            if let Some(op) = builtin_card_op(entry_label) {
+                // Dispatch the built-in once and return — no program to run.
+                // is_running stays false; we never enter run_loop.
+                return crate::ops::dispatch(state, op);
+            }
+            return Err(HpError::InvalidOp);
+        }
+    };
 
     state.pc = start + 1; // execute step AFTER the Lbl marker (Pitfall 4)
     state.call_stack.clear();
