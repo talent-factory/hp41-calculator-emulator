@@ -17,7 +17,7 @@
 - [ ] **FN-MATH-03**: User can convert rectangular coordinates to polar (`R→P`): Y = X-coord, X = Y-coord → Y = magnitude, X = angle (in current angle_mode)
 - [ ] **FN-MATH-04**: User can round X (`RND`) to the precision specified by the current display mode (FIX/SCI/ENG digit count)
 - [ ] **FN-MATH-05**: User can extract the fractional part (`FRC`) — complement of `INT`; FRC(-3.7) = -0.7
-- [ ] **FN-MATH-06**: User can compute Y mod X (`MOD`) with HP-41 sign semantics; result inherits sign of X
+- [ ] **FN-MATH-06**: User can compute Y mod X (`MOD`) with HP-41 sign semantics: result = `Y - X * trunc(Y/X)` where `trunc` is truncate-toward-zero (matches HP-41C Owner's Manual + Free42 source). Result follows sign of Y (e.g., `7 MOD -3 = 1`; `-7 MOD 3 = -1`). Domain error on X = 0.
 - [ ] **FN-MATH-07**: User can compute absolute value (`ABS`) of X
 - [ ] **FN-MATH-08**: User can compute factorial (`FACT`) of integer 0–69; HpError::OutOfRange for X > 69 or non-integer
 - [ ] **FN-MATH-09**: User can compute sign function (`SIGN`): -1 / 0 / +1 for negative / zero / positive X; SIGN("alpha") = 0 per HP-41 semantics
@@ -132,16 +132,16 @@ None deferred for v2.x. Module-Pacs explicitly out of scope (→ v3.x).
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| FN-MATH-01 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-02 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-03 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-04 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-05 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-06 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-07 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-08 | Phase 20 — Core Math & Conversions | TBD |
-| FN-MATH-09 | Phase 20 — Core Math & Conversions | TBD |
-| FN-STACK-01 | Phase 20 — Core Math & Conversions | TBD |
+| FN-MATH-01 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-02 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-03 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-04 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-05 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-06 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-07 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-08 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-MATH-09 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
+| FN-STACK-01 | Phase 20 — Core Math & Conversions | 20-01-PLAN.md |
 | FN-FLAG-01 | Phase 21 — Flags, Display Control & Sound | TBD |
 | FN-FLAG-02 | Phase 21 — Flags, Display Control & Sound | TBD |
 | FN-DISP-01 | Phase 21 — Flags, Display Control & Sound | TBD |

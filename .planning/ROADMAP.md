@@ -42,7 +42,8 @@
   3. `5.7 CHS RND` with FIX 1 active produces `-5.7`; with FIX 0 active produces `-6`; `FACT` with X=70 returns `HpError::OutOfRange` and is observable in the CLI display
   4. Starting from stack X=1 Y=2 Z=3 T=4, pressing `R↑` produces X=4 Y=1 Z=2 T=3 (mirror of `Rdn`)
   5. Every one of the 10 new `Op` variants appears in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), and BOTH `prgm_display.rs` copies (hp41-cli + hp41-gui); compile-time exhaustive matches confirm coverage
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 20-01-PLAN.md — Single plan (per D-21): RND helper extraction (Wave-0), 10 new Op variants + dispatch + execute_op + impls (Wave-1), prgm_display in both copies (Wave-1), integration tests (Wave-2)
 **Cross-cutting constraints:**
   - `#![deny(clippy::unwrap_used)]` applies — all new code uses `?`-propagation or `.expect("reason")`
   - Each `Op` variant must land in 4 places: `dispatch()` + `execute_op()` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs` (the built-in trap from CLAUDE.md)
@@ -205,7 +206,7 @@
 | 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
 | 18. Program Listing & CI/CD | v2.0 | 4/4 | Complete | 2026-05-10 |
 | 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
-| 20. Core Math & Conversions | v2.2 | 0/TBD | Not started | — |
+| 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/TBD | Not started | — |
 | 22. Program Control & Memory Ops | v2.2 | 0/TBD | Not started | — |
 | 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |

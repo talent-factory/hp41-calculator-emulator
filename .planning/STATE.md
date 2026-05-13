@@ -36,9 +36,9 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 20: Core Math & Conversions
-Plan: —
-Status: Ready to plan first phase
-Last activity: 2026-05-13 — v2.2 Roadmap created (Phases 20–27, 63 requirements mapped); ready for `/gsd-plan-phase 20`
+Plan: 20-01-PLAN.md (1 plan, 6 tasks across 3 internal waves)
+Status: Ready to execute
+Last activity: 2026-05-13 — `/gsd-plan-phase 20` complete; plan-checker iter 2 PASSED; D-14 MOD semantic corrected (sign-of-Y trunc); FN-MATH-06 wording updated
 
 Progress: 0 / 8 phases
 
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-13
-**Last action:** v2.2 Roadmap created — 8 phases (20–27), 63 requirements mapped 100% coverage. Build sequence locked: core (20–24) → cli + docs (25) → gui (26) → tests (27). FN-IND-01/02 placed as cross-cutting Phase 24 after direct-address variants exist (Phases 20–23). FN-POLISH-01..04 folded into Phase 26 alongside FN-GUI. FN-QUAL final phase.
-**Next action:** `/gsd-plan-phase 20` — start planning Phase 20: Core Math & Conversions (PI, P→R, R→P, RND, FRC, MOD, ABS, FACT, SIGN, R↑).
+**Last action:** `/gsd-plan-phase 20` complete — 1 plan (`20-01-PLAN.md`), 6 tasks, 3 internal waves (Wave-0 RND helper extraction → Wave-1 op variants + dispatch + execute_op + impls + both prgm_display copies → Wave-2 integration tests). Plan-checker iter 2 PASSED. D-14 MOD semantic corrected during the loop (HP-41 hardware: sign-of-Y, trunc-toward-zero formula); FN-MATH-06 wording updated in REQUIREMENTS.md.
+**Next action:** `/gsd-execute-phase 20` — execute the single plan (Tasks 1–6). Fresh `/clear` recommended before kickoff.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-13 — v2.2 Roadmap complete; Phase 20 ready for planning*
+*Last updated: 2026-05-13 — Phase 20 planning complete; ready to execute*
