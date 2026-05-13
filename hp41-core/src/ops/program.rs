@@ -451,9 +451,10 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
 /// `Op` variants. Returns `None` for anything else — including unknown
 /// names, lowercase variants, and any built-in not in the Card Reader set.
 ///
-/// Used only as a label-miss fallback in `run_program`, `run_loop` (the
-/// `Op::Xeq` arm), and `op_xeq`. User `LBL "name"` matches take precedence,
-/// matching real HP-41 `XEQ "name"` resolution order.
+/// Intended as the label-miss fallback in `run_program`, `run_loop` (the
+/// `Op::Xeq` arm), and `op_xeq` — wired up in subsequent commits. User
+/// `LBL "name"` matches will take precedence, matching real HP-41
+/// `XEQ "name"` resolution order.
 ///
 /// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
 pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
