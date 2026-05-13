@@ -54,17 +54,29 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 }
 
 /// XEQ: subroutine call. Enforces 4-level call stack limit (D-14).
-/// Interactive XEQ (not running) → InvalidOp; XEQ inside a running program is
-/// handled by run_loop directly (not this function). Phase 4 TUI can add
-/// interactive subroutine-run support via run_program().
+///
+/// Interactive XEQ (not running): tries the four-entry Card Reader
+/// XEQ-by-name fallback (Phase 19 spec) before erroring. This is the
+/// path the GUI uses — `dispatch(Op::Xeq("WPRGM"))` with `is_running=false`.
+///
+/// Programmatic XEQ inside `run_loop` is handled there directly (with
+/// call-depth check + user-label scan + same builtin fallback) — this
+/// function is never reached during program execution.
+///
 /// LiftEffect: Neutral.
-pub fn op_xeq(state: &mut CalcState, _label: &str) -> Result<(), HpError> {
+pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
+        // Built-in XEQ-by-name fallback for the four Card Reader ops.
+        // No user-label scan here: user-program XEQ goes through run_loop,
+        // not op_xeq. If a user wants to call their own LBL interactively
+        // they use run_program(state, label) directly, not dispatch.
+        if let Some(card_op) = builtin_card_op(label) {
+            return crate::ops::dispatch(state, card_op);
+        }
         return Err(HpError::InvalidOp);
     }
-    // run_loop handles Op::Xeq directly (with call-depth check and label search).
-    // This arm is only reached if someone calls op_xeq() outside run_loop,
-    // which should not happen — return InvalidOp as a safe guard.
+    // run_loop handles Op::Xeq directly. Reaching here while running is a
+    // logic bug elsewhere — return InvalidOp as a safe guard.
     Err(HpError::InvalidOp)
 }
 

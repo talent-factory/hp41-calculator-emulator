@@ -122,3 +122,27 @@ fn run_loop_xeq_card_op_does_not_skip_next_instruction() {
     // And the card op should still be staged.
     assert!(state.pending_card_op.is_some(), "card op must still be staged");
 }
+
+#[test]
+fn op_xeq_interactive_dispatch_stages_card_request() {
+    // Mirrors the GUI path: dispatch(Op::Xeq("WPRGM")) with is_running=false.
+    use hp41_core::ops::dispatch;
+    let mut state = state_with_alpha("QUAD");
+    assert!(!state.is_running);
+    dispatch(&mut state, Op::Xeq("WPRGM".to_string())).expect("interactive XEQ WPRGM must succeed");
+    assert_eq!(
+        state.pending_card_op,
+        Some(CardOpRequest::WriteProgram { name: "QUAD".to_string() }),
+    );
+}
+
+#[test]
+fn op_xeq_interactive_unknown_name_still_errors() {
+    use hp41_core::ops::dispatch;
+    let mut state = state_with_alpha("X");
+    let err = dispatch(&mut state, Op::Xeq("UNKNOWN_XYZ".to_string())).unwrap_err();
+    assert!(
+        matches!(err, hp41_core::error::HpError::InvalidOp),
+        "interactive XEQ with unknown name must keep returning InvalidOp, got {err:?}",
+    );
+}
