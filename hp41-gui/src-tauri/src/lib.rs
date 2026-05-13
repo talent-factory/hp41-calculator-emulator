@@ -3,6 +3,8 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
+#[allow(dead_code)] // wired in T10 (commands.rs)
+mod cards;
 mod commands;
 mod key_map;
 mod persistence;
@@ -46,6 +48,7 @@ pub fn run() {
                     // Clone state under lock, then drop guard before disk I/O (CR-01).
                     let state = handle.state::<AppState>();
                     let snapshot = state.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                    #[allow(clippy::drop_non_drop)]
                     drop(state);
                     if let Err(e) = persistence::save_state(&thread_save_path, &snapshot) {
                         eprintln!("auto-save failed: {e}");
