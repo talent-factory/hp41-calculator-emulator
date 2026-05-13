@@ -1989,39 +1989,88 @@ mod synthetic_modal_tests {
     }
 
     /// Phase 19: Ctrl+W dispatches WPRGM (write program to card).
+    /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
+    /// Proves the correct op was dispatched: WPRGM writes TESTCARD.raw; a W↔R or
+    /// W↔D mapping swap would produce a different file extension (or an error message).
     #[test]
     fn test_ctrl_w_dispatches_wprgm() {
+        let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
+        app.cards_dir = tmp.path().to_path_buf();
+        app.state.alpha_reg = "TESTCARD".to_string();
+        // Give the program something to encode (avoid empty-program edge cases).
+        app.state.program = vec![Op::Lbl("X".to_string()), Op::Rtn];
+
         app.handle_key(make_ctrl_key('w'));
-        // App must not quit and must not have entered ALPHA mode.
+
         assert!(!app.exit, "Ctrl+W must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+W must not activate ALPHA mode");
+        let raw_path = tmp.path().join("TESTCARD.raw");
+        assert!(raw_path.exists(), "Ctrl+W must write TESTCARD.raw via WPRGM");
     }
 
     /// Phase 19: Ctrl+R dispatches RDPRGM (read program from card).
+    /// Sandboxed: injects a tempdir as cards_dir (no MISSING.raw present).
+    /// Proves the correct op was dispatched: RDPRGM on a missing file surfaces
+    /// "card data" in app.message; a R↔W swap would write a file instead of erroring.
     #[test]
     fn test_ctrl_r_dispatches_rdprgm() {
+        let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
+        app.cards_dir = tmp.path().to_path_buf();
+        app.state.alpha_reg = "MISSING".to_string();
+
         app.handle_key(make_ctrl_key('r'));
+
         assert!(!app.exit, "Ctrl+R must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+R must not activate ALPHA mode");
+        // RDPRGM on a missing file → HpError::CardData → app.message contains "card data".
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("card data") || msg.contains("CARD DATA"),
+            "Ctrl+R on missing file must surface CARD DATA via app.message; got {msg:?}",
+        );
     }
 
     /// Phase 19: Ctrl+D dispatches WDTA (write data registers to card).
+    /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
+    /// Proves the correct op was dispatched: WDTA writes TESTCARD.card.json; a D↔F or
+    /// D↔W mapping swap would produce a different file extension (or an error message).
     #[test]
     fn test_ctrl_d_dispatches_wdta() {
+        let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
+        app.cards_dir = tmp.path().to_path_buf();
+        app.state.alpha_reg = "TESTCARD".to_string();
+
         app.handle_key(make_ctrl_key('d'));
+
         assert!(!app.exit, "Ctrl+D must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+D must not activate ALPHA mode");
+        let json_path = tmp.path().join("TESTCARD.card.json");
+        assert!(json_path.exists(), "Ctrl+D must write TESTCARD.card.json via WDTA");
     }
 
     /// Phase 19: Ctrl+F dispatches RDTA (read data registers from card).
+    /// Sandboxed: injects a tempdir as cards_dir (no MISSING.card.json present).
+    /// Proves the correct op was dispatched: RDTA on a missing file surfaces
+    /// "card data" in app.message; an F↔D swap would write a file instead of erroring.
     #[test]
     fn test_ctrl_f_dispatches_rdta() {
+        let tmp = tempfile::tempdir().unwrap();
         let mut app = make_app();
+        app.cards_dir = tmp.path().to_path_buf();
+        app.state.alpha_reg = "MISSING".to_string();
+
         app.handle_key(make_ctrl_key('f'));
+
         assert!(!app.exit, "Ctrl+F must not quit the app");
         assert!(!app.state.alpha_mode, "Ctrl+F must not activate ALPHA mode");
+        // RDTA on a missing file → HpError::CardData → app.message contains "card data".
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("card data") || msg.contains("CARD DATA"),
+            "Ctrl+F on missing file must surface CARD DATA via app.message; got {msg:?}",
+        );
     }
 }
