@@ -1,5 +1,5 @@
-//! GUI card-IO integration test — mirrors the CLI round-trip and proves
-//! byte-identical .raw output (SC-4 cross-UI guarantee).
+//! GUI card-IO integration tests — exercise the encode/decode path through the
+//! GUI's drain helper and prove round-trip stability.
 //! Spec: docs/superpowers/specs/2026-05-13-card-reader-manual-verification-design.md
 
 #![allow(clippy::unwrap_used)]
@@ -69,11 +69,12 @@ fn gui_program_round_trip_via_run_program() {
 }
 
 #[test]
-fn gui_byte_identical_to_cli_for_same_program() {
-    // Cross-UI proof: a program encoded via the GUI's drain must produce
-    // the same bytes as the CLI's drain (same hp41-core codec). Mirror
-    // of cli round-trip test 1; if both pass with identical inputs, they
-    // produce identical outputs by codec determinism.
+fn gui_wprgm_produces_non_trivial_raw_file() {
+    // Smoke test for the encode path through the GUI drain: a small program
+    // must produce more than a few bytes when encoded (END marker alone is
+    // 3 bytes; a real program is more). True CLI/GUI byte identity is
+    // verified by the manual procedure in docs/verifying-card-reader.md
+    // (sha256 of the same card from both UIs).
     let tmp = tempfile::tempdir().unwrap();
     let mut state = CalcState::new();
     state.program = vec![
@@ -87,9 +88,5 @@ fn gui_byte_identical_to_cli_for_same_program() {
     dispatch(&mut state, Op::Xeq("WPRGM".to_string())).unwrap();
     drain_pending_card_op(&mut state, tmp.path()).unwrap();
     let bytes = fs::read(tmp.path().join("SAME.raw")).unwrap();
-    // Don't assert specific byte values — just confirm the file is non-trivial.
-    // Cross-UI byte identity is empirically verified by running the same
-    // program in both UIs and comparing sha256 of the resulting cards
-    // (covered by the manual verification doc in T11).
     assert!(bytes.len() > 5, "encoded program must contain at least the END marker bytes");
 }

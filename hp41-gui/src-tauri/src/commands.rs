@@ -126,9 +126,7 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
     // serialising state back to the frontend. cards_dir() returns None only on
     // headless systems with no $HOME, which is an operational error — surface it.
     if let Some(dir) = crate::cards::cards_dir() {
-        if let Err(e) = crate::cards::drain_pending_card_op(calc, &dir) {
-            return Err(GuiError::from(e));
-        }
+        crate::cards::drain_pending_card_op(calc, &dir).map_err(GuiError::from)?;
     }
 
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
@@ -144,9 +142,7 @@ pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError>
     // but a stale request (e.g. from a crash-recovered state) would otherwise
     // leak. This is always a no-op in the happy path.
     if let Some(dir) = crate::cards::cards_dir() {
-        if let Err(e) = crate::cards::drain_pending_card_op(calc, &dir) {
-            return Err(GuiError::from(e));
-        }
+        crate::cards::drain_pending_card_op(calc, &dir).map_err(GuiError::from)?;
     }
 
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
