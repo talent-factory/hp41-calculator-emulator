@@ -123,8 +123,10 @@ fn unmapped_keys_return_none() {
 }
 
 #[test]
-fn key_ref_table_has_56_entries() {
-    assert_eq!(crate::keys::KEY_REF_TABLE.len(), 56);
+fn key_ref_table_has_60_entries() {
+    // 55 baseline entries through Phase 12, plus '%' (%CH) and the four
+    // Card Reader shortcuts (Ctrl+W/R/D/F) — 60 total.
+    assert_eq!(crate::keys::KEY_REF_TABLE.len(), 60);
 }
 
 // Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller

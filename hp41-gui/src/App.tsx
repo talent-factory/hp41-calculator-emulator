@@ -47,6 +47,19 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
   // Use e.code (physical key) so macOS media-key remapping doesn't block these
   if (e.key === 'F7' || e.code === 'F7') return 'sst';
   if (e.key === 'F8' || e.code === 'F8') return 'bst';
+
+  // ALPHA-mode pass-through: when the ALPHA annunciator is active, route
+  // single printable A-Z / 0-9 / space keys to alpha_<X> so the backend
+  // resolves them as Op::AlphaAppend.  This must come BEFORE the normal key
+  // map so typing "QUAD" in ALPHA mode appends to the alpha register rather
+  // than dispatching SIN/UNDEF/ASIN/SDEV.
+  if (state?.annunciators?.alpha && e.key.length === 1) {
+    const ch = e.key.toUpperCase();
+    if (/^[A-Z0-9 ]$/.test(ch)) {
+      return `alpha_${ch}`;
+    }
+  }
+
   // EEX-CHS: 'n' routes based on current in_eex_mode (D-06)
   if (e.key === 'n') return state?.in_eex_mode ? 'eex_chs' : 'chs';
   // Digit entry

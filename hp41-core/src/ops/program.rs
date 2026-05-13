@@ -54,17 +54,29 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 }
 
 /// XEQ: subroutine call. Enforces 4-level call stack limit (D-14).
-/// Interactive XEQ (not running) → InvalidOp; XEQ inside a running program is
-/// handled by run_loop directly (not this function). Phase 4 TUI can add
-/// interactive subroutine-run support via run_program().
+///
+/// Interactive XEQ (not running): tries the four-entry Card Reader
+/// XEQ-by-name fallback before erroring. This is the
+/// path the GUI uses — `dispatch(Op::Xeq("WPRGM"))` with `is_running=false`.
+///
+/// Programmatic XEQ inside `run_loop` is handled there directly (with
+/// call-depth check + user-label scan + same builtin fallback) — this
+/// function is never reached during program execution.
+///
 /// LiftEffect: Neutral.
-pub fn op_xeq(state: &mut CalcState, _label: &str) -> Result<(), HpError> {
+pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
+        // Built-in XEQ-by-name fallback for the four Card Reader ops.
+        // No user-label scan here: user-program XEQ goes through run_loop,
+        // not op_xeq. If a user wants to call their own LBL interactively
+        // they use run_program(state, label) directly, not dispatch.
+        if let Some(card_op) = builtin_card_op(label) {
+            return crate::ops::dispatch(state, card_op);
+        }
         return Err(HpError::InvalidOp);
     }
-    // run_loop handles Op::Xeq directly (with call-depth check and label search).
-    // This arm is only reached if someone calls op_xeq() outside run_loop,
-    // which should not happen — return InvalidOp as a safe guard.
+    // run_loop handles Op::Xeq directly. Reaching here while running is a
+    // logic bug elsewhere — return InvalidOp as a safe guard.
     Err(HpError::InvalidOp)
 }
 
@@ -128,11 +140,23 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     // Clone program — borrow conflict guard (D-06, RESEARCH Pitfall 1)
     let program = state.program.clone();
 
-    // Linear scan for entry label (D-02)
-    let start = program
+    // Linear scan for entry label (D-02). On miss, try the XEQ-by-name
+    // fallback for the four Card Reader ops. User labels always take
+    // precedence — fallback only fires on a true miss.
+    let start = match program
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == entry_label))
-        .ok_or(HpError::InvalidOp)?;
+    {
+        Some(idx) => idx,
+        None => {
+            if let Some(op) = builtin_card_op(entry_label) {
+                // Dispatch the built-in once and return — no program to run.
+                // is_running stays false; we never enter run_loop.
+                return crate::ops::dispatch(state, op);
+            }
+            return Err(HpError::InvalidOp);
+        }
+    };
 
     state.pc = start + 1; // execute step AFTER the Lbl marker (Pitfall 4)
     state.call_stack.clear();
@@ -182,10 +206,27 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 if state.call_stack.len() >= 4 {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
                 }
-                // find target before pushing to call_stack (error-before-mutation)
-                let target = find_in_program(program, &label)?;
-                state.call_stack.push(state.pc);
-                state.pc = target + 1;
+                // User-label lookup first; on miss fall back to the four
+                // Card Reader built-ins. Built-in dispatch does NOT push
+                // the call stack — it's a single op, not a subroutine
+                // call, so pc just advances.
+                match find_in_program(program, &label) {
+                    Ok(target) => {
+                        state.call_stack.push(state.pc);
+                        state.pc = target + 1;
+                    }
+                    Err(_) => {
+                        if let Some(card_op) = builtin_card_op(&label) {
+                            // No pc adjustment — the main run_loop advance at the top of
+                            // this iteration already moved pc past the XEQ. A card op is a
+                            // single instruction (not a control-flow change), so pc resumes
+                            // at the step that follows the XEQ.
+                            crate::ops::dispatch(state, card_op)?;
+                        } else {
+                            return Err(HpError::InvalidOp);
+                        }
+                    }
+                }
             }
             Op::Test(kind) => {
                 if !evaluate_test(state, &kind) {
@@ -344,6 +385,14 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
+        // Inside a running program, card ops stage a request just like in
+        // interactive dispatch. Back-to-back card ops without a frontend
+        // drain in between surface as `HpError::CardData` rather than
+        // silently dropping the prior request.
+        Op::Wdta => super::cardreader_ops::op_wdta(state),
+        Op::Rdta => super::cardreader_ops::op_rdta(state),
+        Op::Wprgm => super::cardreader_ops::op_wprgm(state),
+        Op::Rdprgm => super::cardreader_ops::op_rdprgm(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -438,6 +487,25 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == label))
         .ok_or(HpError::InvalidOp)
+}
+
+/// XEQ-by-name fallback: resolves the four Card Reader op names to their
+/// `Op` variants. Returns `None` for anything else — including unknown
+/// names, lowercase variants, and any built-in not in the Card Reader set.
+///
+/// Used as the label-miss fallback in `op_xeq`, `run_program`, and the
+/// `Op::Xeq` arm of `run_loop`. User `LBL "name"` matches take precedence,
+/// matching real HP-41 `XEQ "name"` resolution order.
+///
+/// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
+pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
+    match name {
+        "WPRGM" => Some(Op::Wprgm),
+        "RDPRGM" => Some(Op::Rdprgm),
+        "WDTA" => Some(Op::Wdta),
+        "RDTA" => Some(Op::Rdta),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -957,5 +1025,22 @@ mod program_tests {
         let mut state = state_with_program(program);
         crate::ops::program::run_program(&mut state, "A").unwrap();
         assert_eq!(state.stack.x, HpNum(Decimal::from_str("15").unwrap()));
+    }
+
+    #[test]
+    fn builtin_card_op_resolves_four_names() {
+        use crate::ops::program::builtin_card_op;
+        use crate::ops::Op;
+        assert_eq!(builtin_card_op("WPRGM"), Some(Op::Wprgm));
+        assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
+        assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
+        assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
+        assert_eq!(
+            builtin_card_op("wprgm"),
+            None,
+            "case-sensitive — HP-41 names are uppercase"
+        );
+        assert_eq!(builtin_card_op("UNKNOWN"), None);
+        assert_eq!(builtin_card_op(""), None);
     }
 }
