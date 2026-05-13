@@ -7,6 +7,11 @@
 //!
 //! SC-4 invariant: this module calls only the public `hp41_core::cardreader::*`
 //! API for encoding/decoding. No codec logic lives here.
+//!
+//! SYNC-NOTE: keep this file in step with `hp41-cli/src/cards.rs`.
+//! Diff the two files after every CardOpRequest variant addition or
+//! sanitize_name change — they share the same staging-drain contract
+//! and must agree on behaviour.
 
 use std::fs;
 use std::path::{Path, PathBuf};

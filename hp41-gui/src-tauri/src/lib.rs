@@ -46,10 +46,10 @@ pub fn run() {
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(30));
                     // Clone state under lock, then drop guard before disk I/O (CR-01).
+                    // Note: the MutexGuard is released when the .clone() above returns;
+                    // `state` here is just a tauri::State reference wrapper, not the guard.
                     let state = handle.state::<AppState>();
                     let snapshot = state.lock().unwrap_or_else(|e| e.into_inner()).clone();
-                    #[allow(clippy::drop_non_drop)]
-                    drop(state);
                     if let Err(e) = persistence::save_state(&thread_save_path, &snapshot) {
                         eprintln!("auto-save failed: {e}");
                     }
