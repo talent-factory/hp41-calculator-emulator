@@ -25,6 +25,23 @@ interface CalcStateView {
   pc: number;               // Phase 18 D-01: current program counter index
 }
 
+// Tauri rejects with GuiError { message: string } — String(err) yields
+// "[object Object]". Extract the message field so toasts are readable.
+function extractErrMessage(err: unknown): string {
+  return typeof err === 'object' && err && 'message' in err
+    ? String((err as { message: unknown }).message)
+    : String(err);
+}
+
+// Route a resolved op id to the right Tauri command. SST/BST/R-S have
+// dedicated commands; everything else flows through dispatch_op.
+async function invokeForKey(effectiveId: string): Promise<CalcStateView> {
+  if (effectiveId === 'sst') return invoke<CalcStateView>('sst_step');
+  if (effectiveId === 'bst') return invoke<CalcStateView>('bst_step');
+  if (effectiveId === 'r_s') return invoke<CalcStateView>('run_stop');
+  return invoke<CalcStateView>('dispatch_op', { keyId: effectiveId });
+}
+
 function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | null {
   // Phase 18 D-07: F7/F8 → SST/BST keyboard bindings
   // Use e.code (physical key) so macOS media-key remapping doesn't block these
@@ -94,17 +111,9 @@ function App() {
   const dispatchKeyId = useCallback((keyId: string) => {
     if (busyRef.current) return;
     busyRef.current = true;
-    let invokePromise: Promise<CalcStateView>;
-    if (keyId === 'sst') {
-      invokePromise = invoke<CalcStateView>('sst_step');
-    } else if (keyId === 'bst') {
-      invokePromise = invoke<CalcStateView>('bst_step');
-    } else {
-      invokePromise = invoke<CalcStateView>('dispatch_op', { keyId });
-    }
-    invokePromise
+    invokeForKey(keyId)
       .then(view => { setCalcState(view); setErrorMessage(null); })
-      .catch(err => setToastMsg(String(err)))
+      .catch(err => setToastMsg(extractErrMessage(err)))
       .finally(() => { busyRef.current = false; });
   }, []);
 
@@ -145,31 +154,20 @@ function App() {
 
     busyRef.current = true;
     try {
-      // Special routes: SST/BST/R/S go to dedicated commands.
-      if (effectiveId === 'sst') {
-        const view = await invoke<CalcStateView>('sst_step');
-        setCalcState(view);
-      } else if (effectiveId === 'bst') {
-        const view = await invoke<CalcStateView>('bst_step');
-        setCalcState(view);
-      } else if (effectiveId === 'r_s') {
-        const view = await invoke<CalcStateView>('run_stop');
-        setCalcState(view);
-      } else if (effectiveId === 'clx_or_a') {
-        // CL X/A — branch on alpha mode at click time.
+      let view: CalcStateView;
+      if (effectiveId === 'clx_or_a') {
+        // CL X/A — branch on alpha mode at click time. (On-screen-specific:
+        // physical-keyboard has no equivalent path, so this stays out of
+        // invokeForKey and lives here in handleClick.)
         const targetId = alphaOn ? 'alpha_clear' : 'clx';
-        const view = await invoke<CalcStateView>('dispatch_op', { keyId: targetId });
-        setCalcState(view);
+        view = await invoke<CalcStateView>('dispatch_op', { keyId: targetId });
       } else {
-        const view = await invoke<CalcStateView>('dispatch_op', { keyId: effectiveId });
-        setCalcState(view);
+        view = await invokeForKey(effectiveId);
       }
+      setCalcState(view);
       setErrorMessage(null);
     } catch (err) {
-      const msg = typeof err === 'object' && err && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : String(err);
-      setToastMsg(msg);
+      setToastMsg(extractErrMessage(err));
     } finally {
       if (consumesShift) setShiftActive(false);
       busyRef.current = false;
