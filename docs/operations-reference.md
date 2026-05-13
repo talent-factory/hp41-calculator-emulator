@@ -274,6 +274,35 @@ The HP-41 uses registers R01–R06 for Σ-data (configurable via `ΣREG`).
 
 ---
 
+## Card Reader (HP 82104A)
+
+The card reader operations write or read a named card. The card name is taken
+from the **ALPHA register** at the moment the op runs — an empty ALPHA produces
+`ALPHA DATA`. The core engine stages an I/O request on `pending_card_op` and
+the frontend (CLI or GUI) performs the actual disk read/write before the next
+op runs. Two card ops cannot stage simultaneously: a second op fires `CARD
+DATA` until the first request has been drained.
+
+| Mnemonic | Description | Stack effect | Lift |
+|----------|-------------|--------------|------|
+| `WDTA` | Write data registers R00–R(SIZE−1) to `<ALPHA>.card.json` | none | N |
+| `RDTA` | Read `<ALPHA>.card.json` and replace data registers; pads back up to SIZE = 100 if the card is smaller | none | N |
+| `WPRGM` | Write the current program to `<ALPHA>.raw` (always appends an END marker) | none | N |
+| `RDPRGM` | Read `<ALPHA>.raw`; replaces the program if it is empty, otherwise inserts after the current step | none | N |
+
+**File formats:**
+
+- `.raw` — bare HP-41 byte stream compatible in spirit with V41 / Free42 /
+  HP41UC (single-byte FOCAL codes plus two-byte forms for `STO nn` / `RCL nn`
+  and `LBL/GTO/XEQ "name"`). Bytes outside the encoded subset round-trip via a
+  synthetic-byte fallback. `Op::Null` is encoded as `0xCD` to keep `0xCF`
+  unambiguously reserved for the LBL alpha prefix.
+- `.card.json` — JSON envelope tagged with `format: "hp41-data-v1"` and a
+  numeric `version`. The loader rejects unknown format tags and version
+  mismatches with `CARD DATA`.
+
+---
+
 ## HP-41CX: Time Module (Built-in)
 
 | Mnemonic | Description |
@@ -296,3 +325,6 @@ The HP-41 uses registers R01–R06 for Σ-data (configurable via `ΣREG`).
 - [Keyboard Layout](keyboard-layout.md)
 - [Programming Guide](programming-guide.md)
 - [HP-41C/CV Advanced Functions Handbook](https://www.hpmuseum.org/41advfun.htm) — complete flag/system register reference
+- [HP Museum — HP-41 Software Library](https://www.hpmuseum.org/software/soft41.htm) — curated programs, ROM images, utilities
+- [hp41.org](http://www.hp41.org/) — community archive: modules, ROM images, custom programs, scanned manuals
+- [HP Calculator Literature Archive](https://literature.hpcalc.org/all) — scanned manuals, journals, application pacs
