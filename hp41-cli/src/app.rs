@@ -287,6 +287,8 @@ impl App {
                 if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                     match hp41_core::run_program(&mut self.state, &label) {
                         Ok(()) => {
+                            // Clear any stale error message from a previous dispatch, then drain
+                            // card op first (may surface CARD DATA), then drain print output.
                             self.message = None;
                             self.drain_pending_card_op();
                             self.drain_and_show_print_output();
@@ -455,6 +457,8 @@ impl App {
         if key.code == KeyCode::F(5) {
             match hp41_core::run_program(&mut self.state, "A") {
                 Ok(()) => {
+                    // Clear any stale error message from a previous dispatch, then drain
+                    // card op first (may surface CARD DATA), then drain print output.
                     self.message = None;
                     self.drain_pending_card_op();
                     self.drain_and_show_print_output();
@@ -953,6 +957,8 @@ impl App {
             if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                 match hp41_core::run_program(&mut self.state, &label) {
                     Ok(()) => {
+                        // Clear any stale error message from a previous dispatch, then drain
+                        // card op first (may surface CARD DATA), then drain print output.
                         self.message = None;
                         self.drain_pending_card_op();
                         self.drain_and_show_print_output();
@@ -1064,9 +1070,6 @@ impl App {
                         Some(err) => format!("{summary} ({err})"),
                         None => summary,
                     });
-                } else if self.message.is_none() {
-                    // Only clear message when drain_pending_card_op did not set an error.
-                    self.message = None;
                 }
             }
             Err(e) => self.message = Some(format!("{e}")),
