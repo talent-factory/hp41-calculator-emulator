@@ -107,6 +107,8 @@ section 3.
 
 ## 3. Program Card: WPRGM → Clear → RDPRGM
 
+> **Platform note:** macOS users substitute `shasum -a 256` for every `sha256sum` invocation below — the GNU tool is not part of the macOS base install.
+
 ```
 1.  ALPHA   Q U A D   ALPHA            ; ALPHA register = "QUAD"
 2.  XEQ "WPRGM" + ENTER                ; → ~/.hp41/cards/QUAD.raw exists (~40–50 B)
@@ -176,13 +178,17 @@ normal stack view on the next keypress.
 
 ## 6. Same Procedure in the GUI
 
-Mirror sections 3 and 4 exactly, but ALPHA entry is done via the GUI's
-physical-keyboard pass-through. In ALPHA mode, the real keyboard is
-intercepted by `resolveKeyId()` in `App.tsx` and letter keys produce ALPHA
-characters, so typing `Q U A D` while the ALPHA annunciator is active enters
-the card name identically to the CLI flow.
+Mirror sections 3 and 4 exactly. ALPHA entry works via physical-keyboard
+pass-through: `resolveKeyId()` in `App.tsx` checks `state.annunciators.alpha`
+**before** the normal key map. When the ALPHA annunciator is active, A–Z,
+0–9, and Space keys are routed to `alpha_<X>`, which the backend resolves to
+`Op::AlphaAppend`. Activate ALPHA mode by clicking the `ALPHA` button on the
+SVG keyboard; the ALPHA annunciator lights up. Then type `Q U A D` on the
+physical keyboard — the alpha register fills with `QUAD` identically to the
+CLI flow.
 
-The `sha256sum` steps remain terminal commands in both cases.
+The `sha256sum` (or `shasum -a 256` on macOS) steps remain terminal commands
+in both cases.
 
 **Cross-UI guarantee:** hashes A and C from sections 3 and 4 must be
 **identical** between CLI and GUI runs. Both UIs call the same
