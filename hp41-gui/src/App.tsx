@@ -170,7 +170,7 @@ function App() {
           </div>
         ))}
       </div>
-      <Keyboard onKey={handleClick} busyRef={busyRef} />
+      <Keyboard onKey={(_def) => {}} busyRef={busyRef} shiftActive={false} alphaActive={false} />
       {calcState.annunciators.prgm && (
         <div className="prgm-panel">
           <div className="prgm-panel-header">

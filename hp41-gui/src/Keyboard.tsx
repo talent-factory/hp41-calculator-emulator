@@ -106,34 +106,30 @@ function keyPosition(key: KeyDef): { x: number; y: number; w: number; h: number 
   return { x, y, w, h };
 }
 
-function isCreamKey(key: KeyDef): boolean {
-  return (
-    ['user_mode', 'prgm_mode', 'alpha_toggle'].includes(key.id) ||
-    (key.id === '' && (key.label === 'f' || key.label === 'g'))
-  );
-}
-
-function getKeyGrad(key: KeyDef): string {
-  if (key.row === 0) return 'url(#grad-row0)';
-  if (key.id === 'enter') return 'url(#grad-enter)';
-  if (isCreamKey(key)) return 'url(#grad-cream)';
+function getKeyGrad(key: KeyDef, shiftActive: boolean): string {
+  if (key.variant === 'shift') {
+    return shiftActive ? 'url(#grad-shift-active)' : 'url(#grad-shift-idle)';
+  }
+  if (key.variant === 'enter') return 'url(#grad-enter)';
   return 'url(#grad-dark)';
 }
 
-interface KeyboardProps {
-  onKey: (keyId: string) => void;
+export interface KeyboardProps {
+  onKey: (key: KeyDef) => void;          // App.tsx decides mode + dispatches
   busyRef: MutableRefObject<boolean>;
+  shiftActive: boolean;
+  alphaActive: boolean;
 }
 
-export function Keyboard({ onKey, busyRef }: KeyboardProps) {
+export function Keyboard({ onKey, busyRef, shiftActive, alphaActive }: KeyboardProps) {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
 
-  const handleKeyClick = (keyId: string) => {
-    if (!keyId) return;
+  const handleKeyClick = (key: KeyDef) => {
+    if (!key.id) return;                 // ON and other unwired keys
     if (busyRef.current) return;
-    setPressedKey(keyId);
-    setTimeout(() => setPressedKey(prev => prev === keyId ? null : prev), 150);
-    onKey(keyId);
+    setPressedKey(key.id);
+    setTimeout(() => setPressedKey(prev => (prev === key.id ? null : prev)), 150);
+    onKey(key);
   };
 
   return (
@@ -155,20 +151,20 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
           <stop offset="60%"  stopColor="#181818" />
           <stop offset="100%" stopColor="#080808" />
         </linearGradient>
-        <linearGradient id="grad-row0" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#6a4830" />
-          <stop offset="60%"  stopColor="#3a2418" />
-          <stop offset="100%" stopColor="#1e1008" />
-        </linearGradient>
         <linearGradient id="grad-enter" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stopColor="#346034" />
           <stop offset="60%"  stopColor="#1a3a1a" />
           <stop offset="100%" stopColor="#0a180a" />
         </linearGradient>
-        <linearGradient id="grad-cream" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#ede8d4" />
-          <stop offset="60%"  stopColor="#c8bd98" />
-          <stop offset="100%" stopColor="#a89870" />
+        <linearGradient id="grad-shift-idle" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#d68a1c" />
+          <stop offset="60%"  stopColor="#b06811" />
+          <stop offset="100%" stopColor="#7a4708" />
+        </linearGradient>
+        <linearGradient id="grad-shift-active" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#ffb742" />
+          <stop offset="60%"  stopColor="#f5a423" />
+          <stop offset="100%" stopColor="#c97d10" />
         </linearGradient>
 
         {/* Inner bevel highlight — white gradient fading out (top of key only) */}
@@ -183,82 +179,89 @@ export function Keyboard({ onKey, busyRef }: KeyboardProps) {
       <rect width={KEYBOARD_W} height={14} fill="url(#bevel-hi)" rx={10} opacity={0.4} />
 
       {KEY_DEFS.map(key => {
-        const cs = key.colSpan ?? 1;
-        const x = PAD + key.col * (KEY_W + GAP);
-        const rectY = PAD + key.row * (FSHIFT_H + KEY_H + GAP) + FSHIFT_H;
-        const w = cs * KEY_W + (cs - 1) * GAP;
+        const { x, y, w, h } = keyPosition(key);
         const isPressed = pressedKey === key.id && Boolean(key.id);
-        const cream = isCreamKey(key);
-        const labelColor = cream ? '#1e1008' : '#ffffff';
+        const isShiftKey = key.variant === 'shift';
+        const labelColor = '#e8e8e8';
+        const labelKey = `${key.row}-${key.col}`;
+
+        // The SHIFT key has no labels — solid orange cap only.
+        if (isShiftKey) {
+          return (
+            <g
+              key={labelKey}
+              onClick={() => handleKeyClick(key)}
+              className={
+                shiftActive ? 'key key-shift-active' : isPressed ? 'key key-pressed' : 'key'
+              }
+            >
+              <rect x={x + 1} y={y + 2} width={w} height={h} rx={5} ry={5} fill="#000" opacity={0.45} />
+              <rect x={x} y={y} width={w} height={h} rx={5} ry={5}
+                    fill={getKeyGrad(key, shiftActive)}
+                    stroke="#3a2208" strokeWidth={0.8} />
+              <rect x={x + 1} y={y + 1} width={w - 2} height={h / 2} rx={4} ry={4}
+                    fill="url(#bevel-hi)" />
+            </g>
+          );
+        }
 
         return (
           <g
-            key={`${key.row}-${key.col}`}
-            onClick={() => handleKeyClick(key.id)}
+            key={labelKey}
+            onClick={() => handleKeyClick(key)}
             className={isPressed ? 'key key-pressed' : 'key'}
           >
-            {/* f-shift label above key */}
-            {key.fShiftLabel && (
+            {/* Orange shift label above (skip on top-row keys) */}
+            {key.shifted && (
               <text
                 x={x + w / 2}
-                y={rectY - 2}
+                y={y - 2}
                 textAnchor="middle"
-                fill="#d4a800"
-                fontSize={8}
+                fill="#d68a1c"
+                fontSize={9}
                 fontWeight="bold"
               >
-                {key.fShiftLabel}
+                {key.shifted.label}
               </text>
             )}
 
-            {/* Key shadow (separate rect under the cap for depth) */}
-            <rect
-              x={x + 1}
-              y={rectY + 2}
-              width={w}
-              height={KEY_H}
-              rx={4}
-              ry={4}
-              fill="#000000"
-              opacity={0.45}
-            />
+            {/* Shadow under cap */}
+            <rect x={x + 1} y={y + 2} width={w} height={h} rx={5} ry={5} fill="#000" opacity={0.45} />
 
-            {/* Key cap with gradient fill */}
-            <rect
-              x={x}
-              y={rectY}
-              width={w}
-              height={KEY_H}
-              rx={4}
-              ry={4}
-              fill={getKeyGrad(key)}
-              stroke={cream ? '#806848' : '#0a0a0a'}
-              strokeWidth={0.8}
-            />
+            {/* Cap */}
+            <rect x={x} y={y} width={w} height={h} rx={5} ry={5}
+                  fill={getKeyGrad(key, shiftActive)}
+                  stroke="#0a0a0a" strokeWidth={0.8} />
 
-            {/* Bevel highlight — top portion of key cap */}
-            <rect
-              x={x + 1}
-              y={rectY + 1}
-              width={w - 2}
-              height={KEY_H / 2}
-              rx={3}
-              ry={3}
-              fill="url(#bevel-hi)"
-              className="key-bevel"
-            />
+            {/* Bevel highlight */}
+            <rect x={x + 1} y={y + 1} width={w - 2} height={h / 2} rx={4} ry={4}
+                  fill="url(#bevel-hi)" className="key-bevel" />
 
             {/* Primary label */}
             <text
               x={x + w / 2}
-              y={rectY + KEY_H / 2 + 4}
+              y={y + h / 2 + 5}
               textAnchor="middle"
               fill={labelColor}
-              fontSize={10}
+              fontSize={key.variant === 'enter' ? 13 : 14}
               fontWeight="bold"
             >
               {key.label}
             </text>
+
+            {/* Blue alpha letter below (skip on top-row, shift, and ENTER) */}
+            {key.alphaChar && key.variant !== 'top' && (
+              <text
+                x={x + w / 2}
+                y={y + h + 10}
+                textAnchor="middle"
+                fill={alphaActive ? '#7fb9e0' : '#5b8fb9'}
+                fontSize={9}
+                fontWeight="bold"
+              >
+                {key.alphaChar === ' ' ? 'SPACE' : key.alphaChar}
+              </text>
+            )}
           </g>
         );
       })}
