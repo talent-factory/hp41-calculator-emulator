@@ -1,14 +1,19 @@
 import { useState, type MutableRefObject } from 'react';
 
 const COLS = 5;
-const KEY_W = 64;
+const KEY_W = 68;
 const KEY_H = 44;
-const GAP = 6;
+const GAP = 8;
 const PAD = 10;
 const TOP_GAP = 12;         // gap between top-row band and main grid
-const TOP_CENTER_GAP = 96;  // visible gap between ON/USER and PRGM/ALPHA
 const SHIFT_LABEL_H = 11;   // space reserved above each key for orange shift label
 const ALPHA_LABEL_H = 11;   // space reserved below each key for blue alpha letter
+
+// Rows 5-8 (operator + digits) are 4 wider keys spanning the same total
+// width as 5 normal-col keys + 4 gaps in the upper rows. Width derives so
+// `4*WIDE_KEY_W + 3*GAP == 5*KEY_W + 4*GAP`, i.e. four wide cols visually
+// fill the right edge of the keyboard (no empty col 4 below ENTER).
+const WIDE_KEY_W = (COLS * KEY_W + GAP) / 4;
 
 const KEYBOARD_W = PAD * 2 + COLS * KEY_W + (COLS - 1) * GAP;
 const TOP_ROW_H = KEY_H;
@@ -92,21 +97,31 @@ const KEY_DEFS: KeyDef[] = [...TOP_ROW, ...MAIN_GRID];
 
 function keyPosition(key: KeyDef): { x: number; y: number; w: number; h: number } {
   const cs = key.colSpan ?? 1;
-  const w = cs * KEY_W + (cs - 1) * GAP;
   const h = KEY_H;
 
   if (key.row === 0) {
-    // Top row: ON/USER on left (cols 0-1), PRGM/ALPHA on right (cols 3-4) with center gap.
-    const leftWidth = 2 * KEY_W + GAP;
-    const xLeftStart = PAD;
-    const xRightStart = PAD + leftWidth + TOP_CENTER_GAP;
-    const xCols = [xLeftStart, xLeftStart + KEY_W + GAP, 0, xRightStart, xRightStart + KEY_W + GAP];
-    return { x: xCols[key.col], y: PAD, w, h };
+    // Top row keys at cols 0, 1, 3, 4 align with main-grid cols 0, 1, 3, 4
+    // using the same x formula — col 2 is intentionally skipped (no key)
+    // and the visual centre gap is exactly one missing key + two gaps.
+    const w = cs * KEY_W + (cs - 1) * GAP;
+    const x = PAD + key.col * (KEY_W + GAP);
+    return { x, y: PAD, w, h };
   }
 
   const gridRow = key.row - 1; // rows 1..8 → indices 0..7
-  const x = PAD + key.col * (KEY_W + GAP);
   const y = PAD + TOP_ROW_H + TOP_GAP + gridRow * GRID_ROW_H + SHIFT_LABEL_H;
+
+  if (key.row >= 5) {
+    // Wide rows (5-8): 4 cols of WIDE_KEY_W. col 0 is the operator
+    // (−/+/×/÷), cols 1-3 are the digits. No col 4 — the rightmost key
+    // ends at the same x as col 4 of the upper rows.
+    const w = cs * WIDE_KEY_W + (cs - 1) * GAP;
+    const x = PAD + key.col * (WIDE_KEY_W + GAP);
+    return { x, y, w, h };
+  }
+
+  const w = cs * KEY_W + (cs - 1) * GAP;
+  const x = PAD + key.col * (KEY_W + GAP);
   return { x, y, w, h };
 }
 
