@@ -100,3 +100,25 @@ fn run_loop_xeq_wprgm_inside_program_stages_request() {
         Some(CardOpRequest::WriteProgram { name: "CARD1".to_string() }),
     );
 }
+
+#[test]
+fn run_loop_xeq_card_op_does_not_skip_next_instruction() {
+    // Regression guard: if the XEQ card-op fallback over-advances pc, the
+    // StoReg(1) below would be silently skipped and R01 would stay at 0.
+    let mut state = state_with_alpha("CARD1");
+    state.stack.x = hp41_core::num::HpNum::from(42i32);
+    state.program = vec![
+        Op::Lbl("MAIN".to_string()),
+        Op::Xeq("WPRGM".to_string()), // stages a card op via the builtin fallback
+        Op::StoReg(1),                 // MUST execute — proves pc advanced exactly one step
+        Op::Rtn,
+    ];
+    run_program(&mut state, "MAIN").expect("MAIN must run cleanly");
+    assert_eq!(
+        state.regs[1],
+        hp41_core::num::HpNum::from(42i32),
+        "STO 01 after XEQ \"WPRGM\" must execute — proves the fallback did not over-advance pc",
+    );
+    // And the card op should still be staged.
+    assert!(state.pending_card_op.is_some(), "card op must still be staged");
+}
