@@ -27,10 +27,20 @@ interface CalcStateView {
 
 // Tauri rejects with GuiError { message: string } — String(err) yields
 // "[object Object]". Extract the message field so toasts are readable.
+// For other object-shaped rejections (raw Tauri framework errors, third-
+// party rejections without `.message`) fall back to JSON.stringify so the
+// "[object Object]" failure mode this helper exists to prevent cannot leak
+// through. Strings, numbers, null, undefined fall through to String().
 function extractErrMessage(err: unknown): string {
-  return typeof err === 'object' && err && 'message' in err
-    ? String((err as { message: unknown }).message)
-    : String(err);
+  if (typeof err === 'object' && err !== null) {
+    if ('message' in err) return String((err as { message: unknown }).message);
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // Circular reference or non-serialisable value — fall through to String.
+    }
+  }
+  return String(err);
 }
 
 // Route a resolved op id to the right Tauri command. SST/BST/R-S have
@@ -98,17 +108,28 @@ function App() {
   const [printPanelOpen, setPrintPanelOpen] = useState(false);
   const printEndRef = useRef<HTMLDivElement>(null);
   const activeStepRef = useRef<HTMLDivElement>(null);
-  // Phase 19 D-4: frontend-owned SHIFT one-shot prefix (no IPC round-trip).
+  // Frontend-owned SHIFT one-shot prefix (no IPC round-trip).
   const [shiftActive, setShiftActive] = useState(false);
   // Toast overlay for GuiError responses (single-toast policy, 2s auto-dismiss).
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // The monotonic `seq` is required because two clicks on the same stubbed
+  // key produce identical message strings — setting state to the same value
+  // does not re-run the auto-dismiss effect, so the second toast would be
+  // dismissed by the first click's still-running timer. `seq` makes the
+  // state value distinct on each call.
+  const [toast, setToast] = useState<{ msg: string; seq: number } | null>(null);
+  const toastSeqRef = useRef(0);
+  const showToast = useCallback((msg: string) => {
+    toastSeqRef.current += 1;
+    setToast({ msg, seq: toastSeqRef.current });
+  }, []);
 
-  // Auto-dismiss toast after 2 seconds.
+  // Auto-dismiss toast after 2 seconds. Re-runs on every showToast() call
+  // because the `seq` field changes even when `msg` is the same.
   useEffect(() => {
-    if (!toastMsg) return;
-    const t = setTimeout(() => setToastMsg(null), 2000);
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2000);
     return () => clearTimeout(t);
-  }, [toastMsg]);
+  }, [toast]);
 
   // Mount: load initial state via get_state (D-11 — no polling)
   useEffect(() => {
@@ -126,40 +147,37 @@ function App() {
     busyRef.current = true;
     invokeForKey(keyId)
       .then(view => { setCalcState(view); setErrorMessage(null); })
-      .catch(err => setToastMsg(extractErrMessage(err)))
+      .catch(err => showToast(extractErrMessage(err)))
       .finally(() => { busyRef.current = false; });
   }, []);
 
-  // On-screen keyboard click router — implements spec D-4 priority:
+  // On-screen keyboard click router. Resolution order:
   //   1. SHIFT key toggles local shiftActive, no dispatch.
-  //   2. ALPHA mode → alpha_<char> (shift ignored in ALPHA mode).
-  //   3. shiftActive && key.shifted → shifted.id, consumes shift one-shot.
+  //   2. ALPHA mode + alphaChar → alpha_<char> (SHIFT ignored in ALPHA mode).
+  //   3. shiftActive + key.shifted → shifted.id, consumes the one-shot.
   //   4. otherwise → primary id.
   // Special routes: sst/bst/r_s go to dedicated commands; clx_or_a branches on
   // the live ALPHA annunciator into clx | alpha_clear.
   const handleClick = useCallback(async (key: KeyDef) => {
     if (busyRef.current) return;
 
-    // D-4 priority 1: SHIFT key itself toggles state, no dispatch.
+    // SHIFT key itself toggles state, no dispatch (rule 1 above).
     if (key.id === 'shift') {
       setShiftActive(prev => !prev);
       return;
     }
 
-    // Resolve the effective id.
+    // Resolve the effective id per rules 2-4.
     const alphaOn = calcState?.annunciators.alpha ?? false;
     let effectiveId: string;
     let consumesShift = false;
 
     if (alphaOn && key.alphaChar) {
-      // D-4 priority 2: ALPHA mode — character append. Shift ignored.
       effectiveId = `alpha_${key.alphaChar}`;
     } else if (shiftActive && key.shifted) {
-      // D-4 priority 3: shifted action, consumes shift one-shot.
       effectiveId = key.shifted.id;
       consumesShift = true;
     } else {
-      // D-4 priority 4: primary.
       effectiveId = key.id;
     }
 
@@ -180,7 +198,7 @@ function App() {
       setCalcState(view);
       setErrorMessage(null);
     } catch (err) {
-      setToastMsg(extractErrMessage(err));
+      showToast(extractErrMessage(err));
     } finally {
       if (consumesShift) setShiftActive(false);
       busyRef.current = false;
@@ -188,7 +206,7 @@ function App() {
   }, [calcState, shiftActive]);
 
   // Physical-keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode.
-  // Phase 19: Tab toggles SHIFT, Esc cancels SHIFT (no IPC).
+  // Tab toggles SHIFT, Esc cancels SHIFT (no IPC).
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.repeat) return;        // SC-4 fix: ignore OS key-repeat events — each IPC round-trip
                                  // completes before the next repeat fires, defeating busyRef alone
@@ -269,8 +287,8 @@ function App() {
         ))}
       </div>
       <div className="display">{calcState.display_str}</div>
-      {toastMsg && (
-        <div className="toast" role="status">{toastMsg}</div>
+      {toast && (
+        <div key={toast.seq} className="toast" role="status">{toast.msg}</div>
       )}
       {errorMessage && (
         <div className="error-row" role="alert">{errorMessage}</div>

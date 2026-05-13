@@ -16,7 +16,11 @@ const GRID_ROW_H = SHIFT_LABEL_H + KEY_H + ALPHA_LABEL_H + GAP;
 const KEYBOARD_H = PAD * 2 + TOP_ROW_H + TOP_GAP + 8 * GRID_ROW_H;
 
 export type KeyDef = {
-  id: string;                                  // primary op key id; '' = shift key (handled specially)
+  // Primary op key id resolved via key_map::resolve(), OR the empty string
+  // for unwired top-row buttons (currently only ON). The SHIFT key is
+  // identified by variant: 'shift' and uses id: 'shift' as a sentinel that
+  // App.tsx short-circuits before any dispatch.
+  id: string;
   label: string;                               // primary visible label
   shifted?: { id: string; label: string };    // shifted op + orange label above
   alphaChar?: string;                          // ALPHA-mode character (blue label below)

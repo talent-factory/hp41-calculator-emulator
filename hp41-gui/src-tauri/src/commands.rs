@@ -246,8 +246,8 @@ pub fn bst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
 ///
 /// Mirrors sst_step/bst_step shape — never goes through dispatch_op because
 /// R/S is not a single Op variant (it toggles CalcState.is_running).
-/// v2.1 scope: only toggles the flag. Actual stepping is deferred to v2.2
-/// once a tick thread lands (today the IPC thread cannot block on a run loop).
+/// Toggles the flag only; no run loop is spawned here (the IPC thread cannot
+/// block on a run loop, so actual stepping requires a separate tick thread).
 #[tauri::command]
 pub fn run_stop(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -271,8 +271,8 @@ pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     Ok(CalcStateView::from_state(calc, print_lines))
 }
 
-/// Pure-Rust helper for run_stop — toggles `is_running`. Unit-testable without a
-/// Tauri runtime. v2.1 scope: flag-toggle only; no run loop is spawned here.
+/// Pure-Rust helper for run_stop — toggles `is_running`. Unit-testable
+/// without a Tauri runtime. Flag-toggle only; no run loop spawned here.
 pub fn handle_run_stop(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     calc.is_running = !calc.is_running;
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
