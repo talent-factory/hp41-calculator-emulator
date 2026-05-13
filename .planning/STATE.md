@@ -4,7 +4,7 @@ milestone: v2.2
 milestone_name: HP-41CV Feature Completeness
 current_phase: null
 current_plan: null
-status: awaiting-milestone-planning
+status: planning
 last_updated: "2026-05-13T00:00:00.000Z"
 progress:
   total_phases: 0
@@ -35,12 +35,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: — (between milestones)
+Phase: Not started (defining requirements)
 Plan: —
-Status: v2.1 complete (2026-05-13); recorded as quick tasks (no Phase 19 directory). Awaiting `/gsd-new-milestone "v2.2 HP-41CV Feature Completeness"`.
-Last activity: 2026-05-13 — STATE.md / MILESTONES.md / PROJECT.md reconciled with shipped v2.1 work (50 commits since v2.0 tag).
+Status: Defining requirements
+Last activity: 2026-05-13 — Milestone v2.2 HP-41CV Feature Completeness started; research skipped (codebase mature, HP-41CV well-documented); REQUIREMENTS.md generation next.
 
-Progress: — (v2.2 not yet planned)
+Progress: 0 / TBD phases (roadmap pending)
 
 ---
 

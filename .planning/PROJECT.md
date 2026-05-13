@@ -1,12 +1,35 @@
 # HP-41 Calculator Emulator
 
-## Current State: v2.1 Card Reader + Keyboard Authenticity Shipped
+## Current Milestone: v2.2 HP-41CV Feature Completeness
 
-**Shipped:** 2026-05-13 — Card Reader (WDTA/RDTA/WPRGM/RDPRGM + XEQ-by-name) and authentic 5×8 keyboard layout with three-label keys, one-shot SHIFT, `run_stop`, and stub-error pattern (Toast overlay). Recorded as quick-task entries (no Phase 19 GSD directory); 50 commits since `v2.0` tag.
+**Status:** planning (started 2026-05-13)
 
-**Next milestone:** v2.2 HP-41CV Feature Completeness — strict ROM built-in 130-function set (flags, indirect addressing, ALPHA ops, BEEP/TONE, VIEW/AVIEW/PROMPT, CATALOG, ASN, missing math/conversions, remaining conditional tests, prompt-ID modal routing) plus a final GUI Polish phase carrying the original v2.1 scope (14-seg LCD font, `?`-overlay, USER keyboard display).
+**Goal:** Schliesse die Lücke zum vollständigen HP-41CV ROM-Built-in-Funktionsumfang (≈ 130 named ops), integriere alle neuen Funktionen in CLI und GUI, vervollständige die Dokumentation und führe die Test-Coverage zurück auf das v1.0-Niveau.
 
-**Scope boundary (locked 2026-05-13):** v2.x covers only the ROM built-ins of the HP-41CV. Module emulation (Math 1 / Stat 1 / Time / Advantage Pacs, FR-21) is the entire scope of v3.x.
+**Target feature areas:**
+- Core math / conversions: `PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, stack `R↑`
+- Flags & display: 56 User-Flags + System-Flags, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW`, `AVIEW`, `PROMPT`, `AON/AOFF`, `CLD`
+- Program control: `STOP`, `PSE`, `CLP`, `DEL`, `INS`, `GTO/XEQ IND`, `BEEP`, `TONE`
+- ALPHA & indirect addressing: `ARCL`, `ASTO`, `ATOX`, `XTOA`, `AROT`, `POSA`, plus `*_IND`-Varianten von STO/RCL/ISG/DSE/SF/CF/FS?/FC?
+- CLI integration: Modale für Prompt-IDs, restliche bedingte Tests am Skin, `?`-Hilfe-Update
+- Documentation: HP-41CV ROM vs. Emulator Function Matrix
+- GUI integration: alle neuen Key-IDs in `key_map.rs` + `KEY_DEFS`, Modal-Routing für ehemals stub-error-Prompts
+- GUI Polish (aus original v2.1 übernommen): 14-Segment LCD-Font, `?`-Tastatur-Overlay, USER-Mode-Keyboard-Display
+- Test hardening: `hp41-core` Coverage ≥ 95 %, erweitertes 500-Case-Accuracy-Suite, GUI-E2E via Playwright
+
+**Scope boundary (locked 2026-05-13):** v2.x ist strikt auf den ROM-Built-in-Satz der HP-41CV beschränkt. Module-Emulation (Math 1 / Stat 1 / Time / Advantage Pacs, FR-21) ist Scope von v3.x — keine Module-Funktionen in v2.x-Phasen.
+
+**Build sequence:** core → cli → docs → gui → tests (jede `Op`-Variante muss in `hp41-core` landen, bevor sie in `hp41-cli` und `hp41-gui` gewired werden kann; Documentation läuft synchron mit der CLI-Integration).
+
+---
+
+## Project History
+
+**Shipped milestones:**
+- v1.0 CLI (2026-05-08) — Phases 1–8, foundational RPN engine + TUI
+- v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12, EEX/STO-Arith/Print/Synthetic
+- v2.0 Tauri GUI (2026-05-10) — Phases 13–18, pixel-perfect HP-41C desktop app
+- v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks (no Phase 19 GSD directory); 50 commits since `v2.0` tag
 
 ## What This Is
 
