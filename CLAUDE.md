@@ -13,6 +13,7 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 - v1.0 CLI shipped 2026-05-08 — 8 phases, 45 plans
 - v1.1 CLI Feature Completeness shipped 2026-05-09 — Phases 9–12, 13 plans (EEX-fix, STO arithmetic modals, print emulation, synthetic programming)
 - v2.0 Tauri GUI shipped 2026-05-10 — Phases 13–18, 19 plans (pixel-perfect HP-41C desktop app)
+- v2.1 Keyboard Authenticity (in progress) — Phase 19, 10 tasks (5-col layout, one-shot SHIFT, three-label keys, run_stop command, stub-error pattern)
 
 ## Git Workflow
 
@@ -33,6 +34,7 @@ Planning artifacts live in `.planning/`. v1.0 + v1.1 + v2.0 are shipped and arch
 - v1.0 (1–8): Foundation → Core Math → Programming Engine → TUI & Input → Persistence & UX → Science & Engineering → Hardening → Tech Debt Cleanup
 - v1.1 (9–12): Infrastructure & EEX Fix → STO Arithmetic Modals → Print Emulation → Synthetic Programming
 - v2.0 (13–18): Workspace Skeleton → IPC Layer → Display & Keyboard → SVG Skin → Persistence & Print Output → Program Listing & CI/CD
+- v2.1 (19): Keyboard Authenticity
 
 ## Settled Architecture Decisions
 
@@ -68,6 +70,20 @@ These decisions are final — do not revisit without strong justification:
 - **busyRef debounce:** `useRef(false)` pattern in both `App.tsx` (handleClick) and `Keyboard.tsx` (handleKeyClick) — two-layer guard against concurrent `invoke()` calls. Always pair with `pressedKey` state machine using functional setState form to avoid stale closure (Pitfall 4).
 - **Persistence sharing:** `hp41-gui` reads/writes the SAME `~/.hp41/autosave.json` file as `hp41-cli`. `serde(default)` on every `CalcState` field added since v1.0 keeps v1.x save files loadable. Auto-save thread releases the `AppState` Mutex BEFORE disk I/O (commit ff39017 fix).
 - **`Op` variants land before TUI code:** Every new `Op` variant must appear in BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs` AND the `prgm_display.rs` exhaustive match before any caller (`hp41-cli` or `hp41-gui`) can compile.
+
+### v2.1 additions (Keyboard authenticity, Phase 19)
+
+- **Authentic 5×7 layout**: `hp41-gui/src/Keyboard.tsx` renders 4 top-row mode buttons + a 5×8 main grid (ENTER 2-wide) with one orange SHIFT key — replaces the prior 8-col landscape layout with cosmetic `f`/`g` keys. Total key count: 4 top-row + 35 main grid = 39 entries.
+- **Three-label `KeyDef`**: each key carries `id`/`label` (primary), optional `shifted: { id, label }` (orange, above), and `alphaChar` (blue, below). Old `fShiftLabel` field is gone. `KeyDef` is exported from `Keyboard.tsx`.
+- **One-shot SHIFT is frontend-only**: `shiftActive: boolean` lives in `App.tsx`; never appears in `CalcState`, `CalcStateView`, or IPC. After a shifted op fires, `setShiftActive(false)` resets. `Tab` and clicking SHIFT toggle; `Esc` cancels. SHIFT joins the annunciator list as a frontend-derived value.
+- **Click resolution priority** (D-4): SHIFT key → ALPHA + alphaChar → shiftActive + shifted.id → primary.id. ALPHA mode overrides SHIFT (known divergence from real HP-41 — v2.2 deferred).
+- **Stub-error pattern** (D-5): `key_map::resolve` returns `Err(GuiError { message: "'<id>' is planned for a future phase" })` for `pi`, `polar_to_rect`, `rect_to_polar`, `beep`, `asn`, `catalog`, `view`. Also stubs `xeq_prompt`, `gto_prompt`, `lbl_prompt` explicitly — these would otherwise be silently swallowed by the label-bearing `xeq_`/`gto_`/`lbl_` prefixes in `resolve_parameterized`. Frontend surfaces a 2s toast overlay. NEVER silently discard — D-07 holds.
+- **Modal-prompt ids** (`sto_prompt`, `rcl_prompt`, `fix_prompt`, `sci_prompt`, `eng_prompt`, `isg_prompt`, `sf_prompt`, `cf_prompt`, `fs_prompt`, `x_eq_y_prompt`, `x_le_y_prompt`, `x_gt_y_prompt`, `x_eq_0_prompt`) are KEY_DEFS-only frontend ids; they fall through to `resolve_parameterized` and fail (numeric-suffix parse rejects `"prompt"`), surfacing as `unknown key: <id>` toast. v2.2 will route these to actual modals.
+- **`run_stop` Tauri command**: new dedicated command symmetric with `sst_step`/`bst_step`, toggles `CalcState.is_running`. R/S key is now click-reachable for the first time (was `id: ''` in v2.0). Permission file: `permissions/run-stop.toml`. Frontend special-routes id `r_s` via the `invokeForKey` helper, NOT through `dispatch_op`. v2.1 scope is flag-toggle only; actual stepping deferred to v2.2.
+- **`invokeForKey` + `extractErrMessage` helpers** in `App.tsx`: single source of truth for resolving an effective id to a Tauri command (`sst_step`/`bst_step`/`run_stop`/`dispatch_op`) and for extracting the `GuiError.message` field from Tauri rejections (`String(err)` would produce `"[object Object]"` for object-shaped errors).
+- **`SST`/`BST`/`CL X/A` special routes**: `App.tsx`'s click handler routes these ids to dedicated paths — `sst`/`bst` → `sst_step`/`bst_step` (via `invokeForKey`), `clx_or_a` → `clx` or `alpha_clear` depending on `annunciators.alpha`. Adding a new such key in the future requires updating either `invokeForKey` (single-id route) or the `clx_or_a` branch in `handleClick` (alpha-aware route).
+- **Toast overlay**: `App.tsx` renders `<div className="toast" role="status">{toastMsg}</div>` when `toastMsg` is set, with a 2s auto-dismiss `useEffect`. CSS lives in `App.css` with `.toast` + `@keyframes toast-fade`. Single-toast policy (newest replaces older — no queue).
+- **No core/CLI changes**: Phase 19 is hp41-gui only. SC-4 invariant preserved. Save-file backward compat unchanged.
 
 ## Tech Stack
 
@@ -131,12 +147,12 @@ These decisions are final — do not revisit without strong justification:
 | File | Purpose |
 |------|---------|
 | `hp41-gui/src-tauri/src/lib.rs` | `setup()`, `AppState = Mutex<CalcState>`, 30s auto-save thread, `generate_handler!` registration |
-| `hp41-gui/src-tauri/src/commands.rs` | `dispatch_op`, `get_state`, `sst_step`, `bst_step` Tauri thunks + `handle_op`/`handle_get_state` helpers |
+| `hp41-gui/src-tauri/src/commands.rs` | `dispatch_op`, `get_state`, `sst_step`, `bst_step`, `run_stop` Tauri thunks + `handle_op`/`handle_get_state` helpers. `run_stop` toggles `CalcState.is_running`; symmetric with sst_step/bst_step; reaches R/S key (v2.1). |
 | `hp41-gui/src-tauri/src/types.rs` | `CalcStateView`, `Annunciators`, `GuiError`, `From<HpError>` |
 | `hp41-gui/src-tauri/src/key_map.rs` | `resolve()` — string ID → `Op`; SC-4 invariant (no `op_*`/`flush_*`/`format_hpnum` here) |
 | `hp41-gui/src-tauri/src/persistence.rs` | Shared `~/.hp41/autosave.json` (same schema as hp41-cli) |
 | `hp41-gui/src-tauri/src/prgm_display.rs` | `format_all_steps()` — always appends END so `pc == program.len()` highlights correctly |
 | `hp41-gui/src-tauri/permissions/*.toml` | Tauri v2.11 inline-command permission registry |
-| `hp41-gui/src/App.tsx` | React root: display, annunciators, stack panel, keyboard listener, `busyRef`, `resolveKeyId`, program panel |
-| `hp41-gui/src/Keyboard.tsx` | 44-key SVG skin; `KEY_DEFS`, `handleKeyClick`, `pressedKey` state, `getKeyColor()` |
+| `hp41-gui/src/App.tsx` | React root: display, annunciators, stack panel, keyboard listener, `busyRef`, `resolveKeyId`, program panel, `shiftActive` state machine, `invokeForKey`/`extractErrMessage` helpers, toast overlay. |
+| `hp41-gui/src/Keyboard.tsx` | Authentic 5×8 grid + top-row band; `KEY_DEFS` with three-label model (primary + shifted + alphaChar); SHIFT key variant; `keyPosition` helper. |
 | `hp41-gui/src/App.css` | Layout, key animation, program panel styles; requires `transform-box: fill-box` on `.key` |
