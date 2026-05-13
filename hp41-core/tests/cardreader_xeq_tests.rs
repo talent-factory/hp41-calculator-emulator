@@ -82,3 +82,21 @@ fn user_label_takes_precedence_over_builtin() {
         "user LBL must take precedence over builtin fallback — no card op should be staged",
     );
 }
+
+#[test]
+fn run_loop_xeq_wprgm_inside_program_stages_request() {
+    // Program: LBL "MAIN" / XEQ "WPRGM" / RTN
+    // Running MAIN should execute the XEQ step, which stages a WriteProgram
+    // request and then returns to MAIN's RTN (top-level → terminate).
+    let mut state = state_with_alpha("CARD1");
+    state.program = vec![
+        Op::Lbl("MAIN".to_string()),
+        Op::Xeq("WPRGM".to_string()),
+        Op::Rtn,
+    ];
+    run_program(&mut state, "MAIN").expect("MAIN must run cleanly");
+    assert_eq!(
+        state.pending_card_op,
+        Some(CardOpRequest::WriteProgram { name: "CARD1".to_string() }),
+    );
+}

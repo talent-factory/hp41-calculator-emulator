@@ -194,10 +194,24 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 if state.call_stack.len() >= 4 {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
                 }
-                // find target before pushing to call_stack (error-before-mutation)
-                let target = find_in_program(program, &label)?;
-                state.call_stack.push(state.pc);
-                state.pc = target + 1;
+                // User-label lookup first; on miss fall back to the four
+                // Card Reader built-ins (Phase 19 spec). Built-in dispatch
+                // does NOT push the call stack — it's a single op, not a
+                // subroutine call, so pc just advances.
+                match find_in_program(program, &label) {
+                    Ok(target) => {
+                        state.call_stack.push(state.pc);
+                        state.pc = target + 1;
+                    }
+                    Err(_) => {
+                        if let Some(op) = builtin_card_op(&label) {
+                            crate::ops::dispatch(state, op)?;
+                            state.pc += 1;
+                        } else {
+                            return Err(HpError::InvalidOp);
+                        }
+                    }
+                }
             }
             Op::Test(kind) => {
                 if !evaluate_test(state, &kind) {
