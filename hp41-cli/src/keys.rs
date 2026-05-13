@@ -170,6 +170,11 @@ pub const KEY_REF_TABLE: &[(&str, &str)] = &[
         "X nn",
         "Insert synthetic hex byte at current PC (PRGM mode only)",
     ),
+    // Phase 19: Card Reader comfort shortcuts
+    ("Ctrl+W", "WPRGM (write current program to card)"),
+    ("Ctrl+R", "RDPRGM (read program from card)"),
+    ("Ctrl+D", "WDTA (write data registers to card)"),
+    ("Ctrl+F", "RDTA (read data registers from card)"),
 ];
 
 /// Map a crossterm KeyCode to the HP-41 hardware key code (row×10 + col, 1-indexed).

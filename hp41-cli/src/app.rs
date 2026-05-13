@@ -259,6 +259,25 @@ impl App {
             return;
         }
 
+        // Phase 19: Card Reader comfort shortcuts — Ctrl+W/R/D/F dispatch the four card ops
+        // directly without typing ALPHA + XEQ. Hardware-faithful path still works in parallel.
+        if key.code == KeyCode::Char('w') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Wprgm);
+            return;
+        }
+        if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Rdprgm);
+            return;
+        }
+        if key.code == KeyCode::Char('d') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Wdta);
+            return;
+        }
+        if key.code == KeyCode::Char('f') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Rdta);
+            return;
+        }
+
         // Phase 5: ALPHA mode routing (D-12) — must be BEFORE digit-entry block (RESEARCH Pitfall 5).
         // In ALPHA mode, 'a' must append 'a', not dispatch Asin.
         if self.state.alpha_mode {
@@ -1957,5 +1976,52 @@ mod synthetic_modal_tests {
             hp41_core::HpNum::from(51i32),
             "SyntheticByte(0xCE) in program must execute as GETKEY and push 51"
         );
+    }
+
+    // Helper — create a Ctrl-modified Press key event.
+    fn make_ctrl_key(c: char) -> KeyEvent {
+        KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::CONTROL,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    /// Phase 19: Ctrl+W dispatches WPRGM (write program to card).
+    #[test]
+    fn test_ctrl_w_dispatches_wprgm() {
+        let mut app = make_app();
+        app.handle_key(make_ctrl_key('w'));
+        // App must not quit and must not have entered ALPHA mode.
+        assert!(!app.exit, "Ctrl+W must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+W must not activate ALPHA mode");
+    }
+
+    /// Phase 19: Ctrl+R dispatches RDPRGM (read program from card).
+    #[test]
+    fn test_ctrl_r_dispatches_rdprgm() {
+        let mut app = make_app();
+        app.handle_key(make_ctrl_key('r'));
+        assert!(!app.exit, "Ctrl+R must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+R must not activate ALPHA mode");
+    }
+
+    /// Phase 19: Ctrl+D dispatches WDTA (write data registers to card).
+    #[test]
+    fn test_ctrl_d_dispatches_wdta() {
+        let mut app = make_app();
+        app.handle_key(make_ctrl_key('d'));
+        assert!(!app.exit, "Ctrl+D must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+D must not activate ALPHA mode");
+    }
+
+    /// Phase 19: Ctrl+F dispatches RDTA (read data registers from card).
+    #[test]
+    fn test_ctrl_f_dispatches_rdta() {
+        let mut app = make_app();
+        app.handle_key(make_ctrl_key('f'));
+        assert!(!app.exit, "Ctrl+F must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+F must not activate ALPHA mode");
     }
 }
