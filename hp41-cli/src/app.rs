@@ -294,8 +294,21 @@ impl App {
             return;
         }
 
-        // D-16: '?' toggles the help overlay
-        if key.code == KeyCode::Char('?') {
+        // D-16: '?' toggles the help overlay.
+        //
+        // Phase 25 / Plan 03 (Rule 1 — fixes blocker for FN-TEST-01): when a
+        // text-input modal (`XeqByName` or `ClpLabel`) is active, the user
+        // needs to type `?` as the trailing character of HP-41CV mnemonics
+        // like `X<>Y?`. Let the `?` flow through to the modal handler in
+        // that case. For non-text-input modals (Sto/Rcl reg modals, Flag
+        // prompts, etc.) `?` retains its help-toggle behavior because those
+        // modals reject non-digit characters anyway.
+        if key.code == KeyCode::Char('?')
+            && !matches!(
+                self.pending_input,
+                Some(PendingInput::XeqByName(_)) | Some(PendingInput::ClpLabel(_))
+            )
+        {
             self.show_help = !self.show_help;
             self.show_programs = false; // close programs overlay if open
             return;
@@ -1398,12 +1411,20 @@ impl App {
             }
             KeyCode::Enter => {
                 if !acc.is_empty() {
-                    // Plan 02 ships the modal scaffold. Plan 03 extends
-                    // `builtin_card_op` 4→12 so the 8 conditional-test
-                    // mnemonics resolve here. Until then, Op::Xeq falls
-                    // through to the 4 existing card-reader builtin names
-                    // (WPRGM/RDPRGM/WDTA/RDTA) and then to user LBLs.
-                    self.call_dispatch(Op::Xeq(acc));
+                    // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
+                    // resolves the 8 non-keyboard conditional-test mnemonics
+                    // directly to Op::Test(TestKind::*) without round-tripping
+                    // through Op::Xeq + run_program. Falls through to
+                    // Op::Xeq(acc) for the 4 v2.1 card-reader names
+                    // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
+                    // builtin_card_op) and for user LBLs. Unknown names
+                    // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
+                    // no "did you mean…?" hint until Phase 26).
+                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc) {
+                        self.call_dispatch(op);
+                    } else {
+                        self.call_dispatch(Op::Xeq(acc));
+                    }
                 }
                 self.pending_input = None;
             }
