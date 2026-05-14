@@ -86,8 +86,33 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
     }
 }
 
+/// Map a key pressed AFTER an armed f-prefix to its HP-41CV f-shifted Op.
+///
+/// Phase 25 / Plan 01 — wires only the four hardware-anchored arithmetic-key
+/// conditional tests per D-25.7. Plan 02 extends with modal-opener f-shifted
+/// bindings (SF / CF / VIEW / TONE / …) and Plan 04 may rebuild the table
+/// entirely from `docs/hp41cv-functions.json` (D-25.18). Returning `None`
+/// here is silent — the caller in `App::handle_key` always clears the
+/// `shift_armed` flag regardless (Pitfall 5).
+pub fn shifted_key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
+    // Plan 01 stub — Task 2 fills in the four f-arith conditional tests
+    // (`f -` → X=Y, `f +` → X≤Y, `f *` → X>Y, `f /` → X=0). Until then,
+    // every f-shifted key resolves to None (one-shot consumed silently).
+    let _ = key;
+    None
+}
+
 /// Key-reference table for the TUI right panel (INPUT-01 discoverability).
 /// Shown verbatim in ui.rs render_right_panel().
+///
+/// **Plan 25-01 note (D-25.18):** This hand-curated table is the **v1.x** key
+/// reference. Plan 25-04 rebuilds it from `docs/hp41cv-functions.json` so the
+/// JSON is the single source of truth for both CLI discoverability and the
+/// GUI ?-overlay (FN-CLI-01 + FN-DOC-02). Until Plan 04 lands, this table is
+/// left untouched but its content (especially the v1.x letter bindings on
+/// the right side) is **stale** — Plan 01 strips those bindings from
+/// `key_to_op()` itself in the next task. Do not extend this table by hand;
+/// add entries to the JSON instead.
 pub const KEY_REF_TABLE: &[(&str, &str)] = &[
     ("0-9 .", "digit entry"),
     ("e", "EEX (sci notation entry)"),

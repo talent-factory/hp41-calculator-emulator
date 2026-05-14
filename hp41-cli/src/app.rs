@@ -13,7 +13,7 @@ use ratatui::widgets::TableState;
 use ratatui::DefaultTerminal;
 
 use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
-use hp41_core::{AngleMode, CalcState, DisplayMode};
+use hp41_core::{AngleMode, CalcState};
 
 use crate::{keys, persistence, ui};
 
@@ -52,6 +52,14 @@ pub struct App {
     pub state_path: PathBuf,
     // ── Phase 5: modal input (D-08) ──────────────────────────────────────────
     pub pending_input: Option<PendingInput>,
+    // ── Phase 25: one-shot HP-41CV f-prefix arm state (D-25.1 / D-25.4) ──────
+    /// True for exactly one key-press cycle after `f` is pressed; consumed
+    /// by the next op key (which is then resolved via `keys::shifted_key_to_op`)
+    /// OR cleared by Esc. Cleared UNCONDITIONALLY at the end of the consumed
+    /// branch — see Pitfall 5 in RESEARCH.md. Frontend-only, never persisted
+    /// in `CalcState`, never crosses IPC — mirrors hp41-gui v2.1's `shiftActive`
+    /// per D-25.6 (CLI ↔ GUI parity invariant).
+    pub shift_armed: bool,
     // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
     pub show_help: bool,
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
@@ -124,6 +132,7 @@ impl App {
             last_save: Instant::now(),
             state_path,
             pending_input: None,
+            shift_armed: false,
             show_help: false,
             help_table_state: RefCell::new(TableState::default()),
             show_programs: false,
@@ -177,7 +186,11 @@ impl App {
     }
 
     /// Handle a single key event. All mutation of CalcState happens here (not in draw).
-    fn handle_key(&mut self, key: KeyEvent) {
+    ///
+    /// `pub` (Phase 25) so integration tests under `tests/` can drive the full
+    /// f-prefix state machine end-to-end without resorting to `#[cfg(test)]`
+    /// in-crate hacks. The CLI binary calls it from the `run()` event loop.
+    pub fn handle_key(&mut self, key: KeyEvent) {
         // D-06: filter Release immediately — Windows crossterm fires both Press and Release.
         // This MUST be the first check — no other logic before it.
         if key.kind != KeyEventKind::Press {
@@ -298,6 +311,43 @@ impl App {
         // In ALPHA mode, 'a' must append 'a', not dispatch Asin.
         if self.state.alpha_mode {
             self.handle_alpha_mode_key(key);
+            return;
+        }
+
+        // ── Phase 25: HP-41CV one-shot f-prefix state machine (D-25.1 / D-25.4) ──
+        // Ordering rules (non-negotiable):
+        //   • AFTER the pending_input route — an active modal MUST swallow `f`
+        //     (Pitfall 4 — INTENDED). The route at line ~228 already returned.
+        //   • AFTER the ALPHA-mode block — `f` in ALPHA mode types the letter F
+        //     (D-25.5 / Pitfall 2). The block above already returned.
+        //   • BEFORE the v1.x `f` FmtDigits cycle which is REMOVED in this commit
+        //     (D-25.3 / Pitfall 3) — no other `f` handler may stand between this
+        //     point and the end of handle_key.
+        //
+        // Arm on plain `f` (no Ctrl modifier; Ctrl+F is RDTA, handled above):
+        if !self.shift_armed
+            && key.code == KeyCode::Char('f')
+            && !key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            self.shift_armed = true;
+            self.message = None;
+            return;
+        }
+        // Consume on the next key cycle (one-shot lifetime, D-25.4):
+        if self.shift_armed {
+            // Esc cancels without dispatching.
+            if key.code == KeyCode::Esc {
+                self.shift_armed = false;
+                return;
+            }
+            // Try the shifted resolver; on miss the prefix is consumed silently.
+            if let Some(op) = keys::shifted_key_to_op(key, self) {
+                self.call_dispatch(op);
+            }
+            // ALWAYS clear after consumption — Pitfall 5: the one-shot lifetime
+            // is "next key cycle", NOT "next CONSUMED key". Bleed across handle_key
+            // invocations is what `test_shift_armed_pitfall5_bleed` guards against.
+            self.shift_armed = false;
             return;
         }
 
@@ -463,16 +513,12 @@ impl App {
             return;
         }
 
-        // D-10: 'f' cycles display format FIX 4 → SCI 4 → ENG 4 (digit count stays 4)
-        if key.code == KeyCode::Char('f') {
-            let next_op = match self.state.display_mode {
-                DisplayMode::Fix(_) => Op::FmtSci(4),
-                DisplayMode::Sci(_) => Op::FmtEng(4),
-                DisplayMode::Eng(_) => Op::FmtFix(4),
-            };
-            self.call_dispatch(next_op);
-            return;
-        }
+        // Phase 25 (D-25.3 / Pitfall 3): the v1.x `f` direct-cycle binding
+        // (FIX/SCI/ENG cycle) was REMOVED here. The HP-41CV `f` key is now the
+        // ONE yellow prefix shift (D-25.2), armed above. The FIX/SCI/ENG modal
+        // remains reachable via `F` (uppercase) which opens `PendingInput::FmtDigits`;
+        // Plan 02 / Plan 04 reposition that modal to its real HP-41CV f-shifted
+        // keyboard position once the JSON-derived key table lands (D-25.18).
 
         // D-15: SST (single-step forward) — F7, increments pc without executing
         if key.code == KeyCode::F(7) {
