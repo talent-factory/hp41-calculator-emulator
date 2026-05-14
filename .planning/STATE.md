@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T18:00:00.000Z"
-last_activity: 2026-05-14 -- Phase 25 context gathered
+last_updated: "2026-05-15T00:00:00.000Z"
+last_activity: 2026-05-15 -- Phase 25 shipped (CLI Integration & Documentation)
 progress:
   total_phases: 8
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 14
-  percent: 62
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 18
+  percent: 75
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
-**Current focus:** v2.2 HP-41CV Feature Completeness — roadmap complete (Phases 20–27); awaiting first phase planning
+**Current focus:** v2.2 HP-41CV Feature Completeness — Phases 20–25 shipped; Phase 26 (GUI Integration & Polish) is next
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 25: CLI Integration & Documentation — CONTEXT GATHERED (0 plans created)
-Plans: TBD — planner derives from D-25.1..D-25.17
-Status: Ready to plan
-Resume file: .planning/phases/25-cli-integration-and-documentation/25-CONTEXT.md
-Last activity: 2026-05-14 -- Phase 25 context gathered (4 areas, 17 decisions)
+Phase: 26: GUI Integration & Polish — NOT STARTED
+Plans: TBD — discuss-phase + planner
+Status: Ready for /gsd-discuss-phase 26
+Resume file: .planning/phases/25-cli-integration-and-documentation/25-VERIFICATION.md
+Last activity: 2026-05-15 -- Phase 25 shipped: 4 plans, 17 commits, 1045/1045 tests passing, just docs-matrix-check green
 
-Progress: 5 / 8 phases (Phase 24 complete; Phase 25 context → plan)
+Progress: 6 / 8 phases (Phase 25 complete; Phase 26 GUI Integration next)
 
 ---
 
@@ -133,10 +133,10 @@ None.
 
 ## Session Continuity
 
-**Last active:** 2026-05-14
-**Last action:** `/gsd-discuss-phase 25` complete — 4 areas discussed and locked as D-25.1..D-25.17 in `.planning/phases/25-cli-integration-and-documentation/25-CONTEXT.md`. Headline decisions: (1) **HP-41CV f-prefix shift modal** supersedes v1.x crossterm direct mapping — ONE yellow prefix key only (corrected from initial 'f+g' draft after user noted HP-41C/CV/CX has only one shift key, unlike HP-15C/12C); full migration deprecates `C` for COS / `L` for LN / etc.; one-shot lifetime matching GUI v2.1 `shiftActive`; ALPHA-overrides-Prefix preserved (D-5 deferral); full hardware ALPHA-special-char-prefix → v3.x. (2) **4 conditional tests** bound exactly to user's physical HP-41CV: `f-` → X=Y, `f+` → X≤Y, `f*` → X>Y, `f/` → X=0; the other 8 (X≠Y, X<Y, X≥Y, X≠0, X<0, X>0, X≤0, X≥0) reachable only via XEQ-by-Name palette (v2.1 modal, already shipped); FN-TEST-01 "reachable" interpreted as keystroke-sequence-reachable. (3) **Hybrid PendingInput** — group struct-variants (`FlagPrompt {kind, ind, acc}` + `RegisterPrompt {op, ind, acc}`) plus specialty unique variants (CLP-Label / DEL-Count / TONE); IND modifier as `ind: bool` field, toggle-bar mid-input matching HP-41CV hardware flow; reuses Phase-21 FlagTestKind + Phase-9 StoArithKind. ~18 exhaustive match arms (vs naive ~30+). (4) **Shared JSON + hand-curated matrix** — `docs/hp41cv-functions.json` as single source; `hp41-cli/src/help_data.rs` via include_str! + serde lazy-parse (no build.rs codegen); Phase 26 vite-imports same JSON; `docs/hp41cv-function-matrix.md` generated via `just docs-matrix`; CI test verifies JSON ↔ Op-enum ↔ committed-MD parity; README ships soft "feature-complete HP-41CV with documented divergences" claim in Phase 25 with hard claim deferred to Phase 27. NO `hp41-core` changes, NO new CalcState fields, NO new HpError variants. CLI ↔ GUI parity is invariant (Phase 26 must mirror exactly). Phase 24 ship recap: 905/905 tests, hp41-core coverage 93.48% (up from 92.68%), PR #11 updated; pushed via 435357f.
-**Next action:** `/gsd-plan-phase 25` — turn the 17 locked decisions into detailed plans. Largest single-phase wiring task in v2.2: ~80 Op variants × keyboard + ~18 PendingInput modal arms + ~130-row function matrix + CLI/docs sync.
+**Last active:** 2026-05-15
+**Last action:** `/gsd-execute-phase 25` complete — 4 plans, 17 commits, 1045/1045 workspace tests passing, `just docs-matrix-check` green, `cargo clippy --workspace --all-targets -- -D warnings` clean. **Shipped artifacts:** (1) `App.shift_armed` one-shot f-prefix state machine in `hp41-cli/src/app.rs` mirroring GUI v2.1 `shiftActive`; ALPHA-overrides-prefix preserved; 26 v1.x letter direct dispatches stripped from `key_to_op` per D-25.3. (2) 6 new `PendingInput` variants (12→18): `FlagPrompt { kind, ind, acc }` + `RegisterPrompt { op, ind, acc }` struct-group, `ClpLabel` + `DelCount` + `TonePrompt` + `XeqByName` specialty; IND-toggle via shift-0 reuses `App.shift_armed` (W2 fix); `pending_prompt()` exhaustive — no `_=>` or `unreachable!()`. (3) Surgical `hp41-core::ops::program::builtin_card_op` 4→12 extension (the one cleared exception to the FROZEN rule); `pub(super)` visibility preserved (W1 fix); CLI `xeq_by_name_local_resolve` + XeqByName modal Enter-arm dispatches all 8 non-keyboard conditional tests. (4) `docs/hp41cv-functions.json` (130 entries, canonical source) + `help_data.rs` JSON pipeline via `include_str!` + `std::sync::OnceLock` (D-25.16); `scripts/docs-matrix/` standalone non-workspace Rust bin emits `docs/hp41cv-function-matrix.md`; `just docs-matrix` + `just docs-matrix-check` recipes; bidirectional `function_matrix_parity.rs` + `key_coverage.rs` tests (the B2 fix that closes FN-CLI-01 verifiability). (5) `KEY_REF_TABLE` const deleted → `key_ref_entries()` JSON-derived per D-25.18; CLAUDE.md "v2.2 additions" subsection; README soft "feature-complete HP-41CV" claim with matrix link. **Auto-fixes during execution:** Plan 03 narrowed help-overlay `?` interceptor so XEQ-by-Name modal can accept HP-41CV mnemonics ending in `?` (e.g. `X=Y?`); Plan 02 wired Esc inside FlagPrompt/RegisterPrompt to also clear `shift_armed` (T-25-07 mitigation). **Boundary preserved:** root `Cargo.toml` `members = ["hp41-core", "hp41-cli"]` unchanged; hp41-gui untouched; SC-4 invariant intact; the only hp41-core touch was the 4→12 cleared surgical extension. PR #11 updated; pushed.
+**Next action:** `/gsd-discuss-phase 26` — start GUI Integration & Polish. Phase 26 mirrors the Phase 25 prefix-modal model into hp41-gui (D-25.6 parity invariant): every new v2.2 key ID resolves via `key_map.rs::resolve`; previously-stubbed prompts (`sto_prompt`, `rcl_prompt`, `fix_prompt`, etc.) route to real React modals; 14-seg SVG LCD font; `?` overlay ports `help_data.rs` to TS via the same JSON; `p`-key remap to `prgm_mode`.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 25 context gathered; ready to plan*
+*Last updated: 2026-05-15 — Phase 25 shipped; Phase 26 next*

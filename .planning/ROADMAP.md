@@ -24,7 +24,7 @@
 - [x] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep) (completed 2026-05-14)
 - [x] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core ✅ shipped 2026-05-14 (6/6 must-haves verified, 2 plans, 50 new tests, WR-01 + WR-02 fixed in-cycle)
 - [x] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer ✅ shipped 2026-05-14 (2 plans, 11 new Op variants, resolve_indirect two-tier helper, 43 integration tests + 7 inline + 4 D-24.5 sentinels = 54 new tests, coverage 93.48%)
-- [ ] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + `KEY_REF_TABLE` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs`; ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README
+- [x] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + JSON-derived `key_ref_entries()` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs` (JSON pipeline); ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README ✅ shipped 2026-05-15 (4 plans, 17 commits, App.shift_armed one-shot + 6 new PendingInput variants + builtin_card_op 4→12 surgical extension + 130+ JSON function entries + scripts/docs-matrix standalone bin + key_coverage parity test, 1045/1045 tests passing)
 - [ ] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode`
 - [ ] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; Playwright GUI E2E smoke test
 
@@ -232,6 +232,6 @@ Plans:
 | 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
 | 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
-| 25. CLI Integration & Documentation | v2.2 | 0/4 | Planned    |  |
+| 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
 | 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
 | 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
