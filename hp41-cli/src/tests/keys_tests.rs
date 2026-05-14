@@ -141,10 +141,18 @@ fn unmapped_keys_return_none() {
 }
 
 #[test]
-fn key_ref_table_has_60_entries() {
-    // 55 baseline entries through Phase 12, plus '%' (%CH) and the four
-    // Card Reader shortcuts (Ctrl+W/R/D/F) — 60 total.
-    assert_eq!(crate::keys::KEY_REF_TABLE.len(), 60);
+fn key_ref_entries_is_non_empty_after_d25_18_migration() {
+    // Post-Plan-25-04 (D-25.18): the legacy KEY_REF_TABLE const is GONE; the
+    // right-panel discoverability rows derive from docs/hp41cv-functions.json
+    // via help_data::help_entries(). Verify the derivation yields at least 15
+    // discoverable rows (the JSON has 30+ key_path-bearing entries, but the
+    // multi-binding S/R/F openers collapse via deduplication in key_ref_entries).
+    let entries = crate::keys::key_ref_entries();
+    assert!(
+        entries.len() >= 15,
+        "post-D-25.18 key_ref_entries must yield >= 15 rows; got {}",
+        entries.len()
+    );
 }
 
 // Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller

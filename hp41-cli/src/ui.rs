@@ -18,7 +18,7 @@ use crate::programs;
 use hp41_core::{format_alpha, format_hpnum, AngleMode};
 
 use crate::app::App;
-use crate::keys::KEY_REF_TABLE;
+use crate::keys::key_ref_entries;
 use crate::prgm_display;
 
 /// Render the full HP-41 TUI into `frame`. Called from App::draw() every frame.
@@ -340,15 +340,26 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
         .area()
         .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
-    let rows: Vec<Row> = help_data::HELP_DATA
+    // D-25.16 / D-25.18: rows derive from docs/hp41cv-functions.json via
+    // help_data::help_overlay_rows. Category headers are synthesised by the
+    // helper as "=== <category> ===" with empty key/op fields.
+    let overlay_rows = help_data::help_overlay_rows();
+    let rows: Vec<Row> = overlay_rows
         .iter()
-        .map(|(key, op, desc)| {
-            if desc.starts_with("===") {
-                // Category header row: full-width, bold style
-                Row::new(vec![Cell::from(""), Cell::from(""), Cell::from(*desc)])
-                    .style(ratatui::style::Style::new().bold())
+        .map(|row| {
+            if row.desc.starts_with("===") {
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(row.desc.clone()),
+                ])
+                .style(ratatui::style::Style::new().bold())
             } else {
-                Row::new(vec![Cell::from(*key), Cell::from(*op), Cell::from(*desc)])
+                Row::new(vec![
+                    Cell::from(row.key.clone()),
+                    Cell::from(row.op.clone()),
+                    Cell::from(row.desc.clone()),
+                ])
             }
         })
         .collect();
@@ -394,16 +405,18 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
 // ── Right panel ───────────────────────────────────────────────────────────────
 
 fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
-    // INPUT-01 / D-03: key-reference panel — discoverable key labels.
-    // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
+    // INPUT-01 / D-03 / D-25.18 (Plan 25-04): key-reference panel —
+    // discoverable key labels derived from docs/hp41cv-functions.json via
+    // help_data::help_entries() (no hand-curated KEY_REF_TABLE const).
     let block = Block::bordered().title_top(" Keys ");
 
-    let lines: Vec<Line> = KEY_REF_TABLE
+    let entries = key_ref_entries();
+    let lines: Vec<Line> = entries
         .iter()
         .map(|(k, desc)| {
             Line::from(vec![
                 Span::styled(format!("{k:<8}"), Style::new().bold()),
-                Span::raw(*desc),
+                Span::raw(desc.clone()),
             ])
         })
         .collect();

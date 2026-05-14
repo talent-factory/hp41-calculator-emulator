@@ -372,107 +372,37 @@ pub fn xeq_by_name_local_resolve(name: &str) -> Option<Op> {
 /// Key-reference table for the TUI right panel (INPUT-01 discoverability).
 /// Shown verbatim in ui.rs render_right_panel().
 ///
-/// **Plan 25-01 note (D-25.18):** This hand-curated table is the **v1.x** key
-/// reference. Plan 25-04 rebuilds it from `docs/hp41cv-functions.json` so the
-/// JSON is the single source of truth for both CLI discoverability and the
-/// GUI ?-overlay (FN-CLI-01 + FN-DOC-02). Until Plan 04 lands, this table is
-/// left untouched but its content (especially the v1.x letter bindings on
-/// the right side) is **stale** — Plan 01 strips those bindings from
-/// `key_to_op()` itself in the next task. Do not extend this table by hand;
-/// add entries to the JSON instead.
-pub const KEY_REF_TABLE: &[(&str, &str)] = &[
-    ("0-9 .", "digit entry"),
-    ("e", "EEX (sci notation entry)"),
-    ("Enter", "ENTER / lift stack"),
-    ("Bksp", "CLX (clear X)"),
-    ("+", "add"),
-    ("-", "subtract"),
-    ("*", "multiply"),
-    ("/", "divide"),
-    ("n", "CHS (change sign)"),
-    ("r", "R\u{2193} (roll down)"),
-    ("x", "X\u{27F7}Y (swap)"),
-    ("l", "LASTX"),
-    ("s", "\u{221a}x"),
-    ("a", "ASIN (arc sine)"),
-    ("c", "ACOS (arc cosine)"),
-    ("k", "ATAN (arc tangent)"),
-    ("q", "SIN (sine of X in current angle mode)"),
-    ("S", "STO [nn] (modal register entry)"),
-    ("R", "RCL [nn] (modal register entry)"),
-    ("C", "COS  (Shift+c)"),
-    ("T", "TAN  (Shift+t)"),
-    ("L", "LN   (Shift+l)"),
-    ("G", "LOG  (Shift+g)"),
-    ("E", "e^x  (Shift+e)"),
-    ("H", "10^x (Shift+h)"),
-    ("I", "1/x  (Shift+i)"),
-    ("W", "x\u{00B2}   (Shift+w)"),
-    ("Y", "y^x  (Shift+y)"),
-    (
-        "%",
-        "%CH (percent change: ((X\u{2212}Y)/Y)\u{00D7}100, Y preserved)",
-    ),
-    ("p", "PRGM toggle"),
-    ("d", "cycle DEG/RAD/GRAD"),
-    ("f", "cycle FIX/SCI/ENG (keeps digit count)"),
-    ("F5", "R/S (run program A)"),
-    ("F7", "SST (step forward)"),
-    ("F8", "BST (step back)"),
-    ("^C", "quit"),
-    ("g", "CLREG (clear all storage registers R00-R99)"),
-    // Phase 5: new bindings
-    ("u", "USER mode toggle"),
-    ("?", "help overlay (toggle)"),
-    ("Ctrl+S", "save state to file"),
-    ("Ctrl+P", "program library overlay"),
-    ("Ctrl+A", "assign key in USER mode"),
-    ("F1-F4", "USER keys a/b/c/d (USER mode)"),
-    // Phase 6: Science & Engineering
-    (
-        "z",
-        "\u{03A3}+  (\u{03A3}+ accumulate into stats registers; push n to X)",
-    ),
-    (
-        "Z",
-        "\u{03A3}-  (\u{03A3}- remove from stats registers; push n to X)",
-    ),
-    ("m", "MEAN (x\u{0305} in X, y\u{0305} in Y)"),
-    (
-        "D",
-        "SDEV (sample \u{03C3}x in X, \u{03C3}y in Y; n-1 denom)",
-    ),
-    (
-        "y",
-        "YHAT (\u{0177} prediction from X via linear regression)",
-    ),
-    (
-        "b",
-        "L.R. (linear regression: slope m in Y, intercept b in X)",
-    ),
-    ("O", "CORR (correlation coefficient r in X)"),
-    (
-        "V",
-        "CL\u{03A3} (clear \u{03A3} stats registers R01-R06 to zero)",
-    ),
-    (
-        "F",
-        "FIX/SCI/ENG n modal (set exact digit count 0\u{2013}9)",
-    ),
-    ("h", "HMS\u{2192} (H.MMSS to decimal hours)"),
-    ("j", "HMS+  (add two H.MMSS values, base-60 carry)"),
-    ("J", "HMS-  (subtract H.MMSS values, base-60 borrow)"),
-    // Phase 12: synthetic programming
-    (
-        "X nn",
-        "Insert synthetic hex byte at current PC (PRGM mode only)",
-    ),
-    // Card Reader comfort shortcuts (Ctrl+W/R/D/F)
-    ("Ctrl+W", "WPRGM (write current program to card)"),
-    ("Ctrl+R", "RDPRGM (read program from card)"),
-    ("Ctrl+D", "WDTA (write data registers to card)"),
-    ("Ctrl+F", "RDTA (read data registers from card)"),
-];
+/// Discoverability rows for the right-panel key reference.
+///
+/// **D-25.18 (Plan 25-04):** the hand-curated `pub const KEY_REF_TABLE` is
+/// GONE — the JSON canonical source (`docs/hp41cv-functions.json`) is the
+/// single source of truth. Drift between bindings and discoverability is
+/// caught by `hp41-cli/tests/key_coverage.rs` (every implemented JSON entry
+/// with non-null `key_path` dispatches to a known `Op::` variant via the
+/// keyboard / modal / XEQ-by-Name paths).
+///
+/// This function is the auditable trace of the D-25.18 reinterpretation:
+/// reads `help_data::help_entries()` filtered by `key_path.is_some()` and
+/// returns `(key_path, display_name)` pairs ready for the right-panel
+/// renderer. The deduplication by key_path collapses the multi-variant
+/// `S`/`R`/`F` openers (which appear N times in the JSON — once per opened
+/// op such as STO, RCL, STO+, etc.) into a single discoverability row.
+pub fn key_ref_entries() -> Vec<(String, String)> {
+    let mut seen: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    for entry in crate::help_data::help_entries() {
+        if entry.status != "implemented" {
+            continue;
+        }
+        let Some(key_path) = entry.key_path.as_deref() else {
+            continue;
+        };
+        // First-occurrence wins per key_path so the multi-binding S/R/F
+        // openers show a single row in the discoverability panel.
+        seen.entry(key_path.to_string())
+            .or_insert_with(|| entry.display_name.clone());
+    }
+    seen.into_iter().collect()
+}
 
 /// Map a crossterm KeyCode to the HP-41 hardware key code (row×10 + col, 1-indexed).
 /// Returns 0 for keys with no HP-41 hardware equivalent (function keys, Ctrl combos, etc.).
@@ -554,7 +484,7 @@ pub fn keycode_to_hp41_code(code: crossterm::event::KeyCode) -> Option<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::KEY_REF_TABLE;
+    use super::key_ref_entries;
     use hp41_core::{ops::Op, CalcState};
 
     /// BLOCKER 1: test_user_mode_dispatch — pressing 'u' dispatches Op::UserMode which
@@ -598,32 +528,49 @@ mod tests {
         );
     }
 
-    // Phase 8: KEY_REF_TABLE content tests (do not require App construction)
+    // Phase 8: KEY_REF_TABLE content tests — rewritten for Plan 25-04 / D-25.18.
+    // The post-D-25.3 keyboard no longer binds 'q' -> SIN or 'g' -> CLREG (those
+    // were v1.x ASCII conventions stripped in Plan 25-01). The tests are kept
+    // as regression guards on the v2.2 prefix-shift keyboard model.
     #[test]
-    fn test_key_ref_table_has_sin_entry() {
-        let has_sin = KEY_REF_TABLE
+    fn test_key_ref_entries_drop_q_to_sin_binding() {
+        // Post-Plan-25-01 (D-25.3): 'q' is no longer wired to SIN. The JSON
+        // canonical source MUST NOT list a 'q' -> SIN row.
+        let entries = key_ref_entries();
+        let still_present = entries
             .iter()
-            .any(|(k, desc)| *k == "q" && desc.contains("SIN"));
-        assert!(has_sin, "KEY_REF_TABLE must have q->SIN entry");
+            .any(|(k, desc)| k == "q" && desc.contains("SIN"));
+        assert!(
+            !still_present,
+            "post-D-25.3 'q' must NOT be discoverable as SIN — \
+             update docs/hp41cv-functions.json"
+        );
     }
 
     #[test]
-    fn test_key_ref_table_has_clreg_entry() {
-        let has_clreg = KEY_REF_TABLE
+    fn test_key_ref_entries_drop_g_to_clreg_binding() {
+        // Post-Plan-25-01 (D-25.3): 'g' is no longer wired to CLREG.
+        let entries = key_ref_entries();
+        let still_present = entries
             .iter()
-            .any(|(k, desc)| *k == "g" && desc.contains("CLREG"));
-        assert!(has_clreg, "KEY_REF_TABLE must have g->CLREG entry");
+            .any(|(k, desc)| k == "g" && desc.contains("CLREG"));
+        assert!(
+            !still_present,
+            "post-D-25.3 'g' must NOT be discoverable as CLREG — \
+             update docs/hp41cv-functions.json"
+        );
     }
 
     #[test]
-    fn test_key_ref_table_quit_is_ctrl_c_only() {
-        // 'q' must no longer be listed as a quit key after Phase 8 reassignment
-        let q_quit = KEY_REF_TABLE
+    fn test_key_ref_entries_quit_is_ctrl_c_only() {
+        let entries = key_ref_entries();
+        let q_quit = entries
             .iter()
             .any(|(k, desc)| k.contains('q') && desc.to_lowercase().contains("quit"));
         assert!(
             !q_quit,
-            "KEY_REF_TABLE must not list 'q' as a quit key after reassignment to SIN"
+            "key_ref_entries must not list 'q' as a quit key after the \
+             D-25.3 reassignment"
         );
     }
 
@@ -680,10 +627,14 @@ mod tests {
     }
 
     #[test]
-    fn test_key_ref_table_has_pct_entry() {
-        let has_pct = KEY_REF_TABLE
-            .iter()
-            .any(|(k, desc)| *k == "%" && desc.contains("%CH"));
-        assert!(has_pct, "KEY_REF_TABLE must contain a '%' → %CH entry");
+    fn test_key_ref_entries_have_pct_entry() {
+        // The percent-change %CH op remains discoverable post-Plan-25-04.
+        // The JSON entry uses display_name "%CH" and key_path "%".
+        let entries = key_ref_entries();
+        let has_pct = entries.iter().any(|(k, desc)| k == "%" && desc == "%CH");
+        assert!(
+            has_pct,
+            "key_ref_entries must include a '%' -> %CH discoverability row"
+        );
     }
 }

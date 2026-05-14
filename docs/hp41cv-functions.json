@@ -1,0 +1,1395 @@
+[
+    {
+        "op_variant": "Add",
+        "display_name": "+",
+        "category": "Arithmetic",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "+",
+        "description": "Add: X <- Y + X, drop stack"
+    },
+    {
+        "op_variant": "Sub",
+        "display_name": "-",
+        "category": "Arithmetic",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "-",
+        "description": "Subtract: X <- Y - X, drop stack"
+    },
+    {
+        "op_variant": "Mul",
+        "display_name": "*",
+        "category": "Arithmetic",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "*",
+        "description": "Multiply: X <- Y * X, drop stack"
+    },
+    {
+        "op_variant": "Div",
+        "display_name": "/",
+        "category": "Arithmetic",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "/",
+        "description": "Divide: X <- Y / X, drop stack"
+    },
+    {
+        "op_variant": "Enter",
+        "display_name": "ENTER",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "ENTER",
+        "description": "Lift stack and duplicate X into Y"
+    },
+    {
+        "op_variant": "Clx",
+        "display_name": "CLX",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "BACKSPACE",
+        "description": "Clear X register (entry cancel)"
+    },
+    {
+        "op_variant": "Chs",
+        "display_name": "CHS",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "n",
+        "description": "Change sign of X (negate)"
+    },
+    {
+        "op_variant": "Rdn",
+        "display_name": "Rv",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "r",
+        "description": "Roll stack down: X<-Y, Y<-Z, Z<-T, T<-X"
+    },
+    {
+        "op_variant": "Rup",
+        "display_name": "R^",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Roll stack up: X<-T, T<-Z, Z<-Y, Y<-X"
+    },
+    {
+        "op_variant": "XySwap",
+        "display_name": "X<>Y",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "x",
+        "description": "Swap X and Y registers"
+    },
+    {
+        "op_variant": "Lastx",
+        "display_name": "LASTX",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "1",
+        "key_path": "l",
+        "description": "Recall last X (value before last operation)"
+    },
+    {
+        "op_variant": "Pi",
+        "display_name": "PI",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Push pi onto X (3.141592654, 10-digit rounded)",
+        "divergences": ["10-digit precision per Phase 20 D-09"]
+    },
+    {
+        "op_variant": "Int",
+        "display_name": "INT",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Truncate X toward zero (integer part)"
+    },
+    {
+        "op_variant": "Rnd",
+        "display_name": "RND",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Round X to precision of current display mode"
+    },
+    {
+        "op_variant": "Frc",
+        "display_name": "FRC",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Fractional part of X (sign-preserving)"
+    },
+    {
+        "op_variant": "Abs",
+        "display_name": "ABS",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Absolute value of X"
+    },
+    {
+        "op_variant": "Sign",
+        "display_name": "SIGN",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Sign of X: -1, 0, or +1",
+        "divergences": ["SIGN-on-ALPHA returns 0 per Phase 25 docs"]
+    },
+    {
+        "op_variant": "Fact",
+        "display_name": "N!",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Factorial of integer X; OutOfRange for X>69",
+        "divergences": ["FACT effective cap <= 27 per Phase 20 D-05"]
+    },
+    {
+        "op_variant": "Recip",
+        "display_name": "1/X",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Reciprocal of X"
+    },
+    {
+        "op_variant": "Sqrt",
+        "display_name": "SQRT",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Square root of X"
+    },
+    {
+        "op_variant": "Sq",
+        "display_name": "X^2",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Square of X"
+    },
+    {
+        "op_variant": "YPow",
+        "display_name": "Y^X",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Y raised to power X"
+    },
+    {
+        "op_variant": "Mod",
+        "display_name": "MOD",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Y mod X with trunc-toward-zero convention"
+    },
+    {
+        "op_variant": "PctChange",
+        "display_name": "%CH",
+        "category": "Arithmetic",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "%",
+        "description": "Percent change from Y to X: ((X-Y)/Y)*100"
+    },
+    {
+        "op_variant": "Ln",
+        "display_name": "LN",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Natural logarithm of X"
+    },
+    {
+        "op_variant": "Log",
+        "display_name": "LOG",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Base-10 logarithm of X"
+    },
+    {
+        "op_variant": "Exp",
+        "display_name": "E^X",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Natural exponential of X"
+    },
+    {
+        "op_variant": "TenPow",
+        "display_name": "10^X",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Base-10 exponential of X"
+    },
+    {
+        "op_variant": "Sin",
+        "display_name": "SIN",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Sine of X (in current angle mode)"
+    },
+    {
+        "op_variant": "Cos",
+        "display_name": "COS",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Cosine of X (in current angle mode)"
+    },
+    {
+        "op_variant": "Tan",
+        "display_name": "TAN",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Tangent of X (in current angle mode)"
+    },
+    {
+        "op_variant": "Asin",
+        "display_name": "ASIN",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Arc sine of X (result in current angle mode)"
+    },
+    {
+        "op_variant": "Acos",
+        "display_name": "ACOS",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Arc cosine of X (result in current angle mode)"
+    },
+    {
+        "op_variant": "Atan",
+        "display_name": "ATAN",
+        "category": "Trig",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Arc tangent of X (result in current angle mode)"
+    },
+    {
+        "op_variant": "PolarToRect",
+        "display_name": "P->R",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Convert polar (Y=mag, X=angle) to rectangular"
+    },
+    {
+        "op_variant": "RectToPolar",
+        "display_name": "R->P",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "20",
+        "key_path": null,
+        "description": "Convert rectangular (Y=x, X=y) to polar"
+    },
+    {
+        "op_variant": "SetDeg",
+        "display_name": "DEG",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Set angle mode to DEG"
+    },
+    {
+        "op_variant": "SetRad",
+        "display_name": "RAD",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Set angle mode to RAD"
+    },
+    {
+        "op_variant": "SetGrad",
+        "display_name": "GRAD",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Set angle mode to GRAD"
+    },
+    {
+        "op_variant": "FmtFix",
+        "display_name": "FIX",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "F",
+        "description": "FIX n - fixed decimal display (n=0..9)"
+    },
+    {
+        "op_variant": "FmtSci",
+        "display_name": "SCI",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "F",
+        "description": "SCI n - scientific notation display (n=0..9)"
+    },
+    {
+        "op_variant": "FmtEng",
+        "display_name": "ENG",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "F",
+        "description": "ENG n - engineering notation display (n=0..9)"
+    },
+    {
+        "op_variant": "StoReg",
+        "display_name": "STO",
+        "category": "Registers",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "S",
+        "description": "STO nn - store X into register nn (0..99)"
+    },
+    {
+        "op_variant": "RclReg",
+        "display_name": "RCL",
+        "category": "Registers",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": "R",
+        "description": "RCL nn - recall register nn into X (0..99)"
+    },
+    {
+        "op_variant": "StoArith",
+        "display_name": "STO+/-/*//",
+        "category": "Registers",
+        "status": "implemented",
+        "phase": "9",
+        "key_path": "S",
+        "description": "STO arithmetic on register nn using X"
+    },
+    {
+        "op_variant": "StoArithStack",
+        "display_name": "STO+/-/*// Y/Z/T/L",
+        "category": "Registers",
+        "status": "implemented",
+        "phase": "9",
+        "key_path": "S",
+        "description": "STO arithmetic on stack register using X"
+    },
+    {
+        "op_variant": "Clreg",
+        "display_name": "CLREG",
+        "category": "Registers",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Clear all storage registers R00..R99 to zero"
+    },
+    {
+        "op_variant": "AlphaToggle",
+        "display_name": "ALPHA",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Toggle ALPHA mode (input/output text characters)"
+    },
+    {
+        "op_variant": "AlphaAppend",
+        "display_name": "ALPHA char",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Append character to ALPHA register (max 24 chars)"
+    },
+    {
+        "op_variant": "AlphaClear",
+        "display_name": "CLRALPHA",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "2",
+        "key_path": null,
+        "description": "Clear ALPHA register (legacy alias of CLA)"
+    },
+    {
+        "op_variant": "Lbl",
+        "display_name": "LBL",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": null,
+        "description": "Program label marker (no-op at execution)"
+    },
+    {
+        "op_variant": "Gto",
+        "display_name": "GTO",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": null,
+        "description": "GTO name - unconditional branch to label"
+    },
+    {
+        "op_variant": "Xeq",
+        "display_name": "XEQ",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": "f-N",
+        "description": "XEQ name - subroutine call (max 4 deep)"
+    },
+    {
+        "op_variant": "Rtn",
+        "display_name": "RTN",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": null,
+        "description": "Return from subroutine"
+    },
+    {
+        "op_variant": "PrgmMode",
+        "display_name": "PRGM",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": "p",
+        "description": "Toggle PRGM recording mode"
+    },
+    {
+        "op_variant": "Test",
+        "display_name": "X?Y / X?0",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": "f--",
+        "description": "Conditional test (skip next step on false)"
+    },
+    {
+        "op_variant": "Isg",
+        "display_name": "ISG",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": "f-i",
+        "description": "ISG nn - increment counter, skip on overflow"
+    },
+    {
+        "op_variant": "Dse",
+        "display_name": "DSE",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "3",
+        "key_path": "f-d",
+        "description": "DSE nn - decrement counter, skip on underflow"
+    },
+    {
+        "op_variant": "UserMode",
+        "display_name": "USER",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "5",
+        "key_path": "u",
+        "description": "Toggle USER mode (key assignments active)"
+    },
+    {
+        "op_variant": "AlphaBackspace",
+        "display_name": "ALPHA <-",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "5",
+        "key_path": null,
+        "description": "Delete last character from ALPHA register"
+    },
+    {
+        "op_variant": "SigmaPlus",
+        "display_name": "SIGMA+",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Accumulate X,Y into stat registers; push count"
+    },
+    {
+        "op_variant": "SigmaMinus",
+        "display_name": "SIGMA-",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Remove X,Y from stat registers; push count"
+    },
+    {
+        "op_variant": "Mean",
+        "display_name": "MEAN",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Push x-bar to X, y-bar to Y from stat regs"
+    },
+    {
+        "op_variant": "Sdev",
+        "display_name": "SDEV",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Sample std dev (n-1): X<-sigma_x, Y<-sigma_y"
+    },
+    {
+        "op_variant": "LR",
+        "display_name": "L.R.",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Linear regression: slope m to Y, intercept b to X"
+    },
+    {
+        "op_variant": "Yhat",
+        "display_name": "YHAT",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "y-hat prediction via linear regression"
+    },
+    {
+        "op_variant": "Corr",
+        "display_name": "CORR",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Correlation coefficient r in X"
+    },
+    {
+        "op_variant": "ClSigmaStat",
+        "display_name": "CL SIGMA",
+        "category": "Math",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Clear stat registers R01..R06 to zero"
+    },
+    {
+        "op_variant": "HmsToH",
+        "display_name": "HMS->H",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Convert H.MMSS to decimal hours"
+    },
+    {
+        "op_variant": "HToHms",
+        "display_name": "H->HMS",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Convert decimal hours to H.MMSS"
+    },
+    {
+        "op_variant": "HmsAdd",
+        "display_name": "HMS+",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Add two H.MMSS values (base-60 carry)"
+    },
+    {
+        "op_variant": "HmsSub",
+        "display_name": "HMS-",
+        "category": "Conversion",
+        "status": "implemented",
+        "phase": "6",
+        "key_path": null,
+        "description": "Subtract H.MMSS values (base-60 borrow)"
+    },
+    {
+        "op_variant": "PRX",
+        "display_name": "PRX",
+        "category": "Print",
+        "status": "implemented",
+        "phase": "11",
+        "key_path": null,
+        "description": "Print X register, right-aligned to 24 chars"
+    },
+    {
+        "op_variant": "PRA",
+        "display_name": "PRA",
+        "category": "Print",
+        "status": "implemented",
+        "phase": "11",
+        "key_path": null,
+        "description": "Print ALPHA register, left-aligned to 24 chars"
+    },
+    {
+        "op_variant": "PRSTK",
+        "display_name": "PRSTK",
+        "category": "Print",
+        "status": "implemented",
+        "phase": "11",
+        "key_path": null,
+        "description": "Print full stack T/Z/Y/X/LASTX/ALPHA"
+    },
+    {
+        "op_variant": "GetKey",
+        "display_name": "GETKEY",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": null,
+        "description": "Push last key code (HP-41 row*10+col) to X"
+    },
+    {
+        "op_variant": "Null",
+        "display_name": "NULL",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": null,
+        "description": "True no-op; does not modify any state"
+    },
+    {
+        "op_variant": "StoM",
+        "display_name": "STO M",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "S",
+        "description": "Store X to hidden register M"
+    },
+    {
+        "op_variant": "StoN",
+        "display_name": "STO N",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "S",
+        "description": "Store X to hidden register N"
+    },
+    {
+        "op_variant": "StoO",
+        "display_name": "STO O",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "S",
+        "description": "Store X to hidden register O"
+    },
+    {
+        "op_variant": "RclM",
+        "display_name": "RCL M",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "R",
+        "description": "Recall hidden register M into X"
+    },
+    {
+        "op_variant": "RclN",
+        "display_name": "RCL N",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "R",
+        "description": "Recall hidden register N into X"
+    },
+    {
+        "op_variant": "RclO",
+        "display_name": "RCL O",
+        "category": "Synthetic",
+        "status": "implemented",
+        "phase": "12",
+        "key_path": "R",
+        "description": "Recall hidden register O into X"
+    },
+    {
+        "op_variant": "Wdta",
+        "display_name": "WDTA",
+        "category": "CardReader",
+        "status": "implemented",
+        "phase": "v2.1",
+        "key_path": "XEQ \"WDTA\"",
+        "description": "Write data registers to card (name in ALPHA)"
+    },
+    {
+        "op_variant": "Rdta",
+        "display_name": "RDTA",
+        "category": "CardReader",
+        "status": "implemented",
+        "phase": "v2.1",
+        "key_path": "XEQ \"RDTA\"",
+        "description": "Read data registers from card (name in ALPHA)"
+    },
+    {
+        "op_variant": "Wprgm",
+        "display_name": "WPRGM",
+        "category": "CardReader",
+        "status": "implemented",
+        "phase": "v2.1",
+        "key_path": "XEQ \"WPRGM\"",
+        "description": "Write current program to card (name in ALPHA)"
+    },
+    {
+        "op_variant": "Rdprgm",
+        "display_name": "RDPRGM",
+        "category": "CardReader",
+        "status": "implemented",
+        "phase": "v2.1",
+        "key_path": "XEQ \"RDPRGM\"",
+        "description": "Read program from card (name in ALPHA)"
+    },
+    {
+        "op_variant": "SfFlag",
+        "display_name": "SF",
+        "category": "Flags",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": "f-7",
+        "description": "SF n - set flag n (0..55)"
+    },
+    {
+        "op_variant": "CfFlag",
+        "display_name": "CF",
+        "category": "Flags",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": "f-8",
+        "description": "CF n - clear flag n (0..55)"
+    },
+    {
+        "op_variant": "FlagTest",
+        "display_name": "FS?/FC?/FS?C/FC?C",
+        "category": "Flags",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": "f-9",
+        "description": "Conditional flag test (skip next step on false)"
+    },
+    {
+        "op_variant": "View",
+        "display_name": "VIEW",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": "f-v",
+        "description": "VIEW nn - show formatted value of register nn"
+    },
+    {
+        "op_variant": "AView",
+        "display_name": "AVIEW",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Show ALPHA register on display (24-char truncate)"
+    },
+    {
+        "op_variant": "Prompt",
+        "display_name": "PROMPT",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Show ALPHA on display; break execution in run_loop"
+    },
+    {
+        "op_variant": "Aon",
+        "display_name": "AON",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Enable ALPHA auto-display (sets system flag 48)"
+    },
+    {
+        "op_variant": "Aoff",
+        "display_name": "AOFF",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Disable ALPHA auto-display (clears flag 48)"
+    },
+    {
+        "op_variant": "Cld",
+        "display_name": "CLD",
+        "category": "Display",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Explicit clear of display_override"
+    },
+    {
+        "op_variant": "Beep",
+        "display_name": "BEEP",
+        "category": "Sound",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": null,
+        "description": "Push BEEP event to event_buffer"
+    },
+    {
+        "op_variant": "Tone",
+        "display_name": "TONE",
+        "category": "Sound",
+        "status": "implemented",
+        "phase": "21",
+        "key_path": "f-T",
+        "description": "TONE n - push TONE event (n=0..9) to buffer"
+    },
+    {
+        "op_variant": "Stop",
+        "display_name": "STOP",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Halt program execution (breaks run_loop)"
+    },
+    {
+        "op_variant": "Pse",
+        "display_name": "PSE",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Pause: display X and emit ~1s delay marker"
+    },
+    {
+        "op_variant": "GtoInd",
+        "display_name": "GTO IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "GTO IND nn - indirect branch through register nn"
+    },
+    {
+        "op_variant": "XeqInd",
+        "display_name": "XEQ IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "XEQ IND nn - indirect subroutine call"
+    },
+    {
+        "op_variant": "Clp",
+        "display_name": "CLP",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": "f-C",
+        "description": "CLP name - clear program from LBL to next LBL",
+        "divergences": ["CLP boundary = next LBL (no END/.END. markers)"]
+    },
+    {
+        "op_variant": "Del",
+        "display_name": "DEL",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": "f-D",
+        "description": "DEL nnn - delete nnn program steps starting at pc"
+    },
+    {
+        "op_variant": "Ins",
+        "display_name": "INS",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Insert Op::Null (no-op placeholder) at state.pc"
+    },
+    {
+        "op_variant": "Size",
+        "display_name": "SIZE",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "SIZE nnn - resize state.regs to nnn (1..319)"
+    },
+    {
+        "op_variant": "Cla",
+        "display_name": "CLA",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Clear ALPHA register (hardware-faithful display name)"
+    },
+    {
+        "op_variant": "Clst",
+        "display_name": "CLST",
+        "category": "Stack",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Clear stack X/Y/Z/T (preserves LASTX and lift)"
+    },
+    {
+        "op_variant": "Pack",
+        "display_name": "PACK",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "Compact program memory (no-op in flat-Vec model)",
+        "divergences": ["PACK is no-op (flat-Vec has no gaps to compact)"]
+    },
+    {
+        "op_variant": "Catalog",
+        "display_name": "CATALOG",
+        "category": "Catalog",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "CATALOG n - emit catalog n (1..4) to print buffer"
+    },
+    {
+        "op_variant": "Asn",
+        "display_name": "ASN",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "22",
+        "key_path": null,
+        "description": "ASN name key - assign name to key (USER mode)"
+    },
+    {
+        "op_variant": "Arcl",
+        "display_name": "ARCL",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": "f-a",
+        "description": "ARCL nn - append register's value to ALPHA"
+    },
+    {
+        "op_variant": "Asto",
+        "display_name": "ASTO",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": "f-A",
+        "description": "ASTO nn - pack first 6 ALPHA chars into reg nn"
+    },
+    {
+        "op_variant": "Atox",
+        "display_name": "ATOX",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": null,
+        "description": "Pop first ALPHA char, push its codepoint to X"
+    },
+    {
+        "op_variant": "Xtoa",
+        "display_name": "XTOA",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": null,
+        "description": "Convert X mod 256 to char, append to ALPHA"
+    },
+    {
+        "op_variant": "Arot",
+        "display_name": "AROT",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": null,
+        "description": "Rotate ALPHA by X chars (positive=left rotation)",
+        "divergences": ["AROT silent-truncate non-integer N"]
+    },
+    {
+        "op_variant": "Posa",
+        "display_name": "POSA",
+        "category": "Alpha",
+        "status": "implemented",
+        "phase": "23",
+        "key_path": null,
+        "description": "POSA - position of X (ASCII codepoint) in ALPHA",
+        "divergences": ["POSA single-char only; multi-char deferred to v3.x"]
+    },
+    {
+        "op_variant": "StoInd",
+        "display_name": "STO IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "S",
+        "description": "STO IND nn - store via indirect register address"
+    },
+    {
+        "op_variant": "RclInd",
+        "display_name": "RCL IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "R",
+        "description": "RCL IND nn - recall via indirect register address"
+    },
+    {
+        "op_variant": "StoArithInd",
+        "display_name": "STO+/-/*// IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "S",
+        "description": "STO arithmetic via indirect register address"
+    },
+    {
+        "op_variant": "IsgInd",
+        "display_name": "ISG IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-i",
+        "description": "ISG IND nn - increment counter via indirect addr"
+    },
+    {
+        "op_variant": "DseInd",
+        "display_name": "DSE IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-d",
+        "description": "DSE IND nn - decrement counter via indirect addr"
+    },
+    {
+        "op_variant": "SfFlagInd",
+        "display_name": "SF IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-7",
+        "description": "SF IND nn - set flag via indirect register address"
+    },
+    {
+        "op_variant": "CfFlagInd",
+        "display_name": "CF IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-8",
+        "description": "CF IND nn - clear flag via indirect register addr"
+    },
+    {
+        "op_variant": "FlagTestInd",
+        "display_name": "FS?/FC?/FS?C/FC?C IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-9",
+        "description": "Conditional flag test via indirect address"
+    },
+    {
+        "op_variant": "ArclInd",
+        "display_name": "ARCL IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-a",
+        "description": "ARCL IND nn - append indirect register to ALPHA"
+    },
+    {
+        "op_variant": "AstoInd",
+        "display_name": "ASTO IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-A",
+        "description": "ASTO IND nn - pack ALPHA into indirect register"
+    },
+    {
+        "op_variant": "ViewInd",
+        "display_name": "VIEW IND",
+        "category": "Indirect",
+        "status": "implemented",
+        "phase": "24",
+        "key_path": "f-v",
+        "description": "VIEW IND nn - display value of indirect register"
+    },
+    {
+        "op_variant": "XNeY_XEQ",
+        "display_name": "X<>Y?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X<>Y?\"",
+        "description": "X != Y? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XLtY_XEQ",
+        "display_name": "X<Y?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X<Y?\"",
+        "description": "X < Y? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XGeY_XEQ",
+        "display_name": "X>=Y?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X>=Y?\"",
+        "description": "X >= Y? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XNeZero_XEQ",
+        "display_name": "X#0?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X#0?\"",
+        "description": "X != 0? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XLtZero_XEQ",
+        "display_name": "X<0?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X<0?\"",
+        "description": "X < 0? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XGtZero_XEQ",
+        "display_name": "X>0?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X>0?\"",
+        "description": "X > 0? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XLeZero_XEQ",
+        "display_name": "X<=0?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X<=0?\"",
+        "description": "X <= 0? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "XGeZero_XEQ",
+        "display_name": "X>=0?",
+        "category": "Programming",
+        "status": "implemented",
+        "phase": "25",
+        "key_path": "XEQ \"X>=0?\"",
+        "description": "X >= 0? conditional test (XEQ-by-Name only)"
+    },
+    {
+        "op_variant": "MAT_PLUS_MATHPAC",
+        "display_name": "MAT+",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Matrix addition (Math Pac module, v3.x)"
+    },
+    {
+        "op_variant": "MAT_MINUS_MATHPAC",
+        "display_name": "MAT-",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Matrix subtraction (Math Pac module, v3.x)"
+    },
+    {
+        "op_variant": "MAT_MUL_MATHPAC",
+        "display_name": "MAT*",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Matrix multiplication (Math Pac module, v3.x)"
+    },
+    {
+        "op_variant": "MAT_INV_MATHPAC",
+        "display_name": "MAT INV",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Matrix inversion (Math Pac module, v3.x)"
+    },
+    {
+        "op_variant": "DET_MATHPAC",
+        "display_name": "DET",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Matrix determinant (Math Pac module, v3.x)"
+    },
+    {
+        "op_variant": "INTEG_MATHPAC",
+        "display_name": "INTEG",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Numerical integration (Math Pac, v3.x)"
+    },
+    {
+        "op_variant": "SOLVE_MATHPAC",
+        "display_name": "SOLVE",
+        "category": "MathPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Numerical root-finder (Math Pac, v3.x)"
+    },
+    {
+        "op_variant": "FCAT_STATPAC",
+        "display_name": "FCAT",
+        "category": "StatPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Frequency distribution catalog (Stat Pac, v3.x)"
+    },
+    {
+        "op_variant": "FCST_STATPAC",
+        "display_name": "FCST",
+        "category": "StatPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Statistical forecast (Stat Pac, v3.x)"
+    },
+    {
+        "op_variant": "CHISQ_STATPAC",
+        "display_name": "CHISQ",
+        "category": "StatPac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Chi-square distribution (Stat Pac, v3.x)"
+    },
+    {
+        "op_variant": "DATE_TIMEPAC",
+        "display_name": "DATE",
+        "category": "TimePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Get current date (Time module, v3.x)"
+    },
+    {
+        "op_variant": "TIME_TIMEPAC",
+        "display_name": "TIME",
+        "category": "TimePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Get current time (Time module, v3.x)"
+    },
+    {
+        "op_variant": "DATE_PLUS_TIMEPAC",
+        "display_name": "DATE+",
+        "category": "TimePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Add days to a date (Time module, v3.x)"
+    },
+    {
+        "op_variant": "DDAYS_TIMEPAC",
+        "display_name": "DDAYS",
+        "category": "TimePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Days between two dates (Time module, v3.x)"
+    },
+    {
+        "op_variant": "ALARM_TIMEPAC",
+        "display_name": "XYZALM",
+        "category": "TimePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Schedule an alarm (Time module, v3.x)"
+    },
+    {
+        "op_variant": "CMPLX_ADV",
+        "display_name": "CMPLX",
+        "category": "AdvantagePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Complex-number arithmetic (Advantage Pac, v3.x)"
+    },
+    {
+        "op_variant": "ITG_ADV",
+        "display_name": "ITG",
+        "category": "AdvantagePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Numerical integral (Advantage Pac, v3.x)"
+    },
+    {
+        "op_variant": "SOLVE_ADV",
+        "display_name": "ADV SOLVE",
+        "category": "AdvantagePac",
+        "status": "deferred-v3",
+        "phase": null,
+        "key_path": null,
+        "description": "Equation solver (Advantage Pac, v3.x)"
+    }
+]
