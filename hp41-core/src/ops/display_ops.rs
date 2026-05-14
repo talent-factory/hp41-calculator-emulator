@@ -118,4 +118,12 @@ mod tests {
         op_aoff(&mut state).unwrap();
         assert!(!flag_get(state.flags, 48));
     }
+
+    #[test]
+    fn test_op_prompt_interactive_writes_alpha_to_override() {
+        let mut state = CalcState::new();
+        state.alpha_reg = "READY?".to_string();
+        op_prompt(&mut state).unwrap();
+        assert_eq!(state.display_override.as_deref(), Some("READY?"));
+    }
 }
