@@ -215,6 +215,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Pack => "PACK".to_string(),
         // Phase 22: Catalog (D-22.16 AMENDED OQ-1 Option B)
         Op::Catalog(n) => format!("CATALOG {n}"),
+        // Phase 22: ASN (D-22.18 AMENDED OQ-3 Option A)
+        Op::Asn { name, key_code } => format!("ASN \"{name}\" {key_code:02}"),
     }
 }
 

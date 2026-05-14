@@ -326,6 +326,32 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
     Ok(())
 }
 
+/// Phase 22 D-22.18 (AMENDED OQ-3 Option A, FN-KEY-01). ASN key assignment.
+///
+/// If `name` is empty: removes assignment for `key_code` via
+/// `state.assignments.remove(&key_code)` — silent no-op if absent.
+/// Otherwise: `state.assignments.insert(key_code, name)`.
+///
+/// `key_code` uses HP-41 row×10+col encoding (1-indexed; same as
+/// `last_key_code` and `keycode_to_hp41_code`).
+///
+/// Late-binding resolution (parse-as-Op vs LBL search) happens at USER-mode
+/// dispatch in Phase 25/26 — hp41-core just stores the assignment String.
+///
+/// LiftEffect: Neutral.
+pub fn op_asn(state: &mut CalcState, name: String, key_code: u8) -> Result<(), HpError> {
+    if name.is_empty() {
+        // OQ-3 Option A: empty name removes the assignment (silent no-op if
+        // key_code not present in the map).
+        state.assignments.remove(&key_code);
+    } else {
+        // Insert or overwrite.
+        state.assignments.insert(key_code, name);
+    }
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -768,6 +794,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // Executes fine inside run_loop AND interactively; output drained
         // from state.print_buffer by the frontend.
         Op::Catalog(n) => op_catalog(state, n),
+        // D-22.18 (AMENDED OQ-3 Option A): ASN — empty `name` removes;
+        // non-empty inserts. Executes fine inside run_loop AND interactively.
+        Op::Asn { name, key_code } => op_asn(state, name, key_code),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

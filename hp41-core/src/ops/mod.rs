@@ -446,6 +446,26 @@ pub enum Op {
     ///
     /// LiftEffect: Neutral. Phase 22 (FN-MEM-05, D-22.16 AMENDED).
     Catalog(u8),
+    /// ASN "name" key_code — record a key assignment (AMENDED D-22.18 /
+    /// OQ-3 Option A, FN-KEY-01).
+    ///
+    /// If `name` is empty: removes the assignment for `key_code`
+    /// (`state.assignments.remove(&key_code)` — silent no-op if absent).
+    /// Otherwise: inserts/overwrites (`state.assignments.insert(key_code, name)`).
+    ///
+    /// `key_code` uses HP-41 row×10+col encoding (1-indexed; same as
+    /// `last_key_code` and `keycode_to_hp41_code`). Any u8 is accepted —
+    /// frontend (CLI / GUI keyboard layer in Phase 25/26) restricts to the
+    /// hardware key-code domain.
+    ///
+    /// Hardware-faithful semantics: `ASN "" 11` undoes `ASN "SIN" 11`.
+    ///
+    /// Late-binding (D-22.19): hp41-core stores the assignment as a String;
+    /// resolution (parse-as-Op vs LBL search) happens at USER-mode dispatch
+    /// in Phase 25/26.
+    ///
+    /// LiftEffect: Neutral. Phase 22 (FN-KEY-01, D-22.18 AMENDED).
+    Asn { name: String, key_code: u8 },
 }
 
 /// Flush the number entry buffer to the stack.
@@ -751,6 +771,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // CAT 1 = programs (LBL listing); CAT 2/3/4 = "NOT AVAILABLE".
         // Output goes to state.print_buffer (Phase 11 drain pattern).
         Op::Catalog(n) => program::op_catalog(state, n),
+        // D-22.18 (AMENDED OQ-3 Option A): ASN — empty `name` removes the
+        // assignment for `key_code`; non-empty inserts/overwrites. hp41-core
+        // stores as String; resolution at USER-mode dispatch (Phase 25/26)
+        // per D-22.19. The owned String moves into op_asn (Op is consumed
+        // by value here).
+        Op::Asn { name, key_code } => program::op_asn(state, name, key_code),
     }
 }
 
