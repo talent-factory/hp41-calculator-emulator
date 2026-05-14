@@ -18,7 +18,10 @@ findings:
   warning: 2
   info: 5
   total: 7
-status: issues_found
+status: fixed
+fixed_findings:
+  - WR-01
+  - WR-02
 ---
 
 # Phase 23: Code Review Report
@@ -26,7 +29,7 @@ status: issues_found
 **Reviewed:** 2026-05-14T00:00:00Z
 **Depth:** standard
 **Files Reviewed:** 9
-**Status:** issues_found
+**Status:** fixed (both warnings resolved; 5 Info findings remain deferred)
 
 ## Summary
 
