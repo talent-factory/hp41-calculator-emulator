@@ -377,6 +377,28 @@ pub enum Op {
     /// label is a numeric string only). Programming-only: interactive dispatch
     /// returns `InvalidOp`. LiftEffect: Neutral. Phase 22 (FN-PROG-07, D-22.15).
     XeqInd(u8),
+    // ── Phase 22: Program editing (D-22.7, D-22.8, D-22.9, D-22.10) ─────────
+    /// CLP "name" — clear program from `Op::Lbl(name)` to the next `Op::Lbl(_)`
+    /// (or end-of-Vec if no further LBL). After deletion, `state.pc` repositions
+    /// to the start of the deleted block (clamped to `state.program.len()` —
+    /// Pitfall 6). Missing label → `HpError::InvalidOp`. Documented divergence
+    /// from HP-41 hardware: real device uses END/.END. markers; we use next-LBL
+    /// because the flat-Vec model has no explicit END marker. Gated on
+    /// `state.prgm_mode == true` (D-22.10). LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-03, D-22.7).
+    Clp(String),
+    /// DEL nnn — delete `nnn` program steps starting at `state.pc`. `nnn` is
+    /// silently clamped to `min(nnn, program.len() - state.pc)`; `nnn == 0` OR
+    /// `state.pc == program.len()` → no-op. `state.pc` is UNCHANGED (the drain
+    /// shifts the tail down so pc naturally points at the next step). Gated
+    /// on `state.prgm_mode == true` (D-22.10). LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-04, D-22.9).
+    Del(u8),
+    /// INS — insert `Op::Null` (no-op placeholder, Phase 12) at `state.pc`.
+    /// `state.pc` is UNCHANGED — the cursor still points at the freshly
+    /// inserted Null. Gated on `state.prgm_mode == true` (D-22.10).
+    /// LiftEffect: Neutral. Phase 22 (FN-PROG-05, D-22.8).
+    Ins,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -441,9 +463,15 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             return Ok(());
         }
-        // All other ops: append to program Vec; do NOT execute. Stack unmodified.
-        state.program.push(op);
-        return Ok(());
+        // Phase 22 (D-22.10): CLP / DEL / INS are PRGM-mode editing primitives
+        // that mutate state.program directly. They MUST execute immediately
+        // even while prgm_mode == true — recording them would self-corrupt
+        // the program buffer. Fall through to the dispatch match below.
+        if !matches!(op, Op::Clp(_) | Op::Del(_) | Op::Ins) {
+            // All other ops: append to program Vec; do NOT execute. Stack unmodified.
+            state.program.push(op);
+            return Ok(());
+        }
     }
     match op {
         // ── Phase 1 ops ──────────────────────────────────────────────────
@@ -633,6 +661,24 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // pc and call_stack — interactive dispatch outside a running program
         // is undefined. Return InvalidOp; run_loop handles them directly.
         Op::GtoInd(_) | Op::XeqInd(_) => Err(HpError::InvalidOp),
+        // ── Phase 22: Program editing (D-22.7, D-22.8, D-22.9, D-22.10) ──
+        // CLP/DEL/INS are PRGM-mode editing primitives that mutate
+        // state.program directly. They are NEVER recorded into the program
+        // even when state.prgm_mode == true — the prgm_mode gate above
+        // would otherwise append them to state.program. The helpers
+        // themselves re-check prgm_mode (defense-in-depth, D-22.10).
+        //
+        // Important: the prgm_mode gate ABOVE this match block (line ~436)
+        // only fires when state.prgm_mode == true. We reach this arm in two
+        // cases:
+        //   (a) prgm_mode == false (interactive, edit-primitives disallowed)
+        //       → helper guard returns InvalidOp.
+        //   (b) prgm_mode == true AND the gate's recording branch was
+        //       bypassed by the special-case above for Clp/Del/Ins
+        //       (added below). See the gate modification.
+        Op::Clp(name) => program::op_clp(state, &name),
+        Op::Del(n) => program::op_del(state, n),
+        Op::Ins => program::op_ins(state),
     }
 }
 

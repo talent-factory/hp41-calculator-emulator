@@ -127,6 +127,90 @@ pub fn op_dse(state: &mut CalcState, reg: u8) -> Result<bool, HpError> {
     Ok(new_current <= final_val) // true = skip next (loop exits, D-11)
 }
 
+// ── Phase 22: Program editing primitives (D-22.7, D-22.8, D-22.9, D-22.10) ──
+// CLP / DEL / INS are PRGM-mode editing primitives — they mutate state.program
+// directly and NEVER get recorded into the program buffer. The dispatch gate
+// in mod.rs special-cases them so they execute immediately while prgm_mode == true.
+//
+// Stubs land here in task 22-02-01 so the workspace compiles after the variants
+// are added. Real bodies fill in over the next two tasks (22-02-02 / 22-02-03).
+
+/// Phase 22 D-22.7 (FN-PROG-03). Clear program from `Op::Lbl("label")` to the
+/// next `Op::Lbl(_)` (or end-of-Vec if no further LBL).
+///
+/// Cursor reposition (Pitfall 6): after the drain, `state.pc` is set to `start`
+/// (clamped to the post-drain `state.program.len()`) so the cursor lands at the
+/// start of whatever block was deleted. Missing label → `HpError::InvalidOp`.
+/// PRGM-mode only (D-22.10) — interactive dispatch with `prgm_mode == false`
+/// returns InvalidOp via the defense-in-depth guard.
+///
+/// Documented divergence: HP-41 hardware uses END/.END. markers; we use
+/// next-LBL boundaries because the flat-Vec program model has no explicit
+/// END marker. (RESEARCH §1 D-22.7 row, OQ resolved as Option B.)
+pub fn op_clp(state: &mut CalcState, label: &str) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    let start = state
+        .program
+        .iter()
+        .position(|op| matches!(op, Op::Lbl(n) if n == label))
+        .ok_or(HpError::InvalidOp)?;
+    let end = state
+        .program
+        .iter()
+        .skip(start + 1)
+        .position(|op| matches!(op, Op::Lbl(_)))
+        .map(|i| start + 1 + i)
+        .unwrap_or(state.program.len());
+    state.program.drain(start..end);
+    // Pitfall 6: cursor lands at start of deleted block, clamped to new len
+    // (protects against the rare case where start == post-drain program.len()).
+    state.pc = start.min(state.program.len());
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.9 (FN-PROG-04). Delete `nnn` program steps starting at
+/// `state.pc`. `nnn` silently clamps to `min(nnn, program.len() - pc)`;
+/// `nnn == 0` OR `pc == program.len()` → no-op. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — drain shifts the trailing tail down to fill the
+/// gap, so the cursor naturally points at the next surviving step.
+pub fn op_del(state: &mut CalcState, nnn: u8) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    // D-22.9 clamping: saturating_sub guards against the pathological pc > len
+    // (shouldn't happen, but keeps the helper bounds-safe under any state).
+    let n = (nnn as usize).min(state.program.len().saturating_sub(state.pc));
+    if n == 0 {
+        // No-op for nnn == 0 OR pc == program.len()
+        apply_lift_effect(state, LiftEffect::Neutral);
+        return Ok(());
+    }
+    state.program.drain(state.pc..state.pc + n);
+    // state.pc deliberately unchanged: drain shifts the tail down so pc
+    // naturally falls at the same index (which is the post-drain position).
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.8 (FN-PROG-05). Insert `Op::Null` (no-op placeholder from
+/// Phase 12) at `state.pc`. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — the cursor still points at the freshly inserted
+/// Null. This matches HP-41 hardware "INS lands a blank step at cursor" behavior.
+pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    state.program.insert(state.pc, Op::Null);
+    // state.pc deliberately unchanged — cursor still on the new Null.
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -562,7 +646,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Prompt
         | Op::Stop                              // Phase 22: STOP handled by run_loop break
         | Op::GtoInd(_)                         // Phase 22: GTO IND has run_loop arm
-        | Op::XeqInd(_) => Err(HpError::InvalidOp), // Phase 22: XEQ IND has run_loop arm
+        | Op::XeqInd(_)                         // Phase 22: XEQ IND has run_loop arm
+        | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
+        | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
+        | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
     }
 }
 
