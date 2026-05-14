@@ -399,6 +399,40 @@ pub enum Op {
     /// inserted Null. Gated on `state.prgm_mode == true` (D-22.10).
     /// LiftEffect: Neutral. Phase 22 (FN-PROG-05, D-22.8).
     Ins,
+    // ── Phase 22: Memory & stack management (D-22.11..13) ────────────────────
+    /// SIZE nnn — resize `state.regs` to nnn ∈ [1, 319]. AMENDED D-22.11 /
+    /// OQ-2: `nnn == 0` silently clamps to 1 (documented divergence from real
+    /// HP-41 which accepts `SIZE 000`); `nnn > 319` returns `HpError::InvalidOp`.
+    /// Shrinking truncates the tail (hardware-faithful "MEM LOST"); growing
+    /// zero-fills new slots; overlapping range preserves values.
+    /// `u16` because 319 > u8::MAX. LiftEffect: Neutral. Phase 22 (FN-MEM-01).
+    Size(u16),
+    /// CLA — clear ALPHA register. Hardware-faithful HP-41 display name
+    /// (program listings show "CLA", not "CLRALPHA"). Delegates to
+    /// `op_alpha_clear` — same body as legacy `Op::AlphaClear`. The two
+    /// variants COEXIST: `Op::Cla` is the hardware-faithful display alias
+    /// and `Op::AlphaClear` (display "CLRALPHA") stays in the enum for
+    /// v1.0 save-file backward compat (Pitfall 8 — do NOT consolidate).
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-02, D-22.13).
+    Cla,
+    /// CLST — clear stack: zero X, Y, Z, T. PRESERVES `state.stack.lastx`
+    /// AND `state.stack.lift_enabled` (D-22.14 invariant). The preservation
+    /// of LASTX is the critical divergence from `Op::Clreg` (which only
+    /// clears regs, not the stack). The preservation of `lift_enabled`
+    /// follows from `LiftEffect::Neutral` — `apply_lift_effect(Neutral)`
+    /// is a no-op for `lift_enabled`. Verified by sentinel test
+    /// `test_clst_preserves_lastx_and_lift_enabled` in
+    /// `hp41-core/tests/phase22_memory_ops.rs`.
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-03, D-22.14).
+    Clst,
+    /// PACK — documented no-op + Neutral lift. Real HP-41 PACK compacts
+    /// program memory by removing gaps from in-place edits; our flat-Vec
+    /// program model has no gaps to compact, so PACK is a no-op. This is
+    /// a deliberate divergence flagged in D-22.12 — implementing it
+    /// meaningfully would require introducing gaps into `state.program`
+    /// (deferred backlog candidate).
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-04, D-22.12).
+    Pack,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -679,6 +713,27 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clp(name) => program::op_clp(state, &name),
         Op::Del(n) => program::op_del(state, n),
         Op::Ins => program::op_ins(state),
+        // ── Phase 22: Memory & stack management (D-22.11..13) ────────────
+        // SIZE executes fine inside run_loop and interactively — it is a
+        // regular dispatch op, not a control-flow primitive.
+        Op::Size(n) => program::op_size(state, n),
+        // D-22.13: Op::Cla delegates to op_alpha_clear (same body as
+        // Op::AlphaClear). Two variants intentionally coexist: hardware-
+        // faithful "CLA" display name (this variant) vs the v1.0-save
+        // "CLRALPHA" legacy display (Op::AlphaClear). Pitfall 8: do NOT
+        // remove Op::AlphaClear — v1.0 save files contain it.
+        Op::Cla => op_alpha_clear(state),
+        // D-22.14: CLST zeros X/Y/Z/T while preserving LASTX and
+        // lift_enabled. Critical divergence from Clreg (which only
+        // clears regs).
+        Op::Clst => program::op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift. Inline body matches
+        // Op::Null / Op::AlphaToggle pattern.
+        Op::Pack => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
     }
 }
 

@@ -203,6 +203,16 @@ fn op_display_name(op: &Op) -> String {
         Op::Clp(name) => format!("CLP {name}"),
         Op::Del(n) => format!("DEL {n:03}"),
         Op::Ins => "INS".to_string(),
+        // Phase 22: Memory management (D-22.11, D-22.13)
+        Op::Size(n) => format!("SIZE {n:03}"),
+        // D-22.13: NOT "CLRALPHA" — that is Op::AlphaClear's display name.
+        // Both variants coexist for hardware-faithful listing (CLA) vs v1.0
+        // save-file compat (CLRALPHA). Pitfall 8: do NOT consolidate.
+        Op::Cla => "CLA".to_string(),
+        // D-22.14: CLST clears X/Y/Z/T (LASTX + lift_enabled preserved).
+        Op::Clst => "CLST".to_string(),
+        // D-22.12: PACK is a documented no-op (flat-Vec has no gaps).
+        Op::Pack => "PACK".to_string(),
     }
 }
 

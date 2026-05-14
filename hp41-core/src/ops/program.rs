@@ -211,6 +211,56 @@ pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
+// ── Phase 22: Memory management (D-22.11) ────────────────────────────────────
+
+/// Phase 22 D-22.14 / FN-MEM-03. Zero stack X/Y/Z/T.
+///
+/// PRESERVES `state.stack.lastx` AND `state.stack.lift_enabled` — verified by
+/// the absence of any assignment to these fields in this helper body.
+/// `Neutral` `apply_lift_effect` is a no-op for `lift_enabled` (see
+/// `stack.rs::apply_lift_effect`), so the trailing apply_lift_effect call
+/// also preserves the flag.
+///
+/// Sentinel test `test_clst_preserves_lastx_and_lift_enabled` in
+/// `hp41-core/tests/phase22_memory_ops.rs` enforces both invariants.
+///
+/// LiftEffect: Neutral.
+pub fn op_clst(state: &mut CalcState) -> Result<(), HpError> {
+    state.stack.x = crate::num::HpNum::zero();
+    state.stack.y = crate::num::HpNum::zero();
+    state.stack.z = crate::num::HpNum::zero();
+    state.stack.t = crate::num::HpNum::zero();
+    // lastx UNTOUCHED (D-22.14)
+    // lift_enabled UNTOUCHED (Neutral lift does not modify it — stack.rs)
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.11 / FN-MEM-01. Resize `state.regs` to `nnn` slots.
+///
+/// OQ-2 (AMENDED 2026-05-14): `nnn == 0` silently clamps to 1 (documented
+/// divergence from real HP-41 which accepts `SIZE 000`). `nnn > 319`
+/// returns `HpError::InvalidOp`. Otherwise `state.regs.resize(target,
+/// HpNum::zero())`: shrinking truncates the tail (hardware-faithful
+/// "MEM LOST"); growing zero-fills the new slots. Preserves values where
+/// the old and new ranges overlap.
+///
+/// SAFETY: every legacy register access (op_sto/op_rcl/op_sto_arith/op_view/
+/// op_clreg/Σ-family) was audited in 22-03-01..03 to honor `state.regs.len()`
+/// dynamically, so shrinking via SIZE will NOT panic. The Σ-family
+/// additionally fails closed when `state.regs.len() < 7` (Pitfall 5).
+///
+/// LiftEffect: Neutral.
+pub fn op_size(state: &mut CalcState, nnn: u16) -> Result<(), HpError> {
+    if nnn > 319 {
+        return Err(HpError::InvalidOp);
+    }
+    let target = nnn.max(1) as usize; // OQ-2: SIZE 0 → silently clamp to 1
+    state.regs.resize(target, crate::num::HpNum::zero());
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -630,6 +680,22 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
             state.display_override = Some(formatted);
             state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // ── Phase 22: Memory management (D-22.11..13, FN-MEM-01..02) ──────────
+        // SIZE executes fine inside run_loop — it is a regular dispatch op,
+        // not a control-flow primitive. Does NOT join the programming-ops
+        // catch-all below.
+        Op::Size(n) => op_size(state, n),
+        // D-22.13: Op::Cla delegates to op_alpha_clear (hardware-faithful
+        // "CLA" listing). Op::AlphaClear (legacy v1.0) stays separate.
+        Op::Cla => super::alpha::op_alpha_clear(state),
+        // D-22.14: CLST zeros X/Y/Z/T while PRESERVING lastx + lift_enabled.
+        Op::Clst => op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift.
+        Op::Pack => {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }

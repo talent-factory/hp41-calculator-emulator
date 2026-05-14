@@ -10,14 +10,16 @@ use crate::ops::flags::{flag_clear, flag_set};
 use crate::stack::{apply_lift_effect, LiftEffect};
 use crate::state::CalcState;
 
-/// VIEW n — show the formatted value of storage register n (0..=99) on the display.
+/// VIEW n — show the formatted value of storage register n on the display.
 /// Writes `Some(format_hpnum(...))` to `state.display_override`; stack untouched.
-/// LiftEffect: Neutral. Returns `InvalidOp` for reg > 99.
+/// LiftEffect: Neutral. Returns `InvalidOp` for reg >= state.regs.len()
+/// (Phase 22 D-22.11.1 — honors current SIZE; was hardcoded 100).
 pub fn op_view(state: &mut CalcState, reg: u8) -> Result<(), HpError> {
-    if reg >= 100 {
-        return Err(HpError::InvalidOp);
-    }
-    let val = state.regs[reg as usize].clone();
+    let val = state
+        .regs
+        .get(reg as usize)
+        .ok_or(HpError::InvalidOp)?
+        .clone();
     state.display_override = Some(format_hpnum(&val, &state.display_mode));
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
