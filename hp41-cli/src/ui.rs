@@ -247,8 +247,20 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 
 /// Format the status bar text for each PendingInput variant (D-11).
 /// Uses {:_<2} to show placeholder underscores for accumulator length.
-fn pending_prompt(pending: &crate::app::PendingInput) -> String {
+///
+/// **FN-CLI-04 hard rule (D-25.14):** this match is **exhaustive** — no
+/// `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput`
+/// variant forces the compiler to flag this match at build time. That is
+/// the runtime guarantee that no `PendingInput` slips through silently.
+///
+/// `pub` so integration tests under `hp41-cli/tests/` can verify status-
+/// bar formatting per Phase 25 Plan 02.
+pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
     use crate::app::PendingInput;
+    use hp41_core::ops::{FlagTestKind, StoArithKind};
+
+    use crate::keys::{FlagPromptKind, RegisterOpKind};
+
     match pending {
         PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
         PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
@@ -281,6 +293,40 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
                 format!("HEX: {acc}_")
             }
         }
+        // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
+        PendingInput::FlagPrompt { kind, ind, acc } => {
+            let mnemonic = match kind {
+                FlagPromptKind::SetFlag => "SF",
+                FlagPromptKind::ClearFlag => "CF",
+                FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
+                FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
+                FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
+                FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
+            };
+            let ind_str = if *ind { " IND" } else { "" };
+            format!("{mnemonic}{ind_str} [{acc:_<2}]")
+        }
+        PendingInput::RegisterPrompt { op, ind, acc } => {
+            let mnemonic = match op {
+                RegisterOpKind::Sto => "STO",
+                RegisterOpKind::Rcl => "RCL",
+                RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
+                RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
+                RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
+                RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
+                RegisterOpKind::View => "VIEW",
+                RegisterOpKind::Arcl => "ARCL",
+                RegisterOpKind::Asto => "ASTO",
+                RegisterOpKind::Isg => "ISG",
+                RegisterOpKind::Dse => "DSE",
+            };
+            let ind_str = if *ind { " IND" } else { "" };
+            format!("{mnemonic}{ind_str} [{acc:_<2}]")
+        }
+        PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
+        PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
+        PendingInput::TonePrompt => "TONE [_]".to_string(),
+        PendingInput::XeqByName(acc) => format!("XEQ \"{acc}\"_"),
     }
 }
 

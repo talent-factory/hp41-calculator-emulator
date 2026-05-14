@@ -15,13 +15,41 @@ use ratatui::DefaultTerminal;
 use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
 use hp41_core::{AngleMode, CalcState};
 
+use crate::keys::{FlagPromptKind, RegisterOpKind};
 use crate::{keys, persistence, ui};
+
+/// Result of the shared IND-toggle detection (D-25.12 / RESEARCH Pitfall 10)
+/// for FlagPrompt / RegisterPrompt arms. See `App::check_ind_toggle`.
+enum IndToggleAction {
+    /// `f` pressed inside a modal with `shift_armed == false` — arm the
+    /// shift bit (already done by the helper) and re-store the modal
+    /// unchanged. The next-key cycle is the actual toggle.
+    ArmShift,
+    /// `0` pressed with `shift_armed == true` — flip the modal's `ind`
+    /// field. The helper already cleared `shift_armed` to false.
+    ToggleInd,
+    /// Standard key — fall through to digit / Esc / Backspace handling.
+    Continue,
+}
 
 /// Transient UI state for multi-key input (D-08). NOT serialized to disk.
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
+//
+// Plan 02 grew this enum from 12 to 18 variants by adding the 6 Hybrid
+// variants (FlagPrompt, RegisterPrompt, ClpLabel, DelCount, TonePrompt,
+// XeqByName) per D-25.11. Task 1 landed the variants + exhaustive
+// `pending_prompt()`; Task 2 wired the modal openers and dispatch.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
+    /// Legacy v1.1 STO-register modal. Plan 02 routes `S` to
+    /// `RegisterPrompt { Sto }` instead, so this variant is no longer
+    /// constructed by the live keyboard handler — preserved for the
+    /// already-shipped Plan 04 deprecation path and for tests that still
+    /// exercise the v1.1 dispatch arm.
+    #[allow(dead_code)]
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
+    /// Legacy v1.1 RCL-register modal. See `StoRegister` note above.
+    #[allow(dead_code)]
     RclRegister(String), // accumulating 2-digit register number for RCL [nn]
     // STO arithmetic step-3 variants (active in v1.1 modal flow — S → op-key → register).
     StoAdd(String),                    // STO+ [nn or stack-reg]
@@ -38,6 +66,51 @@ pub enum PendingInput {
     /// against synthetic_byte_to_op() and either inserts Op::SyntheticByte at
     /// state.pc or sets app.message = "INVALID" (D-13).
     HexModal(String),
+    // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────────
+    /// SF/CF/FS?/FC?/FS?C/FC?C × {direct, IND} — 12 logical flag ops collapsed
+    /// into one group variant per D-25.11. The `kind` discriminator reuses
+    /// `hp41_core::ops::FlagTestKind` via `FlagPromptKind::Test(_)` per D-25.13.
+    /// `acc` is a 2-digit numeric accumulator. `ind` is toggled via the
+    /// hardware-faithful shift-0 keystroke (RESEARCH Pitfall 10 / D-25.12),
+    /// reusing `App.shift_armed` from Plan 01 — no separate `shift_pending`
+    /// field (W2 fix). End-of-accumulation dispatch picks `Op::SfFlag(n)` vs
+    /// `Op::SfFlagInd(n)` (and similarly for CF / FlagTest) at a single
+    /// decision point per D-25.12.
+    FlagPrompt {
+        kind: FlagPromptKind,
+        ind: bool,
+        acc: String,
+    },
+    /// STO/RCL/STO+-×÷/VIEW/ARCL/ASTO/ISG/DSE × {direct, IND} — 22 logical
+    /// register ops collapsed into one group variant per D-25.11. The `op`
+    /// discriminator reuses `hp41_core::ops::StoArithKind` via
+    /// `RegisterOpKind::StoArith(_)` per D-25.13. Same 2-digit + shift-0
+    /// IND-toggle scaffold as `FlagPrompt`.
+    RegisterPrompt {
+        op: RegisterOpKind,
+        ind: bool,
+        acc: String,
+    },
+    /// CLP "name" — text-input modal for clearing a labelled program block.
+    /// Accumulator capped at 7 chars (HP-41 LBL hardware limit per RESEARCH
+    /// §Security V5). Enter dispatches `Op::Clp(acc)`; Esc cancels; Backspace
+    /// pops the last char.
+    ClpLabel(String),
+    /// DEL nnn — 3-digit numeric accumulator for the program-step delete op.
+    /// Final parse uses `.parse::<u8>().unwrap_or(u8::MAX)` so user input
+    /// `999` silently clamps to 255 (T-25-06 mitigation).
+    DelCount(String),
+    /// TONE n — single-digit accumulator (0–9). First digit auto-dispatches
+    /// `Op::Tone(n)`; non-digit cancels. Even simpler than the 2-digit
+    /// scaffold.
+    TonePrompt,
+    /// XEQ "NAME" — text-input modal scaffold for the XEQ-by-Name flow.
+    /// Plan 02 ships the scaffold; Plan 03 wires the resolver (`Op::Xeq`
+    /// already falls back to `builtin_card_op` for the 4 card-reader names —
+    /// the 8 conditional-test mnemonics land via Plan 03's
+    /// `builtin_card_op` extension). Accumulator capped at 24 chars
+    /// (HP-41 ALPHA register width per RESEARCH §Security V5).
+    XeqByName(String),
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -244,14 +317,27 @@ impl App {
         }
 
         // Only open new modals when no modal is currently active (D-08, Pitfall 5).
-        // S key triggers StoRegister modal; R key triggers RclRegister modal.
+        // Plan 02 (D-25.11): S/R open the new `RegisterPrompt` hybrid variants
+        // (op=Sto/Rcl, ind:false). The new arm preserves the legacy v1.1
+        // STO-arithmetic chain (`S → +/-/×/÷ → register`) by intercepting the
+        // arithmetic keys when `op == Sto/Rcl && acc.is_empty()`, falling
+        // back to the existing `PendingInput::StoAdd/Sub/Mul/Div` modals.
+        // M/N/O hidden-register dispatch is preserved the same way.
         if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.pending_input = Some(PendingInput::StoRegister(String::new()));
+            self.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Sto,
+                ind: false,
+                acc: String::new(),
+            });
             self.message = None;
             return;
         }
         if key.code == KeyCode::Char('R') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.pending_input = Some(PendingInput::RclRegister(String::new()));
+            self.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Rcl,
+                ind: false,
+                acc: String::new(),
+            });
             self.message = None;
             return;
         }
@@ -949,7 +1035,393 @@ impl App {
                     }
                 }
             }
+            // ── Phase 25 Plan 02 — Hybrid PendingInput arms ──────────────
+            // Task 1 lands the variants and the exhaustive pending_prompt()
+            // arm. Task 2 wires the real accumulator + IND-toggle + dispatch
+            // logic. To keep this compiling between commits, the 6 stubs
+            // below close the modal on any key — Task 2 replaces them
+            // wholesale with the correct scaffold.
+            Some(PendingInput::FlagPrompt { kind, ind, acc }) => {
+                self.handle_flag_prompt(key, kind, ind, acc);
+            }
+            Some(PendingInput::RegisterPrompt { op, ind, acc }) => {
+                self.handle_register_prompt(key, op, ind, acc);
+            }
+            Some(PendingInput::ClpLabel(acc)) => {
+                self.handle_clp_label(key, acc);
+            }
+            Some(PendingInput::DelCount(acc)) => {
+                self.handle_del_count(key, acc);
+            }
+            Some(PendingInput::TonePrompt) => {
+                self.handle_tone_prompt(key);
+            }
+            Some(PendingInput::XeqByName(acc)) => {
+                self.handle_xeq_by_name(key, acc);
+            }
             None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
+        }
+    }
+
+    // ── Phase 25 Plan 02 — Hybrid PendingInput arm bodies (D-25.11/12) ───
+    //
+    // Each handler implements one of the 6 new PendingInput variants:
+    //   • FlagPrompt / RegisterPrompt: 2-digit numeric accumulator with the
+    //     hardware-faithful shift-0 IND-toggle per D-25.12 + Pitfall 10.
+    //     The IND-toggle REUSES App.shift_armed (W2 fix — no parallel
+    //     `shift_pending` field). Final dispatch picks Op::*Ind(n) vs
+    //     Op::*(n) at a single decision point per D-25.12.
+    //   • ClpLabel: text-input modal, cap at 7 chars (HP-41 LBL hardware
+    //     limit, T-25-05 mitigation), Enter → Op::Clp.
+    //   • DelCount: 3-digit accumulator, silent-clamp to u8::MAX
+    //     (T-25-06 mitigation), Enter or 3rd digit → Op::Del.
+    //   • TonePrompt: single-digit (0–9) auto-dispatch → Op::Tone.
+    //   • XeqByName: text-input modal, cap at 24 chars (T-25-05 mitigation),
+    //     Enter → Op::Xeq(acc). Plan 03 extends the resolver chain to handle
+    //     the 8 conditional-test mnemonics via builtin_card_op 4→12.
+
+    /// Shared IND-toggle detection for FlagPrompt / RegisterPrompt.
+    ///
+    /// Returns:
+    ///   • `IndToggleAction::ArmShift` when the key is plain `f` (no Ctrl)
+    ///     AND `self.shift_armed` is currently false → caller stores the
+    ///     pending state unchanged and the caller MUST set `self.shift_armed
+    ///     = true` (we do it inline to centralise the rule).
+    ///   • `IndToggleAction::ToggleInd` when `self.shift_armed` is true AND
+    ///     the key is `0` → caller flips `ind` and the helper clears
+    ///     `self.shift_armed`.
+    ///   • `IndToggleAction::Continue` otherwise; caller falls through to
+    ///     the standard accumulator/Esc/Backspace logic.
+    ///
+    /// This is the SINGLE place that mutates `self.shift_armed` from inside
+    /// a modal — same one-shot bit Plan 01 introduced, no parallel field.
+    fn check_ind_toggle(&mut self, key: KeyEvent) -> IndToggleAction {
+        if !self.shift_armed
+            && key.code == KeyCode::Char('f')
+            && !key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            self.shift_armed = true;
+            return IndToggleAction::ArmShift;
+        }
+        if self.shift_armed && key.code == KeyCode::Char('0') {
+            self.shift_armed = false;
+            return IndToggleAction::ToggleInd;
+        }
+        IndToggleAction::Continue
+    }
+
+    fn handle_flag_prompt(&mut self, key: KeyEvent, kind: FlagPromptKind, ind: bool, acc: String) {
+        match self.check_ind_toggle(key) {
+            IndToggleAction::ArmShift => {
+                // Re-store the modal unchanged; the next-key cycle is the toggle.
+                self.pending_input = Some(PendingInput::FlagPrompt { kind, ind, acc });
+                return;
+            }
+            IndToggleAction::ToggleInd => {
+                self.pending_input = Some(PendingInput::FlagPrompt {
+                    kind,
+                    ind: !ind,
+                    acc,
+                });
+                return;
+            }
+            IndToggleAction::Continue => {}
+        }
+
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 2 {
+                    // "two ASCII digits always parse as u8 ≤ 99" — same invariant
+                    // as the legacy handle_reg_modal helper.
+                    let n: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    let op = match (kind, ind) {
+                        (FlagPromptKind::SetFlag, false) => Op::SfFlag(n),
+                        (FlagPromptKind::SetFlag, true) => Op::SfFlagInd(n),
+                        (FlagPromptKind::ClearFlag, false) => Op::CfFlag(n),
+                        (FlagPromptKind::ClearFlag, true) => Op::CfFlagInd(n),
+                        (FlagPromptKind::Test(k), false) => Op::FlagTest { kind: k, flag: n },
+                        (FlagPromptKind::Test(k), true) => Op::FlagTestInd {
+                            kind: k,
+                            ind_reg: n,
+                        },
+                    };
+                    self.call_dispatch(op);
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::FlagPrompt {
+                        kind,
+                        ind,
+                        acc: new_acc,
+                    });
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::FlagPrompt {
+                    kind,
+                    ind,
+                    acc: String::new(),
+                });
+            }
+            KeyCode::Esc => {
+                // T-25-07 mitigation: also clear shift_armed on Esc so a
+                // half-armed prefix does not leak past the cancelled modal.
+                self.shift_armed = false;
+                self.pending_input = None;
+            }
+            _ => {
+                // Silently restore the modal for unrecognised keys.
+                self.pending_input = Some(PendingInput::FlagPrompt { kind, ind, acc });
+            }
+        }
+    }
+
+    fn handle_register_prompt(
+        &mut self,
+        key: KeyEvent,
+        op: RegisterOpKind,
+        ind: bool,
+        acc: String,
+    ) {
+        match self.check_ind_toggle(key) {
+            IndToggleAction::ArmShift => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind, acc });
+                return;
+            }
+            IndToggleAction::ToggleInd => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind: !ind, acc });
+                return;
+            }
+            IndToggleAction::Continue => {}
+        }
+
+        // v1.1 STO-arithmetic chain and M/N/O dispatch — preserved per Plan 02
+        // must_have truth #8 ("STO-arith stays on legacy S→op→reg chain"). Only
+        // fires for direct STO/RCL with an empty accumulator; once digits have
+        // landed or IND is armed, the user is in the numeric phase and the
+        // chain shortcuts do not apply.
+        if matches!(op, RegisterOpKind::Sto | RegisterOpKind::Rcl) && !ind && acc.is_empty() {
+            match key.code {
+                // STO+/-/×/÷ chain transition (only valid in op == Sto case).
+                KeyCode::Char('+') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoAdd(String::new()));
+                    return;
+                }
+                KeyCode::Char('-') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoSub(String::new()));
+                    return;
+                }
+                KeyCode::Char('*') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoMul(String::new()));
+                    return;
+                }
+                KeyCode::Char('/') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoDiv(String::new()));
+                    return;
+                }
+                // M/N/O hidden registers — dispatch immediately (Phase 12 D-08).
+                KeyCode::Char('M') | KeyCode::Char('m') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoM,
+                        RegisterOpKind::Rcl => Op::RclM,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                KeyCode::Char('N') | KeyCode::Char('n') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoN,
+                        RegisterOpKind::Rcl => Op::RclN,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                KeyCode::Char('O') | KeyCode::Char('o') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoO,
+                        RegisterOpKind::Rcl => Op::RclO,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                _ => {}
+            }
+        }
+
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 2 {
+                    let n: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    let final_op = match (op, ind) {
+                        (RegisterOpKind::Sto, false) => Op::StoReg(n),
+                        (RegisterOpKind::Sto, true) => Op::StoInd(n),
+                        (RegisterOpKind::Rcl, false) => Op::RclReg(n),
+                        (RegisterOpKind::Rcl, true) => Op::RclInd(n),
+                        (RegisterOpKind::StoArith(k), false) => Op::StoArith { reg: n, kind: k },
+                        (RegisterOpKind::StoArith(k), true) => Op::StoArithInd(n, k),
+                        (RegisterOpKind::View, false) => Op::View(n),
+                        (RegisterOpKind::View, true) => Op::ViewInd(n),
+                        (RegisterOpKind::Arcl, false) => Op::Arcl(n),
+                        (RegisterOpKind::Arcl, true) => Op::ArclInd(n),
+                        (RegisterOpKind::Asto, false) => Op::Asto(n),
+                        (RegisterOpKind::Asto, true) => Op::AstoInd(n),
+                        (RegisterOpKind::Isg, false) => Op::Isg(n),
+                        (RegisterOpKind::Isg, true) => Op::IsgInd(n),
+                        (RegisterOpKind::Dse, false) => Op::Dse(n),
+                        (RegisterOpKind::Dse, true) => Op::DseInd(n),
+                    };
+                    self.call_dispatch(final_op);
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::RegisterPrompt {
+                        op,
+                        ind,
+                        acc: new_acc,
+                    });
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::RegisterPrompt {
+                    op,
+                    ind,
+                    acc: String::new(),
+                });
+            }
+            KeyCode::Esc => {
+                self.shift_armed = false;
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind, acc });
+            }
+        }
+    }
+
+    /// HP-41 LBL hardware limit — labels are at most 7 characters
+    /// (single ALPHA register row holds 6 packed chars + 1 sentinel).
+    const CLP_LABEL_CAP: usize = 7;
+
+    fn handle_clp_label(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            KeyCode::Enter => {
+                if !acc.is_empty() {
+                    self.call_dispatch(Op::Clp(acc));
+                }
+                self.pending_input = None;
+            }
+            KeyCode::Backspace => {
+                let mut new_acc = acc;
+                new_acc.pop();
+                self.pending_input = Some(PendingInput::ClpLabel(new_acc));
+            }
+            KeyCode::Char(ch) => {
+                let mut new_acc = acc;
+                if new_acc.len() < Self::CLP_LABEL_CAP {
+                    new_acc.push(ch);
+                }
+                self.pending_input = Some(PendingInput::ClpLabel(new_acc));
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::ClpLabel(acc));
+            }
+        }
+    }
+
+    fn handle_del_count(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 3 {
+                    // T-25-06 mitigation: silent-clamp on overflow. 999 > u8::MAX
+                    // (255) — `.parse::<u8>().unwrap_or(u8::MAX)` is the documented
+                    // pattern.
+                    let n: u8 = new_acc.parse::<u8>().unwrap_or(u8::MAX);
+                    self.call_dispatch(Op::Del(n));
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::DelCount(new_acc));
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::DelCount(String::new()));
+            }
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::DelCount(acc));
+            }
+        }
+    }
+
+    fn handle_tone_prompt(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let n: u8 = c as u8 - b'0';
+                self.call_dispatch(Op::Tone(n));
+                self.pending_input = None;
+            }
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::TonePrompt);
+            }
+        }
+    }
+
+    /// HP-41 ALPHA register width — XEQ-by-Name names cap at 24 chars
+    /// (T-25-05 mitigation; matches the ALPHA register size).
+    const XEQ_NAME_CAP: usize = 24;
+
+    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            KeyCode::Enter => {
+                if !acc.is_empty() {
+                    // Plan 02 ships the modal scaffold. Plan 03 extends
+                    // `builtin_card_op` 4→12 so the 8 conditional-test
+                    // mnemonics resolve here. Until then, Op::Xeq falls
+                    // through to the 4 existing card-reader builtin names
+                    // (WPRGM/RDPRGM/WDTA/RDTA) and then to user LBLs.
+                    self.call_dispatch(Op::Xeq(acc));
+                }
+                self.pending_input = None;
+            }
+            KeyCode::Backspace => {
+                let mut new_acc = acc;
+                new_acc.pop();
+                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+            }
+            KeyCode::Char(ch) => {
+                let mut new_acc = acc;
+                if new_acc.len() < Self::XEQ_NAME_CAP {
+                    new_acc.push(ch);
+                }
+                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::XeqByName(acc));
+            }
         }
     }
 
@@ -1941,16 +2413,25 @@ mod synthetic_modal_tests {
 
     #[test]
     fn test_sto_m_via_modal() {
+        // Phase 25 Plan 02: `S` now opens `RegisterPrompt { Sto }` instead
+        // of the legacy `StoRegister` modal. The M/N/O hidden-register
+        // dispatch is preserved by `handle_register_prompt` (the new arm
+        // intercepts M/N/O when `op == Sto/Rcl && acc.is_empty()`).
+        use crate::keys::RegisterOpKind;
         let mut app = make_app();
-        // Press 'S' to open StoRegister modal
         app.handle_key(press(KeyCode::Char('S')));
         assert!(
-            matches!(app.pending_input, Some(PendingInput::StoRegister(_))),
-            "Pressing 'S' must open StoRegister modal"
+            matches!(
+                app.pending_input,
+                Some(PendingInput::RegisterPrompt {
+                    op: RegisterOpKind::Sto,
+                    ind: false,
+                    ..
+                })
+            ),
+            "Pressing 'S' must open RegisterPrompt {{ Sto }} (Plan 02 truth #7)"
         );
-        // Set X to 42 before pressing 'M'
         app.state.stack.x = hp41_core::HpNum::from(42i32);
-        // Press 'M' to dispatch StoM
         app.handle_key(press(KeyCode::Char('M')));
         assert!(
             app.pending_input.is_none(),
@@ -1965,16 +2446,23 @@ mod synthetic_modal_tests {
 
     #[test]
     fn test_rcl_m_via_modal() {
+        // Phase 25 Plan 02: `R` now opens `RegisterPrompt { Rcl }` — M/N/O
+        // shortcut preserved by the new arm.
+        use crate::keys::RegisterOpKind;
         let mut app = make_app();
-        // Pre-load reg_m with 99
         app.state.reg_m = hp41_core::HpNum::from(99i32);
-        // Press 'R' to open RclRegister modal
         app.handle_key(press(KeyCode::Char('R')));
         assert!(
-            matches!(app.pending_input, Some(PendingInput::RclRegister(_))),
-            "Pressing 'R' must open RclRegister modal"
+            matches!(
+                app.pending_input,
+                Some(PendingInput::RegisterPrompt {
+                    op: RegisterOpKind::Rcl,
+                    ind: false,
+                    ..
+                })
+            ),
+            "Pressing 'R' must open RegisterPrompt {{ Rcl }} (Plan 02 truth #7)"
         );
-        // Press 'm' (lowercase) to dispatch RclM
         app.handle_key(press(KeyCode::Char('m')));
         assert!(
             app.pending_input.is_none(),
