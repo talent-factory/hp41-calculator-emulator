@@ -305,3 +305,69 @@ fn test_ins_is_not_self_recorded_in_prgm_mode() {
     );
     assert!(matches!(state.program[1], Op::PushNum(_)));
 }
+
+// ── Regression: D-22.23 zero-panic invariant under corrupted-load scenario ──
+//
+// `Vec::insert` panics when `index > len()`. Under normal Phase 22 control
+// flow CLP/DEL/run_loop maintain `state.pc <= state.program.len()`, but a
+// corrupted or malicious `~/.hp41/autosave.json` could deserialize a
+// `CalcState` with `pc > program.len()` — `CalcState` has no field-level
+// validation at load time. `op_ins` clamps `state.pc` to
+// `state.program.len()` before `Vec::insert` so hp41-core stays
+// panic-free even in that pathological state. Mirrors the existing
+// `op_del` `saturating_sub` / `.min(...)` neutralization. Targets the
+// Phase 22 review Warning at `program.rs:208`.
+
+#[test]
+fn test_ins_at_pc_past_len_does_not_panic() {
+    let mut state = CalcState::new();
+    state.program = vec![
+        Op::PushNum(HpNum::from(1i32)),
+        Op::PushNum(HpNum::from(2i32)),
+    ];
+    // Simulate a corrupted-load state: pc beyond program.len().
+    state.pc = 99;
+    state.prgm_mode = true;
+
+    // Must NOT panic. Under the clamp, Op::Null is appended at the end
+    // (idx = program.len() = 2), leaving program.len() == 3.
+    dispatch(&mut state, Op::Ins).unwrap();
+
+    assert_eq!(
+        state.program.len(),
+        3,
+        "INS must grow the program by 1 even when pc > len()"
+    );
+    assert!(
+        matches!(state.program[2], Op::Null),
+        "Op::Null must land at the clamped index (program.len()); got {:?}",
+        state.program[2]
+    );
+    // pc UNCHANGED — same contract as the normal-path INS.
+    assert_eq!(state.pc, 99, "INS must NOT modify state.pc even on clamp");
+}
+
+#[test]
+fn test_ins_at_pc_equals_len_appends_null() {
+    // Legitimate append-at-end case (the "STOP at end-of-program" edit
+    // scenario the Phase 22 review noted as untested). pc == program.len()
+    // is in-range for Vec::insert (which accepts index == len), so this
+    // path works regardless of the clamp — but the regression test pins
+    // it explicitly.
+    let mut state = CalcState::new();
+    state.program = vec![
+        Op::PushNum(HpNum::from(1i32)),
+        Op::PushNum(HpNum::from(2i32)),
+    ];
+    state.pc = state.program.len();
+    state.prgm_mode = true;
+
+    dispatch(&mut state, Op::Ins).unwrap();
+
+    assert_eq!(state.program.len(), 3);
+    assert!(
+        matches!(state.program[2], Op::Null),
+        "Op::Null must be appended at pc when pc == program.len()"
+    );
+    assert_eq!(state.pc, 2, "INS must NOT modify state.pc");
+}

@@ -205,7 +205,15 @@ pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
     if !state.prgm_mode {
         return Err(HpError::InvalidOp);
     }
-    state.program.insert(state.pc, Op::Null);
+    // Defense-in-depth (D-22.23 zero-panic): clamp `state.pc` to
+    // `state.program.len()` before `Vec::insert`, which would otherwise
+    // panic when `index > len()`. Under normal control flow `state.pc <=
+    // state.program.len()` always holds (CLP/DEL/run_loop maintain it),
+    // but a corrupted `~/.hp41/autosave.json` could deserialize a
+    // `CalcState` with `pc > program.len()`. Silent clamp mirrors the
+    // existing `op_del` `saturating_sub` / `.min(...)` neutralization.
+    let idx = state.pc.min(state.program.len());
+    state.program.insert(idx, Op::Null);
     // state.pc deliberately unchanged — cursor still on the new Null.
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
