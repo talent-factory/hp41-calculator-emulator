@@ -12,6 +12,7 @@ pub mod cardreader_ops;
 pub mod display_ops;
 pub mod flags;
 pub mod hms;
+pub mod indirect;
 pub mod math;
 pub mod print;
 pub mod program;

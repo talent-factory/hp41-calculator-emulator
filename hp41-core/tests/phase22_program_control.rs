@@ -348,3 +348,109 @@ fn test_xeq_ind_non_integer_rejects() {
         "XEQ IND with non-integer pointer must return InvalidOp (FN-IND-02); got {result:?}"
     );
 }
+
+// ── Phase 24 D-24.5 sentinel: refactored GtoInd/XeqInd onto shared helper ────
+//
+// These tests exercise the same code paths as the original Phase-22 tests
+// above, but assert specific invariants of the shared-helper refactor:
+// (1) call-depth guard still runs FIRST (pre-mutation atomicity)
+// (2) Decimal::to_string preserves sign for label-lookup callers
+//
+// If any of these tests fail, the refactor regressed Phase-22 behavior.
+
+#[test]
+fn phase24_gto_ind_uses_shared_helper() {
+    // Sanity — proves the refactored arm still routes via
+    // crate::ops::indirect::resolve_indirect_decimal to find_in_program.
+    // Identical inputs/outputs to test_gto_ind_happy.
+    let mut state = CalcState::new();
+    state.regs[5] = HpNum::from(42i32);
+    state.program = vec![
+        Op::Lbl("A".to_string()),
+        Op::GtoInd(5),
+        Op::PushNum(HpNum::from(111i32)), // would-be unreachable after GTO
+        Op::Lbl("42".to_string()),
+        Op::PushNum(HpNum::from(7i32)),
+    ];
+
+    run_program(&mut state, "A").unwrap();
+    assert_eq!(
+        state.stack.x,
+        HpNum::from(7i32),
+        "GTO IND R05 (= 42) must branch to LBL 42 via shared helper; got X = {:?}",
+        state.stack.x
+    );
+}
+
+#[test]
+fn phase24_xeq_ind_uses_shared_helper() {
+    // Sanity for XeqInd refactor — same flow as test_xeq_ind_happy.
+    let mut state = CalcState::new();
+    state.regs[3] = HpNum::from(10i32);
+    state.program = vec![
+        Op::Lbl("A".to_string()),
+        Op::XeqInd(3),
+        Op::PushNum(HpNum::from(2i32)),
+        Op::Rtn,
+        Op::Lbl("10".to_string()),
+        Op::PushNum(HpNum::from(99i32)),
+        Op::Rtn,
+    ];
+
+    run_program(&mut state, "A").unwrap();
+    assert_eq!(
+        state.stack.x,
+        HpNum::from(2i32),
+        "X after XEQ IND subroutine + return must be 2 via shared helper; got {:?}",
+        state.stack.x
+    );
+}
+
+#[test]
+fn phase24_xeq_ind_call_depth_guard_runs_before_pointer_read() {
+    // CRITICAL D-24.5 sentinel: drive via resume_program (NOT run_program —
+    // the latter wipes call_stack at entry per the inline comment at
+    // test_xeq_ind_4_deep_call_stack_rejects above). With a 4-deep call_stack
+    // AND a non-integer pointer, the pre-mutation atomicity guard must fire
+    // FIRST and return CallDepth — NOT InvalidOp from a downstream pointer
+    // read. If a future planner accidentally moves the call_stack.len() >= 4
+    // check below the pointer read, this test catches it.
+    let mut state = CalcState::new();
+    state.regs[3] = HpNum::rounded(Decimal::from_str("12.345").unwrap());
+    state.program = vec![Op::XeqInd(3), Op::Lbl("12".to_string())];
+    state.pc = 0;
+    state.call_stack = vec![999usize; 4]; // pre-fill to 4 frames
+
+    let result = resume_program(&mut state);
+
+    assert!(
+        matches!(result, Err(HpError::CallDepth)),
+        "XEQ IND at 4-deep call_stack with non-integer pointer must return \
+         CallDepth (pre-mutation guard fires FIRST), NOT InvalidOp; got {result:?}"
+    );
+    // Pre-mutation atomicity: the push did NOT happen — still exactly 4.
+    assert_eq!(
+        state.call_stack.len(),
+        4,
+        "call_stack must not be mutated on CallDepth (pre-mutation guard); got {:?}",
+        state.call_stack
+    );
+}
+
+#[test]
+fn phase24_gto_ind_negative_pointer_stringifies_with_sign() {
+    // Pitfall 2 sentinel: -3 IS an integer (passes the inner helper without
+    // rejection), so the failure path is "find_in_program('-3') failed", NOT
+    // "non-integer pointer". This confirms Decimal::to_string preserves the
+    // sign exactly as Phase 22 did pre-refactor.
+    let mut state = CalcState::new();
+    state.regs[5] = HpNum::from(-3i32);
+    state.program = vec![Op::Lbl("A".to_string()), Op::GtoInd(5)]; // no LBL "-3"
+
+    let result = run_program(&mut state, "A");
+    assert!(
+        matches!(result, Err(HpError::InvalidOp)),
+        "GTO IND R05 (= -3) must InvalidOp via find_in_program (label '-3' \
+         not found), NOT via non-integer rejection; got {result:?}"
+    );
+}

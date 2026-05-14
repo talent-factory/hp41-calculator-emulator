@@ -464,53 +464,27 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 let target = find_in_program(program, &label)?;
                 state.pc = target + 1;
             }
-            // ── Phase 22 (D-22.15, FN-PROG-06): GTO IND nn ────────────────
-            // Inline indirect resolver. Phase 24 will extract this into a
-            // shared `resolve_indirect()` helper for ~15 IND variants.
-            //
-            // 1. Read register (bounds-safe via .get() — D-22.23 zero-panic).
-            // 2. Truncate to integer; reject non-integer pointers (FN-IND-02).
-            // 3. Stringify the integer and reuse find_in_program (mirrors Op::Gto).
             Op::GtoInd(reg) => {
-                let pointer = state
-                    .regs
-                    .get(reg as usize)
-                    .ok_or(HpError::InvalidOp)?
-                    .clone();
-                let int_part = pointer.trunc_int();
-                if int_part != pointer {
-                    return Err(HpError::InvalidOp);
-                }
-                let label_str = int_part.inner().to_string();
+                // Phase 24 (D-24.5): pointer-validation logic now lives in the shared
+                // `resolve_indirect_decimal` helper — single source of truth across all
+                // ~14 indirect-resolving callers (this + Op::XeqInd + 12 Op::*Ind variants).
+                let i = crate::ops::indirect::resolve_indirect_decimal(state, reg)?;
+                let label_str = i.to_string();
                 let target = find_in_program(program, &label_str)?;
                 state.pc = target + 1; // mirrors Op::Gto: pc → step AFTER LBL marker
             }
-            // ── Phase 22 (D-22.15, FN-PROG-07): XEQ IND nn ────────────────
-            // Same inline indirect resolver as Op::GtoInd, but performs a
-            // subroutine call: push pc onto call_stack BEFORE redirecting.
-            //
-            // CRITICAL: the 4-deep call_stack guard is PRE-mutation (D-13 /
-            // D-14 precedent of Op::Xeq at line 206). The check fires BEFORE
-            // reading the register, so an over-deep call returns CallDepth
-            // without partially mutating any state.
-            //
-            // No builtin_card_op fallback — indirect labels are numeric
-            // strings only (the integer pointer route never resolves a
-            // textual function name).
             Op::XeqInd(reg) => {
+                // Pre-mutation atomicity guard (D-22.15) — UNCHANGED, must run before
+                // any pointer read.
                 if state.call_stack.len() >= 4 {
-                    return Err(HpError::CallDepth); // pre-mutation atomicity
+                    return Err(HpError::CallDepth);
                 }
-                let pointer = state
-                    .regs
-                    .get(reg as usize)
-                    .ok_or(HpError::InvalidOp)?
-                    .clone();
-                let int_part = pointer.trunc_int();
-                if int_part != pointer {
-                    return Err(HpError::InvalidOp);
-                }
-                let label_str = int_part.inner().to_string();
+                // Phase 24 (D-24.5): shared pointer-validation helper. The label-lookup
+                // path (find_in_program + call_stack.push + pc advance) is NOT modified —
+                // GTO/XEQ-IND resolve to LABELS, not register addresses, so the inner
+                // Decimal-returning helper (not the u8 wrapper) is the right consumer.
+                let i = crate::ops::indirect::resolve_indirect_decimal(state, reg)?;
+                let label_str = i.to_string();
                 let target = find_in_program(program, &label_str)?;
                 state.call_stack.push(state.pc);
                 state.pc = target + 1;
