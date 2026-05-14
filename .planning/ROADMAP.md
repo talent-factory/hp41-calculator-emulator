@@ -129,7 +129,10 @@ Plans:
   3. With R07 containing 12.345 (non-integer pointer), `RCL IND 07` returns `HpError::InvalidOp` in the CLI display — never panics, never silently rounds
   4. With R10 containing 25 and ALPHA empty, `ARCL IND 10` appends the formatted contents of R25 to ALPHA; `ASTO IND 10` packs the first 6 ALPHA chars into R25
   5. `GTO IND 05` (with R05=42) jumps to LBL 42 or step 42 per HP-41 semantics; `XEQ IND 05` similarly invokes the subroutine — verified by program execution test in `hp41-core/tests/`
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 24-01-PLAN.md — Foundation: new ops/indirect.rs with two-tier resolver (resolve_indirect_decimal private + resolve_indirect public u8-wrapper) + 7 inline unit tests + Phase-22 GtoInd/XeqInd refactor onto inner helper + 4 D-24.5 sentinel regression tests in phase22_program_control.rs; FN-IND-01, FN-IND-02
+- [ ] 24-02-PLAN.md — Variants: 11 new Op::*Ind variants (StoInd/RclInd/StoArithInd/IsgInd/DseInd/SfFlagInd/CfFlagInd/FlagTestInd struct-variant/ArclInd/AstoInd/ViewInd) landing in 4 places (dispatch + execute_op + run_loop for skip-semantic ops + both prgm_display.rs copies) + 36+ integration tests in phase24_ind_variants.rs; depends on 24-01; FN-IND-01, FN-IND-02
 **Cross-cutting constraints:**
   - `resolve_indirect()` is the ONE place that converts register-N to a u8 address — no duplication across ops
   - All IND variants are NEW `Op` enum variants (e.g. `StoInd(u8)`, `RclInd(u8)`, `SfInd(u8)`, …) — they MUST land in dispatch + execute_op + both prgm_display copies
@@ -223,7 +226,7 @@ Plans:
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
 | 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
 | 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
-| 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
+| 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
 | 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
 | 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
