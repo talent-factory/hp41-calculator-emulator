@@ -32,11 +32,19 @@ use rust_decimal::Decimal;
 /// the refactored Phase-22 `Op::GtoInd` / `Op::XeqInd` arms in
 /// `ops/program.rs::run_loop` call this helper directly.
 pub(crate) fn resolve_indirect_decimal(
-    _state: &CalcState,
-    _reg: u8,
+    state: &CalcState,
+    reg: u8,
 ) -> Result<Decimal, HpError> {
-    // RED stub — implementation follows in the GREEN commit.
-    Err(HpError::InvalidOp)
+    let pointer = state
+        .regs
+        .get(reg as usize)
+        .ok_or(HpError::InvalidOp)?
+        .clone();
+    let int_part = pointer.trunc_int();
+    if int_part != pointer {
+        return Err(HpError::InvalidOp);
+    }
+    Ok(int_part.inner())
 }
 
 /// Resolve register `reg`'s integer-part contents into a `u8` register address.
