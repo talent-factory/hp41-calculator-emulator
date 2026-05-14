@@ -16,6 +16,7 @@ pub mod math;
 pub mod print;
 pub mod program;
 pub mod registers;
+pub mod sound;
 pub mod stack_ops;
 pub mod stats;
 
@@ -320,6 +321,13 @@ pub enum Op {
     /// CLD — explicit clear of `display_override`. LiftEffect: Neutral.
     /// Phase 21 (FN-DISP-05).
     Cld,
+    // ── Phase 21: Sound ──────────────────────────────────────────────────────
+    /// BEEP — push `BEEP` event to event_buffer. LiftEffect: Neutral.
+    /// Phase 21 (FN-SOUND-01).
+    Beep,
+    /// TONE n — push `TONE n` event to event_buffer (n=0..=9).
+    /// LiftEffect: Neutral. Phase 21 (FN-SOUND-02).
+    Tone(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -544,6 +552,9 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Aon => display_ops::op_aon(state),
         Op::Aoff => display_ops::op_aoff(state),
         Op::Cld => display_ops::op_cld(state),
+        // ── Phase 21: Sound ───────────────────────────────────────────────
+        Op::Beep => sound::op_beep(state),
+        Op::Tone(n) => sound::op_tone(state, n),
     }
 }
 

@@ -125,6 +125,14 @@ pub struct CalcState {
     /// and never persisted (`#[serde(default, skip)]`). Phase 21 (FN-DISP-01..05).
     #[serde(default, skip)]
     pub display_override: Option<String>,
+
+    // ── Phase 21: Sound ──────────────────────────────────────────────────────
+    /// HP-41 sound event buffer: BEEP and TONE n push structured event lines here.
+    /// Drained by hp41-cli / hp41-gui after each dispatch — frontend plays audio.
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    /// Phase 21 (FN-SOUND-01 / FN-SOUND-02).
+    #[serde(default, skip)]
+    pub event_buffer: Vec<String>,
     /// Pending card I/O request set by `Op::Wdta`/`Op::Rdta`/`Op::Wprgm`/`Op::Rdprgm`.
     /// The frontend (hp41-cli / hp41-gui) drains this after each `dispatch()` and
     /// performs the actual disk I/O — keeps hp41-core UI-agnostic. Mirrors the
@@ -157,6 +165,7 @@ impl CalcState {
             reg_o: HpNum::zero(),
             flags: 0,
             display_override: None,
+            event_buffer: Vec::new(),
             pending_card_op: None,
         }
     }

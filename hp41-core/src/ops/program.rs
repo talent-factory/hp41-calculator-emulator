@@ -425,6 +425,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Aon => super::display_ops::op_aon(state),
         Op::Aoff => super::display_ops::op_aoff(state),
         Op::Cld => super::display_ops::op_cld(state),
+        // ── Phase 21: Sound ───────────────────────────────────────────────────
+        Op::Beep => super::sound::op_beep(state),
+        Op::Tone(n) => super::sound::op_tone(state, n),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

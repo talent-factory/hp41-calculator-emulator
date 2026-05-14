@@ -162,6 +162,9 @@ fn op_display_name(op: &Op) -> String {
         Op::Aon => "AON".to_string(),
         Op::Aoff => "AOFF".to_string(),
         Op::Cld => "CLD".to_string(),
+        // Phase 21: Sound
+        Op::Beep => "BEEP".to_string(),
+        Op::Tone(n) => format!("TONE {n}"),
     }
 }
 
