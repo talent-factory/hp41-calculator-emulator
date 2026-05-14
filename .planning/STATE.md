@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T17:30:00.000Z"
-last_activity: 2026-05-14 -- Phase 24 shipped (both plans complete)
+last_updated: "2026-05-14T18:00:00.000Z"
+last_activity: 2026-05-14 -- Phase 25 context gathered
 progress:
   total_phases: 8
   completed_phases: 5
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 24: Indirect Addressing (Cross-Cutting) — SHIPPED (2/2 plans complete)
-Plan: 24-01 (Foundation: resolve_indirect + Phase-22 refactor) ✅, 24-02 (Variants: 11 new *Ind Op variants) ✅
-Status: Ready to advance to Phase 25 (CLI Integration & Documentation)
-Resume file: .planning/phases/24-indirect-addressing/24-02-SUMMARY.md
-Last activity: 2026-05-14 -- Phase 24 shipped (both plans complete, coverage 93.48%)
+Phase: 25: CLI Integration & Documentation — CONTEXT GATHERED (0 plans created)
+Plans: TBD — planner derives from D-25.1..D-25.17
+Status: Ready to plan
+Resume file: .planning/phases/25-cli-integration-and-documentation/25-CONTEXT.md
+Last activity: 2026-05-14 -- Phase 25 context gathered (4 areas, 17 decisions)
 
-Progress: 5 / 8 phases (Phase 24 complete; Phase 25 next)
+Progress: 5 / 8 phases (Phase 24 complete; Phase 25 context → plan)
 
 ---
 
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-execute-phase 24` complete — both plans shipped on develop. Wave 1 (24-01): two-tier helper `resolve_indirect` / `resolve_indirect_decimal` in new `hp41-core/src/ops/indirect.rs` (146 lines, 7 inline unit tests); `Op::GtoInd` / `Op::XeqInd` refactored onto the inner helper with 4 D-24.5 sentinel tests preserving the call-depth pre-mutation guard byte-for-byte. Wave 2 (24-02): 11 new `Op::*Ind` variants (`StoInd`, `RclInd`, `StoArithInd`, `IsgInd`, `DseInd`, `SfFlagInd`, `CfFlagInd`, `FlagTestInd { kind, ind_reg }`, `ArclInd`, `AstoInd`, `ViewInd`) — every variant lands in 4 places (dispatch + execute_op/run_loop + both prgm_display copies) per the SC-4 mirror invariant. 43 integration tests in new `phase24_ind_variants.rs` (happy/non-integer/out-of-bounds per variant + sidecar/lift inheritance assertions + R9 ViewInd value-of-resolved-register sentinel). `cargo test --workspace`: 905/905 pass. `hp41-core` coverage 93.48% (gate ≥92.5%; up from 92.68% baseline). Two minor Rule-1 auto-fixes documented in SUMMARY (unreachable `IsgInd/DseInd` programming-ops catch-all removed; DSE counter Decimal trunc comparison fix). No new `CalcState` fields, no new `HpError` variants, hp41-cli + hp41-gui untouched outside `prgm_display.rs`. Worktree merges clean on develop (a97bcdc + 7ad59d6).
-**Next action:** Update PR #11 body with Phase 24 progress, push commits, then `/gsd-progress` or `/gsd-discuss-phase 25` to begin Phase 25 (CLI Integration & Documentation).
+**Last action:** `/gsd-discuss-phase 25` complete — 4 areas discussed and locked as D-25.1..D-25.17 in `.planning/phases/25-cli-integration-and-documentation/25-CONTEXT.md`. Headline decisions: (1) **HP-41CV f-prefix shift modal** supersedes v1.x crossterm direct mapping — ONE yellow prefix key only (corrected from initial 'f+g' draft after user noted HP-41C/CV/CX has only one shift key, unlike HP-15C/12C); full migration deprecates `C` for COS / `L` for LN / etc.; one-shot lifetime matching GUI v2.1 `shiftActive`; ALPHA-overrides-Prefix preserved (D-5 deferral); full hardware ALPHA-special-char-prefix → v3.x. (2) **4 conditional tests** bound exactly to user's physical HP-41CV: `f-` → X=Y, `f+` → X≤Y, `f*` → X>Y, `f/` → X=0; the other 8 (X≠Y, X<Y, X≥Y, X≠0, X<0, X>0, X≤0, X≥0) reachable only via XEQ-by-Name palette (v2.1 modal, already shipped); FN-TEST-01 "reachable" interpreted as keystroke-sequence-reachable. (3) **Hybrid PendingInput** — group struct-variants (`FlagPrompt {kind, ind, acc}` + `RegisterPrompt {op, ind, acc}`) plus specialty unique variants (CLP-Label / DEL-Count / TONE); IND modifier as `ind: bool` field, toggle-bar mid-input matching HP-41CV hardware flow; reuses Phase-21 FlagTestKind + Phase-9 StoArithKind. ~18 exhaustive match arms (vs naive ~30+). (4) **Shared JSON + hand-curated matrix** — `docs/hp41cv-functions.json` as single source; `hp41-cli/src/help_data.rs` via include_str! + serde lazy-parse (no build.rs codegen); Phase 26 vite-imports same JSON; `docs/hp41cv-function-matrix.md` generated via `just docs-matrix`; CI test verifies JSON ↔ Op-enum ↔ committed-MD parity; README ships soft "feature-complete HP-41CV with documented divergences" claim in Phase 25 with hard claim deferred to Phase 27. NO `hp41-core` changes, NO new CalcState fields, NO new HpError variants. CLI ↔ GUI parity is invariant (Phase 26 must mirror exactly). Phase 24 ship recap: 905/905 tests, hp41-core coverage 93.48% (up from 92.68%), PR #11 updated; pushed via 435357f.
+**Next action:** `/gsd-plan-phase 25` — turn the 17 locked decisions into detailed plans. Largest single-phase wiring task in v2.2: ~80 Op variants × keyboard + ~18 PendingInput modal arms + ~130-row function matrix + CLI/docs sync.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 24 shipped; Phase 25 next*
+*Last updated: 2026-05-14 — Phase 25 context gathered; ready to plan*
