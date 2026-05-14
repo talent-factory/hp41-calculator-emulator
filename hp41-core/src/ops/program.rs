@@ -805,6 +805,11 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // D-22.18 (AMENDED OQ-3 Option A): ASN — empty `name` removes;
         // non-empty inserts. Executes fine inside run_loop AND interactively.
         Op::Asn { name, key_code } => op_asn(state, name, key_code),
+        // ── Phase 23: ALPHA-register operations (D-23.12) ─────────────────
+        // ARCL/ASTO are regular ops — they execute fine inside run_loop AND
+        // interactively; no control-flow concerns. Neutral lift both.
+        Op::Arcl(reg) => super::alpha::op_arcl(state, reg),
+        Op::Asto(reg) => super::alpha::op_asto(state, reg),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

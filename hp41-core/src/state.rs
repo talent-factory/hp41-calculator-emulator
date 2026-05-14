@@ -92,6 +92,16 @@ pub struct CalcState {
     /// `#[serde(default)]` keeps v1.0–v2.1 save files loadable (default → empty map).
     #[serde(default)]
     pub assignments: BTreeMap<u8, String>,
+    /// HP-41 packed-text register shadows: ASTO writes a 6-char string here,
+    /// ARCL reads from here in preference to formatting the numeric `regs[reg]`.
+    /// Numeric STO / op_sto_arith / op_clreg CLEAR the matching entry to keep
+    /// the two representations from drifting (D-23.4). `op_sto_arith_stack`
+    /// targets the Y/Z/T/LastX stack registers (not numbered regs) so it does
+    /// not touch this map.
+    /// `#[serde(default)]` keeps v1.x–v2.1 save files loadable (default → empty map).
+    /// Phase 23 (FN-ALPHA-01, FN-ALPHA-02).
+    #[serde(default)]
+    pub text_regs: BTreeMap<u8, String>,
     /// Buffer of formatted print lines from PRX/PRA/PRSTK.
     /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
     /// #[serde(default, skip)] — default enables backward-compat deserialization of older
@@ -165,6 +175,7 @@ impl CalcState {
             user_mode: false,
             key_assignments: BTreeMap::new(),
             assignments: BTreeMap::new(),
+            text_regs: BTreeMap::new(),
             print_buffer: Vec::new(),
             last_key_code: 0,
             reg_m: HpNum::zero(),

@@ -466,6 +466,22 @@ pub enum Op {
     ///
     /// LiftEffect: Neutral. Phase 22 (FN-KEY-01, D-22.18 AMENDED).
     Asn { name: String, key_code: u8 },
+    // ── Phase 23: ALPHA-register operations (D-23.12) ────────────────────────
+    /// ARCL nn — append register-N's formatted value to the ALPHA register.
+    /// Reads from `state.text_regs[reg]` if present (packed-text shadow from
+    /// a prior ASTO), else formats `state.regs[reg]` via `format_hpnum`
+    /// (respects the current FIX/SCI/ENG display mode — SC#1). 24-char
+    /// silent-discard cap. Out-of-range `reg` → `HpError::InvalidOp` BEFORE
+    /// any text_regs lookup (W-2 strengthening of D-23.3; T-23-01).
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-01, D-23.3).
+    Arcl(u8),
+    /// ASTO nn — pack the first 6 chars of the ALPHA register into
+    /// `state.text_regs[reg]` and zero the numeric slot `regs[reg]` (no-drift
+    /// invariant, paired with D-23.4 sidecar-clearing in op_sto / op_sto_arith
+    /// / op_clreg). The ALPHA register itself is NOT modified. Out-of-range
+    /// `reg` → `HpError::InvalidOp` BEFORE the sidecar write (atomicity).
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-02, D-23.2).
+    Asto(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -777,6 +793,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // per D-22.19. The owned String moves into op_asn (Op is consumed
         // by value here).
         Op::Asn { name, key_code } => program::op_asn(state, name, key_code),
+        // ── Phase 23: ALPHA-register operations (D-23.12) ─────────────────
+        // ARCL/ASTO both Neutral lift; both reuse format_hpnum / HpNum::zero
+        // rather than re-deriving display or zero-value logic. ASTO writes
+        // the packed-text shadow AND zeroes the numeric slot (no-drift).
+        Op::Arcl(reg) => alpha::op_arcl(state, reg),
+        Op::Asto(reg) => alpha::op_asto(state, reg),
     }
 }
 
