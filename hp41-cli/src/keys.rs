@@ -8,98 +8,122 @@
 //! and F5/F7/F8 are handled directly in app.handle_key() and MUST NOT appear here.
 
 use crossterm::event::{KeyCode, KeyEvent};
-use hp41_core::ops::Op;
+use hp41_core::ops::{Op, TestKind};
 
 use crate::app::App;
 
-/// Map a crossterm KeyEvent to an hp41-core Op.
-/// Returns None for keys handled elsewhere (digits, Ctrl+C quit, mode cycles, F5/F7/F8).
-/// Returns None for unmapped keys (silently ignored by app.handle_key).
+/// Map a crossterm KeyEvent to an hp41-core Op for the **primary** HP-41CV
+/// keyboard positions only (Phase 25 / D-25.1 / D-25.3).
+///
+/// Phase 25 (Plan 01, Task 2) is the **hard cut** from v1.x crossterm-style
+/// direct-letter bindings to HP-41CV hardware-faithful primaries. The
+/// previous letter map (C → COS, T → TAN, L → LN, G → LOG, E → e^x,
+/// H → 10^x, I → 1/x, W → x², Y → y^x, q → SIN, a/c/k → ASIN/ACOS/ATAN,
+/// s → √x, g → CLREG, z/Z/m/D/y/b/O/V → stats, h/j/J → HMS) is GONE per
+/// D-25.3. Those ops are now reached either:
+///   - via the f-prefix (`shifted_key_to_op` — Plan 01 wires the four
+///     conditional tests; Plan 02 wires modal openers), or
+///   - via the XEQ-by-Name modal (shipped v2.1; Plan 03 extends it for the
+///     eight non-keyboard conditional tests per D-25.8/D-25.9), or
+///   - via the FIX/SCI/ENG modal (`F`, preserved for Plan 01) which Plan 02
+///     repositions onto its real f-shifted keyboard slot.
+///
+/// What we **keep** here:
+///   - Truly universal control keys (Enter, Backspace) — same on every
+///     HP calculator and the user's terminal.
+///   - The four arithmetic primaries (+/-/*//) — top-row HP-41CV positions.
+///   - `%` — HP-41 PctChange primary.
+///   - Lower-case shortcut letters that happen to live on the user's
+///     ASCII keyboard with no HP-41CV-letter collision: `n`→CHS, `r`→R↓,
+///     `x`→X⟷Y, `l`→LASTX, `p`→PrgmMode, `u`→USER. These are convenience
+///     mnemonics that survive D-25.3 because they correspond to HP-41CV
+///     primary key labels (CHS is yellow-printed but reached via the chs
+///     primary on row 8; R↓/X⟷Y/LASTX are primary positions; PRGM and
+///     USER are top-row mode keys).
+///
+/// Returns None for keys handled elsewhere (digits, Ctrl+C quit, mode
+/// cycles, F5/F7/F8) and for all unmapped keys (silently ignored by
+/// app.handle_key — including every former v1.x letter binding).
 pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
     match key.code {
-        // Stack operations
+        // ── Universal control keys ──────────────────────────────────────
         KeyCode::Enter => Some(Op::Enter),
         KeyCode::Backspace => Some(Op::Clx),
-        // Arithmetic
+
+        // ── Arithmetic primaries (HP-41CV row 4–8 right column) ─────────
         KeyCode::Char('+') => Some(Op::Add),
         KeyCode::Char('-') => Some(Op::Sub),
         KeyCode::Char('*') => Some(Op::Mul),
         KeyCode::Char('/') => Some(Op::Div),
         KeyCode::Char('%') => Some(Op::PctChange),
-        // Stack ops (lowercase)
+
+        // ── HP-41CV primary positions with surviving ASCII shortcuts ────
+        // CHS (row 8 chs key), R↓ (row 2), X⟷Y (row 2), LASTX (row 2-ish),
+        // PRGM/USER (top-row mode keys).
         KeyCode::Char('n') => Some(Op::Chs),
         KeyCode::Char('r') => Some(Op::Rdn),
         KeyCode::Char('x') => Some(Op::XySwap),
         KeyCode::Char('l') => Some(Op::Lastx),
-        KeyCode::Char('s') => Some(Op::Sqrt),
         KeyCode::Char('p') => Some(Op::PrgmMode),
-        // Inverse trig (lowercase — D-09 addition: a/c/k for ASIN/ACOS/ATAN)
-        KeyCode::Char('a') => Some(Op::Asin),
-        KeyCode::Char('c') => Some(Op::Acos),
-        KeyCode::Char('k') => Some(Op::Atan),
-        // Trig / math: uppercase char = Shift+letter (D-09, crossterm convention).
-        // Crossterm delivers Shift+s as KeyCode::Char('S'); no modifier check needed.
-        // NOTE: 'S' is now intercepted in app.handle_key() BEFORE key_to_op() is called.
-        // It triggers the STO [nn] register modal (Phase 5, D-10). SIN is now unmapped.
-        KeyCode::Char('C') => Some(Op::Cos),
-        KeyCode::Char('T') => Some(Op::Tan),
-        KeyCode::Char('L') => Some(Op::Ln),
-        KeyCode::Char('G') => Some(Op::Log),
-        KeyCode::Char('E') => Some(Op::Exp),
-        KeyCode::Char('H') => Some(Op::TenPow),
-        KeyCode::Char('I') => Some(Op::Recip),
-        KeyCode::Char('W') => Some(Op::Sq),
-        KeyCode::Char('Y') => Some(Op::YPow),
-        // Phase 5: USER mode toggle (D-26)
         KeyCode::Char('u') => Some(Op::UserMode),
-        // Phase 6: Science & Engineering stats bindings
-        // Note: 'd' is intercepted in app.rs for angle mode; use 'D' for SDEV.
-        KeyCode::Char('z') => Some(Op::SigmaPlus),
-        KeyCode::Char('Z') => Some(Op::SigmaMinus),
-        KeyCode::Char('m') => Some(Op::Mean),
-        KeyCode::Char('D') => Some(Op::Sdev),
-        KeyCode::Char('y') => Some(Op::Yhat),
-        // Note: 'l' is taken by Op::Lastx; 'R' is STO/RCL modal (None); use 'b' for L.R.
-        KeyCode::Char('b') => Some(Op::LR),
-        KeyCode::Char('O') => Some(Op::Corr),
-        KeyCode::Char('V') => Some(Op::ClSigmaStat),
-        // Phase 6: HMS bindings
-        // Note: 'f' is intercepted in app.rs for format mode.
-        // Note: 'F' is intercepted in app.rs for FmtDigits modal — HToHms is unbound.
-        KeyCode::Char('h') => Some(Op::HmsToH),
-        KeyCode::Char('j') => Some(Op::HmsAdd),
-        KeyCode::Char('J') => Some(Op::HmsSub),
-        // Phase 8: Tech Debt Cleanup — previously unmapped keys
-        KeyCode::Char('q') => Some(Op::Sin), // 'q' was quit before Phase 8; reassigned to SIN — quit is Ctrl+C only
-        KeyCode::Char('g') => Some(Op::Clreg), // 'g' was unbound; assigned to CLREG in Phase 8
-        // Phase 5: S and R start STO/RCL register-number modal entry (D-10).
-        // They do NOT return an Op here — the modal is intercepted in app.handle_key()
-        // BEFORE key_to_op() is called. Return None so the fallthrough is a no-op.
-        // (The modal sets pending_input, which is handled via handle_pending_input.)
-        KeyCode::Char('S') | KeyCode::Char('R') => None,
-        // F5/F7/F8 handled in app.handle_key — return None here.
-        KeyCode::F(5) | KeyCode::F(7) | KeyCode::F(8) => None,
-        // F1-F4: intercepted in app.handle_key() for USER mode dispatch — not routed through key_to_op().
-        KeyCode::F(1) | KeyCode::F(2) | KeyCode::F(3) | KeyCode::F(4) => None,
-        // All other keys (including digits 0-9, '.', 'e', 'd', 'f') — handled elsewhere.
+
+        // ── Modal openers handled BEFORE key_to_op in app.handle_key() ──
+        // S → StoRegister, R → RclRegister, F → FmtDigits, P → PrintModal,
+        // X → HexModal (PRGM mode). Returning None lets the fallthrough
+        // be a no-op should those interceptors ever be reordered.
+        KeyCode::Char('S')
+        | KeyCode::Char('R')
+        | KeyCode::Char('F')
+        | KeyCode::Char('P')
+        | KeyCode::Char('X') => None,
+
+        // F1–F8 are TUI bindings handled directly in app.handle_key()
+        // (R/S, SST, BST, USER F1–F4).
+        KeyCode::F(_) => None,
+
+        // All other keys — including every v1.x letter binding stripped
+        // per D-25.3 (C, T, L, G, E, H, I, W, Y, q, a, c, k, s, g, z, Z,
+        // m, D, y, b, O, V, h, j, J) — are silently unmapped.
         _ => None,
     }
 }
 
 /// Map a key pressed AFTER an armed f-prefix to its HP-41CV f-shifted Op.
 ///
-/// Phase 25 / Plan 01 — wires only the four hardware-anchored arithmetic-key
-/// conditional tests per D-25.7. Plan 02 extends with modal-opener f-shifted
-/// bindings (SF / CF / VIEW / TONE / …) and Plan 04 may rebuild the table
-/// entirely from `docs/hp41cv-functions.json` (D-25.18). Returning `None`
-/// here is silent — the caller in `App::handle_key` always clears the
-/// `shift_armed` flag regardless (Pitfall 5).
+/// Phase 25 / Plan 01 (D-25.7) wires the **four** hardware-anchored
+/// conditional tests bound to the f-shifted arithmetic keys on the user's
+/// physical HP-41CV:
+///
+/// | Key  | Op                         | Mnemonic |
+/// |------|----------------------------|----------|
+/// | `f-` | `Op::Test(TestKind::XEqY)` | X=Y      |
+/// | `f+` | `Op::Test(TestKind::XLeY)` | X≤Y      |
+/// | `f*` | `Op::Test(TestKind::XGtY)` | X>Y      |
+/// | `f/` | `Op::Test(TestKind::XEqZero)` | X=0   |
+///
+/// These four are the **only** conditional tests on the physical HP-41CV
+/// keyboard (D-25.7); the other eight (X≠Y, X<Y, X≥Y, X≠0, X<0, X>0,
+/// X≤0, X≥0) are reached via the XEQ-by-Name modal per D-25.8/D-25.9
+/// (Plan 03 wires the modal resolver).
+///
+/// Plan 02 extends this resolver with modal-opener f-shifted bindings
+/// (SF/CF/VIEW/TONE/…) once those modals exist. Plan 04 may rebuild the
+/// table entirely from `docs/hp41cv-functions.json` per D-25.18. Returning
+/// `None` here is silent — the caller in `App::handle_key` always clears
+/// the `shift_armed` flag regardless (Pitfall 5).
 pub fn shifted_key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
-    // Plan 01 stub — Task 2 fills in the four f-arith conditional tests
-    // (`f -` → X=Y, `f +` → X≤Y, `f *` → X>Y, `f /` → X=0). Until then,
-    // every f-shifted key resolves to None (one-shot consumed silently).
-    let _ = key;
-    None
+    match key.code {
+        // D-25.7 — four hardware-anchored conditional tests on the
+        // f-shifted arithmetic keys.
+        KeyCode::Char('-') => Some(Op::Test(TestKind::XEqY)),
+        KeyCode::Char('+') => Some(Op::Test(TestKind::XLeY)),
+        KeyCode::Char('*') => Some(Op::Test(TestKind::XGtY)),
+        KeyCode::Char('/') => Some(Op::Test(TestKind::XEqZero)),
+        // Modal-opener f-shifted bindings (SF/CF/VIEW/TONE/…) land in
+        // Plan 02. Everything else is unmapped — the caller clears
+        // shift_armed regardless (Pitfall 5).
+        _ => None,
+    }
 }
 
 /// Key-reference table for the TUI right panel (INPUT-01 discoverability).

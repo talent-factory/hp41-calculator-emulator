@@ -4,15 +4,17 @@
 //! prefix-consume, ALPHA-override, and Pitfall-5-bleed paths are all
 //! exercised through the same dispatcher the live TUI uses.
 //!
-//! Plan 01 Task 1 lands the arming/consumption logic and these tests.
-//! Plan 01 Task 2 extends this file with f-arith dispatch tests and the
-//! `v1.x letters removed` regression test.
+//! - Plan 01 Task 1 lands the arming/consumption logic and the Task-1 tests.
+//! - Plan 01 Task 2 wires `shifted_key_to_op` and strips v1.x letter bindings;
+//!   the Task-2 tests below verify the four hardware-anchored conditional
+//!   tests (D-25.7) plus the v1.x-letters-removed regression (D-25.3).
 
 #![allow(clippy::unwrap_used)]
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 
 use hp41_cli::app::App;
+use hp41_core::ops::{Op, TestKind};
 use hp41_core::state::CalcState;
 use hp41_core::HpNum;
 
@@ -192,4 +194,179 @@ fn test_shift_armed_not_activated_inside_modal() {
         app.pending_input.is_some(),
         "the modal must still be open after the swallowed key"
     );
+}
+
+// ── Task 2: shifted_key_to_op dispatches the 4 f-arith conditional tests ─────
+//
+// Phase 25 D-25.7 binds exactly four conditional tests to the f-shifted
+// arithmetic keys, anchored to the user's physical HP-41CV:
+//
+//   f -  →  X=Y    (TestKind::XEqY)
+//   f +  →  X≤Y    (TestKind::XLeY)
+//   f *  →  X>Y    (TestKind::XGtY)
+//   f /  →  X=0    (TestKind::XEqZero)
+//
+// In interactive mode `op_test` is a no-op (Test only affects program flow
+// inside `run_loop` via `evaluate_test`). We assert two observable signals:
+//   1. After consumption, `shift_armed == false` and `app.message` is None
+//      (no error from dispatch — meaning the op was resolved).
+//   2. `evaluate_test` agrees on the stack we set up — so we know the
+//      shifted resolver picked the correct TestKind variant.
+
+fn assert_test_dispatched(app: &App, kind: TestKind, want_true: bool) {
+    assert!(!app.shift_armed, "shift_armed must clear after consumption");
+    assert!(
+        app.message.is_none(),
+        "no error must be raised on dispatch; got {:?}",
+        app.message
+    );
+    let got = hp41_core::ops::program::evaluate_test(&app.state, &kind);
+    assert_eq!(
+        got, want_true,
+        "evaluate_test({kind:?}) on the prepared stack must be {want_true}",
+    );
+}
+
+#[test]
+fn f_minus_dispatches_x_eq_y() {
+    // X == Y → test TRUE
+    let (mut app, _tmp) = make_app();
+    app.state.stack.y = HpNum::from(7);
+    app.state.stack.x = HpNum::from(7);
+    app.handle_key(key('f'));
+    app.handle_key(key('-'));
+    assert_test_dispatched(&app, TestKind::XEqY, true);
+
+    // X != Y → test FALSE
+    let (mut app2, _tmp2) = make_app();
+    app2.state.stack.y = HpNum::from(7);
+    app2.state.stack.x = HpNum::from(8);
+    app2.handle_key(key('f'));
+    app2.handle_key(key('-'));
+    assert_test_dispatched(&app2, TestKind::XEqY, false);
+}
+
+#[test]
+fn f_plus_dispatches_x_le_y() {
+    // X ≤ Y (equal) → TRUE
+    let (mut app, _tmp) = make_app();
+    app.state.stack.y = HpNum::from(5);
+    app.state.stack.x = HpNum::from(5);
+    app.handle_key(key('f'));
+    app.handle_key(key('+'));
+    assert_test_dispatched(&app, TestKind::XLeY, true);
+
+    // X > Y → FALSE
+    let (mut app2, _tmp2) = make_app();
+    app2.state.stack.y = HpNum::from(5);
+    app2.state.stack.x = HpNum::from(9);
+    app2.handle_key(key('f'));
+    app2.handle_key(key('+'));
+    assert_test_dispatched(&app2, TestKind::XLeY, false);
+}
+
+#[test]
+fn f_star_dispatches_x_gt_y() {
+    // X > Y → TRUE
+    let (mut app, _tmp) = make_app();
+    app.state.stack.y = HpNum::from(3);
+    app.state.stack.x = HpNum::from(10);
+    app.handle_key(key('f'));
+    app.handle_key(key('*'));
+    assert_test_dispatched(&app, TestKind::XGtY, true);
+
+    // X == Y → FALSE
+    let (mut app2, _tmp2) = make_app();
+    app2.state.stack.y = HpNum::from(3);
+    app2.state.stack.x = HpNum::from(3);
+    app2.handle_key(key('f'));
+    app2.handle_key(key('*'));
+    assert_test_dispatched(&app2, TestKind::XGtY, false);
+}
+
+#[test]
+fn f_slash_dispatches_x_eq_zero() {
+    // X == 0 → TRUE
+    let (mut app, _tmp) = make_app();
+    app.state.stack.x = HpNum::from(0);
+    app.handle_key(key('f'));
+    app.handle_key(key('/'));
+    assert_test_dispatched(&app, TestKind::XEqZero, true);
+
+    // X != 0 → FALSE
+    let (mut app2, _tmp2) = make_app();
+    app2.state.stack.x = HpNum::from(5);
+    app2.handle_key(key('f'));
+    app2.handle_key(key('/'));
+    assert_test_dispatched(&app2, TestKind::XEqZero, false);
+}
+
+// ── Task 2: v1.x letter bindings are removed from key_to_op (D-25.3) ─────────
+
+#[test]
+fn key_to_op_v1x_letters_removed() {
+    let (app, _tmp) = make_app();
+
+    // Spot-check six representative v1.x bindings — Cos, Tan, Ln, Sin, HmsToH,
+    // Log. All MUST return None after the Plan 01 / Task 2 strip.
+    let removed = ['C', 'T', 'L', 'q', 'h', 'G'];
+    for c in removed {
+        let ev = key(c);
+        let op = hp41_cli::keys::key_to_op(ev, &app);
+        assert!(
+            op.is_none(),
+            "v1.x letter binding for {:?} must be removed (got {:?})",
+            c,
+            op
+        );
+    }
+
+    // Also assert the rarer stats/HMS bindings are gone — the full list per
+    // D-25.3 / <interfaces> in 25-01-PLAN.md.
+    let removed_secondary = [
+        'E', 'H', 'I', 'W', 'Y', 'a', 'c', 'k', 's', 'g', 'z', 'Z', 'm', 'D', 'y', 'b', 'O', 'V',
+        'j', 'J',
+    ];
+    for c in removed_secondary {
+        let ev = key(c);
+        let op = hp41_cli::keys::key_to_op(ev, &app);
+        assert!(
+            op.is_none(),
+            "v1.x letter binding for {:?} must be removed (got {:?})",
+            c,
+            op
+        );
+    }
+}
+
+/// Sanity: the universal/primary positions kept in `key_to_op()` MUST still
+/// resolve correctly so we don't regress everyday calculator use.
+#[test]
+fn key_to_op_primary_positions_preserved() {
+    let (app, _tmp) = make_app();
+    let cases = [
+        (key('+'), Op::Add),
+        (key('-'), Op::Sub),
+        (key('*'), Op::Mul),
+        (key('/'), Op::Div),
+        (key('%'), Op::PctChange),
+        (key('n'), Op::Chs),
+        (key('r'), Op::Rdn),
+        (key('x'), Op::XySwap),
+        (key('l'), Op::Lastx),
+        (key('p'), Op::PrgmMode),
+        (key('u'), Op::UserMode),
+        (raw_key(KeyCode::Enter), Op::Enter),
+        (raw_key(KeyCode::Backspace), Op::Clx),
+    ];
+    for (ev, want) in cases {
+        let got = hp41_cli::keys::key_to_op(ev, &app);
+        assert_eq!(
+            got,
+            Some(want.clone()),
+            "primary position {:?} must still dispatch {:?}",
+            ev.code,
+            want
+        );
+    }
 }
