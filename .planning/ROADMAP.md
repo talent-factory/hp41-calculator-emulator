@@ -150,7 +150,12 @@ Plans:
   3. All 12 conditional tests (`X=Y`, `X≠Y`, `X<Y`, `X>Y`, `X≤Y`, `X≥Y`, `X=0`, `X≠0`, `X<0`, `X>0`, `X≤0`, `X≥0`) are reachable from the CLI keyboard — verified by typing each one and observing the dispatch result
   4. `docs/hp41cv-function-matrix.md` exists and lists ≥130 HP-41CV ROM ops with an implementation-status column (`✓ v2.x` / `⏳ v3.x module` / `— N/A`); CLAUDE.md "Settled Architecture Decisions" section gains a "v2.2 additions" block; README.md links to the function matrix
   5. `pending_prompt()` in `hp41-cli/src/ui.rs` handles every new `PendingInput` variant without `unreachable!()` or `_ =>` catch-all — verified by exhaustive match compile-check
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 25-01-f-prefix-state-machine-PLAN.md — App.shift_armed one-shot prefix + keys::shifted_key_to_op (4 hardware-anchored conditional tests) + remove v1.x letter bindings + status-bar `f→` indicator (FN-CLI-01 + FN-TEST-01 partial)
+- [ ] 25-02-pending-input-modals-PLAN.md — 6 new PendingInput variants (FlagPrompt/RegisterPrompt struct + ClpLabel/DelCount/TonePrompt/XeqByName specialty) + IND-toggle via shift-0 + exhaustive pending_prompt (FN-CLI-02 + FN-CLI-04 + FN-CLI-01)
+- [ ] 25-03-xeq-by-name-modal-PLAN.md — Surgical hp41-core builtin_card_op 4→12 + CLI xeq_by_name_local_resolve + XEQ-by-Name modal Enter-arm (FN-TEST-01 full)
+- [ ] 25-04-json-pipeline-and-docs-PLAN.md — docs/hp41cv-functions.json (≥130) + help_data.rs include_str!+OnceLock + scripts/docs-matrix bin + just docs-matrix(-check) + CI parity test + CLAUDE.md v2.2 additions + README soft-claim (FN-CLI-03 + FN-DOC-01..04)
 **Cross-cutting constraints:**
   - This phase ONLY touches `hp41-cli` and `docs/` and project-root `*.md` — no `hp41-core` changes (all core Ops landed in Phases 20–24)
   - Documentation runs synchronously with CLI integration per PROJECT.md "Build sequence: core → cli → docs → gui → tests" — the two are bundled here so the function matrix has authoritative coverage data
@@ -227,6 +232,6 @@ Plans:
 | 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
 | 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
-| 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
+| 25. CLI Integration & Documentation | v2.2 | 0/4 | Planned    |  |
 | 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
 | 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
