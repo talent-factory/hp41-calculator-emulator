@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T14:25:00Z"
-last_activity: 2026-05-14 -- Phase 23 ALPHA Operations shipped (6/6 must-haves verified)
+last_updated: "2026-05-14T15:30:00Z"
+last_activity: 2026-05-14 -- Phase 24 context gathered (4 areas locked, ready for planning)
 progress:
   total_phases: 8
   completed_phases: 4
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 24: Indirect Addressing (Cross-Cutting) — NOT STARTED
-Plan: —
-Status: Ready to discuss/plan
-Resume file: —
-Last activity: 2026-05-14 -- Phase 23 ALPHA Operations shipped: 6/6 must-haves verified, 2 plans, 50 new tests (28 inline + 22 integration), WR-01 (op_size text_regs pruning) and WR-02 (op_atox stack-helper routing) fixed in-cycle from code review
+Phase: 24: Indirect Addressing (Cross-Cutting) — CONTEXT GATHERED (0/2 plans planned)
+Plan: 24-01 (Foundation: resolve_indirect + Phase-22 refactor), 24-02 (Variants: ~12 new *Ind Op variants)
+Status: Ready to plan
+Resume file: .planning/phases/24-indirect-addressing/24-CONTEXT.md
+Last activity: 2026-05-14 -- Phase 24 discuss complete: 4 areas locked (D-24.1–D-24.9). Two-tier resolver design (inner resolve_indirect_decimal → Decimal; pub resolve_indirect → u8 via try_from). Phase-22 GtoInd/XeqInd refactored onto inner helper. Op::FlagTestInd { kind, ind_reg } as struct-variant mirror. Two-plan wave structure (24-01 foundation, 24-02 variants).
 
-Progress: 4 / 8 phases (Phase 23 complete → Phase 24 next)
+Progress: 4 / 8 phases (Phase 24 context → plan)
 
 ---
 
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-execute-phase 23` complete — both plans shipped sequentially via worktree-isolated executors (23-01 merged at `7bb0daf`, 23-02 merged at `29133da`). 6 new Op variants (Arcl/Asto/Atox/Xtoa/Arot/Posa) landed in all 4 places (D-23.12); `text_regs: BTreeMap<u8, String>` field added to CalcState with `#[serde(default)]`; D-23.4 sidecar-clearing audit applied to op_sto/op_sto_arith/op_clreg AND op_size (WR-01 post-review fix). Op::Atox now routes through `crate::stack::enter_number` (WR-02 fix). 50 new tests (28 inline + 22 integration) — all green. `just test` + `just lint` clean. Verifier scored 6/6 must-haves. REVIEW.md → status `fixed`. VERIFICATION.md → status `passed`. Commits 57a75e1, 915e22c, 4b108b1, d12347a, 3349ec1, 737683a, 7284c88, f109740, 990d1bb, 4ba85c4, 51c9718.
-**Next action:** `/gsd-discuss-phase 24` or `/gsd-plan-phase 24` — Phase 24 (Indirect Addressing) wires `_IND` variants on all addressable ops. Fresh `/clear` recommended.
+**Last action:** `/gsd-discuss-phase 24` complete — 4 areas discussed and locked as D-24.1..D-24.9 in `.planning/phases/24-indirect-addressing/24-CONTEXT.md`. Headline decisions: (1) two-tier resolver — private `resolve_indirect_decimal(state, reg) -> Result<Decimal, HpError>` is single source of pointer-validation truth, with `resolve_indirect()` wrapping it for u8 via `u8::try_from(i.to_i64().ok_or(InvalidOp)?)`; (2) IND-variants delegate to existing direct ops, inheriting D-23.4 sidecar + D-22.x atomicity + per-op lift-effect; (3) Phase 22's `Op::GtoInd` / `Op::XeqInd` get refactored onto the inner helper (with regression sentinel in 24-01); (4) `Op::FlagTestInd { kind: FlagTestKind, ind_reg: u8 }` mirrors `FlagTest`'s struct shape — backward-compat preserved; (5) Two-plan wave structure — 24-01 foundation + Phase-22 refactor, 24-02 ~12 new `*Ind` Op variants. NO new `CalcState` fields, NO new `HpError` variants. Pre-Phase 23 follow-up: Phase-22 cleanup commits cfbf87b/bd9b1c4/38f7033 fixed CI on Rust 1.95 + Windows + MSRV-1.88 (identity_op + uninlined_format_args + Windows-path-grep parser).
+**Next action:** `/gsd-plan-phase 24` — turn the 9 locked decisions into 2 detailed plans (24-01 Foundation, 24-02 Variants).
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 23 ALPHA Operations shipped; ready to start Phase 24*
+*Last updated: 2026-05-14 — Phase 24 context gathered; ready to plan*
