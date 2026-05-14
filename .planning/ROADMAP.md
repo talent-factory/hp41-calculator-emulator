@@ -22,7 +22,7 @@
 - [x] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage ✅ shipped 2026-05-14 (coverage 92.65%)
 - [x] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core ✅ shipped 2026-05-14 (coverage 92.68%, 48 new tests)
 - [x] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep) (completed 2026-05-14)
-- [ ] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core
+- [x] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core ✅ shipped 2026-05-14 (6/6 must-haves verified, 2 plans, 50 new tests, WR-01 + WR-02 fixed in-cycle)
 - [ ] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer
 - [ ] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + `KEY_REF_TABLE` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs`; ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README
 - [ ] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode`
@@ -110,8 +110,8 @@ Plans:
   5. With ALPHA="THE QUICK BROWN FOX" and X holding "QUICK" (or however POSA encodes the search arg), `POSA` returns 4 in X; for a missing substring returns -1
 **Plans**: 2 plans
 Plans:
-- [ ] 23-01-arcl-asto-PLAN.md — Wave-0 sidecar-clearing audit (op_sto/op_sto_arith/op_clreg per D-23.4) + new text_regs: BTreeMap<u8,String> field on CalcState + Op::Arcl(u8) + Op::Asto(u8); FN-ALPHA-01, FN-ALPHA-02
-- [ ] 23-02-atox-xtoa-arot-posa-PLAN.md — Op::Atox + Op::Xtoa + Op::Arot + Op::Posa (single-char POSA only per D-23.6); FN-ALPHA-03..06; depends on 23-01
+- [x] 23-01-arcl-asto-PLAN.md — Wave-0 sidecar-clearing audit (op_sto/op_sto_arith/op_clreg per D-23.4) + new text_regs: BTreeMap<u8,String> field on CalcState + Op::Arcl(u8) + Op::Asto(u8); FN-ALPHA-01, FN-ALPHA-02
+- [x] 23-02-atox-xtoa-arot-posa-PLAN.md — Op::Atox + Op::Xtoa + Op::Arot + Op::Posa (single-char POSA only per D-23.6); FN-ALPHA-03..06; depends on 23-01
 **Cross-cutting constraints:**
   - ALPHA register packing (`ASTO`) uses HP-41 6-char ASCII pack — document the exact encoding in CLAUDE.md so future ops match
   - `ARCL` formatting respects the current display mode (FIX/SCI/ENG) — re-uses `format_hpnum()` from `hp41-core/src/format.rs`
@@ -222,7 +222,7 @@ Plans:
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
 | 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
-| 23. ALPHA Operations | v2.2 | 0/2 | Planned    |  |
+| 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
 | 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |

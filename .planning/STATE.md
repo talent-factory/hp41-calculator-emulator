@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T12:32:42.937Z"
-last_activity: 2026-05-14 -- Phase 23 planning complete
+last_updated: "2026-05-14T14:25:00Z"
+last_activity: 2026-05-14 -- Phase 23 ALPHA Operations shipped (6/6 must-haves verified)
 progress:
   total_phases: 8
-  completed_phases: 3
-  total_plans: 13
-  completed_plans: 9
-  percent: 36
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 11
+  percent: 50
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 23: ALPHA Operations — PLANNED (0/2 plans complete)
-Plan: 23-01-arcl-asto, 23-02-atox-xtoa-arot-posa
-Status: Ready to execute
-Resume file: .planning/phases/23-alpha-operations/23-01-arcl-asto-PLAN.md
-Last activity: 2026-05-14 -- Phase 23 planning complete (2 plans, 6 ops, all FN-ALPHA-01..06 covered)
+Phase: 24: Indirect Addressing (Cross-Cutting) — NOT STARTED
+Plan: —
+Status: Ready to discuss/plan
+Resume file: —
+Last activity: 2026-05-14 -- Phase 23 ALPHA Operations shipped: 6/6 must-haves verified, 2 plans, 50 new tests (28 inline + 22 integration), WR-01 (op_size text_regs pruning) and WR-02 (op_atox stack-helper routing) fixed in-cycle from code review
 
-Progress: 3 / 8 phases (Phase 23 planned → execute)
+Progress: 4 / 8 phases (Phase 23 complete → Phase 24 next)
 
 ---
 
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-plan-phase 23` complete — 2 plans in `.planning/phases/23-alpha-operations/` (23-01-arcl-asto, 23-02-atox-xtoa-arot-posa) covering FN-ALPHA-01..06. Wave structure: 23-01 (wave 1) → 23-02 (wave 2, depends_on [23-01]) — file-overlap on `ops/mod.rs`, `ops/program.rs`, and both `prgm_display.rs` copies forces sequential. 6 new Op variants (Arcl(u8), Asto(u8), Atox, Xtoa, Arot, Posa); one new CalcState field `text_regs: BTreeMap<u8, String>` with `#[serde(default)]`; D-23.4 Wave-0 sidecar-clearing audit lands as Task #1 in 23-01. W-2 strengthening: `op_arcl` carries a leading `regs.len()` bounds check before the text_regs lookup (rejects tampered save-file shadow entries). Zero new HpError variants. Plan-checker passed after 1 revision iteration.
-**Next action:** `/gsd-execute-phase 23` — execute the 2 plans. Fresh `/clear` recommended before kickoff.
+**Last action:** `/gsd-execute-phase 23` complete — both plans shipped sequentially via worktree-isolated executors (23-01 merged at `7bb0daf`, 23-02 merged at `29133da`). 6 new Op variants (Arcl/Asto/Atox/Xtoa/Arot/Posa) landed in all 4 places (D-23.12); `text_regs: BTreeMap<u8, String>` field added to CalcState with `#[serde(default)]`; D-23.4 sidecar-clearing audit applied to op_sto/op_sto_arith/op_clreg AND op_size (WR-01 post-review fix). Op::Atox now routes through `crate::stack::enter_number` (WR-02 fix). 50 new tests (28 inline + 22 integration) — all green. `just test` + `just lint` clean. Verifier scored 6/6 must-haves. REVIEW.md → status `fixed`. VERIFICATION.md → status `passed`. Commits 57a75e1, 915e22c, 4b108b1, d12347a, 3349ec1, 737683a, 7284c88, f109740, 990d1bb, 4ba85c4, 51c9718.
+**Next action:** `/gsd-discuss-phase 24` or `/gsd-plan-phase 24` — Phase 24 (Indirect Addressing) wires `_IND` variants on all addressable ops. Fresh `/clear` recommended.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 23 planned; ready to execute*
+*Last updated: 2026-05-14 — Phase 23 ALPHA Operations shipped; ready to start Phase 24*
