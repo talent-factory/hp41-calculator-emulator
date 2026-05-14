@@ -693,6 +693,12 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Cla => super::alpha::op_alpha_clear(state),
         // D-22.14: CLST zeros X/Y/Z/T while PRESERVING lastx + lift_enabled.
         Op::Clst => op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift.
+        Op::Pack => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

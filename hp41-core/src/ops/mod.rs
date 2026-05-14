@@ -425,6 +425,14 @@ pub enum Op {
     /// `hp41-core/tests/phase22_memory_ops.rs`.
     /// LiftEffect: Neutral. Phase 22 (FN-MEM-03, D-22.14).
     Clst,
+    /// PACK — documented no-op + Neutral lift. Real HP-41 PACK compacts
+    /// program memory by removing gaps from in-place edits; our flat-Vec
+    /// program model has no gaps to compact, so PACK is a no-op. This is
+    /// a deliberate divergence flagged in D-22.12 — implementing it
+    /// meaningfully would require introducing gaps into `state.program`
+    /// (deferred backlog candidate).
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-04, D-22.12).
+    Pack,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -719,6 +727,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // lift_enabled. Critical divergence from Clreg (which only
         // clears regs).
         Op::Clst => program::op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift. Inline body matches
+        // Op::Null / Op::AlphaToggle pattern.
+        Op::Pack => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
     }
 }
 

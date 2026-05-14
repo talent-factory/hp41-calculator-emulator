@@ -211,6 +211,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Cla => "CLA".to_string(),
         // D-22.14: CLST clears X/Y/Z/T (LASTX + lift_enabled preserved).
         Op::Clst => "CLST".to_string(),
+        // D-22.12: PACK is a documented no-op (flat-Vec has no gaps).
+        Op::Pack => "PACK".to_string(),
     }
 }
 
