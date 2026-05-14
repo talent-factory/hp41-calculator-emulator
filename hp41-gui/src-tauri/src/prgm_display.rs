@@ -213,6 +213,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Clst => "CLST".to_string(),
         // D-22.12: PACK is a documented no-op (flat-Vec has no gaps).
         Op::Pack => "PACK".to_string(),
+        // Phase 22: Catalog (D-22.16 AMENDED OQ-1 Option B)
+        Op::Catalog(n) => format!("CATALOG {n}"),
     }
 }
 

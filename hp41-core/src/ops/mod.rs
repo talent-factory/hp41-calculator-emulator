@@ -433,6 +433,19 @@ pub enum Op {
     /// (deferred backlog candidate).
     /// LiftEffect: Neutral. Phase 22 (FN-MEM-04, D-22.12).
     Pack,
+    /// CATALOG n — hardware-faithful HP-41 CATALOG (AMENDED D-22.16 / OQ-1
+    /// Option B). `n == 0` OR `n >= 5` → `HpError::InvalidOp`. Output is
+    /// written to `state.print_buffer` (Phase 11 drain channel) with 24-char
+    /// width: header `-- CATALOG n --`, payload, footer `-- END --`.
+    ///
+    /// CAT 1: programs — iterate `state.program`, emit `LBL <name>  <steps>`
+    ///   line per `Op::Lbl`. Step count = distance to next LBL or
+    ///   `program.len()` for the last labelled block.
+    /// CAT 2 (XROM modules), CAT 3 (HP-IL), CAT 4 (peripherals) — none
+    ///   in this emulator → single "NOT AVAILABLE" payload line.
+    ///
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-05, D-22.16 AMENDED).
+    Catalog(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -734,6 +747,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
+        // D-22.16 (AMENDED OQ-1 Option B): CATALOG n — hardware-faithful.
+        // CAT 1 = programs (LBL listing); CAT 2/3/4 = "NOT AVAILABLE".
+        // Output goes to state.print_buffer (Phase 11 drain pattern).
+        Op::Catalog(n) => program::op_catalog(state, n),
     }
 }
 

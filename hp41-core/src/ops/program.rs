@@ -261,6 +261,71 @@ pub fn op_size(state: &mut CalcState, nnn: u16) -> Result<(), HpError> {
     Ok(())
 }
 
+/// Phase 22 D-22.16 (AMENDED OQ-1 Option B, FN-MEM-05). Hardware-faithful CATALOG.
+///
+/// `n == 0` OR `n >= 5` → `HpError::InvalidOp`. Output writes to
+/// `state.print_buffer` (Phase 11 drain channel) with 24-char width:
+///   - Header: `-- CATALOG n --` (left-padded to 24).
+///   - Payload:
+///     * CAT 1 (programs): one `LBL <name>  <steps>` line per `Op::Lbl(_)` in
+///       `state.program`. Step count = distance to next LBL or program.len()
+///       for the last labelled block. Long names truncated to 9 chars so the
+///       full line stays within 24 chars (4 + 9 + 2 + 5 = 20, padded to 24).
+///       Empty program → zero payload lines (header + footer only).
+///     * CAT 2 (XROM modules), CAT 3 (HP-IL), CAT 4 (peripherals) — none in
+///       this emulator → single 24-char "NOT AVAILABLE" line.
+///   - Footer: `-- END --` (left-padded to 24).
+///
+/// LiftEffect: Neutral.
+pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
+    if n == 0 || n >= 5 {
+        return Err(HpError::InvalidOp);
+    }
+    state
+        .print_buffer
+        .push(format!("{:<24}", format!("-- CATALOG {n} --")));
+    match n {
+        1 => {
+            // CATALOG 1: programs (hardware-faithful, OQ-1 Option B).
+            // Collect (position, name) per Op::Lbl entry.
+            let labels: Vec<(usize, String)> = state
+                .program
+                .iter()
+                .enumerate()
+                .filter_map(|(i, op)| match op {
+                    Op::Lbl(nm) => Some((i, nm.clone())),
+                    _ => None,
+                })
+                .collect();
+            for (idx, (pos, name)) in labels.iter().enumerate() {
+                let end = labels
+                    .get(idx + 1)
+                    .map(|(p, _)| *p)
+                    .unwrap_or(state.program.len());
+                let steps = end - pos;
+                // Truncate long names to 9 chars so the full LBL line stays
+                // within 24 chars: "LBL " (4) + name :9 + "  " (2) + steps :5 = 20.
+                let display_name: String = name.chars().take(9).collect();
+                state.print_buffer.push(format!(
+                    "{:<24}",
+                    format!("LBL {display_name:9}  {steps:5}")
+                ));
+            }
+        }
+        2..=4 => {
+            // CATALOG 2 (XROM modules) / 3 (HP-IL) / 4 (peripherals) — none
+            // in this emulator → single payload line.
+            state
+                .print_buffer
+                .push(format!("{:<24}", "NOT AVAILABLE"));
+        }
+        _ => return Err(HpError::InvalidOp), // defensive; guarded above
+    }
+    state.print_buffer.push(format!("{:<24}", "-- END --"));
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -699,6 +764,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
+        // D-22.16 (AMENDED OQ-1 Option B): CATALOG n — hardware-faithful.
+        // Executes fine inside run_loop AND interactively; output drained
+        // from state.print_buffer by the frontend.
+        Op::Catalog(n) => op_catalog(state, n),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
