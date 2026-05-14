@@ -135,10 +135,40 @@ pub fn op_dse(state: &mut CalcState, reg: u8) -> Result<bool, HpError> {
 // Stubs land here in task 22-02-01 so the workspace compiles after the variants
 // are added. Real bodies fill in over the next two tasks (22-02-02 / 22-02-03).
 
-/// CLP "label" — clear program from `Op::Lbl(label)` to next LBL/end-of-Vec.
-/// Stub from task 22-02-01; full body lands in task 22-02-02 (D-22.7).
-pub fn op_clp(_state: &mut CalcState, _label: &str) -> Result<(), HpError> {
-    Err(HpError::InvalidOp)
+/// Phase 22 D-22.7 (FN-PROG-03). Clear program from `Op::Lbl("label")` to the
+/// next `Op::Lbl(_)` (or end-of-Vec if no further LBL).
+///
+/// Cursor reposition (Pitfall 6): after the drain, `state.pc` is set to `start`
+/// (clamped to the post-drain `state.program.len()`) so the cursor lands at the
+/// start of whatever block was deleted. Missing label → `HpError::InvalidOp`.
+/// PRGM-mode only (D-22.10) — interactive dispatch with `prgm_mode == false`
+/// returns InvalidOp via the defense-in-depth guard.
+///
+/// Documented divergence: HP-41 hardware uses END/.END. markers; we use
+/// next-LBL boundaries because the flat-Vec program model has no explicit
+/// END marker. (RESEARCH §1 D-22.7 row, OQ resolved as Option B.)
+pub fn op_clp(state: &mut CalcState, label: &str) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    let start = state
+        .program
+        .iter()
+        .position(|op| matches!(op, Op::Lbl(n) if n == label))
+        .ok_or(HpError::InvalidOp)?;
+    let end = state
+        .program
+        .iter()
+        .skip(start + 1)
+        .position(|op| matches!(op, Op::Lbl(_)))
+        .map(|i| start + 1 + i)
+        .unwrap_or(state.program.len());
+    state.program.drain(start..end);
+    // Pitfall 6: cursor lands at start of deleted block, clamped to new len
+    // (protects against the rare case where start == post-drain program.len()).
+    state.pc = start.min(state.program.len());
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
 }
 
 /// DEL nnn — delete `nnn` steps from `state.pc` with clamping.
