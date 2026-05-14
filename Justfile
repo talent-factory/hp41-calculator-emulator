@@ -85,3 +85,16 @@ gui-ci:
 	cd hp41-gui && npx tsc --noEmit
 	cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml
 	cargo build --release --manifest-path hp41-gui/src-tauri/Cargo.toml
+
+# Regenerate the HP-41CV function matrix from canonical JSON (developer-side).
+# Reads docs/hp41cv-functions.json and writes docs/hp41cv-function-matrix.md.
+docs-matrix:
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41cv-functions.json docs/hp41cv-function-matrix.md
+
+# CI-friendly drift catch (Pitfall 8): regenerate to a temp file and diff
+# against the committed copy. Exits non-zero on mismatch so CI fails fast.
+docs-matrix-check:
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41cv-functions.json /tmp/hp41cv-function-matrix-check.md
+	diff -u docs/hp41cv-function-matrix.md /tmp/hp41cv-function-matrix-check.md
