@@ -325,6 +325,50 @@ pub fn shifted_key_to_op(key: KeyEvent, app: &mut App) -> Option<Op> {
     }
 }
 
+/// CLI-local resolver for the 8 non-keyboard HP-41CV conditional-test
+/// mnemonics. Accepts BOTH ASCII-pure and Unicode-symbol spellings per
+/// D-25.10 + RESEARCH §"Conditional tests". Returns `None` for the four
+/// v2.1 card-reader names (those fall through to `Op::Xeq` →
+/// `hp41_core::ops::program::builtin_card_op` via the modal Enter-arm) and
+/// for unknown names.
+///
+/// Why CLI-local AND hp41-core both carry the mapping (Plan 03):
+///   - This CLI-local path gives immediate dispatch from the XEQ-by-Name
+///     modal Enter-arm without constructing `Op::Xeq` + a program run.
+///   - The hp41-core `builtin_card_op` extension (Plan 03 Task 1) ensures
+///     `Op::Xeq("X<>Y?")` inside a saved program also resolves to the same
+///     `Op::Test` variant — keyboard + programmatic symmetry preserved.
+///
+/// The `cli_resolver_matches_core_resolver` integration test in
+/// `tests/phase25_xeq_by_name.rs` guards against drift between the two
+/// resolvers (T-25-09 mitigation).
+///
+/// Case-sensitive — HP-41 ROM names are uppercase.
+pub fn xeq_by_name_local_resolve(name: &str) -> Option<Op> {
+    match name {
+        // X ≠ Y — three accepted spellings.
+        "X<>Y?" | "X\u{2260}Y?" | "X#Y?" => Some(Op::Test(TestKind::XNeY)),
+        // X < Y — single spelling.
+        "X<Y?" => Some(Op::Test(TestKind::XLtY)),
+        // X ≥ Y — two spellings.
+        "X>=Y?" | "X\u{2265}Y?" => Some(Op::Test(TestKind::XGeY)),
+        // X ≠ 0 — two spellings.
+        "X#0?" | "X\u{2260}0?" => Some(Op::Test(TestKind::XNeZero)),
+        // X < 0 — single spelling.
+        "X<0?" => Some(Op::Test(TestKind::XLtZero)),
+        // X > 0 — single spelling.
+        "X>0?" => Some(Op::Test(TestKind::XGtZero)),
+        // X ≤ 0 — two spellings.
+        "X<=0?" | "X\u{2264}0?" => Some(Op::Test(TestKind::XLeZero)),
+        // X ≥ 0 — two spellings.
+        "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
+        // The four v2.1 card-reader names + everything else: defer to
+        // `hp41_core::ops::program::builtin_card_op` via the `Op::Xeq`
+        // fallback chain in the modal Enter-arm.
+        _ => None,
+    }
+}
+
 /// Key-reference table for the TUI right panel (INPUT-01 discoverability).
 /// Shown verbatim in ui.rs render_right_panel().
 ///

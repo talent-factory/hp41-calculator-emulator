@@ -954,9 +954,30 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
         .ok_or(HpError::InvalidOp)
 }
 
-/// XEQ-by-name fallback: resolves the four Card Reader op names to their
-/// `Op` variants. Returns `None` for anything else — including unknown
-/// names, lowercase variants, and any built-in not in the Card Reader set.
+/// XEQ-by-name fallback: resolves 12 hardware ROM names to their `Op`
+/// variants — the four v2.1 Card Reader op names plus the eight non-keyboard
+/// HP-41CV conditional-test mnemonics (Phase 25 / Plan 03 / D-25.8).
+///
+/// Resolved names:
+/// - v2.1 card-reader: `WPRGM`, `RDPRGM`, `WDTA`, `RDTA`
+/// - Phase 25 conditional tests (both ASCII-pure and Unicode-symbol spellings
+///   accepted — RESEARCH §"Conditional tests"):
+///   - `X<>Y? | X≠Y? | X#Y?`   → `Op::Test(TestKind::XNeY)`
+///   - `X<Y?`                   → `Op::Test(TestKind::XLtY)`
+///   - `X>=Y? | X≥Y?`           → `Op::Test(TestKind::XGeY)`
+///   - `X#0? | X≠0?`            → `Op::Test(TestKind::XNeZero)`
+///   - `X<0?`                   → `Op::Test(TestKind::XLtZero)`
+///   - `X>0?`                   → `Op::Test(TestKind::XGtZero)`
+///   - `X<=0? | X≤0?`           → `Op::Test(TestKind::XLeZero)`
+///   - `X>=0? | X≥0?`           → `Op::Test(TestKind::XGeZero)`
+///
+/// Returns `None` for anything else — including unknown names, lowercase
+/// variants, and any built-in not in this 12-name table. Case-sensitive.
+///
+/// The 4 keyboard-reachable conditional tests (X=Y, X≤Y, X>Y, X=0) are
+/// intentionally NOT registered here (W4 asymmetry per D-25.9) — they are
+/// reachable only via the f-shifted arithmetic keys per Plan 01 / D-25.7.
+/// A user who types `XEQ "X=Y?"` gets `HpError::InvalidOp` by design.
 ///
 /// Used as the label-miss fallback in `op_xeq`, `run_program`, and the
 /// `Op::Xeq` arm of `run_loop`. User `LBL "name"` matches take precedence,
@@ -965,10 +986,22 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
 /// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
 pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
     match name {
+        // v2.1 Card Reader op names (regression preserved unchanged).
         "WPRGM" => Some(Op::Wprgm),
         "RDPRGM" => Some(Op::Rdprgm),
         "WDTA" => Some(Op::Wdta),
         "RDTA" => Some(Op::Rdta),
+        // Phase 25 / D-25.8: 8 non-keyboard conditional-test mnemonics.
+        // Accept BOTH ASCII-pure (X<>Y?, X#Y?, X#0?, X<=0?, X>=0?) and
+        // Unicode-symbol (X≠Y?, X≠0?, X≤0?, X≥0?) spellings.
+        "X<>Y?" | "X\u{2260}Y?" | "X#Y?" => Some(Op::Test(TestKind::XNeY)),
+        "X<Y?" => Some(Op::Test(TestKind::XLtY)),
+        "X>=Y?" | "X\u{2265}Y?" => Some(Op::Test(TestKind::XGeY)),
+        "X#0?" | "X\u{2260}0?" => Some(Op::Test(TestKind::XNeZero)),
+        "X<0?" => Some(Op::Test(TestKind::XLtZero)),
+        "X>0?" => Some(Op::Test(TestKind::XGtZero)),
+        "X<=0?" | "X\u{2264}0?" => Some(Op::Test(TestKind::XLeZero)),
+        "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
         _ => None,
     }
 }
@@ -1507,5 +1540,152 @@ mod program_tests {
         );
         assert_eq!(builtin_card_op("UNKNOWN"), None);
         assert_eq!(builtin_card_op(""), None);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 25 / Plan 03 — builtin_card_op 4 → 12 extension tests.
+//
+// These tests live INSIDE program.rs (next to the existing `program_tests`
+// module) so `builtin_card_op` is reachable via `super::*` without widening
+// its `pub(super)` visibility (W1 fix from the 2026-05-14 plan revision).
+// Coverage:
+//   - 8 mnemonic resolutions, each in BOTH ASCII and Unicode spellings.
+//   - 4 v2.1 card-reader names regression (independent of the original
+//     `builtin_card_op_resolves_four_names` test above).
+//   - Unknown-name returns None.
+//   - Case-sensitivity (lowercase rejected).
+//   - Programmatic XEQ symmetry: run_program with `Op::Xeq("X<>Y?")` resolves
+//     through builtin_card_op → Op::Test dispatch end-to-end without error.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod phase25_builtin_card_op_tests {
+    use super::builtin_card_op;
+    use crate::num::HpNum;
+    use crate::ops::{Op, TestKind};
+    use crate::state::CalcState;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    fn state_with_program(ops: Vec<Op>) -> CalcState {
+        CalcState {
+            program: ops,
+            ..Default::default()
+        }
+    }
+
+    /// 8 conditional-test mnemonics × 2 spellings (ASCII + Unicode) = 16
+    /// assertions. Every spelling listed in the mnemonic table (RESEARCH §
+    /// "Conditional tests") MUST resolve to the documented `TestKind` variant.
+    #[test]
+    fn resolves_8_conditional_test_mnemonics() {
+        // X ≠ Y — three accepted spellings.
+        assert_eq!(builtin_card_op("X<>Y?"), Some(Op::Test(TestKind::XNeY)));
+        assert_eq!(
+            builtin_card_op("X\u{2260}Y?"),
+            Some(Op::Test(TestKind::XNeY))
+        );
+        assert_eq!(builtin_card_op("X#Y?"), Some(Op::Test(TestKind::XNeY)));
+
+        // X < Y — single spelling.
+        assert_eq!(builtin_card_op("X<Y?"), Some(Op::Test(TestKind::XLtY)));
+
+        // X ≥ Y — two spellings.
+        assert_eq!(builtin_card_op("X>=Y?"), Some(Op::Test(TestKind::XGeY)));
+        assert_eq!(
+            builtin_card_op("X\u{2265}Y?"),
+            Some(Op::Test(TestKind::XGeY))
+        );
+
+        // X ≠ 0 — two spellings.
+        assert_eq!(builtin_card_op("X#0?"), Some(Op::Test(TestKind::XNeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2260}0?"),
+            Some(Op::Test(TestKind::XNeZero))
+        );
+
+        // X < 0 — single spelling.
+        assert_eq!(builtin_card_op("X<0?"), Some(Op::Test(TestKind::XLtZero)));
+
+        // X > 0 — single spelling.
+        assert_eq!(builtin_card_op("X>0?"), Some(Op::Test(TestKind::XGtZero)));
+
+        // X ≤ 0 — two spellings.
+        assert_eq!(builtin_card_op("X<=0?"), Some(Op::Test(TestKind::XLeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2264}0?"),
+            Some(Op::Test(TestKind::XLeZero))
+        );
+
+        // X ≥ 0 — two spellings.
+        assert_eq!(builtin_card_op("X>=0?"), Some(Op::Test(TestKind::XGeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2265}0?"),
+            Some(Op::Test(TestKind::XGeZero))
+        );
+    }
+
+    /// Independent regression: the four v2.1 card-reader names still resolve.
+    /// Mirrors `builtin_card_op_resolves_four_names` from the sibling
+    /// `program_tests` module but is bound to this new module so a Plan-04
+    /// (or later) refactor that splits the modules cannot orphan the check.
+    #[test]
+    fn preserves_4_card_reader_names() {
+        assert_eq!(builtin_card_op("WPRGM"), Some(Op::Wprgm));
+        assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
+        assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
+        assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
+    }
+
+    /// Unknown / empty names return None — Pitfall 9 (the caller surfaces
+    /// `HpError::InvalidOp`; no "did you mean…?" hint until Phase 26).
+    #[test]
+    fn unknown_name_returns_none() {
+        assert_eq!(builtin_card_op("foobar"), None);
+        assert_eq!(builtin_card_op(""), None);
+        assert_eq!(builtin_card_op("FOOBAR"), None);
+        // Spelling-typo guards — these are NOT in the 12-name table.
+        assert_eq!(builtin_card_op("X=Y?"), None, "X=Y? is keyboard-only (W4)");
+        assert_eq!(builtin_card_op("X<>Y"), None, "missing trailing '?'");
+        assert_eq!(builtin_card_op(" X<>Y? "), None, "whitespace not stripped");
+    }
+
+    /// HP-41 ROM names are uppercase — case-sensitive match enforced.
+    #[test]
+    fn case_sensitive_lowercase_rejected() {
+        assert_eq!(builtin_card_op("wprgm"), None);
+        assert_eq!(builtin_card_op("x<>y?"), None);
+        assert_eq!(builtin_card_op("X<>y?"), None, "mixed case rejected");
+    }
+
+    /// Programmatic XEQ symmetry (one of the success criteria from <objective>):
+    /// `Op::Xeq("X<>Y?")` inside a running program resolves through
+    /// `builtin_card_op` → `dispatch(state, Op::Test(TestKind::XNeY))` without
+    /// error. The XNeY test for 5 ≠ 7 is TRUE → no skip in `run_loop`;
+    /// `run_program` returns Ok(()).
+    #[test]
+    fn programmatic_xeq_dispatches_x_ne_y() {
+        let program = vec![
+            Op::Lbl("TEST".to_string()),
+            Op::Xeq("X<>Y?".to_string()),
+            Op::Rtn,
+        ];
+        let mut state = state_with_program(program);
+        state.stack.y = HpNum(Decimal::from_str("5").unwrap());
+        state.stack.x = HpNum(Decimal::from_str("7").unwrap());
+
+        let result = super::run_program(&mut state, "TEST");
+        assert!(
+            result.is_ok(),
+            "Op::Xeq(\"X<>Y?\") inside a program must resolve via builtin_card_op → Op::Test dispatch without error; got {result:?}"
+        );
+        // is_running is reset on the success path (D-06).
+        assert!(!state.is_running);
+        // Stack is read-only for Op::Test (LiftEffect::Neutral) — values
+        // preserved.
+        assert_eq!(state.stack.x, HpNum(Decimal::from_str("7").unwrap()));
+        assert_eq!(state.stack.y, HpNum(Decimal::from_str("5").unwrap()));
     }
 }
