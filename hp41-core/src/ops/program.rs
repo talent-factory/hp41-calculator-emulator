@@ -530,6 +530,19 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     state.pc += 1; // loop exit: skip next
                 }
             }
+            // -- Phase 24: Indirect ISG/DSE arms (FN-IND-01, Pitfall 1) ----
+            // Skip-next-step semantic preserved exactly as in Op::Isg/Op::Dse.
+            // The shim returns Result<bool, _>; the bool signals counter exit.
+            Op::IsgInd(reg) => {
+                if crate::ops::indirect::op_isg_ind(state, reg)? {
+                    state.pc += 1; // loop exit: skip next (mirrors Op::Isg)
+                }
+            }
+            Op::DseInd(reg) => {
+                if crate::ops::indirect::op_dse_ind(state, reg)? {
+                    state.pc += 1; // loop exit: skip next (mirrors Op::Dse)
+                }
+            }
             // ── Phase 21: Flag tests (skip next step pattern, mirrors Op::Test) ──
             // FS?/FC? skip the next step when the flag is in the "false" state.
             // FS?C/FC?C ALWAYS clear the flag as a side effect (RESEARCH A4), THEN
@@ -537,6 +550,32 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
             Op::FlagTest { kind, flag } => {
                 use crate::ops::flags::{flag_clear, flag_get};
                 use crate::ops::FlagTestKind;
+                let is_set = flag_get(state.flags, flag);
+                let should_skip = match kind {
+                    FlagTestKind::IsSet => !is_set,
+                    FlagTestKind::IsClear => is_set,
+                    FlagTestKind::IsSetThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        !is_set
+                    }
+                    FlagTestKind::IsClearThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        is_set
+                    }
+                };
+                if should_skip {
+                    state.pc += 1;
+                }
+            }
+            // -- Phase 24: Indirect FlagTest arm (FN-IND-01, D-24.6) -------
+            // Resolves the flag number via resolve_indirect, then reuses the
+            // exact kind-match block from Op::FlagTest verbatim (always-clear
+            // semantics for FS?C/FC?C, skip-if-false for FS?/FC?). Pitfall 1
+            // mitigation: skip semantics live HERE in run_loop, NOT dispatch.
+            Op::FlagTestInd { kind, ind_reg } => {
+                use crate::ops::flags::{flag_clear, flag_get};
+                use crate::ops::FlagTestKind;
+                let flag = crate::ops::indirect::resolve_indirect(state, ind_reg)?;
                 let is_set = flag_get(state.flags, flag);
                 let should_skip = match kind {
                     FlagTestKind::IsSet => !is_set,
@@ -795,6 +834,21 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Xtoa => super::alpha::op_xtoa(state),
         Op::Arot => super::alpha::op_arot(state),
         Op::Posa => super::alpha::op_posa(state),
+        // -- Phase 24: Indirect Addressing execute_op arms (FN-IND-01) -----
+        // Mirrors the dispatch() arms; each delegates to the corresponding
+        // op_*_ind shim. IsgInd/DseInd discard the bool (defense-in-depth;
+        // primary skip-semantic path is run_loop). FlagTestInd is NOT here
+        // -- it joins the catch-all `|`-pattern below (mirrors Op::FlagTest).
+        Op::StoInd(reg) => crate::ops::indirect::op_sto_ind(state, reg),
+        Op::RclInd(reg) => crate::ops::indirect::op_rcl_ind(state, reg),
+        Op::StoArithInd(reg, kind) => crate::ops::indirect::op_sto_arith_ind(state, reg, kind),
+        Op::SfFlagInd(reg) => crate::ops::indirect::op_sf_flag_ind(state, reg),
+        Op::CfFlagInd(reg) => crate::ops::indirect::op_cf_flag_ind(state, reg),
+        Op::ArclInd(reg) => crate::ops::indirect::op_arcl_ind(state, reg),
+        Op::AstoInd(reg) => crate::ops::indirect::op_asto_ind(state, reg),
+        Op::ViewInd(reg) => crate::ops::indirect::op_view_ind(state, reg),
+        Op::IsgInd(reg) => crate::ops::indirect::op_isg_ind(state, reg).map(|_| ()),
+        Op::DseInd(reg) => crate::ops::indirect::op_dse_ind(state, reg).map(|_| ()),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -811,6 +865,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::XeqInd(_)                         // Phase 22: XEQ IND has run_loop arm
         | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
         | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
+        | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
         | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
     }
 }
