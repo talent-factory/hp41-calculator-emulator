@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T12:00:00.000Z"
-last_activity: 2026-05-14 -- Phase 21 execution complete (flags, display control & sound)
+last_updated: "2026-05-14T14:00:00.000Z"
+last_activity: 2026-05-14 -- Phase 22 context gathered (25 locked decisions; ready to plan)
 progress:
   total_phases: 8
   completed_phases: 2
@@ -34,10 +34,10 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 22: Program Control & Memory Ops (awaiting planning)
-Plan: TBD
-Status: Phase 21 shipped — ready for `/gsd-plan-phase 22`
-Last activity: 2026-05-14 -- Phase 21 (`/gsd-execute-phase 21`) complete: 9 requirements landed (FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02); 4 plans + 11 commits; 48 new tests (19 flag + 13 display + 8 sound + 8 inline); hp41-core coverage 92.68% (non-regression vs. v2.1/Phase 20 baseline); `just ci` + `just gui-ci` green.
+Phase: 22: Program Control & Memory Ops (context gathered — awaiting planning)
+Plan: TBD (4 plans planned per D-22.20)
+Status: CONTEXT.md complete (25 locked decisions across 4 areas) — ready for `/gsd-plan-phase 22`
+Last activity: 2026-05-14 -- `/gsd-discuss-phase 22` complete: 25 locked decisions in `.planning/phases/22-program-control-and-memory-ops/22-CONTEXT.md` across STOP/PSE/R-S interpreter control (D-22.1..6), CLP/DEL/INS program editing (D-22.7..10), SIZE/PACK/CLA/CLST/CATALOG memory ops (D-22.11..16), GTO IND/XEQ IND inline indirect (D-22.15), and ASN keymapping model (D-22.17..19). Plan structure: 4 plans (22-01 program-control, 22-02 program-edit, 22-03 memory-ops, 22-04 catalog-and-asn). 13 new Op variants + 1 new CalcState field (`assignments: BTreeMap<u8, String>` with #[serde(default)]). No new HpError variants. Wave-0 prep: regs[] bounds audit (D-22.11.1). Documented divergences from HP-41 hardware: CLP boundary (no END markers; uses next LBL), PACK (no-op for flat-Vec), CATALOG 3/4 ("NOT AVAILABLE").
 
 Progress: 2 / 8 phases
 
@@ -133,9 +133,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-execute-phase 21` complete — 4 plans (21-01 flags-core, 21-02 conditional-skip, 21-03 display-control, 21-04 sound) executed sequentially (heavy intra-wave file overlap on state.rs, ops/mod.rs, ops/program.rs, both prgm_display.rs copies forced serialization). 11 commits land 9 requirements (FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02): `flags: u64` + `display_override: Option<String>` + `event_buffer: Vec<String>` on CalcState; new modules `flags.rs`, `display_ops.rs`, `sound.rs`; `FlagTestKind` enum + struct-variant `Op::FlagTest`; dispatch-top clear of display_override (Pitfall 5); always-clear side effect for `?C` flag tests (RESEARCH A4); PROMPT exits run_loop; zero-I/O regression sentinel test. 48 new tests pass; `just ci` + `just gui-ci` green; coverage 92.68% lines on hp41-core.
-**Next action:** `/gsd-plan-phase 22` — plan Phase 22 (Program Control & Memory Ops, FN-PROG-01..07 + FN-MEM-01..05 + FN-KEY-01). Fresh `/clear` recommended before kickoff.
+**Last action:** `/gsd-discuss-phase 22` complete — 25 locked decisions in `.planning/phases/22-program-control-and-memory-ops/22-CONTEXT.md` across 4 gray areas (interpreter control flow, program editing, memory ops, key assignments). Plan structure D-22.20: 4 plans (22-01 program-control [Stop/Pse/resume_program/GtoInd/XeqInd], 22-02 program-edit [Clp/Del/Ins], 22-03 memory-ops [Size/Cla/Clst/Pack + regs[] bounds-audit Wave-0], 22-04 catalog-and-asn [Catalog + Asn struct-variant + new `assignments: BTreeMap<u8, String>` field on CalcState]). 13 new Op variants total; zero new HpError variants. DISCUSSION-LOG.md captures the full question-by-question record.
+**Next action:** `/gsd-plan-phase 22` — generate PLAN.md files using the locked CONTEXT.md. Fresh `/clear` recommended before kickoff.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-13 — Phase 20 planning complete; ready to execute*
+*Last updated: 2026-05-14 — Phase 22 context gathered; ready to plan*
