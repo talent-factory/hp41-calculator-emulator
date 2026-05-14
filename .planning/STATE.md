@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T16:57:09.506Z"
-last_activity: 2026-05-14 -- Phase 24 planning complete
+last_updated: "2026-05-14T17:30:00.000Z"
+last_activity: 2026-05-14 -- Phase 24 shipped (both plans complete)
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 12
-  percent: 50
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 14
+  percent: 62
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 24: Indirect Addressing (Cross-Cutting) — CONTEXT GATHERED (0/2 plans planned)
-Plan: 24-01 (Foundation: resolve_indirect + Phase-22 refactor), 24-02 (Variants: ~12 new *Ind Op variants)
-Status: Ready to execute
-Resume file: .planning/phases/24-indirect-addressing/24-CONTEXT.md
-Last activity: 2026-05-14 -- Phase 24 planning complete
+Phase: 24: Indirect Addressing (Cross-Cutting) — SHIPPED (2/2 plans complete)
+Plan: 24-01 (Foundation: resolve_indirect + Phase-22 refactor) ✅, 24-02 (Variants: 11 new *Ind Op variants) ✅
+Status: Ready to advance to Phase 25 (CLI Integration & Documentation)
+Resume file: .planning/phases/24-indirect-addressing/24-02-SUMMARY.md
+Last activity: 2026-05-14 -- Phase 24 shipped (both plans complete, coverage 93.48%)
 
-Progress: 4 / 8 phases (Phase 24 context → plan)
+Progress: 5 / 8 phases (Phase 24 complete; Phase 25 next)
 
 ---
 
@@ -50,7 +50,7 @@ Progress: 4 / 8 phases (Phase 24 context → plan)
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.68% lines (Phase 21 — non-regression vs. Phase 20 baseline 92.65%; v2.2 target ≥ 95% at Phase 27) |
+| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 93.48% lines (Phase 24 — up from Phase 21 baseline 92.68%; v2.2 target ≥ 95% at Phase 27) |
 | Numerical accuracy (500-case) | ≥ 98% | 500/500 (Phase 20 confirmed; up from 495/500 v2.1 baseline) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
 | CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml`) |
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-discuss-phase 24` complete — 4 areas discussed and locked as D-24.1..D-24.9 in `.planning/phases/24-indirect-addressing/24-CONTEXT.md`. Headline decisions: (1) two-tier resolver — private `resolve_indirect_decimal(state, reg) -> Result<Decimal, HpError>` is single source of pointer-validation truth, with `resolve_indirect()` wrapping it for u8 via `u8::try_from(i.to_i64().ok_or(InvalidOp)?)`; (2) IND-variants delegate to existing direct ops, inheriting D-23.4 sidecar + D-22.x atomicity + per-op lift-effect; (3) Phase 22's `Op::GtoInd` / `Op::XeqInd` get refactored onto the inner helper (with regression sentinel in 24-01); (4) `Op::FlagTestInd { kind: FlagTestKind, ind_reg: u8 }` mirrors `FlagTest`'s struct shape — backward-compat preserved; (5) Two-plan wave structure — 24-01 foundation + Phase-22 refactor, 24-02 ~12 new `*Ind` Op variants. NO new `CalcState` fields, NO new `HpError` variants. Pre-Phase 23 follow-up: Phase-22 cleanup commits cfbf87b/bd9b1c4/38f7033 fixed CI on Rust 1.95 + Windows + MSRV-1.88 (identity_op + uninlined_format_args + Windows-path-grep parser).
-**Next action:** `/gsd-plan-phase 24` — turn the 9 locked decisions into 2 detailed plans (24-01 Foundation, 24-02 Variants).
+**Last action:** `/gsd-execute-phase 24` complete — both plans shipped on develop. Wave 1 (24-01): two-tier helper `resolve_indirect` / `resolve_indirect_decimal` in new `hp41-core/src/ops/indirect.rs` (146 lines, 7 inline unit tests); `Op::GtoInd` / `Op::XeqInd` refactored onto the inner helper with 4 D-24.5 sentinel tests preserving the call-depth pre-mutation guard byte-for-byte. Wave 2 (24-02): 11 new `Op::*Ind` variants (`StoInd`, `RclInd`, `StoArithInd`, `IsgInd`, `DseInd`, `SfFlagInd`, `CfFlagInd`, `FlagTestInd { kind, ind_reg }`, `ArclInd`, `AstoInd`, `ViewInd`) — every variant lands in 4 places (dispatch + execute_op/run_loop + both prgm_display copies) per the SC-4 mirror invariant. 43 integration tests in new `phase24_ind_variants.rs` (happy/non-integer/out-of-bounds per variant + sidecar/lift inheritance assertions + R9 ViewInd value-of-resolved-register sentinel). `cargo test --workspace`: 905/905 pass. `hp41-core` coverage 93.48% (gate ≥92.5%; up from 92.68% baseline). Two minor Rule-1 auto-fixes documented in SUMMARY (unreachable `IsgInd/DseInd` programming-ops catch-all removed; DSE counter Decimal trunc comparison fix). No new `CalcState` fields, no new `HpError` variants, hp41-cli + hp41-gui untouched outside `prgm_display.rs`. Worktree merges clean on develop (a97bcdc + 7ad59d6).
+**Next action:** Update PR #11 body with Phase 24 progress, push commits, then `/gsd-progress` or `/gsd-discuss-phase 25` to begin Phase 25 (CLI Integration & Documentation).
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 24 context gathered; ready to plan*
+*Last updated: 2026-05-14 — Phase 24 shipped; Phase 25 next*

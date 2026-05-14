@@ -23,7 +23,7 @@
 - [x] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core ✅ shipped 2026-05-14 (coverage 92.68%, 48 new tests)
 - [x] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep) (completed 2026-05-14)
 - [x] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core ✅ shipped 2026-05-14 (6/6 must-haves verified, 2 plans, 50 new tests, WR-01 + WR-02 fixed in-cycle)
-- [ ] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer
+- [x] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer ✅ shipped 2026-05-14 (2 plans, 11 new Op variants, resolve_indirect two-tier helper, 43 integration tests + 7 inline + 4 D-24.5 sentinels = 54 new tests, coverage 93.48%)
 - [ ] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + `KEY_REF_TABLE` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs`; ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README
 - [ ] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode`
 - [ ] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; Playwright GUI E2E smoke test
@@ -131,8 +131,8 @@ Plans:
   5. `GTO IND 05` (with R05=42) jumps to LBL 42 or step 42 per HP-41 semantics; `XEQ IND 05` similarly invokes the subroutine — verified by program execution test in `hp41-core/tests/`
 **Plans**: 2 plans
 Plans:
-- [ ] 24-01-PLAN.md — Foundation: new ops/indirect.rs with two-tier resolver (resolve_indirect_decimal private + resolve_indirect public u8-wrapper) + 7 inline unit tests + Phase-22 GtoInd/XeqInd refactor onto inner helper + 4 D-24.5 sentinel regression tests in phase22_program_control.rs; FN-IND-01, FN-IND-02
-- [ ] 24-02-PLAN.md — Variants: 11 new Op::*Ind variants (StoInd/RclInd/StoArithInd/IsgInd/DseInd/SfFlagInd/CfFlagInd/FlagTestInd struct-variant/ArclInd/AstoInd/ViewInd) landing in 4 places (dispatch + execute_op + run_loop for skip-semantic ops + both prgm_display.rs copies) + 36+ integration tests in phase24_ind_variants.rs; depends on 24-01; FN-IND-01, FN-IND-02
+- [x] 24-01-PLAN.md — Foundation: new ops/indirect.rs with two-tier resolver (resolve_indirect_decimal private + resolve_indirect public u8-wrapper) + 7 inline unit tests + Phase-22 GtoInd/XeqInd refactor onto inner helper + 4 D-24.5 sentinel regression tests in phase22_program_control.rs; FN-IND-01, FN-IND-02 ✅ shipped 2026-05-14
+- [x] 24-02-PLAN.md — Variants: 11 new Op::*Ind variants (StoInd/RclInd/StoArithInd/IsgInd/DseInd/SfFlagInd/CfFlagInd/FlagTestInd struct-variant/ArclInd/AstoInd/ViewInd) landing in 4 places (dispatch + execute_op + run_loop for skip-semantic ops + both prgm_display.rs copies) + 43 integration tests in phase24_ind_variants.rs; depends on 24-01; FN-IND-01, FN-IND-02 ✅ shipped 2026-05-14
 **Cross-cutting constraints:**
   - `resolve_indirect()` is the ONE place that converts register-N to a u8 address — no duplication across ops
   - All IND variants are NEW `Op` enum variants (e.g. `StoInd(u8)`, `RclInd(u8)`, `SfInd(u8)`, …) — they MUST land in dispatch + execute_op + both prgm_display copies
