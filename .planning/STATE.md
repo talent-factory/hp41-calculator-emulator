@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T10:40:00.000Z"
-last_activity: 2026-05-14 -- Phase 22 complete (13 ROM ops landed, 660 tests)
+last_updated: "2026-05-14T13:30:00.000Z"
+last_activity: 2026-05-14 -- Phase 23 context gathered (ALPHA ops, sidecar text_regs, single-char POSA)
 progress:
   total_phases: 8
   completed_phases: 3
@@ -34,12 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 22: Program Control & Memory Ops — COMPLETE
-Plan: 22-01 / 22-02 / 22-03 / 22-04 all merged to develop
-Status: Verified PASS (13/13 ROM-built-ins) + reviewed (0 critical, 1 advisory warning)
-Last activity: 2026-05-14 -- Phase 22 ships
+Phase: 23: ALPHA Operations — CONTEXT GATHERED
+Plan: TBD (await /gsd-plan-phase 23)
+Status: 4 gray areas resolved → 23-CONTEXT.md + 23-DISCUSSION-LOG.md committed
+Resume file: .planning/phases/23-alpha-operations/23-CONTEXT.md
+Last activity: 2026-05-14 -- Phase 23 context gathered (sidecar text_regs, single-char POSA, faithful AROT/ATOX/XTOA)
 
-Progress: 3 / 8 phases
+Progress: 3 / 8 phases (Phase 23 in discussion → planning)
 
 ---
 
