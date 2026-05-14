@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T15:30:00Z"
-last_activity: 2026-05-14 -- Phase 24 context gathered (4 areas locked, ready for planning)
+last_updated: "2026-05-14T16:57:09.506Z"
+last_activity: 2026-05-14 -- Phase 24 planning complete
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 11
+  total_plans: 13
+  completed_plans: 12
   percent: 50
 ---
 
@@ -36,9 +36,9 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 Phase: 24: Indirect Addressing (Cross-Cutting) — CONTEXT GATHERED (0/2 plans planned)
 Plan: 24-01 (Foundation: resolve_indirect + Phase-22 refactor), 24-02 (Variants: ~12 new *Ind Op variants)
-Status: Ready to plan
+Status: Ready to execute
 Resume file: .planning/phases/24-indirect-addressing/24-CONTEXT.md
-Last activity: 2026-05-14 -- Phase 24 discuss complete: 4 areas locked (D-24.1–D-24.9). Two-tier resolver design (inner resolve_indirect_decimal → Decimal; pub resolve_indirect → u8 via try_from). Phase-22 GtoInd/XeqInd refactored onto inner helper. Op::FlagTestInd { kind, ind_reg } as struct-variant mirror. Two-plan wave structure (24-01 foundation, 24-02 variants).
+Last activity: 2026-05-14 -- Phase 24 planning complete
 
 Progress: 4 / 8 phases (Phase 24 context → plan)
 
