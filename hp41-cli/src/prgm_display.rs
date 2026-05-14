@@ -174,6 +174,11 @@ fn op_display_name(op: &Op) -> String {
         // Phase 21: Sound
         Op::Beep => "BEEP".to_string(),
         Op::Tone(n) => format!("TONE {n}"),
+        // Phase 22: Program control
+        Op::Stop => "STOP".to_string(),
+        Op::Pse => "PSE".to_string(),
+        Op::GtoInd(r) => format!("GTO IND {r:02}"),
+        Op::XeqInd(r) => format!("XEQ IND {r:02}"),
     }
 }
 

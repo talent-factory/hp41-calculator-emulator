@@ -168,6 +168,31 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     result
 }
 
+/// Resume a halted program from `state.pc`.
+///
+/// Mirror of [`run_program`] but skips the entry-label search — `state.pc` is
+/// the resume point. Used after `Op::Stop` (D-22.1) breaks `run_loop`, when the
+/// user hits R/S to continue. Does NOT clear `state.call_stack`: pending XEQ
+/// frames must survive a STOP/resume cycle so `RTN` behaves correctly
+/// (D-22.2; planner PATTERNS.md §"resume_program()").
+///
+/// CRITICAL — Pitfall 2: do NOT use `?` to propagate the `run_loop` error.
+/// Capture into `let result`, reset `is_running = false`, then return `result`.
+/// The naive `run_loop(...)?` short-circuits before the cleanup and leaves
+/// `state.is_running == true`. (RESEARCH §2 Pitfall 2.)
+///
+/// Phase 22 (FN-PROG-01).
+pub fn resume_program(state: &mut CalcState) -> Result<(), HpError> {
+    if state.pc >= state.program.len() {
+        return Err(HpError::InvalidOp); // nothing to resume
+    }
+    let program = state.program.clone();
+    state.is_running = true;
+    let result = run_loop(state, &program);
+    state.is_running = false; // ALWAYS reset, even on Err (Pitfall 2)
+    result
+}
+
 // ── Private interpreter loop ──────────────────────────────────────────────────
 
 /// Maximum steps per run_program execution — guards against infinite loops.
@@ -200,6 +225,57 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
             }
             Op::Gto(label) => {
                 let target = find_in_program(program, &label)?;
+                state.pc = target + 1;
+            }
+            // ── Phase 22 (D-22.15, FN-PROG-06): GTO IND nn ────────────────
+            // Inline indirect resolver. Phase 24 will extract this into a
+            // shared `resolve_indirect()` helper for ~15 IND variants.
+            //
+            // 1. Read register (bounds-safe via .get() — D-22.23 zero-panic).
+            // 2. Truncate to integer; reject non-integer pointers (FN-IND-02).
+            // 3. Stringify the integer and reuse find_in_program (mirrors Op::Gto).
+            Op::GtoInd(reg) => {
+                let pointer = state
+                    .regs
+                    .get(reg as usize)
+                    .ok_or(HpError::InvalidOp)?
+                    .clone();
+                let int_part = pointer.trunc_int();
+                if int_part != pointer {
+                    return Err(HpError::InvalidOp);
+                }
+                let label_str = int_part.inner().to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.pc = target + 1; // mirrors Op::Gto: pc → step AFTER LBL marker
+            }
+            // ── Phase 22 (D-22.15, FN-PROG-07): XEQ IND nn ────────────────
+            // Same inline indirect resolver as Op::GtoInd, but performs a
+            // subroutine call: push pc onto call_stack BEFORE redirecting.
+            //
+            // CRITICAL: the 4-deep call_stack guard is PRE-mutation (D-13 /
+            // D-14 precedent of Op::Xeq at line 206). The check fires BEFORE
+            // reading the register, so an over-deep call returns CallDepth
+            // without partially mutating any state.
+            //
+            // No builtin_card_op fallback — indirect labels are numeric
+            // strings only (the integer pointer route never resolves a
+            // textual function name).
+            Op::XeqInd(reg) => {
+                if state.call_stack.len() >= 4 {
+                    return Err(HpError::CallDepth); // pre-mutation atomicity
+                }
+                let pointer = state
+                    .regs
+                    .get(reg as usize)
+                    .ok_or(HpError::InvalidOp)?
+                    .clone();
+                let int_part = pointer.trunc_int();
+                if int_part != pointer {
+                    return Err(HpError::InvalidOp);
+                }
+                let label_str = int_part.inner().to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.call_stack.push(state.pc);
                 state.pc = target + 1;
             }
             Op::Xeq(label) => {
@@ -267,6 +343,11 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     state.pc += 1;
                 }
             }
+            // ── Phase 22 D-22.1 / Pitfall 1: STOP breaks run_loop only — NO display_override write
+            // (unlike Op::Prompt below). The previous step's display persists.
+            // state.pc is already advanced past the STOP step by the top-of-iteration
+            // `state.pc += 1` (line 189). FN-PROG-01.
+            Op::Stop => break,
             // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
             // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
             Op::Prompt => {
@@ -451,6 +532,23 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Sound ───────────────────────────────────────────────────
         Op::Beep => super::sound::op_beep(state),
         Op::Tone(n) => super::sound::op_tone(state, n),
+        // ── Phase 22: PSE — pause display (D-22.4, FN-PROG-02, Pitfall 3) ────
+        // Writes both channels: display_override (visible value) + event_buffer
+        // ("PAUSE 1000" marker for frontend timing). run_loop does NOT break;
+        // execution continues to the next step. display_override survives
+        // subsequent run_loop iterations because run_loop calls execute_op
+        // directly (NOT dispatch), so the dispatch-top clear at mod.rs:410
+        // does not fire between iterations. The NEXT interactive dispatch
+        // clears it — matches HP-41 "value visible until next key" semantic.
+        // Pitfall 10: do NOT add flush_entry_buf here — dispatch already
+        // called it; execute_op inside run_loop never sees stale entry_buf.
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -461,7 +559,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Isg(_)
         | Op::Dse(_)
         | Op::FlagTest { .. }
-        | Op::Prompt => Err(HpError::InvalidOp),
+        | Op::Prompt
+        | Op::Stop                              // Phase 22: STOP handled by run_loop break
+        | Op::GtoInd(_)                         // Phase 22: GTO IND has run_loop arm
+        | Op::XeqInd(_) => Err(HpError::InvalidOp), // Phase 22: XEQ IND has run_loop arm
     }
 }
 

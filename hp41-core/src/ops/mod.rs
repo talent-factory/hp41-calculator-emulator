@@ -353,6 +353,30 @@ pub enum Op {
     /// TONE n — push `TONE n` event to event_buffer (n=0..=9).
     /// LiftEffect: Neutral. Phase 21 (FN-SOUND-02).
     Tone(u8),
+    // ── Phase 22: Program control (D-22.1, D-22.4, D-22.15, D-22.22) ────────
+    /// STOP — halt program execution. Inside `run_loop`, breaks the loop without
+    /// writing to `display_override` (unlike `Op::Prompt`). Interactive dispatch
+    /// is a Neutral no-op (D-22.5). LiftEffect: Neutral. Phase 22 (FN-PROG-01).
+    Stop,
+    /// PSE — pause: write formatted X to `display_override` AND push "PAUSE 1000"
+    /// into `state.event_buffer`. Does NOT break run_loop — execution continues.
+    /// Frontend reads the event marker and inserts a ~1s delay before refresh.
+    /// LiftEffect: Neutral. Phase 22 (FN-PROG-02, D-22.4).
+    Pse,
+    /// GTO IND nn — indirect branch through register nn. The pointer is the
+    /// truncated integer part of `state.regs[nn]`; non-integer values reject
+    /// with `HpError::InvalidOp`. Phase 22 ships an inline resolver — Phase 24
+    /// will extract the shared `resolve_indirect()` helper. Programming-only:
+    /// interactive dispatch returns `InvalidOp`. LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-06, D-22.15).
+    GtoInd(u8),
+    /// XEQ IND nn — indirect subroutine call through register nn. Pre-mutation
+    /// 4-deep call_stack guard (returns `HpError::CallDepth` before any state
+    /// change). Pointer extracted by the same integer-truncate-then-equality-
+    /// check pattern as `Op::GtoInd`. No card-reader builtin fallback (the
+    /// label is a numeric string only). Programming-only: interactive dispatch
+    /// returns `InvalidOp`. LiftEffect: Neutral. Phase 22 (FN-PROG-07, D-22.15).
+    XeqInd(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -587,6 +611,28 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Sound ───────────────────────────────────────────────
         Op::Beep => sound::op_beep(state),
         Op::Tone(n) => sound::op_tone(state, n),
+        // ── Phase 22: Program control ─────────────────────────────────────
+        // Interactive Op::Stop (is_running == false) is a Neutral no-op per D-22.5.
+        // The break-run_loop semantic only fires inside run_loop's match.
+        Op::Stop => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // PSE writes display_override + event_buffer "PAUSE 1000" then continues.
+        // dispatch() has already called flush_entry_buf at the top, so any
+        // in-progress digit entry was lifted to X before we format it
+        // (Pitfall 10 — do NOT add a second flush_entry_buf here).
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // GTO IND / XEQ IND require the run_loop state machine to manipulate
+        // pc and call_stack — interactive dispatch outside a running program
+        // is undefined. Return InvalidOp; run_loop handles them directly.
+        Op::GtoInd(_) | Op::XeqInd(_) => Err(HpError::InvalidOp),
     }
 }
 
