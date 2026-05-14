@@ -58,12 +58,16 @@ pub fn op_rdn(state: &mut CalcState) -> Result<(), HpError> {
 
 /// R↑ (Roll Up): Rotate the stack so X←T, T←Z, Z←Y, Y←X (mirror of Rdn).
 ///
-/// Stub for Task 2 — real body lands in Task 4. Returns `Err(InvalidOp)` so
-/// dispatch wiring compiles under `#![deny(clippy::unwrap_used)]`.
-/// Does NOT update LASTX (D-19); LiftEffect: Neutral (D-20).
+/// Does NOT update LASTX (R↑ is a stack reorganization, not an arithmetic
+/// result — same convention as `op_rdn`, D-19). LiftEffect: Neutral (D-20/D-25).
 pub fn op_r_up(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let old_x = state.stack.x.clone();
+    state.stack.x = state.stack.t.clone();
+    state.stack.t = state.stack.z.clone();
+    state.stack.z = state.stack.y.clone();
+    state.stack.y = old_x;
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
 }
 
 /// X⇆Y (Swap X and Y): Exchange X and Y registers.

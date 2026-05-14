@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::stack::{apply_lift_effect, binary_result, unary_result, LiftEffect};
+use crate::stack::{apply_lift_effect, binary_result, enter_number, unary_result, LiftEffect};
 use crate::state::{AngleMode, CalcState};
 
 // ── Angle conversion constants for forward trig (DEG/GRAD → radians) ────────
@@ -283,61 +283,224 @@ pub fn op_set_grad(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
-// ── Phase 20 stubs (Task 2 — implemented in Task 4) ──────────────────────
-// These bodies return InvalidOp so the crate compiles cleanly under
-// `#![deny(clippy::unwrap_used)]` while Tasks 3/4 wire dispatch and behavior.
+// ── Phase 20: Constant push ─────────────────────────────────────────────
 
-/// PI — push the constant π. Stub: real body in Task 4. LiftEffect: Enable (D-08/D-10).
+/// PI — push the constant π (3.141592654, 10-digit rounded HP-41 hardware value).
+///
+/// Parses the high-precision literal `"3.141592653589793"` once and routes it
+/// through `HpNum::rounded(...)` so the value matches what the HP-41 hardware
+/// shows (D-08).
+///
+/// Stack behavior mirrors `op_lastx`: forces `lift_enabled = true`, calls
+/// `enter_number`, then re-applies `LiftEffect::Enable` (D-10). LASTX is NOT
+/// updated — PI is a constant push, not arithmetic.
 pub fn op_pi(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let pi_value = HpNum::rounded(
+        Decimal::from_str("3.141592653589793").expect("PI literal must parse"),
+    );
+    // Force stack-lift so PI always lifts X onto Y regardless of prior op (D-10).
+    state.stack.lift_enabled = true;
+    enter_number(state, pi_value);
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
 }
 
-/// P→R — polar to rectangular. Stub: real body in Task 4. LiftEffect: Enable (D-11..D-13).
+// ── Phase 20: Polar/rectangular conversions ─────────────────────────────
+
+/// P→R — polar to rectangular (D-11/D-12/D-13).
+///
+/// Reads Y = magnitude (r), X = angle in current `angle_mode`, then writes
+/// Y = r·cos(angle) (x-coord) and X = r·sin(angle) (y-coord). LASTX ←
+/// consumed X. Z and T unchanged (direct stack assignment — neither
+/// `unary_result` nor `binary_result` fits the binary-out shape).
+/// LiftEffect: Enable.
 pub fn op_polar_to_rect(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let r = state
+        .stack
+        .y
+        .inner()
+        .to_f64()
+        .expect("HpNum is always within f64 range");
+    let theta = state
+        .stack
+        .x
+        .inner()
+        .to_f64()
+        .expect("HpNum is always within f64 range");
+    let rad = to_radians_f64(theta, state.angle_mode);
+    let new_y = r * rad.cos();
+    let new_x = r * rad.sin();
+    let new_y_d = Decimal::from_f64(new_y)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    let new_x_d = Decimal::from_f64(new_x)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    state.stack.lastx = state.stack.x.clone();
+    state.stack.y = new_y_d;
+    state.stack.x = new_x_d;
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
 }
 
-/// R→P — rectangular to polar. Stub: real body in Task 4. LiftEffect: Enable (D-11..D-13).
+/// R→P — rectangular to polar (D-11/D-12/D-13).
+///
+/// Reads Y = x-coord, X = y-coord, then writes Y = √(x²+y²) (magnitude) and
+/// X = atan2(y, x) in current `angle_mode`. Magnitude uses `f64::hypot` for
+/// improved numerical accuracy. LASTX ← consumed X. Z and T unchanged.
+/// LiftEffect: Enable.
 pub fn op_rect_to_polar(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let yc = state
+        .stack
+        .y
+        .inner()
+        .to_f64()
+        .expect("HpNum is always within f64 range");
+    let xc = state
+        .stack
+        .x
+        .inner()
+        .to_f64()
+        .expect("HpNum is always within f64 range");
+    let r = yc.hypot(xc);
+    // Standard atan2 takes (y, x). Y register holds x-coord, X register holds
+    // y-coord per FN-MATH-03 — so the f64 atan2 call is (X-reg).atan2(Y-reg).
+    let rad = xc.atan2(yc);
+    let angle = f64_from_radians(rad, state.angle_mode);
+    let r_d = Decimal::from_f64(r)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    let angle_d = Decimal::from_f64(angle)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    state.stack.lastx = state.stack.x.clone();
+    state.stack.y = r_d;
+    state.stack.x = angle_d;
+    apply_lift_effect(state, LiftEffect::Enable);
+    Ok(())
 }
 
-/// RND — round X to display precision. Stub: real body in Task 4. LiftEffect: Enable (D-01..D-03).
+// ── Phase 20: Unary math ────────────────────────────────────────────────
+
+/// RND — round X to the current display precision (D-01/D-02/D-03).
+///
+/// Routes through `crate::format::round_to_display_precision`, the single
+/// source of truth shared with `format_hpnum`. LiftEffect: Enable (via
+/// `unary_result` — LASTX ← previous X).
 pub fn op_rnd(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let rounded = crate::format::round_to_display_precision(&state.stack.x, &state.display_mode);
+    unary_result(state, rounded);
+    Ok(())
 }
 
-/// FRC — fractional part of X. Stub: real body in Task 4. LiftEffect: Enable (D-15).
+/// FRC — fractional part of X (D-15, sign-preserving complement of INT).
+///
+/// `FRC(x) = x − trunc(x)`. Sign matches the input: `FRC(-3.7) = -0.7`.
+/// LiftEffect: Enable (via `unary_result`).
 pub fn op_frc(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let int_part = state.stack.x.trunc_int();
+    let frac = state.stack.x.checked_sub(&int_part)?;
+    unary_result(state, frac);
+    Ok(())
 }
 
-/// MOD — Y mod X with trunc-toward-zero. Stub: real body in Task 4.
-/// LiftEffect: Enable via binary_result (D-14).
-pub fn op_mod(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
-}
-
-/// ABS — absolute value of X. Stub: real body in Task 4. LiftEffect: Enable (D-16).
+/// ABS — absolute value of X (D-16).
+///
+/// Negative inputs flip sign via `HpNum::negate()`; zero and positive inputs
+/// pass through. LiftEffect: Enable (via `unary_result`).
 pub fn op_abs(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let result = if state.stack.x.inner().is_sign_negative() {
+        state.stack.x.negate()
+    } else {
+        state.stack.x.clone()
+    };
+    unary_result(state, result);
+    Ok(())
 }
 
-/// FACT — factorial of integer X. Stub: real body in Task 4. LiftEffect: Enable (D-04..D-07).
-pub fn op_fact(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
-}
-
-/// SIGN — sign of X: -1 / 0 / +1. Stub: real body in Task 4. LiftEffect: Enable (D-17/D-18).
+/// SIGN — sign of X: -1 / 0 / +1 (D-17/D-18).
+///
+/// Phase 20 always returns numeric. HP-41 hardware's SIGN-on-ALPHA-typed-X
+/// divergence (which would return 0 when X holds alpha data) is documented
+/// as a known divergence — our model has no alpha-typed X register.
+/// LiftEffect: Enable (via `unary_result`).
 pub fn op_sign(state: &mut CalcState) -> Result<(), HpError> {
-    let _ = state;
-    Err(HpError::InvalidOp)
+    let v = state.stack.x.inner();
+    let result = if v.is_zero() {
+        HpNum::zero()
+    } else if v.is_sign_negative() {
+        HpNum::from(-1i32)
+    } else {
+        HpNum::from(1i32)
+    };
+    unary_result(state, result);
+    Ok(())
+}
+
+/// FACT — factorial of integer X (D-04/D-05/D-06/D-07).
+///
+/// Order of checks is strict:
+/// 1. Read X as f64 for the magnitude pre-flight.
+/// 2. Hardware-spec OutOfRange (D-06): `X > 69 → OutOfRange`. Must run
+///    before the integer check so X = 70.5 reports OutOfRange (matching
+///    the spirit of SC-3).
+/// 3. Integer check (D-07): non-integer X → `Domain`.
+/// 4. Sign check (D-07): negative X → `Domain`.
+/// 5. Iterative f64 product (D-04); convert via
+///    `Decimal::from_f64(...).map(HpNum::rounded).ok_or(HpError::Overflow)`
+///    — practical magnitude wall is `X ≤ 27` (D-05); `28..=69` returns
+///    `Overflow` from the conversion side.
+///
+/// LiftEffect: Enable (via `unary_result`).
+pub fn op_fact(state: &mut CalcState) -> Result<(), HpError> {
+    let v = state
+        .stack
+        .x
+        .inner()
+        .to_f64()
+        .expect("HpNum is always within f64 range");
+    // Step 2: hardware-spec OutOfRange pre-flight (D-06, SC-3).
+    if v > 69.0 {
+        return Err(HpError::OutOfRange);
+    }
+    // Step 3: integer check (D-07).
+    let int_x = state.stack.x.trunc_int();
+    if state.stack.x != int_x {
+        return Err(HpError::Domain);
+    }
+    // Step 4: negative check (D-07). After the integer check `v` is a finite integer.
+    if v < 0.0 {
+        return Err(HpError::Domain);
+    }
+    // Step 5: iterative product (D-04). `n` is bounded by 0..=69 from the checks above.
+    let n = v as u64;
+    let mut acc: f64 = 1.0;
+    for k in 1..=n {
+        acc *= k as f64;
+    }
+    let result = Decimal::from_f64(acc)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    unary_result(state, result);
+    Ok(())
+}
+
+// ── Phase 20: Binary math ───────────────────────────────────────────────
+
+/// MOD — Y mod X with HP-41 trunc-toward-zero convention (D-14, UPDATED 2026-05-13).
+///
+/// Result = `Y − X · trunc(Y/X)`. **Sign follows Y** (matches HP-41C
+/// Owner's Manual + Free42 source). Examples:
+/// `7 MOD -3 = 1` (sign of Y); `-7 MOD 3 = -1` (sign of Y).
+/// Domain error if X = 0. LiftEffect: Enable (via `binary_result`).
+pub fn op_mod(state: &mut CalcState) -> Result<(), HpError> {
+    if state.stack.x.is_zero() {
+        return Err(HpError::Domain);
+    }
+    let q = state.stack.y.checked_div(&state.stack.x)?;
+    let q_trunc = q.trunc_int();
+    let product = state.stack.x.checked_mul(&q_trunc)?;
+    let result = state.stack.y.checked_sub(&product)?;
+    binary_result(state, result);
+    Ok(())
 }
