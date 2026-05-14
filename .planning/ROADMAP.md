@@ -88,7 +88,7 @@ Plans:
 Plans:
 - [x] 22-01-program-control-PLAN.md — Op::Stop / Op::Pse / resume_program() / Op::GtoInd(u8) / Op::XeqInd(u8); FN-PROG-01, -02, -06, -07
 - [x] 22-02-program-edit-PLAN.md — Op::Clp(String) / Op::Del(u8) / Op::Ins (prgm_mode-gated); FN-PROG-03, -04, -05; depends on 22-01
-- [ ] 22-03-memory-ops-PLAN.md — Wave-0 regs[] bounds audit (3 commits — D-22.11.1, Pitfall 4/5) + Op::Size(u16) / Op::Cla / Op::Clst / Op::Pack; FN-MEM-01..04; depends on 22-02
+- [x] 22-03-memory-ops-PLAN.md — Wave-0 regs[] bounds audit (3 commits — D-22.11.1, Pitfall 4/5) + Op::Size(u16) / Op::Cla / Op::Clst / Op::Pack; FN-MEM-01..04; depends on 22-02
 - [ ] 22-04-catalog-and-asn-PLAN.md — new CalcState.assignments field (BTreeMap<u8, String>, #[serde(default)]) + Op::Catalog(u8) (hardware-faithful per OQ-1) + Op::Asn { name, key_code } (empty-name-removes per OQ-3); FN-MEM-05, FN-KEY-01; depends on 22-03
 **Cross-cutting constraints:**
   - `STOP` breaks `run_loop` (no paused field needed — pc + is_running cover it); `PSE` writes `display_override` + pushes `"PAUSE 1000"` into `event_buffer` (Phase 21 BEEP/TONE event-channel pattern)
@@ -218,7 +218,7 @@ Plans:
 | 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
-| 22. Program Control & Memory Ops | v2.2 | 2/4 | In Progress|  |
+| 22. Program Control & Memory Ops | v2.2 | 3/4 | In Progress|  |
 | 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
