@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.2
-milestone_name: HP-41CV Feature Completeness
-current_phase: 21
-current_plan: null
-status: ready
-last_updated: "2026-05-14T00:00:00.000Z"
+milestone_name: — HP-41CV Feature Completeness
+status: executing
+last_updated: "2026-05-14T06:34:58.485Z"
+last_activity: 2026-05-14 -- Phase 21 planning complete
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 1
+  total_plans: 5
   completed_plans: 1
-  percent: 12.5
+  percent: 13
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -37,8 +36,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 Phase: 21: Flags, Display Control & Sound (awaiting planning)
 Plan: TBD
-Status: Phase 20 shipped — ready for `/gsd-plan-phase 21`
-Last activity: 2026-05-14 — Phase 20 (`/gsd-execute-phase 20`) complete: 10 ROM math/stack ops landed (PI, P→R, R→P, RND, FRC, MOD, ABS, FACT, SIGN, R↑); 20 integration tests; hp41-core coverage 92.65%; just ci + just gui-ci green; ROADMAP SC-1 PI literal corrected (D-09)
+Status: Ready to execute
+Last activity: 2026-05-14 -- Phase 21 planning complete
 
 Progress: 1 / 8 phases
 

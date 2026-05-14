@@ -60,7 +60,12 @@
   3. `VIEW 03` shows the contents of register R03 in HP-41 display format until the next key is pressed; stack remains unchanged; `CLD` clears the display without touching stack/ALPHA
   4. Executing `BEEP` or `TONE 5` from a program adds a structured event line into the print/event buffer (the exact channel is a settled decision recorded in CLAUDE.md); no `println!`/`eprintln!` appears in hp41-core
   5. A v1.x JSON save file (created before the `flags` field existed) loads in hp41-cli/hp41-gui without error — `#[serde(default)]` initializes flags to 0
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 21-01-flags-core-PLAN.md — Flag storage (flags: u64 + SF/CF ops), Wave-0 v20-autosave.json fixture; FN-FLAG-01
+- [ ] 21-02-conditional-skip-PLAN.md — Conditional flag tests (FS?/FC?/FS?C/FC?C) + run_loop skip semantic; FN-FLAG-02; depends on 21-01
+- [ ] 21-03-display-control-PLAN.md — Display override channel + VIEW/AVIEW/PROMPT/AON/AOFF/CLD; PROMPT run_loop break; FN-DISP-01..05
+- [ ] 21-04-sound-PLAN.md — Event buffer + BEEP/TONE n; zero-I/O invariant sentinel; FN-SOUND-01/02
 **Cross-cutting constraints:**
   - `flags: u64` (or `[u8; N]`) field on `CalcState` carries `#[serde(default)]` — non-negotiable for save-file backward compat
   - `BEEP`/`TONE` MUST route through a buffer pattern (extends print_buffer OR a new `event_buffer: Vec<String>` with `#[serde(skip)]`) — NO direct I/O in hp41-core
@@ -207,7 +212,7 @@
 | 18. Program Listing & CI/CD | v2.0 | 4/4 | Complete | 2026-05-10 |
 | 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
-| 21. Flags, Display Control & Sound | v2.2 | 0/TBD | Not started | — |
+| 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
 | 22. Program Control & Memory Ops | v2.2 | 0/TBD | Not started | — |
 | 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
