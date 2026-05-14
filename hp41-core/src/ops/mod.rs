@@ -415,6 +415,16 @@ pub enum Op {
     /// v1.0 save-file backward compat (Pitfall 8 — do NOT consolidate).
     /// LiftEffect: Neutral. Phase 22 (FN-MEM-02, D-22.13).
     Cla,
+    /// CLST — clear stack: zero X, Y, Z, T. PRESERVES `state.stack.lastx`
+    /// AND `state.stack.lift_enabled` (D-22.14 invariant). The preservation
+    /// of LASTX is the critical divergence from `Op::Clreg` (which only
+    /// clears regs, not the stack). The preservation of `lift_enabled`
+    /// follows from `LiftEffect::Neutral` — `apply_lift_effect(Neutral)`
+    /// is a no-op for `lift_enabled`. Verified by sentinel test
+    /// `test_clst_preserves_lastx_and_lift_enabled` in
+    /// `hp41-core/tests/phase22_memory_ops.rs`.
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-03, D-22.14).
+    Clst,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -705,6 +715,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // "CLRALPHA" legacy display (Op::AlphaClear). Pitfall 8: do NOT
         // remove Op::AlphaClear — v1.0 save files contain it.
         Op::Cla => op_alpha_clear(state),
+        // D-22.14: CLST zeros X/Y/Z/T while preserving LASTX and
+        // lift_enabled. Critical divergence from Clreg (which only
+        // clears regs).
+        Op::Clst => program::op_clst(state),
     }
 }
 

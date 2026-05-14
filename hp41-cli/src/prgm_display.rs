@@ -189,6 +189,8 @@ fn op_display_name(op: &Op) -> String {
         // Both variants coexist for hardware-faithful listing (CLA) vs v1.0
         // save-file compat (CLRALPHA). Pitfall 8: do NOT consolidate.
         Op::Cla => "CLA".to_string(),
+        // D-22.14: CLST clears X/Y/Z/T (LASTX + lift_enabled preserved).
+        Op::Clst => "CLST".to_string(),
     }
 }
 
