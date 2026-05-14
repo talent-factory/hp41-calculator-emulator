@@ -9,6 +9,7 @@ use std::str::FromStr;
 pub mod alpha;
 pub mod arithmetic;
 pub mod cardreader_ops;
+pub mod flags;
 pub mod hms;
 pub mod math;
 pub mod print;
@@ -294,6 +295,11 @@ pub enum Op {
     /// RDPRGM — read a `.raw` card named in ALPHA and insert its ops
     /// (replace if program empty, else insert after PC). LiftEffect: Neutral.
     Rdprgm,
+    // ── Phase 21: Flags ──────────────────────────────────────────────────────
+    /// SF n — set flag n (0..=55). LiftEffect: Neutral.
+    SfFlag(u8),
+    /// CF n — clear flag n (0..=55). LiftEffect: Neutral.
+    CfFlag(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -503,6 +509,9 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Rdta => op_rdta(state),
         Op::Wprgm => op_wprgm(state),
         Op::Rdprgm => op_rdprgm(state),
+        // ── Phase 21: Flags ───────────────────────────────────────────────
+        Op::SfFlag(n) => flags::op_sf(state, n),
+        Op::CfFlag(n) => flags::op_cf(state, n),
     }
 }
 

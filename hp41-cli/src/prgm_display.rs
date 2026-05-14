@@ -152,6 +152,9 @@ fn op_display_name(op: &Op) -> String {
         Op::Rdta => "RDTA".to_string(),
         Op::Wprgm => "WPRGM".to_string(),
         Op::Rdprgm => "RDPRGM".to_string(),
+        // Phase 21: Flags
+        Op::SfFlag(n) => format!("SF {n:02}"),
+        Op::CfFlag(n) => format!("CF {n:02}"),
     }
 }
 

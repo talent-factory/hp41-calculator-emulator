@@ -406,6 +406,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Rdta => super::cardreader_ops::op_rdta(state),
         Op::Wprgm => super::cardreader_ops::op_wprgm(state),
         Op::Rdprgm => super::cardreader_ops::op_rdprgm(state),
+        // ── Phase 21: Flag operations ──────────────────────────────────────────
+        Op::SfFlag(n) => super::flags::op_sf(state, n),
+        Op::CfFlag(n) => super::flags::op_cf(state, n),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

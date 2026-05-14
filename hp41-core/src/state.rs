@@ -110,6 +110,14 @@ pub struct CalcState {
     /// Hidden register O — accessible via STO O / RCL O in programs.
     #[serde(default)]
     pub reg_o: HpNum,
+
+    // ── Phase 21: Flags ──────────────────────────────────────────────────────
+    /// HP-41 flags (user flags 0-29 + system flags 30-55) packed into a single u64.
+    /// Bit n = flag n. Default: 0 (all clear). Use `ops::flags` helpers for safe access.
+    /// `#[serde(default)]` — a v2.0 autosave.json without this field loads cleanly with flags == 0.
+    /// Phase 21 (FN-FLAG-01).
+    #[serde(default)]
+    pub flags: u64,
     /// Pending card I/O request set by `Op::Wdta`/`Op::Rdta`/`Op::Wprgm`/`Op::Rdprgm`.
     /// The frontend (hp41-cli / hp41-gui) drains this after each `dispatch()` and
     /// performs the actual disk I/O — keeps hp41-core UI-agnostic. Mirrors the
@@ -140,6 +148,7 @@ impl CalcState {
             reg_m: HpNum::zero(),
             reg_n: HpNum::zero(),
             reg_o: HpNum::zero(),
+            flags: 0,
             pending_card_op: None,
         }
     }
