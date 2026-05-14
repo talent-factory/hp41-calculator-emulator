@@ -168,6 +168,31 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     result
 }
 
+/// Resume a halted program from `state.pc`.
+///
+/// Mirror of [`run_program`] but skips the entry-label search — `state.pc` is
+/// the resume point. Used after `Op::Stop` (D-22.1) breaks `run_loop`, when the
+/// user hits R/S to continue. Does NOT clear `state.call_stack`: pending XEQ
+/// frames must survive a STOP/resume cycle so `RTN` behaves correctly
+/// (D-22.2; planner PATTERNS.md §"resume_program()").
+///
+/// CRITICAL — Pitfall 2: do NOT use `?` to propagate the `run_loop` error.
+/// Capture into `let result`, reset `is_running = false`, then return `result`.
+/// The naive `run_loop(...)?` short-circuits before the cleanup and leaves
+/// `state.is_running == true`. (RESEARCH §2 Pitfall 2.)
+///
+/// Phase 22 (FN-PROG-01).
+pub fn resume_program(state: &mut CalcState) -> Result<(), HpError> {
+    if state.pc >= state.program.len() {
+        return Err(HpError::InvalidOp); // nothing to resume
+    }
+    let program = state.program.clone();
+    state.is_running = true;
+    let result = run_loop(state, &program);
+    state.is_running = false; // ALWAYS reset, even on Err (Pitfall 2)
+    result
+}
+
 // ── Private interpreter loop ──────────────────────────────────────────────────
 
 /// Maximum steps per run_program execution — guards against infinite loops.

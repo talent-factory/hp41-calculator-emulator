@@ -15,7 +15,7 @@ pub mod state;
 pub use error::HpError;
 pub use format::{format_alpha, format_hpnum};
 pub use num::HpNum;
-pub use ops::program::run_program;
+pub use ops::program::{resume_program, run_program};
 pub use ops::{StoArithKind, TestKind};
 pub use stack::LiftEffect;
 pub use state::{AngleMode, CalcState, DisplayMode, Stack};
