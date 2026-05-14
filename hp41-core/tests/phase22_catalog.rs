@@ -144,7 +144,7 @@ fn test_catalog_lines_are_24_chars_wide() {
     let mut s2 = CalcState::new();
     dispatch(&mut s2, Op::Catalog(2)).unwrap();
     for (i, line) in s2.print_buffer.iter().enumerate() {
-        assert_eq!(line.chars().count(), 24, "cat2 line {i}: {:?}", line);
+        assert_eq!(line.chars().count(), 24, "cat2 line {i}: {line:?}");
     }
 }
 
@@ -162,25 +162,18 @@ fn test_catalog_long_label_truncated_to_9_chars() {
     assert_eq!(s.print_buffer.len(), 3, "buf={:?}", s.print_buffer);
     let lbl_line = &s.print_buffer[1];
     // 24-char width preserved
-    assert_eq!(
-        lbl_line.chars().count(),
-        24,
-        "LBL line width: {:?}",
-        lbl_line
-    );
+    assert_eq!(lbl_line.chars().count(), 24, "LBL line width: {lbl_line:?}");
     // Truncation to first 9 chars: "VERYLONGL"
     assert!(
         lbl_line.contains("VERYLONGL"),
-        "expected truncated label 'VERYLONGL': {:?}",
-        lbl_line
+        "expected truncated label 'VERYLONGL': {lbl_line:?}"
     );
     // The 10th character ("A") must NOT appear in the truncated label position.
     // Build the expected display: "LBL VERYLONGL    1" right-padded to 24.
     let expected_prefix = "LBL VERYLONGL";
     assert!(
         lbl_line.starts_with(expected_prefix),
-        "LBL line must start with {expected_prefix:?}: {:?}",
-        lbl_line
+        "LBL line must start with {expected_prefix:?}: {lbl_line:?}"
     );
 }
 

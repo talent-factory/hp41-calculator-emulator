@@ -89,8 +89,7 @@ fn test_resume_resets_is_running_on_err() {
 
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "expected InvalidOp from missing-label XEQ, got {:?}",
-        result
+        "expected InvalidOp from missing-label XEQ, got {result:?}"
     );
     assert!(
         !state.is_running,
@@ -255,8 +254,7 @@ fn test_gto_ind_non_integer_rejects() {
     let result = run_program(&mut state, "A");
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "GTO IND with non-integer pointer must return InvalidOp (FN-IND-02); got {:?}",
-        result
+        "GTO IND with non-integer pointer must return InvalidOp (FN-IND-02); got {result:?}"
     );
 }
 
@@ -270,8 +268,7 @@ fn test_gto_ind_reg_out_of_range_rejects() {
     let result = run_program(&mut state, "A");
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "GTO IND with reg >= regs.len() must return InvalidOp, not panic; got {:?}",
-        result
+        "GTO IND with reg >= regs.len() must return InvalidOp, not panic; got {result:?}"
     );
 }
 
@@ -316,8 +313,7 @@ fn test_xeq_ind_4_deep_call_stack_rejects() {
 
     assert!(
         matches!(result, Err(HpError::CallDepth)),
-        "XEQ IND at 4-deep call_stack must return CallDepth; got {:?}",
-        result
+        "XEQ IND at 4-deep call_stack must return CallDepth; got {result:?}"
     );
     // Pre-mutation atomicity: the push did NOT happen — still exactly 4.
     assert_eq!(
@@ -336,8 +332,7 @@ fn test_xeq_ind_reg_out_of_range_rejects() {
     let result = run_program(&mut state, "A");
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "XEQ IND with reg >= regs.len() must return InvalidOp, not panic; got {:?}",
-        result
+        "XEQ IND with reg >= regs.len() must return InvalidOp, not panic; got {result:?}"
     );
 }
 
@@ -350,7 +345,6 @@ fn test_xeq_ind_non_integer_rejects() {
     let result = run_program(&mut state, "A");
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "XEQ IND with non-integer pointer must return InvalidOp (FN-IND-02); got {:?}",
-        result
+        "XEQ IND with non-integer pointer must return InvalidOp (FN-IND-02); got {result:?}"
     );
 }

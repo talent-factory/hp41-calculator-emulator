@@ -127,8 +127,7 @@ fn test_clp_missing_label_rejects() {
 
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "missing label must reject with InvalidOp; got {:?}",
-        result
+        "missing label must reject with InvalidOp; got {result:?}"
     );
     // Program must remain unchanged on the error path.
     assert_eq!(state.program.len(), len_before);
@@ -146,8 +145,7 @@ fn test_clp_prgm_mode_false_rejects() {
 
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "prgm_mode == false must reject CLP; got {:?}",
-        result
+        "prgm_mode == false must reject CLP; got {result:?}"
     );
     // Program must remain unchanged.
     assert_eq!(state.program.len(), 6);
@@ -230,8 +228,7 @@ fn test_del_prgm_mode_false_rejects() {
 
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "prgm_mode == false must reject DEL; got {:?}",
-        result
+        "prgm_mode == false must reject DEL; got {result:?}"
     );
     // Program must remain unchanged.
     assert_eq!(state.program.len(), 3);
@@ -276,8 +273,7 @@ fn test_ins_prgm_mode_false_rejects() {
 
     assert!(
         matches!(result, Err(HpError::InvalidOp)),
-        "prgm_mode == false must reject INS; got {:?}",
-        result
+        "prgm_mode == false must reject INS; got {result:?}"
     );
     // Program must remain unchanged.
     assert_eq!(state.program.len(), 2);
