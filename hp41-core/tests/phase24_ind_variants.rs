@@ -325,7 +325,10 @@ fn flag_test_ind_is_set_happy_inside_run_loop() {
     state.flags = 1u64 << 12;
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsSet,
+            ind_reg: 5,
+        },
         Op::PushNum(HpNum::from(1i32)),
         Op::PushNum(HpNum::from(2i32)),
     ];
@@ -341,7 +344,10 @@ fn flag_test_ind_is_clear_happy_inside_run_loop() {
     state.flags = 0;
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsClear, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsClear,
+            ind_reg: 5,
+        },
         Op::PushNum(HpNum::from(1i32)),
         Op::PushNum(HpNum::from(2i32)),
     ];
@@ -359,7 +365,10 @@ fn flag_test_ind_is_set_then_clear_happy_inside_run_loop() {
     state.flags = 1u64 << 12;
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsSetThenClear,
+            ind_reg: 5,
+        },
         Op::PushNum(HpNum::from(1i32)),
         Op::PushNum(HpNum::from(2i32)),
     ];
@@ -380,7 +389,10 @@ fn flag_test_ind_is_clear_then_clear_happy_inside_run_loop() {
     state.flags = 0;
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsClearThenClear, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsClearThenClear,
+            ind_reg: 5,
+        },
         Op::PushNum(HpNum::from(1i32)),
         Op::PushNum(HpNum::from(2i32)),
     ];
@@ -395,7 +407,10 @@ fn flag_test_ind_non_integer() {
     state.regs[5] = HpNum::rounded(Decimal::from_str("12.5").unwrap());
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsSet,
+            ind_reg: 5,
+        },
     ];
     let result = run_program(&mut state, "A");
     assert!(matches!(result, Err(HpError::InvalidOp)));
@@ -411,7 +426,10 @@ fn flag_test_ind_high_flag_no_panic() {
     state.regs[5] = HpNum::from(100i32);
     state.program = vec![
         Op::Lbl("A".to_string()),
-        Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsSet,
+            ind_reg: 5,
+        },
         Op::PushNum(HpNum::from(1i32)),
         Op::PushNum(HpNum::from(2i32)),
     ];
@@ -437,7 +455,10 @@ fn flag_test_ind_interactive_is_neutral_no_op() {
     let flags_before = state.flags;
     dispatch(
         &mut state,
-        Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 },
+        Op::FlagTestInd {
+            kind: FlagTestKind::IsSetThenClear,
+            ind_reg: 5,
+        },
     )
     .unwrap();
     assert_eq!(state.pc, pc_before, "interactive dispatch must not move pc");
@@ -534,7 +555,10 @@ fn view_ind_shows_resolved_register_value() {
     let pointer_value = format_hpnum(&HpNum::from(12i32), &state.display_mode);
     let resolved_value = format_hpnum(&HpNum::from(42i32), &state.display_mode);
     let actual = state.display_override.clone().unwrap();
-    assert_eq!(actual, resolved_value, "VIEW IND must show resolved register's value");
+    assert_eq!(
+        actual, resolved_value,
+        "VIEW IND must show resolved register's value"
+    );
     assert_ne!(
         actual, pointer_value,
         "VIEW IND must NOT show pointer register's value"

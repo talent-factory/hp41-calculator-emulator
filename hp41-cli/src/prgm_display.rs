@@ -308,19 +308,31 @@ mod tests {
         );
         // FlagTestInd: all 4 FlagTestKind sub-kinds
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsSet,
+                ind_reg: 5
+            }),
             "FS? IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsClear,
+                ind_reg: 5
+            }),
             "FC? IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsSetThenClear,
+                ind_reg: 5
+            }),
             "FS?C IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClearThenClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsClearThenClear,
+                ind_reg: 5
+            }),
             "FC?C IND 05"
         );
     }

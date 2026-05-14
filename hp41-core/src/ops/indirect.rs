@@ -37,10 +37,7 @@ use rust_decimal::Decimal;
 /// Both `resolve_indirect` (u8 wrapper, used by Phase 24 IND variants) and
 /// the refactored Phase-22 `Op::GtoInd` / `Op::XeqInd` arms in
 /// `ops/program.rs::run_loop` call this helper directly.
-pub(crate) fn resolve_indirect_decimal(
-    state: &CalcState,
-    reg: u8,
-) -> Result<Decimal, HpError> {
+pub(crate) fn resolve_indirect_decimal(state: &CalcState, reg: u8) -> Result<Decimal, HpError> {
     let pointer = state
         .regs
         .get(reg as usize)
@@ -218,9 +215,7 @@ mod tests {
         let mut state = CalcState::new();
         // 2^64 is well outside i64::MAX -- must reject via to_i64 path
         // (the OTHER ?-arm in resolve_indirect, branch coverage).
-        state.regs[5] = HpNum::rounded(
-            Decimal::from_str("18446744073709551616").unwrap(),
-        );
+        state.regs[5] = HpNum::rounded(Decimal::from_str("18446744073709551616").unwrap());
         assert!(matches!(
             resolve_indirect(&state, 5),
             Err(HpError::InvalidOp)
