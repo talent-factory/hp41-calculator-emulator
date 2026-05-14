@@ -810,6 +810,13 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // interactively; no control-flow concerns. Neutral lift both.
         Op::Arcl(reg) => super::alpha::op_arcl(state, reg),
         Op::Asto(reg) => super::alpha::op_asto(state, reg),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): ATOX Enable, XTOA Neutral,
+        // AROT Neutral, POSA Disable. None are control-flow primitives —
+        // they execute fine in both run_loop and interactive contexts.
+        Op::Atox => super::alpha::op_atox(state),
+        Op::Xtoa => super::alpha::op_xtoa(state),
+        Op::Arot => super::alpha::op_arot(state),
+        Op::Posa => super::alpha::op_posa(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

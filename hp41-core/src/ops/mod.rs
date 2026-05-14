@@ -482,6 +482,37 @@ pub enum Op {
     /// `reg` → `HpError::InvalidOp` BEFORE the sidecar write (atomicity).
     /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-02, D-23.2).
     Asto(u8),
+    /// ATOX — pop the first ALPHA char and push its Unicode codepoint into X
+    /// (capped at 255 via `.min(255)` — D-23.10 8-bit cap). Empty ALPHA pushes
+    /// 0. The lift is Enable (mirrors `op_pi`'s lift-then-push idiom): X→Y,
+    /// Y→Z, Z→T BEFORE the new code is written into X. ALPHA mutation uses
+    /// `chars()` (multibyte-safe per Phase 2 invariant). HP-41 hardware glyphs
+    /// 128..=255 are NOT preserved by the round-trip — documented divergence.
+    /// LiftEffect: Enable. Phase 23 (FN-ALPHA-03, D-23.10).
+    Atox,
+    /// XTOA — convert X mod 256 to a character and append it to ALPHA. Codes
+    /// 0..=127 append as ASCII; 128..=255 append as `'?'` (HP-41 upper-ASCII
+    /// glyphs are not in our String/UTF-8 model — D-23.11 documented divergence).
+    /// 24-char ALPHA cap silently discards the append on overflow (Phase 2
+    /// invariant, mirrors `op_alpha_append`). X is NOT consumed.
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-04, D-23.11).
+    Xtoa,
+    /// AROT — rotate ALPHA by X chars (positive = left rotation, negative =
+    /// right rotation via `rem_euclid` — D-23.8). Empty ALPHA is a no-op
+    /// preserving X. |N| > len is normalised by `rem_euclid(len)`. Non-integer
+    /// X is silently truncated toward zero (faithful HP-41CV per D-23.9 —
+    /// stricter than POSA which rejects). X is NOT consumed.
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-05, D-23.8 / D-23.9).
+    Arot,
+    /// POSA — single-char POSA (D-23.7). X must be an integer ASCII codepoint
+    /// in 0..=127 — non-integer X or out-of-range X returns `HpError::InvalidOp`
+    /// (stricter than AROT's silent-truncate per D-23.7 vs D-23.9). The result
+    /// REPLACES X: position of the first matching char in ALPHA (0-indexed),
+    /// or `-1` if not found (SC#5 explicit wording — other HP-41 sources
+    /// return haystack length; we pick -1). Multi-char POSA is deferred to
+    /// v3.x per D-23.6 (requires typed-stack `x_text` shadow channel).
+    /// LiftEffect: Disable. Phase 23 (FN-ALPHA-06, D-23.7).
+    Posa,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -799,6 +830,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // the packed-text shadow AND zeroes the numeric slot (no-drift).
         Op::Arcl(reg) => alpha::op_arcl(state, reg),
         Op::Asto(reg) => alpha::op_asto(state, reg),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): ATOX Enable, XTOA Neutral,
+        // AROT Neutral, POSA Disable (D-23.16). All four touch only
+        // `alpha_reg` and `stack.x` (POSA writes X; others read/preserve).
+        Op::Atox => alpha::op_atox(state),
+        Op::Xtoa => alpha::op_xtoa(state),
+        Op::Arot => alpha::op_arot(state),
+        Op::Posa => alpha::op_posa(state),
     }
 }
 
