@@ -37,7 +37,7 @@
 **Depends on**: v2.1 baseline (Card Reader, Keyboard Authenticity, all v1.0/v1.1/v2.0 work)
 **Requirements**: FN-MATH-01, FN-MATH-02, FN-MATH-03, FN-MATH-04, FN-MATH-05, FN-MATH-06, FN-MATH-07, FN-MATH-08, FN-MATH-09, FN-STACK-01
 **Success Criteria** (what must be TRUE):
-  1. From the CLI, typing the keystroke for `PI` followed by ENTER pushes 3.1415926536 (10-digit rounded) onto X and lifts the stack
+  1. From the CLI, typing the keystroke for `PI` followed by ENTER pushes 3.141592654 (10-digit rounded HP-41 hardware value) onto X and lifts the stack
   2. In DEG mode, entering `3 ENTER 4 ENTER 5` and pressing `R→P` produces magnitude ≈ 5 in Y and angle ≈ 53.13° in X; in RAD mode the same inputs return the angle in radians
   3. `5.7 CHS RND` with FIX 1 active produces `-5.7`; with FIX 0 active produces `-6`; `FACT` with X=70 returns `HpError::OutOfRange` and is observable in the CLI display
   4. Starting from stack X=1 Y=2 Z=3 T=4, pressing `R↑` produces X=4 Y=1 Z=2 T=3 (mirror of `Rdn`)
