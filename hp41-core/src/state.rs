@@ -86,6 +86,12 @@ pub struct CalcState {
     /// User key assignments: maps key char → program label name.
     /// BTreeMap for deterministic JSON serialization order (D-25, D-29).
     pub key_assignments: BTreeMap<char, String>,
+    /// HP-41 ASN key assignments: maps hardware key code (row×10+col, 1-indexed)
+    /// → assigned target name. Phase 22 (FN-KEY-01). Coexists with key_assignments
+    /// (Phase 5, char-keyed) — Phase 25/26 reconciles the two maps.
+    /// `#[serde(default)]` keeps v1.0–v2.1 save files loadable (default → empty map).
+    #[serde(default)]
+    pub assignments: BTreeMap<u8, String>,
     /// Buffer of formatted print lines from PRX/PRA/PRSTK.
     /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
     /// #[serde(default, skip)] — default enables backward-compat deserialization of older
@@ -158,6 +164,7 @@ impl CalcState {
             is_running: false,
             user_mode: false,
             key_assignments: BTreeMap::new(),
+            assignments: BTreeMap::new(),
             print_buffer: Vec::new(),
             last_key_code: 0,
             reg_m: HpNum::zero(),
