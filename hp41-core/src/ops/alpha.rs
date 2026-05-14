@@ -15,7 +15,7 @@
 
 use crate::error::HpError;
 use crate::num::HpNum;
-use crate::stack::{apply_lift_effect, LiftEffect};
+use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
 
 /// ALPHA toggle: flip alpha_mode flag.
@@ -147,12 +147,11 @@ pub fn op_asto(state: &mut CalcState, reg: u8) -> Result<(), HpError> {
 ///   register with chars[0] dropped (multibyte-safe — never byte-slices),
 ///   and set the code to `u32::from(c).min(255) as i32` (8-bit cap, D-23.10).
 /// - If `None` (empty ALPHA), set code = 0.
-/// - `apply_lift_effect(state, LiftEffect::Enable)` BEFORE the push — mirrors
-///   `op_pi`'s lift-then-push ordering precedent (math.rs ~line 297).
-/// - Direct-assign the four stack fields: T←Z, Z←Y, Y←X, X←HpNum::from(code).
-///   (Equivalent to the `lift_to_x` helper that the CONTEXT.md sketch
-///   contemplated; we choose direct-assign for symmetry with the explicit
-///   T←Z chain that the CONTEXT.md D-23.10 sketch shows.)
+/// - Routes through `crate::stack::enter_number` — the single source of truth
+///   for stack-lift in `hp41-core` (mirrors `op_pi`'s lift-then-push ordering
+///   precedent in math.rs ~line 297). Forcing `lift_enabled = true` ahead of
+///   the call guarantees the push lifts X→Y unconditionally; the trailing
+///   `apply_lift_effect(Enable)` declares the post-op lift state.
 ///
 /// Documented divergences:
 /// - 8-bit cap: multibyte first-char codepoints > 255 are capped to 255
@@ -176,13 +175,14 @@ pub fn op_atox(state: &mut CalcState) -> Result<(), HpError> {
         }
         None => 0,
     };
-    // Lift-then-push ordering (mirrors op_pi in math.rs ~line 297):
-    // apply_lift_effect FIRST, then direct-assign the four stack fields.
+    // WR-02: route through enter_number (the canonical stack-lift helper)
+    // instead of direct-assigning stack fields. Mirrors op_pi's structural
+    // pattern (math.rs ~line 297): force lift, push via enter_number, then
+    // declare the post-op lift effect. Future refactors of enter_number
+    // (e.g. an x_text shadow channel hook) now reach ATOX automatically.
+    state.stack.lift_enabled = true;
+    enter_number(state, HpNum::from(code));
     apply_lift_effect(state, LiftEffect::Enable);
-    state.stack.t = state.stack.z.clone();
-    state.stack.z = state.stack.y.clone();
-    state.stack.y = state.stack.x.clone();
-    state.stack.x = HpNum::from(code);
     Ok(())
 }
 
