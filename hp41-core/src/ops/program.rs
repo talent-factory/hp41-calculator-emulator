@@ -227,6 +227,27 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 let target = find_in_program(program, &label)?;
                 state.pc = target + 1;
             }
+            // ── Phase 22 (D-22.15, FN-PROG-06): GTO IND nn ────────────────
+            // Inline indirect resolver. Phase 24 will extract this into a
+            // shared `resolve_indirect()` helper for ~15 IND variants.
+            //
+            // 1. Read register (bounds-safe via .get() — D-22.23 zero-panic).
+            // 2. Truncate to integer; reject non-integer pointers (FN-IND-02).
+            // 3. Stringify the integer and reuse find_in_program (mirrors Op::Gto).
+            Op::GtoInd(reg) => {
+                let pointer = state
+                    .regs
+                    .get(reg as usize)
+                    .ok_or(HpError::InvalidOp)?
+                    .clone();
+                let int_part = pointer.trunc_int();
+                if int_part != pointer {
+                    return Err(HpError::InvalidOp);
+                }
+                let label_str = int_part.inner().to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.pc = target + 1; // mirrors Op::Gto: pc → step AFTER LBL marker
+            }
             Op::Xeq(label) => {
                 if state.call_stack.len() >= 4 {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
@@ -509,7 +530,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Dse(_)
         | Op::FlagTest { .. }
         | Op::Prompt
-        | Op::Stop => Err(HpError::InvalidOp), // Phase 22: STOP handled by run_loop break
+        | Op::Stop                              // Phase 22: STOP handled by run_loop break
+        | Op::GtoInd(_) => Err(HpError::InvalidOp), // Phase 22: GTO IND has run_loop arm
     }
 }
 

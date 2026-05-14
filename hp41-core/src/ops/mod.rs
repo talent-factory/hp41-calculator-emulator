@@ -363,6 +363,13 @@ pub enum Op {
     /// Frontend reads the event marker and inserts a ~1s delay before refresh.
     /// LiftEffect: Neutral. Phase 22 (FN-PROG-02, D-22.4).
     Pse,
+    /// GTO IND nn — indirect branch through register nn. The pointer is the
+    /// truncated integer part of `state.regs[nn]`; non-integer values reject
+    /// with `HpError::InvalidOp`. Phase 22 ships an inline resolver — Phase 24
+    /// will extract the shared `resolve_indirect()` helper. Programming-only:
+    /// interactive dispatch returns `InvalidOp`. LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-06, D-22.15).
+    GtoInd(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -615,6 +622,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
+        // GTO IND / XEQ IND require the run_loop state machine to manipulate
+        // pc and call_stack — interactive dispatch outside a running program
+        // is undefined. Return InvalidOp; run_loop handles them directly.
+        Op::GtoInd(_) => Err(HpError::InvalidOp),
     }
 }
 

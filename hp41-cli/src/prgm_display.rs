@@ -177,6 +177,7 @@ fn op_display_name(op: &Op) -> String {
         // Phase 22: Program control
         Op::Stop => "STOP".to_string(),
         Op::Pse => "PSE".to_string(),
+        Op::GtoInd(r) => format!("GTO IND {r:02}"),
     }
 }
 
