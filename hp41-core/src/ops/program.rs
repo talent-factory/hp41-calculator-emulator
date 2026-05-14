@@ -263,11 +263,13 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     use crate::ops::alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
     use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
     use crate::ops::math::{
-        op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
-        op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
+        op_abs, op_acos, op_asin, op_atan, op_cos, op_exp, op_fact, op_frc, op_int, op_ln, op_log,
+        op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd,
+        op_set_deg, op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow,
+        op_ypow,
     };
     use crate::ops::registers::{op_clreg, op_rcl, op_sto, op_sto_arith, op_sto_arith_stack};
-    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
+    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_r_up, op_rdn, op_xy_swap};
     use crate::state::DisplayMode;
 
     match op {
@@ -281,8 +283,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clx => op_clx(state),
         Op::Chs => op_chs(state),
         Op::Rdn => op_rdn(state),
+        Op::Rup => op_r_up(state),
         Op::XySwap => op_xy_swap(state),
         Op::Lastx => op_lastx(state),
+        Op::Pi => op_pi(state),
         Op::PushNum(v) => {
             enter_number(state, v);
             // PushNum inside a program enables lift so subsequent PushNums lift the stack
@@ -292,10 +296,17 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         }
         // Phase 2 math/trig/angle
         Op::Int => op_int(state),
+        // ── Phase 20 additions ──────────────────────────────────────────────
+        Op::Rnd => op_rnd(state),
+        Op::Frc => op_frc(state),
+        Op::Abs => op_abs(state),
+        Op::Sign => op_sign(state),
+        Op::Fact => op_fact(state),
         Op::Recip => op_recip(state),
         Op::Sqrt => op_sqrt(state),
         Op::Sq => op_sq(state),
         Op::YPow => op_ypow(state),
+        Op::Mod => op_mod(state),
         Op::PctChange => op_pct_change(state),
         Op::Ln => op_ln(state),
         Op::Log => op_log(state),
@@ -307,6 +318,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asin => op_asin(state),
         Op::Acos => op_acos(state),
         Op::Atan => op_atan(state),
+        Op::PolarToRect => op_polar_to_rect(state),
+        Op::RectToPolar => op_rect_to_polar(state),
         Op::SetDeg => op_set_deg(state),
         Op::SetRad => op_set_rad(state),
         Op::SetGrad => op_set_grad(state),
