@@ -223,7 +223,10 @@ fn test_fs_q_c_on_clear_flag_idempotent() {
         Op::Rtn,
     ];
     run_program(&mut s, "T").unwrap();
-    assert!(!flag_get(s.flags, 10), "idempotent — already-clear stays clear");
+    assert!(
+        !flag_get(s.flags, 10),
+        "idempotent — already-clear stays clear"
+    );
 }
 
 #[test]

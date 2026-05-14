@@ -295,9 +295,8 @@ pub fn op_set_grad(state: &mut CalcState) -> Result<(), HpError> {
 /// `enter_number`, then re-applies `LiftEffect::Enable` (D-10). LASTX is NOT
 /// updated — PI is a constant push, not arithmetic.
 pub fn op_pi(state: &mut CalcState) -> Result<(), HpError> {
-    let pi_value = HpNum::rounded(
-        Decimal::from_str("3.141592653589793").expect("PI literal must parse"),
-    );
+    let pi_value =
+        HpNum::rounded(Decimal::from_str("3.141592653589793").expect("PI literal must parse"));
     // Force stack-lift so PI always lifts X onto Y regardless of prior op (D-10).
     state.stack.lift_enabled = true;
     enter_number(state, pi_value);

@@ -81,7 +81,10 @@ mod tests {
         let mut state = CalcState::new();
         let r = op_view(&mut state, 100);
         assert!(matches!(r, Err(HpError::InvalidOp)));
-        assert!(state.display_override.is_none(), "display_override unchanged on error");
+        assert!(
+            state.display_override.is_none(),
+            "display_override unchanged on error"
+        );
     }
 
     #[test]

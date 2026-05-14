@@ -134,7 +134,10 @@ fn test_prompt_exits_run_loop() {
     run_program(&mut s, "T").unwrap();
     assert_eq!(s.display_override.as_deref(), Some("HI"));
     // The PushNum(99) is unreachable — X must still be the original value (zero).
-    assert_eq!(s.stack.x, initial_x, "PROMPT must break run_loop before PushNum(99)");
+    assert_eq!(
+        s.stack.x, initial_x,
+        "PROMPT must break run_loop before PushNum(99)"
+    );
 }
 
 #[test]

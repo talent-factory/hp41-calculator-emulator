@@ -270,8 +270,7 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
             // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
             // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
             Op::Prompt => {
-                state.display_override =
-                    Some(state.alpha_reg.chars().take(24).collect::<String>());
+                state.display_override = Some(state.alpha_reg.chars().take(24).collect::<String>());
                 break;
             }
             other => {

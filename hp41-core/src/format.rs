@@ -55,10 +55,7 @@ pub fn round_to_display_precision(n: &HpNum, mode: &DisplayMode) -> HpNum {
             d.round_dp_with_strategy(*digits as u32, RoundingStrategy::MidpointAwayFromZero)
         }
         DisplayMode::Sci(digits) => d
-            .round_sf_with_strategy(
-                (*digits as u32) + 1,
-                RoundingStrategy::MidpointAwayFromZero,
-            )
+            .round_sf_with_strategy((*digits as u32) + 1, RoundingStrategy::MidpointAwayFromZero)
             .expect("round_sf_with_strategy(<= 10) cannot fail for finite Decimal"),
         DisplayMode::Eng(digits) => round_eng(d, *digits as usize),
     };
@@ -328,7 +325,11 @@ mod tests {
 
     #[test]
     fn round_zero_returns_zero() {
-        for mode in [DisplayMode::Fix(4), DisplayMode::Sci(4), DisplayMode::Eng(3)] {
+        for mode in [
+            DisplayMode::Fix(4),
+            DisplayMode::Sci(4),
+            DisplayMode::Eng(3),
+        ] {
             assert_eq!(
                 round_to_display_precision(&HpNum::zero(), &mode).inner(),
                 Decimal::ZERO,

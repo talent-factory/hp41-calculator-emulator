@@ -63,7 +63,10 @@ fn test_tone_n_pushes_event() {
     for n in [0u8, 5, 9] {
         let mut s = CalcState::new();
         dispatch(&mut s, Op::Tone(n)).unwrap();
-        assert_eq!(s.event_buffer.last().map(String::as_str), Some(&*format!("TONE {n}")));
+        assert_eq!(
+            s.event_buffer.last().map(String::as_str),
+            Some(&*format!("TONE {n}"))
+        );
     }
 }
 
