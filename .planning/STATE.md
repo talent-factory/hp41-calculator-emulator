@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T09:25:56.760Z"
-last_activity: 2026-05-14 -- Phase 22 planning complete
+last_updated: "2026-05-14T10:40:00.000Z"
+last_activity: 2026-05-14 -- Phase 22 complete (13 ROM ops landed, 660 tests)
 progress:
   total_phases: 8
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 5
-  percent: 25
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 9
+  percent: 37
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,12 +34,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 22: Program Control & Memory Ops (context gathered — awaiting planning)
-Plan: TBD (4 plans planned per D-22.20)
-Status: Ready to execute
-Last activity: 2026-05-14 -- Phase 22 planning complete
+Phase: 22: Program Control & Memory Ops — COMPLETE
+Plan: 22-01 / 22-02 / 22-03 / 22-04 all merged to develop
+Status: Verified PASS (13/13 ROM-built-ins) + reviewed (0 critical, 1 advisory warning)
+Last activity: 2026-05-14 -- Phase 22 ships
 
-Progress: 2 / 8 phases
+Progress: 3 / 8 phases
 
 ---
 
