@@ -201,7 +201,9 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
     };
 
     // D-02 annunciator bar: USER PRGM ALPHA SHIFT RAD DEG GRAD
-    // USER and SHIFT are always dim in Phase 4 (USER mode is Phase 5).
+    // Phase 25 (D-25.4 / Plan 01): SHIFT reflects `app.shift_armed` so users
+    // see the one-shot f-prefix state in the same place GUI v2.1 surfaces
+    // `shiftActive` (parity invariant D-25.6).
     let line = Line::from(vec![
         ann("USER", st.user_mode),
         Span::raw(" "),
@@ -209,7 +211,7 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
         Span::raw(" "),
         ann("ALPHA", st.alpha_mode),
         Span::raw(" "),
-        ann("SHIFT", false),
+        ann("SHIFT", app.shift_armed),
         Span::raw(" "),
         ann("RAD", st.angle_mode == AngleMode::Rad),
         Span::raw(" "),
@@ -223,12 +225,22 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
 fn render_status(app: &App, frame: &mut Frame, area: Rect) {
     // D-11: pending_input prompts override normal status message
     // D-14: ALPHA mode has a standard status message
-    let text: String = if let Some(ref pending) = app.pending_input {
+    let base: String = if let Some(ref pending) = app.pending_input {
         pending_prompt(pending)
     } else if app.state.alpha_mode {
         "ALPHA mode — Enter or A to exit".to_string()
     } else {
         app.message.as_deref().unwrap_or("Ready").to_string()
+    };
+    // Phase 25 (D-25.4 / Plan 01 / RESEARCH Open Q 5): prepend an "f→"
+    // indicator when the prefix is armed AND no modal/ALPHA is active —
+    // doubles the SHIFT annunciator with an inline cue right next to the
+    // status text so users see the armed-prefix state without scanning
+    // the whole UI.
+    let text = if app.shift_armed && app.pending_input.is_none() && !app.state.alpha_mode {
+        format!("f\u{2192} {base}")
+    } else {
+        base
     };
     frame.render_widget(Paragraph::new(text), area);
 }
