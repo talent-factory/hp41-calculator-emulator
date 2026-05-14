@@ -46,6 +46,7 @@ fn test_serde_round_trip_with_flags_set() {
 }
 
 #[test]
+#[allow(clippy::identity_op)] // n=0 is a valid LSB boundary case in this loop
 fn test_flag_get_set_clear_helpers_unit() {
     for n in [0u8, 1, 31, 55] {
         let f = flag_set(0, n);

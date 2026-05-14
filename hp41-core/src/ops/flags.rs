@@ -62,6 +62,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::identity_op)] // n=0 is a valid LSB boundary case in this loop
     fn flag_set_get_boundaries() {
         for n in [0u8, 1, 31, 55] {
             let f = flag_set(0, n);
@@ -71,6 +72,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::identity_op)] // n=0 is a valid LSB boundary case in this loop
     fn flag_clear_boundaries() {
         for n in [0u8, 1, 31, 55] {
             let f = flag_clear(u64::MAX, n);
