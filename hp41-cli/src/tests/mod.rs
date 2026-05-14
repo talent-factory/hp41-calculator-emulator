@@ -28,11 +28,12 @@ fn test_phase5_pers01_persistence_functions_exist() {
 }
 
 #[test]
-#[allow(clippy::const_is_empty)]
 fn test_phase5_ux01_help_data_non_empty() {
-    // UX-01: HELP_DATA must be non-empty (covered more thoroughly in help_data::tests)
-    use crate::help_data::HELP_DATA;
-    assert!(!HELP_DATA.is_empty(), "HELP_DATA must not be empty");
+    // UX-01: help entries must be non-empty (covered more thoroughly in
+    // tests/phase25_help_data.rs). Post Plan 25-04 the data flows from
+    // docs/hp41cv-functions.json via include_str! + OnceLock.
+    use crate::help_data::help_entries;
+    assert!(!help_entries().is_empty(), "help_entries must not be empty");
 }
 
 #[test]
@@ -46,17 +47,16 @@ fn test_phase5_ux03_sample_programs_count() {
 }
 
 #[test]
-#[allow(clippy::const_is_empty)]
 fn test_phase5_requirements() {
     // Integration-level canary: confirms all 5 Phase 5 requirement code paths compile together.
     // PERS-01: persistence module functions available
     use crate::persistence::default_state_path;
-    // UX-01: help data available
-    use crate::help_data::HELP_DATA;
+    // UX-01: help data available (post Plan 25-04: JSON-loaded via OnceLock)
+    use crate::help_data::help_entries;
     // UX-03: sample programs available
     use crate::programs::sample_programs;
 
     assert!(default_state_path().to_str().is_some());
-    assert!(!HELP_DATA.is_empty());
+    assert!(!help_entries().is_empty());
     assert!(sample_programs().len() >= 10);
 }

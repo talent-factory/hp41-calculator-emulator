@@ -340,15 +340,26 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
         .area()
         .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
-    let rows: Vec<Row> = help_data::HELP_DATA
+    // D-25.16 / D-25.18: rows derive from docs/hp41cv-functions.json via
+    // help_data::help_overlay_rows. Category headers are synthesised by the
+    // helper as "=== <category> ===" with empty key/op fields.
+    let overlay_rows = help_data::help_overlay_rows();
+    let rows: Vec<Row> = overlay_rows
         .iter()
-        .map(|(key, op, desc)| {
-            if desc.starts_with("===") {
-                // Category header row: full-width, bold style
-                Row::new(vec![Cell::from(""), Cell::from(""), Cell::from(*desc)])
-                    .style(ratatui::style::Style::new().bold())
+        .map(|row| {
+            if row.desc.starts_with("===") {
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(row.desc.clone()),
+                ])
+                .style(ratatui::style::Style::new().bold())
             } else {
-                Row::new(vec![Cell::from(*key), Cell::from(*op), Cell::from(*desc)])
+                Row::new(vec![
+                    Cell::from(row.key.clone()),
+                    Cell::from(row.op.clone()),
+                    Cell::from(row.desc.clone()),
+                ])
             }
         })
         .collect();
