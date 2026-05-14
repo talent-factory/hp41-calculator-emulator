@@ -104,7 +104,11 @@ pub fn op_sto_arith_stack(
 /// CLREG: clear all storage registers to zero.
 /// LiftEffect: Neutral.
 pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
-    state.regs = vec![crate::num::HpNum::zero(); 100];
+    // Phase 22 D-22.11.1: honor current SIZE (was hardcoded 100).
+    // After Op::Size(50), CLREG yields 50 zero registers — NOT silently
+    // re-grown back to 100.
+    let n = state.regs.len();
+    state.regs = vec![crate::num::HpNum::zero(); n];
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
 }
