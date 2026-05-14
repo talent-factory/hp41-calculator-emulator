@@ -8,9 +8,62 @@
 //! and F5/F7/F8 are handled directly in app.handle_key() and MUST NOT appear here.
 
 use crossterm::event::{KeyCode, KeyEvent};
-use hp41_core::ops::{Op, TestKind};
+use hp41_core::ops::{FlagTestKind, Op, StoArithKind, TestKind};
 
 use crate::app::App;
+
+// ── Phase 25 Plan 02: TUI-local discriminator enums for Hybrid PendingInput ──
+//
+// These enums collapse multiple parallel-state `Op::` variants into a single
+// `PendingInput` group variant per D-25.11. They WRAP the hp41-core enums
+// (`FlagTestKind`, `StoArithKind`) rather than redefining them per D-25.13 —
+// the rule is "reuse hp41-core enums; do NOT define parallel TUI-local
+// discriminator enums" for kinds that already exist in core.
+//
+// `FlagPromptKind` is the Phase 25 modal-driver for the 6 logical flag ops
+// (SF / CF / FS? / FC? / FS?C / FC?C) × {direct, IND}. The Test arm reuses
+// `hp41_core::ops::FlagTestKind` directly.
+//
+// `RegisterOpKind` is a new TUI-local enum because hp41-core has no single
+// discriminator for the heterogeneous family `RCL / VIEW / ARCL / ASTO /
+// ISG / DSE`. It wraps `hp41_core::ops::StoArithKind` for the STO-arith
+// sub-family so we don't duplicate that enum either.
+
+/// Discriminator for the `PendingInput::FlagPrompt` group variant.
+///
+/// Logical variants: SetFlag (SF), ClearFlag (CF), and four `Test(_)` arms
+/// covering FS? / FC? / FS?C / FC?C via the reused
+/// `hp41_core::ops::FlagTestKind` per D-25.13.
+//
+// `dead_code` is allowed at the type level because Task 1 lands the enum and
+// the exhaustive `pending_prompt()` arm — Task 2 wires the modal openers and
+// dispatch which exercise every variant. Removing this allow after Task 2 is
+// part of that task's acceptance criteria.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum FlagPromptKind {
+    SetFlag,
+    ClearFlag,
+    Test(FlagTestKind),
+}
+
+/// Discriminator for the `PendingInput::RegisterPrompt` group variant.
+///
+/// Logical variants: Sto / Rcl / StoArith(StoArithKind) (4 inner ops) / View
+/// / Arcl / Asto / Isg / Dse. The `StoArith` arm reuses
+/// `hp41_core::ops::StoArithKind` per D-25.13.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum RegisterOpKind {
+    Sto,
+    Rcl,
+    StoArith(StoArithKind),
+    View,
+    Arcl,
+    Asto,
+    Isg,
+    Dse,
+}
 
 /// Map a crossterm KeyEvent to an hp41-core Op for the **primary** HP-41CV
 /// keyboard positions only (Phase 25 / D-25.1 / D-25.3).

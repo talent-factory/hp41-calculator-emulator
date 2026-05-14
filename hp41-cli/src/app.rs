@@ -15,10 +15,18 @@ use ratatui::DefaultTerminal;
 use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
 use hp41_core::{AngleMode, CalcState};
 
+use crate::keys::{FlagPromptKind, RegisterOpKind};
 use crate::{keys, persistence, ui};
 
 /// Transient UI state for multi-key input (D-08). NOT serialized to disk.
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
+//
+// Plan 02 Task 1 lands the 6 new Hybrid variants (FlagPrompt, RegisterPrompt,
+// ClpLabel, DelCount, TonePrompt, XeqByName) and their exhaustive
+// `pending_prompt()` arms. Task 2 wires the modal openers in `handle_key` —
+// until then these variants have no construction site, hence `dead_code`.
+// The allow is removed after Task 2 lands.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum PendingInput {
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
@@ -38,6 +46,51 @@ pub enum PendingInput {
     /// against synthetic_byte_to_op() and either inserts Op::SyntheticByte at
     /// state.pc or sets app.message = "INVALID" (D-13).
     HexModal(String),
+    // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────────
+    /// SF/CF/FS?/FC?/FS?C/FC?C × {direct, IND} — 12 logical flag ops collapsed
+    /// into one group variant per D-25.11. The `kind` discriminator reuses
+    /// `hp41_core::ops::FlagTestKind` via `FlagPromptKind::Test(_)` per D-25.13.
+    /// `acc` is a 2-digit numeric accumulator. `ind` is toggled via the
+    /// hardware-faithful shift-0 keystroke (RESEARCH Pitfall 10 / D-25.12),
+    /// reusing `App.shift_armed` from Plan 01 — no separate `shift_pending`
+    /// field (W2 fix). End-of-accumulation dispatch picks `Op::SfFlag(n)` vs
+    /// `Op::SfFlagInd(n)` (and similarly for CF / FlagTest) at a single
+    /// decision point per D-25.12.
+    FlagPrompt {
+        kind: FlagPromptKind,
+        ind: bool,
+        acc: String,
+    },
+    /// STO/RCL/STO+-×÷/VIEW/ARCL/ASTO/ISG/DSE × {direct, IND} — 22 logical
+    /// register ops collapsed into one group variant per D-25.11. The `op`
+    /// discriminator reuses `hp41_core::ops::StoArithKind` via
+    /// `RegisterOpKind::StoArith(_)` per D-25.13. Same 2-digit + shift-0
+    /// IND-toggle scaffold as `FlagPrompt`.
+    RegisterPrompt {
+        op: RegisterOpKind,
+        ind: bool,
+        acc: String,
+    },
+    /// CLP "name" — text-input modal for clearing a labelled program block.
+    /// Accumulator capped at 7 chars (HP-41 LBL hardware limit per RESEARCH
+    /// §Security V5). Enter dispatches `Op::Clp(acc)`; Esc cancels; Backspace
+    /// pops the last char.
+    ClpLabel(String),
+    /// DEL nnn — 3-digit numeric accumulator for the program-step delete op.
+    /// Final parse uses `.parse::<u8>().unwrap_or(u8::MAX)` so user input
+    /// `999` silently clamps to 255 (T-25-06 mitigation).
+    DelCount(String),
+    /// TONE n — single-digit accumulator (0–9). First digit auto-dispatches
+    /// `Op::Tone(n)`; non-digit cancels. Even simpler than the 2-digit
+    /// scaffold.
+    TonePrompt,
+    /// XEQ "NAME" — text-input modal scaffold for the XEQ-by-Name flow.
+    /// Plan 02 ships the scaffold; Plan 03 wires the resolver (`Op::Xeq`
+    /// already falls back to `builtin_card_op` for the 4 card-reader names —
+    /// the 8 conditional-test mnemonics land via Plan 03's
+    /// `builtin_card_op` extension). Accumulator capped at 24 chars
+    /// (HP-41 ALPHA register width per RESEARCH §Security V5).
+    XeqByName(String),
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -949,8 +1002,85 @@ impl App {
                     }
                 }
             }
+            // ── Phase 25 Plan 02 — Hybrid PendingInput arms ──────────────
+            // Task 1 lands the variants and the exhaustive pending_prompt()
+            // arm. Task 2 wires the real accumulator + IND-toggle + dispatch
+            // logic. To keep this compiling between commits, the 6 stubs
+            // below close the modal on any key — Task 2 replaces them
+            // wholesale with the correct scaffold.
+            Some(PendingInput::FlagPrompt { kind, ind, acc }) => {
+                self.handle_flag_prompt(key, kind, ind, acc);
+            }
+            Some(PendingInput::RegisterPrompt { op, ind, acc }) => {
+                self.handle_register_prompt(key, op, ind, acc);
+            }
+            Some(PendingInput::ClpLabel(acc)) => {
+                self.handle_clp_label(key, acc);
+            }
+            Some(PendingInput::DelCount(acc)) => {
+                self.handle_del_count(key, acc);
+            }
+            Some(PendingInput::TonePrompt) => {
+                self.handle_tone_prompt(key);
+            }
+            Some(PendingInput::XeqByName(acc)) => {
+                self.handle_xeq_by_name(key, acc);
+            }
             None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
         }
+    }
+
+    // ── Phase 25 Plan 02 — Hybrid PendingInput arm bodies (Task 1 stubs) ──
+    //
+    // Task 1 introduces these helpers as compile-clean stubs so the enum can
+    // grow without breaking the build between commits. Task 2 will REPLACE
+    // each body wholesale with the documented behavior:
+    //   • FlagPrompt / RegisterPrompt — 2-digit numeric accumulator with
+    //     shift-0 IND-toggle (reuses App.shift_armed from Plan 01).
+    //   • ClpLabel — text-input modal capped at 7 chars; Enter → Op::Clp.
+    //   • DelCount — 3-digit accumulator with silent u8::MAX clamp.
+    //   • TonePrompt — single-digit auto-dispatch to Op::Tone.
+    //   • XeqByName — text-input modal capped at 24 chars; Enter → Op::Xeq
+    //     (Plan 03 wires the conditional-test mnemonic resolver via the
+    //     builtin_card_op 4→12 extension).
+    //
+    // The Task 1 stubs simply close the modal on any key; this is harmless
+    // because the variants cannot be opened yet (the openers land in Task 2).
+
+    fn handle_flag_prompt(
+        &mut self,
+        _key: KeyEvent,
+        _kind: FlagPromptKind,
+        _ind: bool,
+        _acc: String,
+    ) {
+        self.pending_input = None;
+    }
+
+    fn handle_register_prompt(
+        &mut self,
+        _key: KeyEvent,
+        _op: RegisterOpKind,
+        _ind: bool,
+        _acc: String,
+    ) {
+        self.pending_input = None;
+    }
+
+    fn handle_clp_label(&mut self, _key: KeyEvent, _acc: String) {
+        self.pending_input = None;
+    }
+
+    fn handle_del_count(&mut self, _key: KeyEvent, _acc: String) {
+        self.pending_input = None;
+    }
+
+    fn handle_tone_prompt(&mut self, _key: KeyEvent) {
+        self.pending_input = None;
+    }
+
+    fn handle_xeq_by_name(&mut self, _key: KeyEvent, _acc: String) {
+        self.pending_input = None;
     }
 
     /// Generic 2-digit register number accumulator (D-09).
