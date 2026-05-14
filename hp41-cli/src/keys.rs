@@ -10,7 +10,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use hp41_core::ops::{FlagTestKind, Op, StoArithKind, TestKind};
 
-use crate::app::App;
+use crate::app::{App, PendingInput};
 
 // ── Phase 25 Plan 02: TUI-local discriminator enums for Hybrid PendingInput ──
 //
@@ -34,12 +34,6 @@ use crate::app::App;
 /// Logical variants: SetFlag (SF), ClearFlag (CF), and four `Test(_)` arms
 /// covering FS? / FC? / FS?C / FC?C via the reused
 /// `hp41_core::ops::FlagTestKind` per D-25.13.
-//
-// `dead_code` is allowed at the type level because Task 1 lands the enum and
-// the exhaustive `pending_prompt()` arm — Task 2 wires the modal openers and
-// dispatch which exercise every variant. Removing this allow after Task 2 is
-// part of that task's acceptance criteria.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlagPromptKind {
     SetFlag,
@@ -52,11 +46,18 @@ pub enum FlagPromptKind {
 /// Logical variants: Sto / Rcl / StoArith(StoArithKind) (4 inner ops) / View
 /// / Arcl / Asto / Isg / Dse. The `StoArith` arm reuses
 /// `hp41_core::ops::StoArithKind` per D-25.13.
-#[allow(dead_code)]
+///
+/// **Note on `StoArith`:** Plan 02 deliberately routes STO-arithmetic
+/// through the legacy v1.1 `S → +/-/×/÷ → register` chain (`StoAdd/Sub/
+/// Mul/Div` variants) per W3 fix + D-25.7 — so the `StoArith` arm here is
+/// reachable via tests + a future Plan-04 JSON pipeline but is NOT
+/// constructed by the live keyboard handler in v2.2. `#[allow(dead_code)]`
+/// is scoped to just this variant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RegisterOpKind {
     Sto,
     Rcl,
+    #[allow(dead_code)]
     StoArith(StoArithKind),
     View,
     Arcl,
@@ -159,12 +160,43 @@ pub fn key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
 /// X≤0, X≥0) are reached via the XEQ-by-Name modal per D-25.8/D-25.9
 /// (Plan 03 wires the modal resolver).
 ///
-/// Plan 02 extends this resolver with modal-opener f-shifted bindings
-/// (SF/CF/VIEW/TONE/…) once those modals exist. Plan 04 may rebuild the
-/// table entirely from `docs/hp41cv-functions.json` per D-25.18. Returning
-/// `None` here is silent — the caller in `App::handle_key` always clears
-/// the `shift_armed` flag regardless (Pitfall 5).
-pub fn shifted_key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
+/// **Phase 25 / Plan 02 — modal-opener f-shifted bindings.** When an
+/// f-shifted key opens a modal rather than dispatching directly, this
+/// function returns `None` AND populates `app.pending_input` with the
+/// appropriate PendingInput variant. The signature takes `&mut App` so
+/// the side effect is local to the resolver. Mapping table:
+///
+/// | Key   | Modal opened (PendingInput variant)      |
+/// |-------|-------------------------------------------|
+/// | `f-7` | `FlagPrompt { SetFlag, ind:false, acc:"" }`     |
+/// | `f-8` | `FlagPrompt { ClearFlag, ind:false, acc:"" }`   |
+/// | `f-9` | `FlagPrompt { Test(IsSet), … }`                |
+/// | `f-4` | `FlagPrompt { Test(IsClear), … }`              |
+/// | `f-5` | `FlagPrompt { Test(IsSetThenClear), … }`       |
+/// | `f-6` | `FlagPrompt { Test(IsClearThenClear), … }`     |
+/// | `f-v` | `RegisterPrompt { View, … }`                   |
+/// | `f-a` | `RegisterPrompt { Arcl, … }`                   |
+/// | `f-A` | `RegisterPrompt { Asto, … }`                   |
+/// | `f-i` | `RegisterPrompt { Isg, … }`                    |
+/// | `f-d` | `RegisterPrompt { Dse, … }`                    |
+/// | `f-C` | `ClpLabel("")`                                  |
+/// | `f-D` | `DelCount("")`                                  |
+/// | `f-T` | `TonePrompt`                                    |
+/// | `f-N` | `XeqByName("")`                                 |
+///
+/// **STO-arithmetic openers are deliberately absent** (W3 fix). The
+/// f-shifted `-/+/*/(slash)` keys are LOCKED to the 4 conditional tests
+/// per D-25.7 (Plan 01). STO-arithmetic (`STO+/-/×/÷`) stays reachable
+/// via the legacy v1.1 `S → +/-/×/÷ → register` modal chain — `S` opens
+/// `RegisterPrompt { Sto }`, and the existing pending_input route for
+/// `StoRegister` intercepts `+/-/*/(slash)` to switch into `StoAdd/Sub/
+/// Mul/Div`.
+///
+/// Plan 04 may rebuild the table entirely from `docs/hp41cv-functions.json`
+/// per D-25.18. Returning `None` here is silent — the caller in
+/// `App::handle_key` always clears the `shift_armed` flag regardless
+/// (Pitfall 5).
+pub fn shifted_key_to_op(key: KeyEvent, app: &mut App) -> Option<Op> {
     match key.code {
         // D-25.7 — four hardware-anchored conditional tests on the
         // f-shifted arithmetic keys.
@@ -172,9 +204,123 @@ pub fn shifted_key_to_op(key: KeyEvent, _app: &App) -> Option<Op> {
         KeyCode::Char('+') => Some(Op::Test(TestKind::XLeY)),
         KeyCode::Char('*') => Some(Op::Test(TestKind::XGtY)),
         KeyCode::Char('/') => Some(Op::Test(TestKind::XEqZero)),
-        // Modal-opener f-shifted bindings (SF/CF/VIEW/TONE/…) land in
-        // Plan 02. Everything else is unmapped — the caller clears
-        // shift_armed regardless (Pitfall 5).
+
+        // ── Plan 02 modal openers — return None and populate pending_input ──
+        // Flag ops (f-shifted digit keys 4..=9):
+        KeyCode::Char('7') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::SetFlag,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('8') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::ClearFlag,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('9') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::Test(FlagTestKind::IsSet),
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('4') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::Test(FlagTestKind::IsClear),
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('5') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::Test(FlagTestKind::IsSetThenClear),
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('6') => {
+            app.pending_input = Some(PendingInput::FlagPrompt {
+                kind: FlagPromptKind::Test(FlagTestKind::IsClearThenClear),
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        // Register ops (lowercase: mnemonic-letter shortcuts because the
+        // HP-41CV reference card positions for VIEW/ARCL/ASTO/ISG/DSE
+        // are TBD per RESEARCH; Plan 04 may move these onto numeric
+        // f-shift positions derived from docs/hp41cv-functions.json).
+        KeyCode::Char('v') => {
+            app.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::View,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('a') => {
+            app.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Arcl,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('A') => {
+            app.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Asto,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('i') => {
+            app.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Isg,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        KeyCode::Char('d') => {
+            app.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Dse,
+                ind: false,
+                acc: String::new(),
+            });
+            None
+        }
+        // Specialty modal openers (uppercase ASCII shortcuts).
+        // `C` opens ClpLabel, `D` opens DelCount, `T` opens TonePrompt,
+        // `N` opens XeqByName (the lowercase counterparts would collide
+        // with primary HP-41CV positions or with the IsClear `c` letter).
+        KeyCode::Char('C') => {
+            app.pending_input = Some(PendingInput::ClpLabel(String::new()));
+            None
+        }
+        KeyCode::Char('D') => {
+            app.pending_input = Some(PendingInput::DelCount(String::new()));
+            None
+        }
+        KeyCode::Char('T') => {
+            app.pending_input = Some(PendingInput::TonePrompt);
+            None
+        }
+        KeyCode::Char('N') => {
+            app.pending_input = Some(PendingInput::XeqByName(String::new()));
+            None
+        }
+        // Everything else: unmapped. Caller clears shift_armed regardless
+        // (Pitfall 5).
         _ => None,
     }
 }
