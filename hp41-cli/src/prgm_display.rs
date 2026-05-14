@@ -36,15 +36,24 @@ fn op_display_name(op: &Op) -> String {
         Op::Clx => "CLX".to_string(),
         Op::Chs => "CHS".to_string(),
         Op::Rdn => "R\u{2193}".to_string(),
+        Op::Rup => "R\u{2191}".to_string(),
         Op::XySwap => "X\u{27F7}Y".to_string(),
         Op::Lastx => "LASTX".to_string(),
+        Op::Pi => "PI".to_string(),
         Op::PushNum(n) => format!("{}", n.inner()),
         // Phase 2: unary math
         Op::Int => "INT".to_string(),
+        // Phase 20: additional unary math
+        Op::Rnd => "RND".to_string(),
+        Op::Frc => "FRC".to_string(),
+        Op::Abs => "ABS".to_string(),
+        Op::Sign => "SIGN".to_string(),
+        Op::Fact => "FACT".to_string(),
         Op::Recip => "1/x".to_string(),
         Op::Sqrt => "\u{221a}x".to_string(),
         Op::Sq => "x\u{00B2}".to_string(),
         Op::YPow => "Y^X".to_string(),
+        Op::Mod => "MOD".to_string(),
         Op::PctChange => "%CH".to_string(),
         Op::Ln => "LN".to_string(),
         Op::Log => "LOG".to_string(),
@@ -57,6 +66,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Asin => "ASIN".to_string(),
         Op::Acos => "ACOS".to_string(),
         Op::Atan => "ATAN".to_string(),
+        Op::PolarToRect => "P\u{2192}R".to_string(),
+        Op::RectToPolar => "R\u{2192}P".to_string(),
         // Phase 2: angle mode
         Op::SetDeg => "DEG".to_string(),
         Op::SetRad => "RAD".to_string(),
@@ -163,5 +174,21 @@ mod tests {
         assert_eq!(op_display_name(&Op::SyntheticByte(0xCF)), "SYN CF");
         assert_eq!(op_display_name(&Op::SyntheticByte(0xCE)), "SYN CE");
         assert_eq!(op_display_name(&Op::SyntheticByte(0xA0)), "SYN A0");
+    }
+
+    #[test]
+    fn test_display_phase20_op_labels() {
+        // Phase 20: 10 new Op variants must surface the documented HP-41
+        // mnemonics in the program listing (D-22 4-place rule, fourth place).
+        assert_eq!(op_display_name(&Op::Pi), "PI");
+        assert_eq!(op_display_name(&Op::Rup), "R\u{2191}");
+        assert_eq!(op_display_name(&Op::PolarToRect), "P\u{2192}R");
+        assert_eq!(op_display_name(&Op::RectToPolar), "R\u{2192}P");
+        assert_eq!(op_display_name(&Op::Rnd), "RND");
+        assert_eq!(op_display_name(&Op::Frc), "FRC");
+        assert_eq!(op_display_name(&Op::Mod), "MOD");
+        assert_eq!(op_display_name(&Op::Abs), "ABS");
+        assert_eq!(op_display_name(&Op::Fact), "FACT");
+        assert_eq!(op_display_name(&Op::Sign), "SIGN");
     }
 }
