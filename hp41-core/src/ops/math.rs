@@ -282,3 +282,62 @@ pub fn op_set_grad(state: &mut CalcState) -> Result<(), HpError> {
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
 }
+
+// ── Phase 20 stubs (Task 2 — implemented in Task 4) ──────────────────────
+// These bodies return InvalidOp so the crate compiles cleanly under
+// `#![deny(clippy::unwrap_used)]` while Tasks 3/4 wire dispatch and behavior.
+
+/// PI — push the constant π. Stub: real body in Task 4. LiftEffect: Enable (D-08/D-10).
+pub fn op_pi(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// P→R — polar to rectangular. Stub: real body in Task 4. LiftEffect: Enable (D-11..D-13).
+pub fn op_polar_to_rect(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// R→P — rectangular to polar. Stub: real body in Task 4. LiftEffect: Enable (D-11..D-13).
+pub fn op_rect_to_polar(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// RND — round X to display precision. Stub: real body in Task 4. LiftEffect: Enable (D-01..D-03).
+pub fn op_rnd(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// FRC — fractional part of X. Stub: real body in Task 4. LiftEffect: Enable (D-15).
+pub fn op_frc(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// MOD — Y mod X with trunc-toward-zero. Stub: real body in Task 4.
+/// LiftEffect: Enable via binary_result (D-14).
+pub fn op_mod(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// ABS — absolute value of X. Stub: real body in Task 4. LiftEffect: Enable (D-16).
+pub fn op_abs(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// FACT — factorial of integer X. Stub: real body in Task 4. LiftEffect: Enable (D-04..D-07).
+pub fn op_fact(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}
+
+/// SIGN — sign of X: -1 / 0 / +1. Stub: real body in Task 4. LiftEffect: Enable (D-17/D-18).
+pub fn op_sign(state: &mut CalcState) -> Result<(), HpError> {
+    let _ = state;
+    Err(HpError::InvalidOp)
+}

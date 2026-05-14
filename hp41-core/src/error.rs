@@ -10,6 +10,11 @@ pub enum HpError {
     InvalidOp,
     #[error("domain error")]
     Domain,
+    /// Hardware-spec out-of-range (Phase 20 / D-06): FACT with X > 69 returns this
+    /// before the magnitude `Overflow` path is reached. Preserves the HP-41
+    /// "X > 69 → OUT OF RANGE" wording from SC-3 / FN-MATH-08.
+    #[error("out of range")]
+    OutOfRange,
     /// HP-41 subroutine call-depth exceeded (5th nested XEQ).
     #[error("try again")]
     CallDepth,

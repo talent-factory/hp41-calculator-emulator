@@ -21,14 +21,16 @@ use alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle
 use arithmetic::{op_add, op_div, op_mul, op_sub};
 use cardreader_ops::{op_rdprgm, op_rdta, op_wdta, op_wprgm};
 use math::{
-    op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
-    op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
+    op_abs, op_acos, op_asin, op_atan, op_cos, op_exp, op_fact, op_frc, op_int, op_ln, op_log,
+    op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd,
+    op_set_deg, op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow,
+    op_ypow,
 };
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
     op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
 };
-use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
+use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_r_up, op_rdn, op_xy_swap};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -89,13 +91,35 @@ pub enum Op {
     Clx,
     Chs,
     Rdn,
+    /// R↑ — roll stack up (mirror of Rdn): X←T, T←Z, Z←Y, Y←X.
+    /// LiftEffect: Neutral. Does NOT update LASTX (Phase 20, D-19/D-20).
+    Rup,
     XySwap,
     Lastx,
+    /// PI — push the constant π (3.141592654, 10-digit rounded HP-41 hardware value).
+    /// LiftEffect: Enable (Phase 20, D-08/D-10).
+    Pi,
     /// Push a numeric literal onto the stack (e.g., from keyboard digit entry).
     PushNum(HpNum),
     // ── Unary math (Phase 2) ─────────────────────────────────────────
     /// INT — truncate X toward zero (integer part). LiftEffect: Enable.
     Int,
+    /// RND — round X to the precision of the current display mode (FIX/SCI/ENG n).
+    /// LiftEffect: Enable (via unary_result). (Phase 20, D-01/D-02/D-03)
+    Rnd,
+    /// FRC — fractional part of X (sign-preserving, complement of INT).
+    /// LiftEffect: Enable. (Phase 20, D-15)
+    Frc,
+    /// ABS — absolute value of X. LiftEffect: Enable. (Phase 20, D-16)
+    Abs,
+    /// SIGN — sign of X: -1 / 0 / +1. LiftEffect: Enable.
+    /// (Phase 20 always returns numeric; SIGN-on-ALPHA divergence is documented
+    /// in Phase 25 docs per D-18.)
+    Sign,
+    /// FACT — factorial of integer X. Domain error for non-integer or negative X.
+    /// OutOfRange for X > 69 (hardware spec, D-06).
+    /// Overflow for X ≥ 28 (Decimal range cap, D-05). LiftEffect: Enable.
+    Fact,
     /// 1/x — reciprocal. LiftEffect: Enable.
     Recip,
     /// √x — square root. LiftEffect: Enable.
@@ -104,6 +128,12 @@ pub enum Op {
     Sq,
     /// Y^X — Y raised to power X (binary). LiftEffect: Enable.
     YPow,
+    /// MOD — Y mod X with HP-41 trunc-toward-zero convention (D-14):
+    /// result = Y − X · trunc(Y/X). Sign follows Y (matches HP-41C Owner's
+    /// Manual + Free42 source). Examples: `7 MOD -3 = 1`, `-7 MOD 3 = -1`.
+    /// Domain error if X = 0. LiftEffect: Enable (via binary_result).
+    /// (Phase 20, D-14, FN-MATH-06)
+    Mod,
     /// %CH — percent change ((X−Y)/Y)×100. Stack effect: unary (Y preserved, LASTX←X). LiftEffect: Enable.
     PctChange,
     /// LN — natural logarithm. LiftEffect: Enable.
@@ -127,6 +157,14 @@ pub enum Op {
     Acos,
     /// ATAN — arctangent, result in current angle_mode. LiftEffect: Enable.
     Atan,
+    /// P→R — convert polar (Y = magnitude, X = angle in current angle_mode)
+    /// to rectangular (Y = x-coord, X = y-coord). LiftEffect: Enable.
+    /// Direct stack assignment; LASTX ← consumed X. (Phase 20, D-11/D-12/D-13)
+    PolarToRect,
+    /// R→P — convert rectangular (Y = x-coord, X = y-coord) to polar
+    /// (Y = magnitude, X = angle in current angle_mode). LiftEffect: Enable.
+    /// Direct stack assignment; LASTX ← consumed X. (Phase 20, D-11/D-12/D-13)
+    RectToPolar,
     // ── Angle mode (Phase 2) ─────────────────────────────────────────
     /// Set angle mode to DEG. LiftEffect: Neutral.
     SetDeg,
@@ -329,18 +367,27 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clx => op_clx(state),
         Op::Chs => op_chs(state),
         Op::Rdn => op_rdn(state),
+        Op::Rup => op_r_up(state),
         Op::XySwap => op_xy_swap(state),
         Op::Lastx => op_lastx(state),
+        Op::Pi => op_pi(state),
         Op::PushNum(v) => {
             crate::stack::enter_number(state, v);
             Ok(())
         }
         // ── Phase 2 math/trig/angle ops (Plan 04) ───────────────────────
         Op::Int => op_int(state),
+        // ── Phase 20 unary math additions (D-15/D-16/D-17/D-04..D-07) ───
+        Op::Rnd => op_rnd(state),
+        Op::Frc => op_frc(state),
+        Op::Abs => op_abs(state),
+        Op::Sign => op_sign(state),
+        Op::Fact => op_fact(state),
         Op::Recip => op_recip(state),
         Op::Sqrt => op_sqrt(state),
         Op::Sq => op_sq(state),
         Op::YPow => op_ypow(state),
+        Op::Mod => op_mod(state),
         Op::PctChange => op_pct_change(state),
         Op::Ln => op_ln(state),
         Op::Log => op_log(state),
@@ -352,6 +399,8 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asin => op_asin(state),
         Op::Acos => op_acos(state),
         Op::Atan => op_atan(state),
+        Op::PolarToRect => op_polar_to_rect(state),
+        Op::RectToPolar => op_rect_to_polar(state),
         Op::SetDeg => op_set_deg(state),
         Op::SetRad => op_set_rad(state),
         Op::SetGrad => op_set_grad(state),
