@@ -267,6 +267,11 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     state.pc += 1;
                 }
             }
+            // ── Phase 22 D-22.1 / Pitfall 1: STOP breaks run_loop only — NO display_override write
+            // (unlike Op::Prompt below). The previous step's display persists.
+            // state.pc is already advanced past the STOP step by the top-of-iteration
+            // `state.pc += 1` (line 189). FN-PROG-01.
+            Op::Stop => break,
             // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
             // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
             Op::Prompt => {
@@ -461,7 +466,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Isg(_)
         | Op::Dse(_)
         | Op::FlagTest { .. }
-        | Op::Prompt => Err(HpError::InvalidOp),
+        | Op::Prompt
+        | Op::Stop => Err(HpError::InvalidOp), // Phase 22: STOP handled by run_loop break
     }
 }
 

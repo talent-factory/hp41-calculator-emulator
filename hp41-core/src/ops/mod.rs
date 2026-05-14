@@ -353,6 +353,11 @@ pub enum Op {
     /// TONE n — push `TONE n` event to event_buffer (n=0..=9).
     /// LiftEffect: Neutral. Phase 21 (FN-SOUND-02).
     Tone(u8),
+    // ── Phase 22: Program control (D-22.1, D-22.4, D-22.15, D-22.22) ────────
+    /// STOP — halt program execution. Inside `run_loop`, breaks the loop without
+    /// writing to `display_override` (unlike `Op::Prompt`). Interactive dispatch
+    /// is a Neutral no-op (D-22.5). LiftEffect: Neutral. Phase 22 (FN-PROG-01).
+    Stop,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -587,6 +592,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Sound ───────────────────────────────────────────────
         Op::Beep => sound::op_beep(state),
         Op::Tone(n) => sound::op_tone(state, n),
+        // ── Phase 22: Program control ─────────────────────────────────────
+        // Interactive Op::Stop (is_running == false) is a Neutral no-op per D-22.5.
+        // The break-run_loop semantic only fires inside run_loop's match.
+        Op::Stop => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
     }
 }
 
