@@ -456,6 +456,23 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Sound ───────────────────────────────────────────────────
         Op::Beep => super::sound::op_beep(state),
         Op::Tone(n) => super::sound::op_tone(state, n),
+        // ── Phase 22: PSE — pause display (D-22.4, FN-PROG-02, Pitfall 3) ────
+        // Writes both channels: display_override (visible value) + event_buffer
+        // ("PAUSE 1000" marker for frontend timing). run_loop does NOT break;
+        // execution continues to the next step. display_override survives
+        // subsequent run_loop iterations because run_loop calls execute_op
+        // directly (NOT dispatch), so the dispatch-top clear at mod.rs:410
+        // does not fire between iterations. The NEXT interactive dispatch
+        // clears it — matches HP-41 "value visible until next key" semantic.
+        // Pitfall 10: do NOT add flush_entry_buf here — dispatch already
+        // called it; execute_op inside run_loop never sees stale entry_buf.
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

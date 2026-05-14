@@ -176,6 +176,7 @@ fn op_display_name(op: &Op) -> String {
         Op::Tone(n) => format!("TONE {n}"),
         // Phase 22: Program control
         Op::Stop => "STOP".to_string(),
+        Op::Pse => "PSE".to_string(),
     }
 }
 

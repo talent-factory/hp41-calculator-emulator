@@ -358,6 +358,11 @@ pub enum Op {
     /// writing to `display_override` (unlike `Op::Prompt`). Interactive dispatch
     /// is a Neutral no-op (D-22.5). LiftEffect: Neutral. Phase 22 (FN-PROG-01).
     Stop,
+    /// PSE — pause: write formatted X to `display_override` AND push "PAUSE 1000"
+    /// into `state.event_buffer`. Does NOT break run_loop — execution continues.
+    /// Frontend reads the event marker and inserts a ~1s delay before refresh.
+    /// LiftEffect: Neutral. Phase 22 (FN-PROG-02, D-22.4).
+    Pse,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -596,6 +601,17 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // Interactive Op::Stop (is_running == false) is a Neutral no-op per D-22.5.
         // The break-run_loop semantic only fires inside run_loop's match.
         Op::Stop => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // PSE writes display_override + event_buffer "PAUSE 1000" then continues.
+        // dispatch() has already called flush_entry_buf at the top, so any
+        // in-progress digit entry was lifted to X before we format it
+        // (Pitfall 10 — do NOT add a second flush_entry_buf here).
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
