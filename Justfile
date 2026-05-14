@@ -19,6 +19,10 @@ build-release:
 test:
 	cargo test --workspace
 
+# Run hp41-core tests with optional filter args (e.g. `just test-core --test phase21_flags`)
+test-core *args:
+	cargo test -p hp41-core {{args}}
+
 # Lint with clippy (warnings treated as errors)
 lint:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
