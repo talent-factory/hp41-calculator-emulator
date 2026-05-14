@@ -248,6 +248,36 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 let target = find_in_program(program, &label_str)?;
                 state.pc = target + 1; // mirrors Op::Gto: pc → step AFTER LBL marker
             }
+            // ── Phase 22 (D-22.15, FN-PROG-07): XEQ IND nn ────────────────
+            // Same inline indirect resolver as Op::GtoInd, but performs a
+            // subroutine call: push pc onto call_stack BEFORE redirecting.
+            //
+            // CRITICAL: the 4-deep call_stack guard is PRE-mutation (D-13 /
+            // D-14 precedent of Op::Xeq at line 206). The check fires BEFORE
+            // reading the register, so an over-deep call returns CallDepth
+            // without partially mutating any state.
+            //
+            // No builtin_card_op fallback — indirect labels are numeric
+            // strings only (the integer pointer route never resolves a
+            // textual function name).
+            Op::XeqInd(reg) => {
+                if state.call_stack.len() >= 4 {
+                    return Err(HpError::CallDepth); // pre-mutation atomicity
+                }
+                let pointer = state
+                    .regs
+                    .get(reg as usize)
+                    .ok_or(HpError::InvalidOp)?
+                    .clone();
+                let int_part = pointer.trunc_int();
+                if int_part != pointer {
+                    return Err(HpError::InvalidOp);
+                }
+                let label_str = int_part.inner().to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.call_stack.push(state.pc);
+                state.pc = target + 1;
+            }
             Op::Xeq(label) => {
                 if state.call_stack.len() >= 4 {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
@@ -531,7 +561,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::FlagTest { .. }
         | Op::Prompt
         | Op::Stop                              // Phase 22: STOP handled by run_loop break
-        | Op::GtoInd(_) => Err(HpError::InvalidOp), // Phase 22: GTO IND has run_loop arm
+        | Op::GtoInd(_)                         // Phase 22: GTO IND has run_loop arm
+        | Op::XeqInd(_) => Err(HpError::InvalidOp), // Phase 22: XEQ IND has run_loop arm
     }
 }
 

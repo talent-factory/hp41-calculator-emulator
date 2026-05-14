@@ -370,6 +370,13 @@ pub enum Op {
     /// interactive dispatch returns `InvalidOp`. LiftEffect: Neutral.
     /// Phase 22 (FN-PROG-06, D-22.15).
     GtoInd(u8),
+    /// XEQ IND nn — indirect subroutine call through register nn. Pre-mutation
+    /// 4-deep call_stack guard (returns `HpError::CallDepth` before any state
+    /// change). Pointer extracted by the same integer-truncate-then-equality-
+    /// check pattern as `Op::GtoInd`. No card-reader builtin fallback (the
+    /// label is a numeric string only). Programming-only: interactive dispatch
+    /// returns `InvalidOp`. LiftEffect: Neutral. Phase 22 (FN-PROG-07, D-22.15).
+    XeqInd(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -625,7 +632,7 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // GTO IND / XEQ IND require the run_loop state machine to manipulate
         // pc and call_stack — interactive dispatch outside a running program
         // is undefined. Return InvalidOp; run_loop handles them directly.
-        Op::GtoInd(_) => Err(HpError::InvalidOp),
+        Op::GtoInd(_) | Op::XeqInd(_) => Err(HpError::InvalidOp),
     }
 }
 
