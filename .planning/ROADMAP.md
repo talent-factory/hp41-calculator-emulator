@@ -21,7 +21,7 @@
 
 - [x] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage ✅ shipped 2026-05-14 (coverage 92.65%)
 - [x] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core ✅ shipped 2026-05-14 (coverage 92.68%, 48 new tests)
-- [ ] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep)
+- [x] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep) (completed 2026-05-14)
 - [ ] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core
 - [ ] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer
 - [ ] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + `KEY_REF_TABLE` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs`; ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README
@@ -89,7 +89,7 @@ Plans:
 - [x] 22-01-program-control-PLAN.md — Op::Stop / Op::Pse / resume_program() / Op::GtoInd(u8) / Op::XeqInd(u8); FN-PROG-01, -02, -06, -07
 - [x] 22-02-program-edit-PLAN.md — Op::Clp(String) / Op::Del(u8) / Op::Ins (prgm_mode-gated); FN-PROG-03, -04, -05; depends on 22-01
 - [x] 22-03-memory-ops-PLAN.md — Wave-0 regs[] bounds audit (3 commits — D-22.11.1, Pitfall 4/5) + Op::Size(u16) / Op::Cla / Op::Clst / Op::Pack; FN-MEM-01..04; depends on 22-02
-- [ ] 22-04-catalog-and-asn-PLAN.md — new CalcState.assignments field (BTreeMap<u8, String>, #[serde(default)]) + Op::Catalog(u8) (hardware-faithful per OQ-1) + Op::Asn { name, key_code } (empty-name-removes per OQ-3); FN-MEM-05, FN-KEY-01; depends on 22-03
+- [x] 22-04-catalog-and-asn-PLAN.md — new CalcState.assignments field (BTreeMap<u8, String>, #[serde(default)]) + Op::Catalog(u8) (hardware-faithful per OQ-1) + Op::Asn { name, key_code } (empty-name-removes per OQ-3); FN-MEM-05, FN-KEY-01; depends on 22-03
 **Cross-cutting constraints:**
   - `STOP` breaks `run_loop` (no paused field needed — pc + is_running cover it); `PSE` writes `display_override` + pushes `"PAUSE 1000"` into `event_buffer` (Phase 21 BEEP/TONE event-channel pattern)
   - `CLP`/`DEL`/`INS` operate on `Vec<Op>` and adjust state.pc (CLP repositions cursor to start of deleted block per Pitfall 6); all three are PRGM-mode-only primitives that mutate state.program directly (NOT recorded)
@@ -218,7 +218,7 @@ Plans:
 | 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
-| 22. Program Control & Memory Ops | v2.2 | 3/4 | In Progress|  |
+| 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
 | 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
