@@ -9,6 +9,7 @@ use std::str::FromStr;
 pub mod alpha;
 pub mod arithmetic;
 pub mod cardreader_ops;
+pub mod display_ops;
 pub mod flags;
 pub mod hms;
 pub mod math;
@@ -300,6 +301,25 @@ pub enum Op {
     SfFlag(u8),
     /// CF n — clear flag n (0..=55). LiftEffect: Neutral.
     CfFlag(u8),
+    // ── Phase 21: Display Control ────────────────────────────────────────────
+    /// VIEW n — show formatted value of register n (0..=99). LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-01).
+    View(u8),
+    /// AVIEW — show ALPHA register on display (24-char truncate). LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-02).
+    AView,
+    /// PROMPT — show ALPHA on display; inside `run_loop`, also `break` execution.
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-03). Full STOP/resume deferred to Phase 22.
+    Prompt,
+    /// AON — enable ALPHA auto-display (set system flag 48, HP-42S compat).
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-04).
+    Aon,
+    /// AOFF — disable ALPHA auto-display (clear system flag 48).
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-04).
+    Aoff,
+    /// CLD — explicit clear of `display_override`. LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-05).
+    Cld,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -350,7 +370,12 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
 /// Callers (hp41-cli, tests) call dispatch(state, op) and handle the Result.
 pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     flush_entry_buf(state)?; // commit any pending digit entry before executing op
-                             // ── Phase 3: PRGM mode recording gate (D-03) ────────────────────────────
+                             // ── Phase 21 Pitfall-5: clear stale display override before op runs.
+                             // VIEW/AVIEW/PROMPT write AFTER this line and so survive their own
+                             // dispatch; the NEXT op's dispatch clears the override again — matches
+                             // HP-41 hardware "VIEW shows until next key" behavior.
+    state.display_override = None;
+    // ── Phase 3: PRGM mode recording gate (D-03) ────────────────────────────
     if state.prgm_mode {
         // PrgmMode op while recording = exit recording immediately (toggle, Pitfall 6).
         // This op is NOT recorded — it executes immediately to restore normal dispatch.
@@ -512,6 +537,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Flags ───────────────────────────────────────────────
         Op::SfFlag(n) => flags::op_sf(state, n),
         Op::CfFlag(n) => flags::op_cf(state, n),
+        // ── Phase 21: Display Control ─────────────────────────────────────
+        Op::View(r) => display_ops::op_view(state, r),
+        Op::AView => display_ops::op_aview(state),
+        Op::Prompt => display_ops::op_prompt(state),
+        Op::Aon => display_ops::op_aon(state),
+        Op::Aoff => display_ops::op_aoff(state),
+        Op::Cld => display_ops::op_cld(state),
     }
 }
 

@@ -118,6 +118,13 @@ pub struct CalcState {
     /// Phase 21 (FN-FLAG-01).
     #[serde(default)]
     pub flags: u64,
+
+    // ── Phase 21: Display Control ────────────────────────────────────────────
+    /// HP-41 display override channel: VIEW/AVIEW/PROMPT/CLD write to this.
+    /// None = render normal display. Transient — cleared at the top of dispatch
+    /// and never persisted (`#[serde(default, skip)]`). Phase 21 (FN-DISP-01..05).
+    #[serde(default, skip)]
+    pub display_override: Option<String>,
     /// Pending card I/O request set by `Op::Wdta`/`Op::Rdta`/`Op::Wprgm`/`Op::Rdprgm`.
     /// The frontend (hp41-cli / hp41-gui) drains this after each `dispatch()` and
     /// performs the actual disk I/O — keeps hp41-core UI-agnostic. Mirrors the
@@ -149,6 +156,7 @@ impl CalcState {
             reg_n: HpNum::zero(),
             reg_o: HpNum::zero(),
             flags: 0,
+            display_override: None,
             pending_card_op: None,
         }
     }

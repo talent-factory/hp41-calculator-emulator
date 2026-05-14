@@ -155,6 +155,13 @@ fn op_display_name(op: &Op) -> String {
         // Phase 21: Flags
         Op::SfFlag(n) => format!("SF {n:02}"),
         Op::CfFlag(n) => format!("CF {n:02}"),
+        // Phase 21: Display Control
+        Op::View(r) => format!("VIEW {r:02}"),
+        Op::AView => "AVIEW".to_string(),
+        Op::Prompt => "PROMPT".to_string(),
+        Op::Aon => "AON".to_string(),
+        Op::Aoff => "AOFF".to_string(),
+        Op::Cld => "CLD".to_string(),
     }
 }
 

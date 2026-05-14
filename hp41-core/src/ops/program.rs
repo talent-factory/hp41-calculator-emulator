@@ -243,6 +243,13 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     state.pc += 1; // loop exit: skip next
                 }
             }
+            // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
+            // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
+            Op::Prompt => {
+                state.display_override =
+                    Some(state.alpha_reg.chars().take(24).collect::<String>());
+                break;
+            }
             other => {
                 // All other ops execute without flush_entry_buf (no digit entry mid-program)
                 // and without prgm_mode check (RESEARCH Pitfall 2)
@@ -409,6 +416,15 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Flag operations ──────────────────────────────────────────
         Op::SfFlag(n) => super::flags::op_sf(state, n),
         Op::CfFlag(n) => super::flags::op_cf(state, n),
+        // ── Phase 21: Display Control ─────────────────────────────────────────
+        // Op::Prompt is intentionally omitted — it is handled by run_loop directly
+        // (with the `break` side effect) and listed in the catch-all below so any
+        // accidental reach into execute_op returns InvalidOp.
+        Op::View(r) => super::display_ops::op_view(state, r),
+        Op::AView => super::display_ops::op_aview(state),
+        Op::Aon => super::display_ops::op_aon(state),
+        Op::Aoff => super::display_ops::op_aoff(state),
+        Op::Cld => super::display_ops::op_cld(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -417,7 +433,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::PrgmMode
         | Op::Test(_)
         | Op::Isg(_)
-        | Op::Dse(_) => Err(HpError::InvalidOp),
+        | Op::Dse(_)
+        | Op::Prompt => Err(HpError::InvalidOp),
     }
 }
 
