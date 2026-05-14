@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T06:34:58.485Z"
-last_activity: 2026-05-14 -- Phase 21 planning complete
+last_updated: "2026-05-14T12:00:00.000Z"
+last_activity: 2026-05-14 -- Phase 21 execution complete (flags, display control & sound)
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 1
-  percent: 13
+  completed_plans: 5
+  percent: 25
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,12 +34,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 21: Flags, Display Control & Sound (awaiting planning)
+Phase: 22: Program Control & Memory Ops (awaiting planning)
 Plan: TBD
-Status: Ready to execute
-Last activity: 2026-05-14 -- Phase 21 planning complete
+Status: Phase 21 shipped — ready for `/gsd-plan-phase 22`
+Last activity: 2026-05-14 -- Phase 21 (`/gsd-execute-phase 21`) complete: 9 requirements landed (FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02); 4 plans + 11 commits; 48 new tests (19 flag + 13 display + 8 sound + 8 inline); hp41-core coverage 92.68% (non-regression vs. v2.1/Phase 20 baseline); `just ci` + `just gui-ci` green.
 
-Progress: 1 / 8 phases
+Progress: 2 / 8 phases
 
 ---
 
@@ -49,7 +49,7 @@ Progress: 1 / 8 phases
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.65% lines (Phase 20 — non-regression vs. v2.1 baseline 92.5%; v2.2 target ≥ 95% at Phase 27) |
+| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.68% lines (Phase 21 — non-regression vs. Phase 20 baseline 92.65%; v2.2 target ≥ 95% at Phase 27) |
 | Numerical accuracy (500-case) | ≥ 98% | 500/500 (Phase 20 confirmed; up from 495/500 v2.1 baseline) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
 | CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml`) |
@@ -132,9 +132,9 @@ None.
 
 ## Session Continuity
 
-**Last active:** 2026-05-13
-**Last action:** `/gsd-plan-phase 20` complete — 1 plan (`20-01-PLAN.md`), 6 tasks, 3 internal waves (Wave-0 RND helper extraction → Wave-1 op variants + dispatch + execute_op + impls + both prgm_display copies → Wave-2 integration tests). Plan-checker iter 2 PASSED. D-14 MOD semantic corrected during the loop (HP-41 hardware: sign-of-Y, trunc-toward-zero formula); FN-MATH-06 wording updated in REQUIREMENTS.md.
-**Next action:** `/gsd-execute-phase 20` — execute the single plan (Tasks 1–6). Fresh `/clear` recommended before kickoff.
+**Last active:** 2026-05-14
+**Last action:** `/gsd-execute-phase 21` complete — 4 plans (21-01 flags-core, 21-02 conditional-skip, 21-03 display-control, 21-04 sound) executed sequentially (heavy intra-wave file overlap on state.rs, ops/mod.rs, ops/program.rs, both prgm_display.rs copies forced serialization). 11 commits land 9 requirements (FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02): `flags: u64` + `display_override: Option<String>` + `event_buffer: Vec<String>` on CalcState; new modules `flags.rs`, `display_ops.rs`, `sound.rs`; `FlagTestKind` enum + struct-variant `Op::FlagTest`; dispatch-top clear of display_override (Pitfall 5); always-clear side effect for `?C` flag tests (RESEARCH A4); PROMPT exits run_loop; zero-I/O regression sentinel test. 48 new tests pass; `just ci` + `just gui-ci` green; coverage 92.68% lines on hp41-core.
+**Next action:** `/gsd-plan-phase 22` — plan Phase 22 (Program Control & Memory Ops, FN-PROG-01..07 + FN-MEM-01..05 + FN-KEY-01). Fresh `/clear` recommended before kickoff.
 
 ---
 *State initialized: 2026-05-06*

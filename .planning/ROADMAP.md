@@ -20,7 +20,7 @@
 ### v2.2 — HP-41CV Feature Completeness (Phases 20–27)
 
 - [x] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage ✅ shipped 2026-05-14 (coverage 92.65%)
-- [ ] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core
+- [x] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core ✅ shipped 2026-05-14 (coverage 92.68%, 48 new tests)
 - [ ] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep)
 - [ ] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core
 - [ ] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer
@@ -62,10 +62,10 @@
   5. A v1.x JSON save file (created before the `flags` field existed) loads in hp41-cli/hp41-gui without error — `#[serde(default)]` initializes flags to 0
 **Plans**: 4 plans
 Plans:
-- [ ] 21-01-flags-core-PLAN.md — Flag storage (flags: u64 + SF/CF ops), Wave-0 v20-autosave.json fixture; FN-FLAG-01
-- [ ] 21-02-conditional-skip-PLAN.md — Conditional flag tests (FS?/FC?/FS?C/FC?C) + run_loop skip semantic; FN-FLAG-02; depends on 21-01
-- [ ] 21-03-display-control-PLAN.md — Display override channel + VIEW/AVIEW/PROMPT/AON/AOFF/CLD; PROMPT run_loop break; FN-DISP-01..05
-- [ ] 21-04-sound-PLAN.md — Event buffer + BEEP/TONE n; zero-I/O invariant sentinel; FN-SOUND-01/02
+- [x] 21-01-flags-core-PLAN.md — Flag storage (flags: u64 + SF/CF ops), Wave-0 v20-autosave.json fixture; FN-FLAG-01 ✅ shipped 2026-05-14 — 9 tests, justfile `test-core` recipe + fixture infrastructure
+- [x] 21-02-conditional-skip-PLAN.md — Conditional flag tests (FS?/FC?/FS?C/FC?C) + run_loop skip semantic; FN-FLAG-02; depends on 21-01 ✅ shipped 2026-05-14 — 10 tests, FlagTestKind enum + struct-variant Op::FlagTest, always-clear ?C semantics (RESEARCH A4)
+- [x] 21-03-display-control-PLAN.md — Display override channel + VIEW/AVIEW/PROMPT/AON/AOFF/CLD; PROMPT run_loop break; FN-DISP-01..05 ✅ shipped 2026-05-14 — 13 tests, display_override field (transient), dispatch-top clear (Pitfall 5), PROMPT timing sentinel
+- [x] 21-04-sound-PLAN.md — Event buffer + BEEP/TONE n; zero-I/O invariant sentinel; FN-SOUND-01/02 ✅ shipped 2026-05-14 — 8 tests, event_buffer field (transient), Rust-level zero-I/O regression sentinel
 **Cross-cutting constraints:**
   - `flags: u64` (or `[u8; N]`) field on `CalcState` carries `#[serde(default)]` — non-negotiable for save-file backward compat
   - `BEEP`/`TONE` MUST route through a buffer pattern (extends print_buffer OR a new `event_buffer: Vec<String>` with `#[serde(skip)]`) — NO direct I/O in hp41-core
