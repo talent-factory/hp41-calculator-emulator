@@ -517,6 +517,64 @@ pub enum Op {
     /// v3.x per D-23.6 (requires typed-stack `x_text` shadow channel).
     /// LiftEffect: Disable. Phase 23 (FN-ALPHA-06, D-23.7).
     Posa,
+    // -- Phase 24: Indirect Addressing (FN-IND-01, FN-IND-02) -------------
+    // Every variant delegates to its direct-form counterpart via
+    // `crate::ops::indirect::resolve_indirect`. Family naming pattern: `<Name>Ind(u8)`.
+    // Inherits sidecar (D-23.4), atomicity (D-22.x), and lift-effect from
+    // the delegated direct op (D-24.4 -- no replication).
+    /// STO IND nn -- store X into the register pointed to by `state.regs[nn]`'s
+    /// integer part. LiftEffect: Neutral (inherited from `op_sto`). Inherits
+    /// the D-23.4 text_regs sidecar clear and D-22.11.1 bounds via delegation.
+    /// Phase 24 (FN-IND-01).
+    StoInd(u8),
+    /// RCL IND nn -- recall `regs[regs[nn].int_part]` into X.
+    /// LiftEffect: Enable (inherited from `op_rcl`). Phase 24 (FN-IND-01).
+    RclInd(u8),
+    /// STO+/-/x// IND nn -- arithmetic via the indirect register address.
+    /// LiftEffect: Neutral (inherited from `op_sto_arith`). Kind reuse mirrors
+    /// the `Op::StoArith` shape exactly (tuple-variant family pattern, D-24.7).
+    /// Phase 24 (FN-IND-01).
+    StoArithInd(u8, StoArithKind),
+    /// ISG IND nn -- increment register at the resolved indirect address and
+    /// skip next step on counter exit. LiftEffect: Neutral (inherited from
+    /// `op_isg`). Skip semantics live in `run_loop`, not `dispatch`. Phase 24
+    /// (FN-IND-01).
+    IsgInd(u8),
+    /// DSE IND nn -- decrement register at the resolved indirect address and
+    /// skip next step on counter exit. LiftEffect: Neutral (inherited from
+    /// `op_dse`). Skip semantics live in `run_loop`. Phase 24 (FN-IND-01).
+    DseInd(u8),
+    /// SF IND nn -- set the flag whose number is `regs[nn]`'s integer part.
+    /// LiftEffect: Neutral (inherited from `op_sf`). Inherits the `< 56`
+    /// flag-bounds check via delegation. Phase 24 (FN-IND-01).
+    SfFlagInd(u8),
+    /// CF IND nn -- clear the flag whose number is `regs[nn]`'s integer part.
+    /// LiftEffect: Neutral (inherited from `op_cf`). Phase 24 (FN-IND-01).
+    CfFlagInd(u8),
+    /// FS? / FC? / FS?C / FC?C IND nn -- conditional flag test on the flag
+    /// whose number is `regs[ind_reg]`'s integer part. Interactive dispatch
+    /// is a Neutral no-op (mirrors `Op::FlagTest` precedent -- no next program
+    /// step at the keyboard). Skip / always-clear semantics live in `run_loop`.
+    /// STRUCT variant per D-24.6, mirroring `Op::FlagTest { kind, flag }`.
+    /// LiftEffect: Neutral. Phase 24 (FN-IND-01).
+    FlagTestInd {
+        kind: FlagTestKind,
+        ind_reg: u8,
+    },
+    /// ARCL IND nn -- append the formatted value of `regs[regs[nn]]` to the
+    /// ALPHA register. LiftEffect: Neutral (inherited from `op_arcl`).
+    /// Inherits the text_regs sidecar read path. Phase 24 (FN-IND-01).
+    ArclInd(u8),
+    /// ASTO IND nn -- pack the first 6 ALPHA chars into `regs[regs[nn]]`'s
+    /// packed-text shadow and zero the numeric slot. LiftEffect: Neutral
+    /// (inherited from `op_asto`). Phase 24 (FN-IND-01).
+    AstoInd(u8),
+    /// VIEW IND nn -- display the VALUE of `regs[regs[nn]]` (NOT the pointer
+    /// register). LiftEffect: Neutral (inherited from `op_view`). R9
+    /// mitigation: `op_view_ind` delegates to `op_view(state, resolved_addr)`,
+    /// so the display shows the resolved register's contents. Phase 24
+    /// (FN-IND-01).
+    ViewInd(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -841,6 +899,26 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Xtoa => alpha::op_xtoa(state),
         Op::Arot => alpha::op_arot(state),
         Op::Posa => alpha::op_posa(state),
+        // -- Phase 24: Indirect Addressing dispatch (FN-IND-01, FN-IND-02) -
+        // Each arm resolves the indirect pointer via `resolve_indirect` and
+        // delegates to its direct-form op. IsgInd/DseInd discard the bool
+        // skip signal (mirrors `Op::Isg` / `Op::Dse` pattern above) -- skip
+        // semantics live in run_loop only. FlagTestInd is a Neutral no-op
+        // (mirrors `Op::FlagTest { .. }` above).
+        Op::StoInd(reg) => indirect::op_sto_ind(state, reg),
+        Op::RclInd(reg) => indirect::op_rcl_ind(state, reg),
+        Op::StoArithInd(reg, kind) => indirect::op_sto_arith_ind(state, reg, kind),
+        Op::IsgInd(reg) => indirect::op_isg_ind(state, reg).map(|_| ()),
+        Op::DseInd(reg) => indirect::op_dse_ind(state, reg).map(|_| ()),
+        Op::SfFlagInd(reg) => indirect::op_sf_flag_ind(state, reg),
+        Op::CfFlagInd(reg) => indirect::op_cf_flag_ind(state, reg),
+        Op::FlagTestInd { .. } => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::ArclInd(reg) => indirect::op_arcl_ind(state, reg),
+        Op::AstoInd(reg) => indirect::op_asto_ind(state, reg),
+        Op::ViewInd(reg) => indirect::op_view_ind(state, reg),
     }
 }
 
