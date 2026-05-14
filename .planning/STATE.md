@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: HP-41CV Feature Completeness
-current_phase: 20
+current_phase: 21
 current_plan: null
-status: planning
-last_updated: "2026-05-13T00:00:00.000Z"
+status: ready
+last_updated: "2026-05-14T00:00:00.000Z"
 progress:
   total_phases: 8
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 12.5
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -35,12 +35,12 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 20: Core Math & Conversions
-Plan: 20-01-PLAN.md (1 plan, 6 tasks across 3 internal waves)
-Status: Ready to execute
-Last activity: 2026-05-13 — `/gsd-plan-phase 20` complete; plan-checker iter 2 PASSED; D-14 MOD semantic corrected (sign-of-Y trunc); FN-MATH-06 wording updated
+Phase: 21: Flags, Display Control & Sound (awaiting planning)
+Plan: TBD
+Status: Phase 20 shipped — ready for `/gsd-plan-phase 21`
+Last activity: 2026-05-14 — Phase 20 (`/gsd-execute-phase 20`) complete: 10 ROM math/stack ops landed (PI, P→R, R→P, RND, FRC, MOD, ABS, FACT, SIGN, R↑); 20 integration tests; hp41-core coverage 92.65%; just ci + just gui-ci green; ROADMAP SC-1 PI literal corrected (D-09)
 
-Progress: 0 / 8 phases
+Progress: 1 / 8 phases
 
 ---
 
@@ -50,8 +50,8 @@ Progress: 0 / 8 phases
 |--------|--------|---------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.5% lines / 89.9% regions (v2.1 baseline; v2.2 target ≥ 95%) |
-| Numerical accuracy (500-case) | ≥ 98% | 99% (495/500) |
+| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 92.65% lines (Phase 20 — non-regression vs. v2.1 baseline 92.5%; v2.2 target ≥ 95% at Phase 27) |
+| Numerical accuracy (500-case) | ≥ 98% | 500/500 (Phase 20 confirmed; up from 495/500 v2.1 baseline) |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
 | CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml`) |
 

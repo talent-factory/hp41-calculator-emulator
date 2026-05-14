@@ -19,7 +19,7 @@
 
 ### v2.2 — HP-41CV Feature Completeness (Phases 20–27)
 
-- [ ] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage
+- [x] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage ✅ shipped 2026-05-14 (coverage 92.65%)
 - [ ] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core
 - [ ] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep)
 - [ ] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core
@@ -43,7 +43,7 @@
   4. Starting from stack X=1 Y=2 Z=3 T=4, pressing `R↑` produces X=4 Y=1 Z=2 T=3 (mirror of `Rdn`)
   5. Every one of the 10 new `Op` variants appears in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), and BOTH `prgm_display.rs` copies (hp41-cli + hp41-gui); compile-time exhaustive matches confirm coverage
 **Plans**: 1 plan
-  - [ ] 20-01-PLAN.md — Single plan (per D-21): RND helper extraction (Wave-0), 10 new Op variants + dispatch + execute_op + impls (Wave-1), prgm_display in both copies (Wave-1), integration tests (Wave-2)
+  - [x] 20-01-PLAN.md — Single plan (per D-21): RND helper extraction (Wave-0), 10 new Op variants + dispatch + execute_op + impls (Wave-1), prgm_display in both copies (Wave-1), integration tests (Wave-2) ✅ shipped 2026-05-14 — 20 tests, coverage 92.65%, just ci + just gui-ci green
 **Cross-cutting constraints:**
   - `#![deny(clippy::unwrap_used)]` applies — all new code uses `?`-propagation or `.expect("reason")`
   - Each `Op` variant must land in 4 places: `dispatch()` + `execute_op()` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs` (the built-in trap from CLAUDE.md)
