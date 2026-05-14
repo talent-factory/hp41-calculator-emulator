@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T13:30:00.000Z"
-last_activity: 2026-05-14 -- Phase 23 context gathered (ALPHA ops, sidecar text_regs, single-char POSA)
+last_updated: "2026-05-14T12:32:42.937Z"
+last_activity: 2026-05-14 -- Phase 23 planning complete
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 13
   completed_plans: 9
-  percent: 37
+  percent: 36
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -34,13 +34,13 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 23: ALPHA Operations — CONTEXT GATHERED
-Plan: TBD (await /gsd-plan-phase 23)
-Status: 4 gray areas resolved → 23-CONTEXT.md + 23-DISCUSSION-LOG.md committed
-Resume file: .planning/phases/23-alpha-operations/23-CONTEXT.md
-Last activity: 2026-05-14 -- Phase 23 context gathered (sidecar text_regs, single-char POSA, faithful AROT/ATOX/XTOA)
+Phase: 23: ALPHA Operations — PLANNED (0/2 plans complete)
+Plan: 23-01-arcl-asto, 23-02-atox-xtoa-arot-posa
+Status: Ready to execute
+Resume file: .planning/phases/23-alpha-operations/23-01-arcl-asto-PLAN.md
+Last activity: 2026-05-14 -- Phase 23 planning complete (2 plans, 6 ops, all FN-ALPHA-01..06 covered)
 
-Progress: 3 / 8 phases (Phase 23 in discussion → planning)
+Progress: 3 / 8 phases (Phase 23 planned → execute)
 
 ---
 
@@ -134,9 +134,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-14
-**Last action:** `/gsd-discuss-phase 22` complete — 25 locked decisions in `.planning/phases/22-program-control-and-memory-ops/22-CONTEXT.md` across 4 gray areas (interpreter control flow, program editing, memory ops, key assignments). Plan structure D-22.20: 4 plans (22-01 program-control [Stop/Pse/resume_program/GtoInd/XeqInd], 22-02 program-edit [Clp/Del/Ins], 22-03 memory-ops [Size/Cla/Clst/Pack + regs[] bounds-audit Wave-0], 22-04 catalog-and-asn [Catalog + Asn struct-variant + new `assignments: BTreeMap<u8, String>` field on CalcState]). 13 new Op variants total; zero new HpError variants. DISCUSSION-LOG.md captures the full question-by-question record.
-**Next action:** `/gsd-plan-phase 22` — generate PLAN.md files using the locked CONTEXT.md. Fresh `/clear` recommended before kickoff.
+**Last action:** `/gsd-plan-phase 23` complete — 2 plans in `.planning/phases/23-alpha-operations/` (23-01-arcl-asto, 23-02-atox-xtoa-arot-posa) covering FN-ALPHA-01..06. Wave structure: 23-01 (wave 1) → 23-02 (wave 2, depends_on [23-01]) — file-overlap on `ops/mod.rs`, `ops/program.rs`, and both `prgm_display.rs` copies forces sequential. 6 new Op variants (Arcl(u8), Asto(u8), Atox, Xtoa, Arot, Posa); one new CalcState field `text_regs: BTreeMap<u8, String>` with `#[serde(default)]`; D-23.4 Wave-0 sidecar-clearing audit lands as Task #1 in 23-01. W-2 strengthening: `op_arcl` carries a leading `regs.len()` bounds check before the text_regs lookup (rejects tampered save-file shadow entries). Zero new HpError variants. Plan-checker passed after 1 revision iteration.
+**Next action:** `/gsd-execute-phase 23` — execute the 2 plans. Fresh `/clear` recommended before kickoff.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-14 — Phase 22 context gathered; ready to plan*
+*Last updated: 2026-05-14 — Phase 23 planned; ready to execute*

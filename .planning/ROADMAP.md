@@ -108,7 +108,10 @@ Plans:
   3. With ALPHA="A" (capital A, ASCII 65), `ATOX` puts 65 in X; with X=66 and ALPHA="", `XTOA` makes ALPHA="B"
   4. With ALPHA="HELLO", `AROT 2` produces ALPHA="LLOHE"; `AROT -1` (i.e. `AROT` with X=-1) produces ALPHA="OHELL"
   5. With ALPHA="THE QUICK BROWN FOX" and X holding "QUICK" (or however POSA encodes the search arg), `POSA` returns 4 in X; for a missing substring returns -1
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 23-01-arcl-asto-PLAN.md — Wave-0 sidecar-clearing audit (op_sto/op_sto_arith/op_clreg per D-23.4) + new text_regs: BTreeMap<u8,String> field on CalcState + Op::Arcl(u8) + Op::Asto(u8); FN-ALPHA-01, FN-ALPHA-02
+- [ ] 23-02-atox-xtoa-arot-posa-PLAN.md — Op::Atox + Op::Xtoa + Op::Arot + Op::Posa (single-char POSA only per D-23.6); FN-ALPHA-03..06; depends on 23-01
 **Cross-cutting constraints:**
   - ALPHA register packing (`ASTO`) uses HP-41 6-char ASCII pack — document the exact encoding in CLAUDE.md so future ops match
   - `ARCL` formatting respects the current display mode (FIX/SCI/ENG) — re-uses `format_hpnum()` from `hp41-core/src/format.rs`
@@ -219,7 +222,7 @@ Plans:
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
 | 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
-| 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
+| 23. ALPHA Operations | v2.2 | 0/2 | Planned    |  |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |
 | 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
