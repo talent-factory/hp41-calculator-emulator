@@ -171,16 +171,44 @@ pub fn op_clp(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     Ok(())
 }
 
-/// DEL nnn — delete `nnn` steps from `state.pc` with clamping.
-/// Stub from task 22-02-01; full body lands in task 22-02-03 (D-22.9).
-pub fn op_del(_state: &mut CalcState, _nnn: u8) -> Result<(), HpError> {
-    Err(HpError::InvalidOp)
+/// Phase 22 D-22.9 (FN-PROG-04). Delete `nnn` program steps starting at
+/// `state.pc`. `nnn` silently clamps to `min(nnn, program.len() - pc)`;
+/// `nnn == 0` OR `pc == program.len()` → no-op. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — drain shifts the trailing tail down to fill the
+/// gap, so the cursor naturally points at the next surviving step.
+pub fn op_del(state: &mut CalcState, nnn: u8) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    // D-22.9 clamping: saturating_sub guards against the pathological pc > len
+    // (shouldn't happen, but keeps the helper bounds-safe under any state).
+    let n = (nnn as usize).min(state.program.len().saturating_sub(state.pc));
+    if n == 0 {
+        // No-op for nnn == 0 OR pc == program.len()
+        apply_lift_effect(state, LiftEffect::Neutral);
+        return Ok(());
+    }
+    state.program.drain(state.pc..state.pc + n);
+    // state.pc deliberately unchanged: drain shifts the tail down so pc
+    // naturally falls at the same index (which is the post-drain position).
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
 }
 
-/// INS — insert `Op::Null` at `state.pc`; pc unchanged.
-/// Stub from task 22-02-01; full body lands in task 22-02-03 (D-22.8).
-pub fn op_ins(_state: &mut CalcState) -> Result<(), HpError> {
-    Err(HpError::InvalidOp)
+/// Phase 22 D-22.8 (FN-PROG-05). Insert `Op::Null` (no-op placeholder from
+/// Phase 12) at `state.pc`. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — the cursor still points at the freshly inserted
+/// Null. This matches HP-41 hardware "INS lands a blank step at cursor" behavior.
+pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    state.program.insert(state.pc, Op::Null);
+    // state.pc deliberately unchanged — cursor still on the new Null.
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
 }
 
 // ── Public interpreter entry point ───────────────────────────────────────────
