@@ -124,7 +124,10 @@ fn numeric_sto_clears_text_regs_sidecar_no_drift() {
     dispatch(&mut state, Op::Arcl(7)).unwrap();
     let expected = format_hpnum(&state.regs[7], &DisplayMode::Fix(4));
     assert_eq!(state.alpha_reg, expected);
-    assert_ne!(state.alpha_reg, "HELLO", "ARCL must not return the stale shadow");
+    assert_ne!(
+        state.alpha_reg, "HELLO",
+        "ARCL must not return the stale shadow"
+    );
 }
 
 /// Test #4 — CLREG clears BOTH regs and text_regs. Without this, a CLREG would
@@ -143,7 +146,11 @@ fn clreg_clears_both_regs_and_text_regs() {
         "Op::Clreg must empty the text_regs sidecar (D-23.4)"
     );
     for r in &state.regs {
-        assert_eq!(r, &HpNum::zero(), "all numeric regs must be zero after CLREG");
+        assert_eq!(
+            r,
+            &HpNum::zero(),
+            "all numeric regs must be zero after CLREG"
+        );
     }
 }
 
@@ -201,7 +208,11 @@ fn asto_silent_24_char_cap_on_subsequent_arcl() {
     state.text_regs.insert(0, "BCDEF".to_string());
 
     dispatch(&mut state, Op::Arcl(0)).unwrap();
-    assert_eq!(state.alpha_reg.chars().count(), 24, "ALPHA caps at 24 chars");
+    assert_eq!(
+        state.alpha_reg.chars().count(),
+        24,
+        "ALPHA caps at 24 chars"
+    );
     assert!(
         state.alpha_reg.ends_with('B'),
         "only the first char of 'BCDEF' fits before the cap; rest silently discarded"
@@ -235,8 +246,8 @@ fn serde_default_loads_v21_save_file_without_text_regs_field() {
 
     // Deserialize without the field. #[serde(default)] must default it to
     // BTreeMap::new().
-    let restored: CalcState =
-        serde_json::from_value(json).expect("missing text_regs must deserialize via #[serde(default)]");
+    let restored: CalcState = serde_json::from_value(json)
+        .expect("missing text_regs must deserialize via #[serde(default)]");
     assert!(
         restored.text_regs.is_empty(),
         "text_regs must default to an empty map when missing from the payload"

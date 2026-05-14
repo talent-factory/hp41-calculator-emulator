@@ -33,7 +33,10 @@ fn test_stop_then_resume() {
     // After STOP: X is 42, is_running is false, pc is within program
     // (advanced past STOP by the top-of-iteration pc += 1).
     assert_eq!(state.stack.x, HpNum::from(42i32));
-    assert!(!state.is_running, "is_running must be false after STOP halt");
+    assert!(
+        !state.is_running,
+        "is_running must be false after STOP halt"
+    );
     assert!(
         state.pc < state.program.len(),
         "pc ({}) must point at the next step within program (len {})",
@@ -139,7 +142,10 @@ fn test_pse_writes_both_channels() {
 
     run_program(&mut state, "A").unwrap();
 
-    let expected = format_hpnum(&HpNum::rounded(Decimal::from_str("1.23").unwrap()), &DisplayMode::Fix(4));
+    let expected = format_hpnum(
+        &HpNum::rounded(Decimal::from_str("1.23").unwrap()),
+        &DisplayMode::Fix(4),
+    );
     assert_eq!(
         state.display_override.as_deref(),
         Some(expected.as_str()),
@@ -170,8 +176,10 @@ fn test_pse_display_override_survives_next_program_step() {
     // run_loop calls execute_op directly (NOT dispatch), so the dispatch-top
     // display_override = None clear does NOT fire between iterations. The
     // PSE write therefore survives the subsequent PushNum step.
-    let expected_pse =
-        format_hpnum(&HpNum::rounded(Decimal::from_str("1.23").unwrap()), &DisplayMode::Fix(4));
+    let expected_pse = format_hpnum(
+        &HpNum::rounded(Decimal::from_str("1.23").unwrap()),
+        &DisplayMode::Fix(4),
+    );
     assert_eq!(
         state.display_override.as_deref(),
         Some(expected_pse.as_str()),

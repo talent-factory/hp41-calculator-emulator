@@ -173,7 +173,11 @@ fn test_del_clamping() {
     // Request 100 deletions — must clamp silently to 3.
     dispatch(&mut state, Op::Del(100u8)).unwrap();
 
-    assert_eq!(state.program.len(), 2, "DEL 100 from pc=2 in a 5-step program must clamp to 3 deletions");
+    assert_eq!(
+        state.program.len(),
+        2,
+        "DEL 100 from pc=2 in a 5-step program must clamp to 3 deletions"
+    );
     // pc unchanged.
     assert_eq!(state.pc, 2);
 }

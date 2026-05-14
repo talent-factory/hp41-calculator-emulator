@@ -111,7 +111,11 @@ fn test_asn_remove_nonexistent_is_noop() {
             key_code: 99,
         },
     );
-    assert!(result.is_ok(), "remove-nonexistent must succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "remove-nonexistent must succeed: {:?}",
+        result
+    );
     assert!(s.assignments.is_empty());
 }
 

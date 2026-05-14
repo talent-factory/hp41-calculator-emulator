@@ -465,7 +465,10 @@ pub enum Op {
     /// in Phase 25/26.
     ///
     /// LiftEffect: Neutral. Phase 22 (FN-KEY-01, D-22.18 AMENDED).
-    Asn { name: String, key_code: u8 },
+    Asn {
+        name: String,
+        key_code: u8,
+    },
     // ── Phase 23: ALPHA-register operations (D-23.12) ────────────────────────
     /// ARCL nn — append register-N's formatted value to the ALPHA register.
     /// Reads from `state.text_regs[reg]` if present (packed-text shadow from

@@ -69,7 +69,11 @@ fn test_size_shrink_truncates_tail() {
     dispatch(&mut s, Op::Size(10)).unwrap();
     assert_eq!(s.regs.len(), 10);
     for r in &s.regs {
-        assert_eq!(*r, HpNum::from(7i32), "shrink must preserve surviving values");
+        assert_eq!(
+            *r,
+            HpNum::from(7i32),
+            "shrink must preserve surviving values"
+        );
     }
 }
 

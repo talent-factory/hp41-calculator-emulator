@@ -88,10 +88,7 @@ pub fn op_arcl(state: &mut CalcState, reg: u8) -> Result<(), HpError> {
     } else {
         // .expect rather than .unwrap to satisfy clippy::unwrap_used; the
         // index is guaranteed valid by the leading bounds check above.
-        let r = state
-            .regs
-            .get(reg as usize)
-            .expect("bounds-checked above");
+        let r = state.regs.get(reg as usize).expect("bounds-checked above");
         crate::format::format_hpnum(r, &state.display_mode)
     };
     // 24-char silent discard cap — multibyte-safe (Phase 2 ALPHA invariant).
@@ -278,10 +275,7 @@ pub fn op_posa(state: &mut CalcState) -> Result<(), HpError> {
     if i != x {
         return Err(HpError::InvalidOp); // non-integer X — stricter than AROT (D-23.7)
     }
-    let code_i64: i64 = i
-        .inner()
-        .try_into()
-        .map_err(|_| HpError::InvalidOp)?;
+    let code_i64: i64 = i.inner().try_into().map_err(|_| HpError::InvalidOp)?;
     if !(0..=127).contains(&code_i64) {
         return Err(HpError::InvalidOp); // ASCII range gate (D-23.7)
     }
@@ -333,8 +327,10 @@ mod tests {
         state.regs[5] = HpNum::from(Decimal::from_str("3.14").unwrap());
         state.display_mode = DisplayMode::Fix(2);
         op_arcl(&mut state, 5).unwrap();
-        let expected =
-            format!("HELLO{}", format_hpnum(&state.regs[5], &DisplayMode::Fix(2)));
+        let expected = format!(
+            "HELLO{}",
+            format_hpnum(&state.regs[5], &DisplayMode::Fix(2))
+        );
         assert_eq!(state.alpha_reg, expected);
     }
 
@@ -361,7 +357,10 @@ mod tests {
         );
         assert_eq!(
             sci_output,
-            format_hpnum(&HpNum::from(Decimal::from_str("3.14").unwrap()), &DisplayMode::Sci(3))
+            format_hpnum(
+                &HpNum::from(Decimal::from_str("3.14").unwrap()),
+                &DisplayMode::Sci(3)
+            )
         );
     }
 
@@ -386,7 +385,10 @@ mod tests {
         assert_eq!(state.regs.len(), 100);
         let result = op_arcl(&mut state, 200);
         assert_eq!(result, Err(HpError::InvalidOp));
-        assert!(state.alpha_reg.is_empty(), "ALPHA must be unchanged on error");
+        assert!(
+            state.alpha_reg.is_empty(),
+            "ALPHA must be unchanged on error"
+        );
     }
 
     #[test]
@@ -397,7 +399,10 @@ mod tests {
         state.text_regs.insert(0, "BCDEF".to_string());
         op_arcl(&mut state, 0).unwrap();
         assert_eq!(state.alpha_reg.chars().count(), 24);
-        assert!(state.alpha_reg.ends_with("BC"), "first 2 chars of 'BCDEF' fit; rest silently discarded");
+        assert!(
+            state.alpha_reg.ends_with("BC"),
+            "first 2 chars of 'BCDEF' fit; rest silently discarded"
+        );
     }
 
     #[test]
@@ -508,7 +513,10 @@ mod tests {
         state.stack.x = HpNum::from(66);
         op_xtoa(&mut state).unwrap();
         assert_eq!(state.alpha_reg.chars().count(), 24);
-        assert!(state.alpha_reg.ends_with('A'), "no 'B' appended past the cap");
+        assert!(
+            state.alpha_reg.ends_with('A'),
+            "no 'B' appended past the cap"
+        );
     }
 
     #[test]

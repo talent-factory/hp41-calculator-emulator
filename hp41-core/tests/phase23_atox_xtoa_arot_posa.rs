@@ -39,7 +39,10 @@ fn atox_pops_first_char_pushes_ascii_with_lift() {
     state.alpha_reg = "A".to_string();
     state.stack.x = HpNum::from(99);
     dispatch(&mut state, Op::Atox).unwrap();
-    assert!(state.alpha_reg.is_empty(), "first char dropped → ALPHA empty");
+    assert!(
+        state.alpha_reg.is_empty(),
+        "first char dropped → ALPHA empty"
+    );
     assert_eq!(state.stack.x, HpNum::from(65), "X = ASCII 'A' = 65");
     assert_eq!(state.stack.y, HpNum::from(99), "prior X lifted to Y");
 }

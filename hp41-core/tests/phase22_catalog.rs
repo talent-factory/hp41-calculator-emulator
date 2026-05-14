@@ -144,12 +144,7 @@ fn test_catalog_lines_are_24_chars_wide() {
     let mut s2 = CalcState::new();
     dispatch(&mut s2, Op::Catalog(2)).unwrap();
     for (i, line) in s2.print_buffer.iter().enumerate() {
-        assert_eq!(
-            line.chars().count(),
-            24,
-            "cat2 line {i}: {:?}",
-            line
-        );
+        assert_eq!(line.chars().count(), 24, "cat2 line {i}: {:?}", line);
     }
 }
 
@@ -159,7 +154,7 @@ fn test_catalog_long_label_truncated_to_9_chars() {
     // 24-char line width is preserved. (Format: "LBL " + name:9 + "  " + steps:5 = 20, pad to 24.)
     let mut s = CalcState::new();
     s.program = vec![
-        Op::Lbl("VERYLONGLABEL".to_string()),  // 13 chars
+        Op::Lbl("VERYLONGLABEL".to_string()), // 13 chars
         Op::PushNum(HpNum::from(1i32)),
     ];
     dispatch(&mut s, Op::Catalog(1)).unwrap();

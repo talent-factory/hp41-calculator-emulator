@@ -329,9 +329,7 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
         2..=4 => {
             // CATALOG 2 (XROM modules) / 3 (HP-IL) / 4 (peripherals) — none
             // in this emulator → single payload line.
-            state
-                .print_buffer
-                .push(format!("{:<24}", "NOT AVAILABLE"));
+            state.print_buffer.push(format!("{:<24}", "NOT AVAILABLE"));
         }
         _ => return Err(HpError::InvalidOp), // defensive; guarded above
     }
