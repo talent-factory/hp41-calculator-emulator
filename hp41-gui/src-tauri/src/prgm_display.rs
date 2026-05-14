@@ -220,6 +220,13 @@ fn op_display_name(op: &Op) -> String {
         // Phase 23: ALPHA-register operations (D-23.12)
         Op::Arcl(reg) => format!("ARCL {reg:02}"),
         Op::Asto(reg) => format!("ASTO {reg:02}"),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): bare-string variants (mirror
+        // of the hp41-cli copy — SC-4 invariant requires identical display
+        // listing on both frontends).
+        Op::Atox => "ATOX".to_string(),
+        Op::Xtoa => "XTOA".to_string(),
+        Op::Arot => "AROT".to_string(),
+        Op::Posa => "POSA".to_string(),
     }
 }
 
