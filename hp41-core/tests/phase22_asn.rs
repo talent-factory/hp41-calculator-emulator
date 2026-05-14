@@ -113,8 +113,7 @@ fn test_asn_remove_nonexistent_is_noop() {
     );
     assert!(
         result.is_ok(),
-        "remove-nonexistent must succeed: {:?}",
-        result
+        "remove-nonexistent must succeed: {result:?}"
     );
     assert!(s.assignments.is_empty());
 }

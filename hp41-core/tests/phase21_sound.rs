@@ -108,15 +108,22 @@ fn test_no_println_in_hp41_core_after_phase21() {
     let production_lines: Vec<&str> = stdout
         .lines()
         .filter(|line| {
-            let content = line.splitn(3, ':').nth(2).unwrap_or(line);
+            // grep output is `<path>:<line>:<content>`. On Windows the path is
+            // prefixed by a drive letter (e.g. `D:\…`), which itself contains
+            // a colon — so a naive splitn(3, ':').nth(2) returns the line
+            // number instead of the content and the comment-prefix filter
+            // below silently fails. Strip a leading `<letter>:` if present.
+            let rest = line
+                .strip_prefix(|c: char| c.is_ascii_alphabetic())
+                .and_then(|s| s.strip_prefix(':'))
+                .map(|s| if s.starts_with(['\\', '/']) { s } else { line })
+                .unwrap_or(line);
+            let content = rest.splitn(3, ':').nth(2).unwrap_or(line);
             let trimmed = content.trim_start();
-            // Comment-only lines are not production code.
+            // Comment-only lines (including `//!` doc comments) are not production code.
             if trimmed.starts_with("//") {
                 return false;
             }
-            // Documentation references in module-level `//!` doc comments are not
-            // production code either (already filtered by the leading `//` check
-            // above, but kept as belt-and-braces).
             true
         })
         .collect();
