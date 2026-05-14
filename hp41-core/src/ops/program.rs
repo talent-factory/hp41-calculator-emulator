@@ -127,6 +127,32 @@ pub fn op_dse(state: &mut CalcState, reg: u8) -> Result<bool, HpError> {
     Ok(new_current <= final_val) // true = skip next (loop exits, D-11)
 }
 
+// ── Phase 22: Program editing primitives (D-22.7, D-22.8, D-22.9, D-22.10) ──
+// CLP / DEL / INS are PRGM-mode editing primitives — they mutate state.program
+// directly and NEVER get recorded into the program buffer. The dispatch gate
+// in mod.rs special-cases them so they execute immediately while prgm_mode == true.
+//
+// Stubs land here in task 22-02-01 so the workspace compiles after the variants
+// are added. Real bodies fill in over the next two tasks (22-02-02 / 22-02-03).
+
+/// CLP "label" — clear program from `Op::Lbl(label)` to next LBL/end-of-Vec.
+/// Stub from task 22-02-01; full body lands in task 22-02-02 (D-22.7).
+pub fn op_clp(_state: &mut CalcState, _label: &str) -> Result<(), HpError> {
+    Err(HpError::InvalidOp)
+}
+
+/// DEL nnn — delete `nnn` steps from `state.pc` with clamping.
+/// Stub from task 22-02-01; full body lands in task 22-02-03 (D-22.9).
+pub fn op_del(_state: &mut CalcState, _nnn: u8) -> Result<(), HpError> {
+    Err(HpError::InvalidOp)
+}
+
+/// INS — insert `Op::Null` at `state.pc`; pc unchanged.
+/// Stub from task 22-02-01; full body lands in task 22-02-03 (D-22.8).
+pub fn op_ins(_state: &mut CalcState) -> Result<(), HpError> {
+    Err(HpError::InvalidOp)
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -562,7 +588,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Prompt
         | Op::Stop                              // Phase 22: STOP handled by run_loop break
         | Op::GtoInd(_)                         // Phase 22: GTO IND has run_loop arm
-        | Op::XeqInd(_) => Err(HpError::InvalidOp), // Phase 22: XEQ IND has run_loop arm
+        | Op::XeqInd(_)                         // Phase 22: XEQ IND has run_loop arm
+        | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
+        | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
+        | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
     }
 }
 

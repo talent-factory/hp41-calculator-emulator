@@ -199,6 +199,10 @@ fn op_display_name(op: &Op) -> String {
         Op::Pse => "PSE".to_string(),
         Op::GtoInd(r) => format!("GTO IND {r:02}"),
         Op::XeqInd(r) => format!("XEQ IND {r:02}"),
+        // Phase 22: Program editing
+        Op::Clp(name) => format!("CLP {name}"),
+        Op::Del(n) => format!("DEL {n:03}"),
+        Op::Ins => "INS".to_string(),
     }
 }
 
