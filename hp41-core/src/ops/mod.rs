@@ -399,6 +399,14 @@ pub enum Op {
     /// inserted Null. Gated on `state.prgm_mode == true` (D-22.10).
     /// LiftEffect: Neutral. Phase 22 (FN-PROG-05, D-22.8).
     Ins,
+    // ── Phase 22: Memory & stack management (D-22.11) ────────────────────────
+    /// SIZE nnn — resize `state.regs` to nnn ∈ [1, 319]. AMENDED D-22.11 /
+    /// OQ-2: `nnn == 0` silently clamps to 1 (documented divergence from real
+    /// HP-41 which accepts `SIZE 000`); `nnn > 319` returns `HpError::InvalidOp`.
+    /// Shrinking truncates the tail (hardware-faithful "MEM LOST"); growing
+    /// zero-fills new slots; overlapping range preserves values.
+    /// `u16` because 319 > u8::MAX. LiftEffect: Neutral. Phase 22 (FN-MEM-01).
+    Size(u16),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -679,6 +687,10 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clp(name) => program::op_clp(state, &name),
         Op::Del(n) => program::op_del(state, n),
         Op::Ins => program::op_ins(state),
+        // ── Phase 22: Memory & stack management (D-22.11) ────────────────
+        // SIZE executes fine inside run_loop and interactively — it is a
+        // regular dispatch op, not a control-flow primitive.
+        Op::Size(n) => program::op_size(state, n),
     }
 }
 

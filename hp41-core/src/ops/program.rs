@@ -211,6 +211,33 @@ pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
+// ── Phase 22: Memory management (D-22.11) ────────────────────────────────────
+
+/// Phase 22 D-22.11 / FN-MEM-01. Resize `state.regs` to `nnn` slots.
+///
+/// OQ-2 (AMENDED 2026-05-14): `nnn == 0` silently clamps to 1 (documented
+/// divergence from real HP-41 which accepts `SIZE 000`). `nnn > 319`
+/// returns `HpError::InvalidOp`. Otherwise `state.regs.resize(target,
+/// HpNum::zero())`: shrinking truncates the tail (hardware-faithful
+/// "MEM LOST"); growing zero-fills the new slots. Preserves values where
+/// the old and new ranges overlap.
+///
+/// SAFETY: every legacy register access (op_sto/op_rcl/op_sto_arith/op_view/
+/// op_clreg/Σ-family) was audited in 22-03-01..03 to honor `state.regs.len()`
+/// dynamically, so shrinking via SIZE will NOT panic. The Σ-family
+/// additionally fails closed when `state.regs.len() < 7` (Pitfall 5).
+///
+/// LiftEffect: Neutral.
+pub fn op_size(state: &mut CalcState, nnn: u16) -> Result<(), HpError> {
+    if nnn > 319 {
+        return Err(HpError::InvalidOp);
+    }
+    let target = nnn.max(1) as usize; // OQ-2: SIZE 0 → silently clamp to 1
+    state.regs.resize(target, crate::num::HpNum::zero());
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -633,6 +660,11 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
+        // ── Phase 22: Memory management (D-22.11, FN-MEM-01) ──────────────────
+        // SIZE executes fine inside run_loop — it is a regular dispatch op,
+        // not a control-flow primitive. Does NOT join the programming-ops
+        // catch-all below.
+        Op::Size(n) => op_size(state, n),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

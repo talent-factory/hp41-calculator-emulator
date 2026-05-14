@@ -203,6 +203,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Clp(name) => format!("CLP {name}"),
         Op::Del(n) => format!("DEL {n:03}"),
         Op::Ins => "INS".to_string(),
+        // Phase 22: Memory management (D-22.11)
+        Op::Size(n) => format!("SIZE {n:03}"),
     }
 }
 
