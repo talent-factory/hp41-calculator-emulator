@@ -227,6 +227,35 @@ fn op_display_name(op: &Op) -> String {
         Op::Xtoa => "XTOA".to_string(),
         Op::Arot => "AROT".to_string(),
         Op::Posa => "POSA".to_string(),
+        // Phase 24: Indirect Addressing (FN-IND-01) -- mirror across CLI + GUI
+        // per SC-4 invariant. Space-separated MNEMONIC IND nn (Phase-22 form).
+        Op::StoInd(r) => format!("STO IND {r:02}"),
+        Op::RclInd(r) => format!("RCL IND {r:02}"),
+        Op::IsgInd(r) => format!("ISG IND {r:02}"),
+        Op::DseInd(r) => format!("DSE IND {r:02}"),
+        Op::SfFlagInd(r) => format!("SF IND {r:02}"),
+        Op::CfFlagInd(r) => format!("CF IND {r:02}"),
+        Op::ArclInd(r) => format!("ARCL IND {r:02}"),
+        Op::AstoInd(r) => format!("ASTO IND {r:02}"),
+        Op::ViewInd(r) => format!("VIEW IND {r:02}"),
+        Op::StoArithInd(reg, kind) => {
+            let op_sym = match kind {
+                StoArithKind::Add => "+",
+                StoArithKind::Sub => "-",
+                StoArithKind::Mul => "\u{00D7}",
+                StoArithKind::Div => "\u{00F7}",
+            };
+            format!("STO{op_sym} IND {reg:02}")
+        }
+        Op::FlagTestInd { kind, ind_reg } => {
+            let mnemonic = match kind {
+                FlagTestKind::IsSet => "FS?",
+                FlagTestKind::IsClear => "FC?",
+                FlagTestKind::IsSetThenClear => "FS?C",
+                FlagTestKind::IsClearThenClear => "FC?C",
+            };
+            format!("{mnemonic} IND {ind_reg:02}")
+        }
     }
 }
 
@@ -295,5 +324,55 @@ mod tests {
         assert_eq!(op_display_name(&Op::Abs), "ABS");
         assert_eq!(op_display_name(&Op::Fact), "FACT");
         assert_eq!(op_display_name(&Op::Sign), "SIGN");
+    }
+
+    #[test]
+    fn test_display_phase24_ind_op_labels() {
+        // Phase 24: byte-identical mnemonics across hp41-cli and hp41-gui copies
+        // (SC-4 mirror invariant). The 11 new Op::*Ind variants surface as
+        // space-separated MNEMONIC IND nn (Phase-22 GTO IND precedent).
+        assert_eq!(op_display_name(&Op::StoInd(5)), "STO IND 05");
+        assert_eq!(op_display_name(&Op::RclInd(7)), "RCL IND 07");
+        assert_eq!(op_display_name(&Op::IsgInd(5)), "ISG IND 05");
+        assert_eq!(op_display_name(&Op::DseInd(5)), "DSE IND 05");
+        assert_eq!(op_display_name(&Op::SfFlagInd(12)), "SF IND 12");
+        assert_eq!(op_display_name(&Op::CfFlagInd(12)), "CF IND 12");
+        assert_eq!(op_display_name(&Op::ArclInd(12)), "ARCL IND 12");
+        assert_eq!(op_display_name(&Op::AstoInd(12)), "ASTO IND 12");
+        assert_eq!(op_display_name(&Op::ViewInd(5)), "VIEW IND 05");
+        // StoArithInd: all 4 StoArithKind sub-kinds
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Add)),
+            "STO+ IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Sub)),
+            "STO- IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Mul)),
+            "STO\u{00D7} IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Div)),
+            "STO\u{00F7} IND 12"
+        );
+        // FlagTestInd: all 4 FlagTestKind sub-kinds
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 }),
+            "FS? IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClear, ind_reg: 5 }),
+            "FC? IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 }),
+            "FS?C IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClearThenClear, ind_reg: 5 }),
+            "FC?C IND 05"
+        );
     }
 }
