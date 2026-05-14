@@ -18,7 +18,7 @@ use crate::programs;
 use hp41_core::{format_alpha, format_hpnum, AngleMode};
 
 use crate::app::App;
-use crate::keys::KEY_REF_TABLE;
+use crate::keys::key_ref_entries;
 use crate::prgm_display;
 
 /// Render the full HP-41 TUI into `frame`. Called from App::draw() every frame.
@@ -405,16 +405,18 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
 // ── Right panel ───────────────────────────────────────────────────────────────
 
 fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
-    // INPUT-01 / D-03: key-reference panel — discoverable key labels.
-    // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
+    // INPUT-01 / D-03 / D-25.18 (Plan 25-04): key-reference panel —
+    // discoverable key labels derived from docs/hp41cv-functions.json via
+    // help_data::help_entries() (no hand-curated KEY_REF_TABLE const).
     let block = Block::bordered().title_top(" Keys ");
 
-    let lines: Vec<Line> = KEY_REF_TABLE
+    let entries = key_ref_entries();
+    let lines: Vec<Line> = entries
         .iter()
         .map(|(k, desc)| {
             Line::from(vec![
                 Span::styled(format!("{k:<8}"), Style::new().bold()),
-                Span::raw(*desc),
+                Span::raw(desc.clone()),
             ])
         })
         .collect();

@@ -6,6 +6,8 @@
 
 A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmable RPN calculator, written in Rust. Ships both a terminal UI (`hp41-cli`) and a pixel-perfect desktop app (`hp41-gui`, Tauri v2 + React).
 
+Implements the full **feature-complete HP-41CV ROM built-in function set** (~130 ops) with documented divergences. See the [HP-41CV function matrix](docs/hp41cv-function-matrix.md) for status per op, keyboard reachability, and known hardware divergences.
+
 ```
 ┌─────────────────────────────────────┐
 │  4.0000000000   HP-41CV             │
@@ -100,9 +102,24 @@ The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every
 |----------|-------------|
 | [HP-41 Overview](docs/hp41-overview.md) | History, variants, RPN introduction |
 | [Operations Reference](docs/operations-reference.md) | All ~130 operations by category |
+| [Function Matrix](docs/hp41cv-function-matrix.md) | Per-op status, keyboard path, divergences |
 | [Keyboard Layout](docs/keyboard-layout.md) | Key layout and shifted functions |
 | [Programming Guide](docs/programming-guide.md) | Stack model, programs, flags, loops |
 | [Architecture](docs/architecture.md) | Emulator internals for contributors |
+
+## Documented Divergences from HP-41 Hardware
+
+A small set of deliberate behavioral divergences from the real HP-41C/CV/CX; each is recorded as a per-row `divergences` entry in the [function matrix](docs/hp41cv-function-matrix.md):
+
+- **PI** — 10-digit rounded value (`3.141592654`); hardware uses the same internal 10-digit precision.
+- **FACT** — effective cap at X ≤ 27 (Decimal-range overflow); HP-41 caps at X ≤ 69.
+- **SIGN on ALPHA** — returns 0; HP-41 returns the codepoint of the first ALPHA char.
+- **CLP** — boundary is the next `LBL` marker; HP-41 uses `END` / `.END.` markers (not present in our flat-Vec program model).
+- **PACK** — no-op; HP-41 compacts program memory (we have no gaps to compact in the flat-Vec model).
+- **POSA** — single-char only; multi-char POSA is deferred to v3.x (requires typed-stack shadow channel).
+- **AROT** — silently truncates non-integer N toward zero; HP-41 rejects non-integer N.
+- **HP-41 upper-ASCII (codes 128–255)** in ATOX / XTOA — round-trip not preserved (HP-41 ROM glyphs are not in the UTF-8 model).
+- **ALPHA-mode overrides f-prefix** — a deliberate v2.2 divergence; full hardware-faithful ALPHA-with-prefix (Σ, π, μ, …) is deferred to v3.x alongside the ALPHA-special-charset table.
 
 ### Official HP Manuals
 
