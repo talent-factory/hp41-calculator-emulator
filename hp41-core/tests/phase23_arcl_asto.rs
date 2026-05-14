@@ -242,3 +242,50 @@ fn serde_default_loads_v21_save_file_without_text_regs_field() {
         "text_regs must default to an empty map when missing from the payload"
     );
 }
+
+/// Test #8 — WR-01 (D-23.4 leak fix): `op_size` must drop `text_regs` entries
+/// whose key now points past the new end-of-regs, so a shrink-then-grow SIZE
+/// cycle cannot resurrect a stale text shadow.
+///
+/// Sequence mirrors the WR-01 finding from 23-REVIEW.md:
+///   1. Start at SIZE 100. ASTO 60 with ALPHA="GHOST" → text_regs[60]="GHOST",
+///      regs[60]=0.
+///   2. SIZE 50 → regs truncated. text_regs[60] MUST be pruned (was the bug).
+///   3. SIZE 100 → regs grown, regs[60]=0.
+///   4. ARCL 60 must read the numeric fallback (0 in current display mode),
+///      NOT the resurrected "GHOST" shadow.
+#[test]
+fn size_shrink_then_grow_drops_text_regs_no_ghost_resurrection() {
+    let mut state = CalcState::new();
+    assert_eq!(state.regs.len(), 100, "default SIZE is 100");
+
+    // Step 1: stash "GHOST" into the sidecar at reg 60.
+    state.alpha_reg = "GHOST".to_string();
+    dispatch(&mut state, Op::Asto(60)).unwrap();
+    assert_eq!(state.text_regs.get(&60), Some(&"GHOST".to_string()));
+    assert_eq!(state.regs[60], HpNum::zero());
+
+    // Step 2: SIZE 50 must prune text_regs[60] (WR-01 fix).
+    dispatch(&mut state, Op::Size(50)).unwrap();
+    assert_eq!(state.regs.len(), 50);
+    assert_eq!(
+        state.text_regs.get(&60),
+        None,
+        "WR-01: op_size must drop text_regs entries past end-of-regs"
+    );
+
+    // Step 3: regrow to 100 — regs[60] is fresh HpNum::zero().
+    dispatch(&mut state, Op::Size(100)).unwrap();
+    assert_eq!(state.regs.len(), 100);
+    assert_eq!(state.regs[60], HpNum::zero());
+
+    // Step 4: ARCL 60 must format the numeric fallback, NOT "GHOST".
+    state.alpha_reg.clear();
+    dispatch(&mut state, Op::Arcl(60)).unwrap();
+    let expected = format_hpnum(&state.regs[60], &state.display_mode);
+    assert_eq!(state.alpha_reg, expected);
+    assert!(
+        !state.alpha_reg.contains("GHOST"),
+        "shrink-then-grow must not resurrect the stale text shadow"
+    );
+}

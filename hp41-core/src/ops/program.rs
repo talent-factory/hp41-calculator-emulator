@@ -265,6 +265,12 @@ pub fn op_size(state: &mut CalcState, nnn: u16) -> Result<(), HpError> {
     }
     let target = nnn.max(1) as usize; // OQ-2: SIZE 0 → silently clamp to 1
     state.regs.resize(target, crate::num::HpNum::zero());
+    // Phase 23 D-23.4 (WR-01): drop text_regs entries that now point past
+    // end-of-regs so a shrink-then-grow cycle cannot resurrect a stale text
+    // shadow. CONTEXT.md D-23.4's audit inventory listed STO/STO-arith/CLREG
+    // but missed op_size; this retain step closes the gap and keeps the
+    // sidecar from leaking across SIZE cycles or autosave round-trips.
+    state.text_regs.retain(|&k, _| (k as usize) < target);
     crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
     Ok(())
 }
