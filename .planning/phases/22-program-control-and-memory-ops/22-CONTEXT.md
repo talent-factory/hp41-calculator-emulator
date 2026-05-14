@@ -2,6 +2,16 @@
 
 **Gathered:** 2026-05-14
 **Status:** Ready for planning
+**Research-OQ resolutions (2026-05-14):**
+- **OQ-1 → Option B (hardware-faithful CATALOG):** CAT 1 = programs;
+  CAT 2/3/4 = "NOT AVAILABLE". Register-listing dropped. D-22.16,
+  D-22.16.1, D-22.16.2, D-22.16.3 below are AMENDED.
+- **OQ-2 → Option A (SIZE 0 clamps to 1):** D-22.11 AMENDED below.
+- **OQ-3 → Option A (ASN empty name removes):** D-22.18 AMENDED below.
+- **OQ-4:** Op::Cla shows "CLA"; legacy Op::AlphaClear keeps "CLRALPHA"
+  for v1.x save-file fidelity. Acknowledged, no code change beyond
+  D-22.13. Will be flagged in 22-03 commit message and Phase 22
+  SUMMARY.
 
 <domain>
 ## Phase Boundary
@@ -137,10 +147,15 @@ Phase 27).
 ### Memory & stack management (SIZE / PACK / CLA / CLST)
 
 - **D-22.11 — SIZE:** `Op::Size(u16)` (u16 because 319 > u8::MAX).
-  Resize logic: `state.regs.resize(nnn.clamp(1, 319) as usize, HpNum::zero())`.
-  Anything outside [1, 319] returns `HpError::InvalidOp`. Shrinking
+  Accepted range `[0, 319]`. `nnn` is **silently clamped to `1` when
+  `0`** (decision OQ-2 = Option A, 2026-05-14 user-confirmed). `nnn >
+  319` returns `HpError::InvalidOp`. Resize logic:
+  `state.regs.resize(nnn.max(1).min(319) as usize, HpNum::zero())`
+  followed by a `nnn > 319 → InvalidOp` early-return. Shrinking
   truncates the tail (hardware-faithful "MEM LOST"). Growing
-  zero-fills. LiftEffect: Neutral.
+  zero-fills. LiftEffect: Neutral. Documented divergence: `SIZE 000`
+  on real HP-41 leaves 0 registers — we clamp to 1 so subsequent
+  STO/RCL remain dispatchable.
 
 - **D-22.11.1 — regs bounds audit:** `op_sto(state, r)` /
   `op_rcl(state, r)` / `op_clreg(state)` and any other reads of
@@ -193,26 +208,29 @@ Phase 27).
   formatted line per push). Header: `"-- CATALOG n --"` (24-char width,
   right-padded with spaces if shorter). Footer: `"-- END --"` (same
   padding). LiftEffect: Neutral. Invalid n (n == 0 OR n >= 5) →
-  `HpError::InvalidOp`.
+  `HpError::InvalidOp`. **OQ-1 resolution (2026-05-14, user-confirmed
+  Option B = hardware-faithful):** CATALOG 1 = programs (real HP-41
+  semantics). CATALOG 2 = "NOT AVAILABLE" (no XROM modules in our
+  emulator). Register-listing as a CATALOG slot is dropped from Phase
+  22; a future quick-task or v3.0 may add a separate non-ROM
+  inspection op.
 
-- **D-22.16.1 — CATALOG 1 (registers):** iterate `state.regs` (length
-  = state.regs.len(), respecting any prior SIZE), emit one line per
-  NON-ZERO register: `format!("R{:02}  {:>17}", i, formatted_value)`
-  where `formatted_value = format_hpnum(reg, state.display_mode)`.
-  Skip zero-valued registers (avoid bloating print_buffer with empty
-  state). 24-char width.
-
-- **D-22.16.2 — CATALOG 2 (programs):** iterate `state.program`,
+- **D-22.16.1 — CATALOG 1 (programs):** iterate `state.program`,
   collect each `Op::Lbl(name)` position. For each LBL, the step count
   = distance from the LBL's index to the NEXT LBL's index (or
   program.len() for the last LBL). Emit: `format!("LBL {:9}  {:5}",
-  name, steps)`. 24-char width.
+  name, steps)`. 24-char width. (Was "registers" pre-OQ-1; swapped to
+  hardware-faithful 2026-05-14.)
 
-- **D-22.16.3 — CATALOG 3 (HP-IL) / CATALOG 4 (peripherals):** single
-  payload line `"NOT AVAILABLE         "` (24-char-padded) wedged
-  between header and footer. No-error path; signals "no such
-  hardware" cleanly. Documented divergence from HP-41 hardware in
-  CLAUDE.md.
+- **D-22.16.2 — CATALOG 2 (XROM modules):** single payload line
+  `"NOT AVAILABLE         "` (24-char-padded) between header and
+  footer. No-error path; signals "no XROM modules installed". (Was
+  "programs" pre-OQ-1.)
+
+- **D-22.16.3 — CATALOG 3 (HP-IL) / CATALOG 4 (extended memory):**
+  single payload line `"NOT AVAILABLE         "` (24-char-padded)
+  between header and footer. No-error path; signals "no such hardware"
+  cleanly. Mirrors CAT 2's "NOT AVAILABLE" pattern.
 
 ### Key assignments (ASN)
 
@@ -228,12 +246,16 @@ Phase 27).
   Phase 5).
 
 - **D-22.18 — `Op::Asn { name: String, key_code: u8 }`:** new struct-
-  variant. dispatch() body: `state.assignments.insert(key_code, name)`
-  + `apply_lift_effect(state, LiftEffect::Neutral)`. The 2-step
+  variant. dispatch() body: **if `name.is_empty()` →
+  `state.assignments.remove(&key_code)`; else
+  `state.assignments.insert(key_code, name)`** (decision OQ-3 =
+  Option A, 2026-05-14 user-confirmed). Then
+  `apply_lift_effect(state, LiftEffect::Neutral)`. The 2-step
   keyboard modal flow (alpha prompt → key prompt) is a hp41-cli /
   hp41-gui concern (Phase 25 introduces `PendingInput::AsnNamePrompt`
   → `AsnKeyPrompt`). The op variant is fully-formed by the caller
-  when it reaches dispatch.
+  when it reaches dispatch. Hardware-faithful "ASN '' 11" undoes
+  "ASN 'SIN' 11".
 
 - **D-22.19 — Resolution at USER-mode dispatch:** late-binding via
   String. When a key with an assignment is pressed in USER mode

@@ -82,16 +82,21 @@ Plans:
   1. A program containing `STOP` halts execution at that step; pressing R/S in the CLI resumes from the next step
   2. A program containing `PSE` briefly displays the current X then continues; `CLP "MYPRG"` removes every step from `LBL MYPRG` to the next `END`/`.END.`
   3. `DEL 005` from PRGM mode removes 5 steps starting at the current PC; `INS` adds one blank step at PC; `PACK` returns success (no-op in our flat-Vec model but the `Op` variant exists and dispatches cleanly)
-  4. `CATALOG 2` (programs) emits a structured listing into `print_buffer`; `CATALOG 1` (registers) lists R00–R99 with values; `CLST` zeroes X/Y/Z/T while LASTX is preserved; `CLA` clears ALPHA
+  4. `CATALOG 1` (programs) emits a structured listing into `print_buffer` with `LBL name  steps` lines (hardware-faithful per OQ-1); `CATALOG 2`/`CATALOG 3`/`CATALOG 4` emit a single `"NOT AVAILABLE"` payload line (no XROM modules / HP-IL / peripherals in this emulator); `CLST` zeroes X/Y/Z/T while LASTX AND `lift_enabled` are preserved; `CLA` clears ALPHA (and displays as `"CLA"`, while existing `Op::AlphaClear` is retained for v1.0 save-file compat displaying as `"CLRALPHA"`)
   5. `ASN "SIN" 11` records a key assignment that survives a JSON save/load round-trip (existing `assignments` map extended with the new `Op::Asn` variant)
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 22-01-program-control-PLAN.md — Op::Stop / Op::Pse / resume_program() / Op::GtoInd(u8) / Op::XeqInd(u8); FN-PROG-01, -02, -06, -07
+- [ ] 22-02-program-edit-PLAN.md — Op::Clp(String) / Op::Del(u8) / Op::Ins (prgm_mode-gated); FN-PROG-03, -04, -05; depends on 22-01
+- [ ] 22-03-memory-ops-PLAN.md — Wave-0 regs[] bounds audit (3 commits — D-22.11.1, Pitfall 4/5) + Op::Size(u16) / Op::Cla / Op::Clst / Op::Pack; FN-MEM-01..04; depends on 22-02
+- [ ] 22-04-catalog-and-asn-PLAN.md — new CalcState.assignments field (BTreeMap<u8, String>, #[serde(default)]) + Op::Catalog(u8) (hardware-faithful per OQ-1) + Op::Asn { name, key_code } (empty-name-removes per OQ-3); FN-MEM-05, FN-KEY-01; depends on 22-03
 **Cross-cutting constraints:**
-  - `STOP` interacts with `run_loop` — needs a `paused: bool` state transition; `PSE` requires a pause-then-resume marker the CLI/GUI can observe
-  - `CLP`/`DEL`/`INS` operate on the existing `Vec<ProgramStep>` — must keep PC consistent (existing CR-01-style fixes apply)
-  - `GTO IND nn` / `XEQ IND nn` use the same indirect-resolver groundwork that Phase 24 generalizes; Phase 22 lands the direct PROG-side calls, Phase 24 implements the shared `resolve_indirect()` helper
-  - `CATALOG` output goes into `print_buffer` (existing pattern); no direct I/O
-  - `Op::Asn` integrates with the existing `assignments: HashMap<u8, Op>` field; `#[serde(default)]` already present
-  - All new `Op` variants land in 4 places; `#![deny(clippy::unwrap_used)]` enforced
+  - `STOP` breaks `run_loop` (no paused field needed — pc + is_running cover it); `PSE` writes `display_override` + pushes `"PAUSE 1000"` into `event_buffer` (Phase 21 BEEP/TONE event-channel pattern)
+  - `CLP`/`DEL`/`INS` operate on `Vec<Op>` and adjust state.pc (CLP repositions cursor to start of deleted block per Pitfall 6); all three are PRGM-mode-only primitives that mutate state.program directly (NOT recorded)
+  - `GTO IND nn` / `XEQ IND nn` use Phase 22 inline `state.regs.get(reg).trunc_int()` check; Phase 24 will extract the shared `resolve_indirect()` helper from this inline code
+  - `CATALOG` output goes into `print_buffer` (existing pattern); no direct I/O. OQ-1 (locked 2026-05-14): CAT 1 = programs, CAT 2/3/4 = NOT AVAILABLE (24-char padded)
+  - `Op::Asn { name: String, key_code: u8 }` is a struct-variant; it integrates with the NEW `assignments: BTreeMap<u8, String>` field (NOT the Phase 5 `key_assignments: BTreeMap<char, String>` — the two maps coexist per D-22.17; reconciliation in Phase 25/26). OQ-3 (locked 2026-05-14): empty `name` removes the assignment
+  - All 13 new `Op` variants land in 4 places (D-22.21); `#![deny(clippy::unwrap_used)]` enforced; Wave-0 bounds audit (D-22.11.1) replaces ~28 raw `state.regs[i]` accesses with `.get().ok_or(InvalidOp)?` patterns BEFORE Op::Size lands, preventing the SIZE-shrink-panic class of bugs (Pitfall 4)
 
 ### Phase 23: ALPHA Operations
 **Goal**: Users can manipulate the ALPHA register beyond v1.0's append/clear primitives — `ARCL nn` appends a register's formatted value; `ASTO nn` packs the first 6 ALPHA chars into a register; `ATOX`/`XTOA` interconvert the first ALPHA char with its ASCII code in X; `AROT n` rotates ALPHA (negative N rotates right); `POSA` returns the substring position. Direct-address forms only; IND variants come in Phase 24.
@@ -213,7 +218,7 @@ Plans:
 | 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
 | 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
 | 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
-| 22. Program Control & Memory Ops | v2.2 | 0/TBD | Not started | — |
+| 22. Program Control & Memory Ops | v2.2 | 0/4 | Planned    |  |
 | 23. ALPHA Operations | v2.2 | 0/TBD | Not started | — |
 | 24. Indirect Addressing | v2.2 | 0/TBD | Not started | — |
 | 25. CLI Integration & Documentation | v2.2 | 0/TBD | Not started | — |

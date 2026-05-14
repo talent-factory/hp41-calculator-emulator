@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-14T14:00:00.000Z"
-last_activity: 2026-05-14 -- Phase 22 context gathered (25 locked decisions; ready to plan)
+last_updated: "2026-05-14T09:25:56.760Z"
+last_activity: 2026-05-14 -- Phase 22 planning complete
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 5
+  total_plans: 9
   completed_plans: 5
   percent: 25
 ---
@@ -36,8 +36,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 Phase: 22: Program Control & Memory Ops (context gathered — awaiting planning)
 Plan: TBD (4 plans planned per D-22.20)
-Status: CONTEXT.md complete (25 locked decisions across 4 areas) — ready for `/gsd-plan-phase 22`
-Last activity: 2026-05-14 -- `/gsd-discuss-phase 22` complete: 25 locked decisions in `.planning/phases/22-program-control-and-memory-ops/22-CONTEXT.md` across STOP/PSE/R-S interpreter control (D-22.1..6), CLP/DEL/INS program editing (D-22.7..10), SIZE/PACK/CLA/CLST/CATALOG memory ops (D-22.11..16), GTO IND/XEQ IND inline indirect (D-22.15), and ASN keymapping model (D-22.17..19). Plan structure: 4 plans (22-01 program-control, 22-02 program-edit, 22-03 memory-ops, 22-04 catalog-and-asn). 13 new Op variants + 1 new CalcState field (`assignments: BTreeMap<u8, String>` with #[serde(default)]). No new HpError variants. Wave-0 prep: regs[] bounds audit (D-22.11.1). Documented divergences from HP-41 hardware: CLP boundary (no END markers; uses next LBL), PACK (no-op for flat-Vec), CATALOG 3/4 ("NOT AVAILABLE").
+Status: Ready to execute
+Last activity: 2026-05-14 -- Phase 22 planning complete
 
 Progress: 2 / 8 phases
 
