@@ -7,7 +7,7 @@
 //! format_all_steps() pre-formats the entire program listing for the React frontend.
 //! Copied from hp41-cli/src/prgm_display.rs per Phase 18 D-03.
 
-use hp41_core::ops::{Op, StackReg, StoArithKind};
+use hp41_core::ops::{FlagTestKind, Op, StackReg, StoArithKind};
 use hp41_core::CalcState;
 
 /// Format the current program step.
@@ -175,6 +175,15 @@ fn op_display_name(op: &Op) -> String {
         // Phase 21: Flags
         Op::SfFlag(n) => format!("SF {n:02}"),
         Op::CfFlag(n) => format!("CF {n:02}"),
+        Op::FlagTest { kind, flag } => {
+            let mnemonic = match kind {
+                FlagTestKind::IsSet => "FS?",
+                FlagTestKind::IsClear => "FC?",
+                FlagTestKind::IsSetThenClear => "FS?C",
+                FlagTestKind::IsClearThenClear => "FC?C",
+            };
+            format!("{mnemonic} {flag:02}")
+        }
         // Phase 21: Display Control
         Op::View(r) => format!("VIEW {r:02}"),
         Op::AView => "AVIEW".to_string(),

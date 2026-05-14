@@ -243,6 +243,30 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                     state.pc += 1; // loop exit: skip next
                 }
             }
+            // ── Phase 21: Flag tests (skip next step pattern, mirrors Op::Test) ──
+            // FS?/FC? skip the next step when the flag is in the "false" state.
+            // FS?C/FC?C ALWAYS clear the flag as a side effect (RESEARCH A4), THEN
+            // decide the skip based on the PRE-clear state.
+            Op::FlagTest { kind, flag } => {
+                use crate::ops::flags::{flag_clear, flag_get};
+                use crate::ops::FlagTestKind;
+                let is_set = flag_get(state.flags, flag);
+                let should_skip = match kind {
+                    FlagTestKind::IsSet => !is_set,
+                    FlagTestKind::IsClear => is_set,
+                    FlagTestKind::IsSetThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        !is_set
+                    }
+                    FlagTestKind::IsClearThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        is_set
+                    }
+                };
+                if should_skip {
+                    state.pc += 1;
+                }
+            }
             // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
             // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
             Op::Prompt => {
@@ -437,6 +461,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Test(_)
         | Op::Isg(_)
         | Op::Dse(_)
+        | Op::FlagTest { .. }
         | Op::Prompt => Err(HpError::InvalidOp),
     }
 }

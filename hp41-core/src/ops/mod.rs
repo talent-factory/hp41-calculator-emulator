@@ -53,6 +53,24 @@ pub enum StackReg {
     LastX,
 }
 
+/// HP-41 flag-test kind — 4 total. Used in `Op::FlagTest { kind, flag }`.
+///
+/// Mirrors the `TestKind` / `StoArithKind` sub-enum precedent. The `?C` variants
+/// (IsSetThenClear / IsClearThenClear) ALWAYS clear the flag as a side effect,
+/// regardless of the test outcome (RESEARCH A4 — strict reading of FS?C / FC?C).
+/// Phase 21 (FN-FLAG-02).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FlagTestKind {
+    /// FS? — skip next step when flag is NOT set (condition: "is set"; skip-if-false).
+    IsSet,
+    /// FC? — skip next step when flag is NOT clear.
+    IsClear,
+    /// FS?C — skip if NOT set; ALWAYS clear the flag afterward (RESEARCH A4).
+    IsSetThenClear,
+    /// FC?C — skip if NOT clear; ALWAYS clear the flag afterward.
+    IsClearThenClear,
+}
+
 /// HP-41 conditional test kind — 12 total. Used in Op::Test(TestKind).
 /// D-07: single enum covers all HP-41 conditionals (symmetric with StoArithKind pattern).
 /// D-08: exact variant names.
@@ -302,6 +320,14 @@ pub enum Op {
     SfFlag(u8),
     /// CF n — clear flag n (0..=55). LiftEffect: Neutral.
     CfFlag(u8),
+    /// FS? / FC? / FS?C / FC?C n — conditional flag test (run_loop skips next
+    /// step on false; `?C` variants also always-clear). LiftEffect: Neutral.
+    /// Interactive dispatch is a no-op (mirrors `Op::Test` precedent — no next
+    /// program step at the keyboard). Phase 21 (FN-FLAG-02).
+    FlagTest {
+        kind: FlagTestKind,
+        flag: u8,
+    },
     // ── Phase 21: Display Control ────────────────────────────────────────────
     /// VIEW n — show formatted value of register n (0..=99). LiftEffect: Neutral.
     /// Phase 21 (FN-DISP-01).
@@ -545,6 +571,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 21: Flags ───────────────────────────────────────────────
         Op::SfFlag(n) => flags::op_sf(state, n),
         Op::CfFlag(n) => flags::op_cf(state, n),
+        // Interactive FlagTest is a no-op (mirrors Op::Test). The skip-next-step
+        // and always-clear semantics live in run_loop. At the keyboard there is
+        // no "next program step" to skip; pc and flags are untouched.
+        Op::FlagTest { .. } => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
         // ── Phase 21: Display Control ─────────────────────────────────────
         Op::View(r) => display_ops::op_view(state, r),
         Op::AView => display_ops::op_aview(state),
