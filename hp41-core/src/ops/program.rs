@@ -660,11 +660,14 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             Ok(())
         }
-        // ── Phase 22: Memory management (D-22.11, FN-MEM-01) ──────────────────
+        // ── Phase 22: Memory management (D-22.11..13, FN-MEM-01..02) ──────────
         // SIZE executes fine inside run_loop — it is a regular dispatch op,
         // not a control-flow primitive. Does NOT join the programming-ops
         // catch-all below.
         Op::Size(n) => op_size(state, n),
+        // D-22.13: Op::Cla delegates to op_alpha_clear (hardware-faithful
+        // "CLA" listing). Op::AlphaClear (legacy v1.0) stays separate.
+        Op::Cla => super::alpha::op_alpha_clear(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
