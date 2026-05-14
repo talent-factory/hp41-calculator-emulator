@@ -19,6 +19,10 @@ pub fn op_sto(state: &mut CalcState, reg: u8) -> Result<(), HpError> {
     if idx >= state.regs.len() {
         return Err(HpError::InvalidOp);
     }
+    // Phase 23 D-23.4: every numeric write to regs[reg] MUST clear the
+    // packed-text shadow so ARCL never reads a stale string after a
+    // numeric STO. Wave-0 sidecar-clearing audit.
+    state.text_regs.remove(&reg);
     state.regs[idx] = state.stack.x.clone(); // safe — bounds-checked above
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
@@ -60,6 +64,11 @@ pub fn op_sto_arith(state: &mut CalcState, reg: u8, kind: StoArithKind) -> Resul
         StoArithKind::Mul => state.regs[idx].checked_mul(&state.stack.x)?,
         StoArithKind::Div => state.regs[idx].checked_div(&state.stack.x)?,
     };
+    // Phase 23 D-23.4: clear the packed-text shadow before overwriting the
+    // numeric slot. Performed AFTER the checked_* computation so a failing
+    // op (e.g. div-by-zero) leaves both representations untouched
+    // (atomicity). Wave-0 sidecar-clearing audit.
+    state.text_regs.remove(&reg);
     // Write only after successful computation (Pitfall 6 guard)
     state.regs[idx] = new_val;
     apply_lift_effect(state, LiftEffect::Neutral);
@@ -76,6 +85,11 @@ pub fn op_sto_arith_stack(
     stack_reg: StackReg,
     kind: StoArithKind,
 ) -> Result<(), HpError> {
+    // Phase 23 D-23.4 audit outcome: text_regs is NOT touched here — stack
+    // registers (Y/Z/T/LastX) do not back text shadows. The text_regs
+    // sidecar is keyed by numbered-register index (u8 → String); only
+    // op_sto / op_sto_arith / op_clreg write to numbered regs and need
+    // sidecar clearing.
     // Snapshot current value of target register (before any write).
     let current = match stack_reg {
         StackReg::Y => state.stack.y.clone(),
@@ -109,6 +123,9 @@ pub fn op_clreg(state: &mut CalcState) -> Result<(), HpError> {
     // re-grown back to 100.
     let n = state.regs.len();
     state.regs = vec![crate::num::HpNum::zero(); n];
+    // Phase 23 D-23.4: a CLREG that left text shadows in place would
+    // leave ghost ARCL output behind. Clear the entire sidecar map.
+    state.text_regs.clear();
     apply_lift_effect(state, LiftEffect::Neutral);
     Ok(())
 }
@@ -251,5 +268,106 @@ mod stack_arith_tests {
             "STO÷T must write 10÷2=5 into T"
         );
         assert_eq!(s.stack.x, HpNum::from(d("2")), "X must be unchanged");
+    }
+}
+
+/// Phase 23 D-23.4 sidecar-clearing audit (Wave-0).
+///
+/// Mirrors the Phase 22 D-22.11.1 regs-bounds audit pattern: a tiny set of
+/// inline unit tests pins the invariant that every numeric write to
+/// `regs[reg]` clears the matching `text_regs[reg]` entry, and that
+/// `op_clreg` empties the entire sidecar map. Without these guards a future
+/// refactor could silently leave stale ARCL output behind.
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod phase23_sidecar_audit_tests {
+    use super::*;
+    use crate::num::HpNum;
+    use crate::ops::{StackReg, StoArithKind};
+    use crate::state::CalcState;
+
+    #[test]
+    fn test_op_sto_clears_text_regs_sidecar() {
+        let mut state = CalcState::new();
+        state.text_regs.insert(5, "HELLO".to_string());
+        state.stack.x = HpNum::from(3i32);
+        op_sto(&mut state, 5).unwrap();
+        assert_eq!(
+            state.text_regs.get(&5),
+            None,
+            "op_sto must clear the text_regs sidecar for the target register (D-23.4)"
+        );
+        assert_eq!(state.regs[5], HpNum::from(3i32));
+    }
+
+    #[test]
+    fn test_op_sto_arith_clears_text_regs_sidecar() {
+        let mut state = CalcState::new();
+        state.text_regs.insert(5, "HELLO".to_string());
+        state.regs[5] = HpNum::from(10i32);
+        state.stack.x = HpNum::from(3i32);
+        op_sto_arith(&mut state, 5, StoArithKind::Add).unwrap();
+        assert_eq!(
+            state.text_regs.get(&5),
+            None,
+            "op_sto_arith must clear the text_regs sidecar for the target register (D-23.4)"
+        );
+        assert_eq!(state.regs[5], HpNum::from(13i32));
+    }
+
+    #[test]
+    fn test_op_sto_arith_failure_preserves_text_regs_sidecar() {
+        // Atomicity guard: a failing op_sto_arith (e.g. divide-by-zero) MUST NOT
+        // clear the sidecar — both representations stay untouched. Pitfall 6
+        // pattern mirrored at the sidecar layer.
+        let mut state = CalcState::new();
+        state.text_regs.insert(5, "HELLO".to_string());
+        state.regs[5] = HpNum::from(10i32);
+        state.stack.x = HpNum::from(0i32);
+        let result = op_sto_arith(&mut state, 5, StoArithKind::Div);
+        assert!(result.is_err(), "div-by-zero must return Err");
+        assert_eq!(
+            state.text_regs.get(&5),
+            Some(&"HELLO".to_string()),
+            "failing op_sto_arith must leave text_regs untouched (atomicity)"
+        );
+        assert_eq!(
+            state.regs[5],
+            HpNum::from(10i32),
+            "failing op_sto_arith must leave the numeric slot untouched"
+        );
+    }
+
+    #[test]
+    fn test_op_clreg_clears_all_text_regs() {
+        let mut state = CalcState::new();
+        state.text_regs.insert(0, "AAA".to_string());
+        state.text_regs.insert(3, "BBB".to_string());
+        state.text_regs.insert(99, "CCC".to_string());
+        op_clreg(&mut state).unwrap();
+        assert!(
+            state.text_regs.is_empty(),
+            "op_clreg must clear the entire text_regs sidecar map (D-23.4)"
+        );
+        for r in &state.regs {
+            assert_eq!(r, &HpNum::zero(), "all numeric regs must be zero");
+        }
+    }
+
+    #[test]
+    fn test_op_sto_arith_stack_does_not_touch_text_regs() {
+        // Audit confirmation: op_sto_arith_stack targets Y/Z/T/LastX, NOT
+        // numbered regs. text_regs must be untouched by this path.
+        let mut state = CalcState::new();
+        state.text_regs.insert(2, "KEEP".to_string());
+        state.stack.x = HpNum::from(3i32);
+        state.stack.y = HpNum::from(10i32);
+        op_sto_arith_stack(&mut state, StackReg::Y, StoArithKind::Add).unwrap();
+        assert_eq!(
+            state.text_regs.get(&2),
+            Some(&"KEEP".to_string()),
+            "op_sto_arith_stack must NOT touch text_regs (it does not write regs[])"
+        );
+        assert_eq!(state.stack.y, HpNum::from(13i32));
     }
 }

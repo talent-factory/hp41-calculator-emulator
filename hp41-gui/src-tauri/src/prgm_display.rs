@@ -217,6 +217,9 @@ fn op_display_name(op: &Op) -> String {
         Op::Catalog(n) => format!("CATALOG {n}"),
         // Phase 22: ASN (D-22.18 AMENDED OQ-3 Option A)
         Op::Asn { name, key_code } => format!("ASN \"{name}\" {key_code:02}"),
+        // Phase 23: ALPHA-register operations (D-23.12)
+        Op::Arcl(reg) => format!("ARCL {reg:02}"),
+        Op::Asto(reg) => format!("ASTO {reg:02}"),
     }
 }
 
