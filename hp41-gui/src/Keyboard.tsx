@@ -33,6 +33,23 @@ export type KeyDef = {
   col: number;                                 // 0..4 within row
   colSpan?: number;                            // default 1 (ENTER spans 2)
   variant?: 'top' | 'shift' | 'enter';        // styling hint
+  // Phase 26 D-26.9 / W9 — HP-41 hardware key code (row×10 + col, 1-indexed)
+  // per hp41-cli/src/keys.rs::keycode_to_hp41_code. Used by USER-mode
+  // per-key relabel: when annunciators.user is true and an ASN entry in
+  // CalcStateView.user_keymap has this keyCode, the keycap renders the
+  // ASN'd label INSTEAD of the primary label.
+  //
+  // W9 RESOLUTION: these are HARDCODED LITERALS from the CLI canonical
+  // mapping, NOT computed `row * 10 + col`. The GUI 5×8 grid uses 0-indexed
+  // cols and a row numbering that does NOT match HP-41 hardware (e.g. SIN
+  // at GUI (row 2, col 2) is HP-41 code 25 from CLI, but `2*10+2=22` is
+  // STO, not SIN). Any drift from the CLI mapping fails the W9 sentinel
+  // parity test in Keyboard.test.tsx before the USER overlay can mis-label.
+  //
+  // Variants 'top' and 'shift' and empty-id entries leave this `undefined`
+  // (USER overlay does not relabel them). Some keys (CHS, CL X/A, etc.)
+  // have no unambiguous CLI-canonical mapping and are also left undefined.
+  keyCode?: number;
 };
 
 // Top row — separated from main grid by gap. ON/USER on the left, PRGM/ALPHA on the right.
@@ -47,53 +64,71 @@ const TOP_ROW: KeyDef[] = [
 // Main grid — 5 columns × 8 rows. ENTER spans 2 columns in row 4.
 // Stub labels (ASN, CATALOG, BEEP, P→R, R→P, x=y?, x≤y?, x>y?, x=0?, π, VIEW, SF, CF, FS?)
 // resolve via key_map.rs stub branch and surface a toast.
+//
+// W9 keyCode literals: HARDCODED from hp41-cli/src/keys.rs canonical mapping.
+// See KeyDef.keyCode doc above. Keys without a CLI mapping (chs, clx_or_a,
+// xge_y) leave keyCode undefined — USER-mode relabel will skip them.
 const MAIN_GRID: KeyDef[] = [
-  // Row 1 — math
-  { id: 'sigma_plus', label: 'Σ+',  shifted: { id: 'sigma_minus', label: 'Σ−' },   alphaChar: 'A', row: 1, col: 0 },
-  { id: 'recip',      label: '1/x', shifted: { id: 'ypow',        label: 'yˣ' },   alphaChar: 'B', row: 1, col: 1 },
-  { id: 'sqrt',       label: '√x',  shifted: { id: 'sq',          label: 'x²' },   alphaChar: 'C', row: 1, col: 2 },
-  { id: 'log',        label: 'LOG', shifted: { id: 'tenpow',      label: '10ˣ' }, alphaChar: 'D', row: 1, col: 3 },
-  { id: 'ln',         label: 'LN',  shifted: { id: 'exp',         label: 'eˣ' },   alphaChar: 'E', row: 1, col: 4 },
-  // Row 2 — trig + stack
+  // Row 1 — math. HP-41 hardware row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15).
+  { id: 'sigma_plus', label: 'Σ+',  shifted: { id: 'sigma_minus', label: 'Σ−' },   alphaChar: 'A', row: 1, col: 0, keyCode: 11 },
+  { id: 'recip',      label: '1/x', shifted: { id: 'ypow',        label: 'yˣ' },   alphaChar: 'B', row: 1, col: 1, keyCode: 12 },
+  { id: 'sqrt',       label: '√x',  shifted: { id: 'sq',          label: 'x²' },   alphaChar: 'C', row: 1, col: 2, keyCode: 13 },
+  { id: 'log',        label: 'LOG', shifted: { id: 'tenpow',      label: '10ˣ' }, alphaChar: 'D', row: 1, col: 3, keyCode: 14 },
+  { id: 'ln',         label: 'LN',  shifted: { id: 'exp',         label: 'eˣ' },   alphaChar: 'E', row: 1, col: 4, keyCode: 15 },
+  // Row 2 — trig + stack. HP-41 hardware row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25).
+  // The GUI puts XEQ on row 3 (program row), so row 2 col 0 (xge_y) has no
+  // direct CLI mapping — leave keyCode undefined.
   { id: 'xge_y',      label: 'x≥y', shifted: { id: 'cl_sigma_stat', label: 'CLΣ' }, alphaChar: 'F', row: 2, col: 0 },
-  { id: 'rdn',        label: 'R↓',  shifted: { id: 'pct_change',  label: '%' },    alphaChar: 'G', row: 2, col: 1 },
-  { id: 'sin',        label: 'SIN', shifted: { id: 'asin',        label: 'SIN⁻¹' }, alphaChar: 'H', row: 2, col: 2 },
-  { id: 'cos',        label: 'COS', shifted: { id: 'acos',        label: 'COS⁻¹' }, alphaChar: 'I', row: 2, col: 3 },
-  { id: 'tan',        label: 'TAN', shifted: { id: 'atan',        label: 'TAN⁻¹' }, alphaChar: 'J', row: 2, col: 4 },
-  // Row 3 — program
+  { id: 'rdn',        label: 'R↓',  shifted: { id: 'pct_change',  label: '%' },    alphaChar: 'G', row: 2, col: 1, keyCode: 24 },
+  { id: 'sin',        label: 'SIN', shifted: { id: 'asin',        label: 'SIN⁻¹' }, alphaChar: 'H', row: 2, col: 2, keyCode: 25 },
+  { id: 'cos',        label: 'COS', shifted: { id: 'acos',        label: 'COS⁻¹' }, alphaChar: 'I', row: 2, col: 3, keyCode: 34 },
+  { id: 'tan',        label: 'TAN', shifted: { id: 'atan',        label: 'TAN⁻¹' }, alphaChar: 'J', row: 2, col: 4, keyCode: 35 },
+  // Row 3 — program. HP-41 hardware row 3: R/S(31), SST(32), GTO(33), COS(34), TAN(35).
+  // GUI moves COS/TAN to row 2, SST to row 3 col 4; XEQ/STO/RCL/RCL use row-2 codes.
   { id: 'shift',      label: '',    row: 3, col: 0, variant: 'shift' },
-  { id: 'xeq_prompt', label: 'XEQ', shifted: { id: 'asn',     label: 'ASN' }, alphaChar: 'K', row: 3, col: 1 },
-  { id: 'sto_prompt', label: 'STO', shifted: { id: 'lbl_prompt', label: 'LBL' }, alphaChar: 'L', row: 3, col: 2 },
-  { id: 'rcl_prompt', label: 'RCL', shifted: { id: 'gto_prompt', label: 'GTO' }, alphaChar: 'M', row: 3, col: 3 },
-  { id: 'sst',        label: 'SST', shifted: { id: 'bst',     label: 'BST' }, row: 3, col: 4 },
-  // Row 4 — entry (ENTER spans 2)
-  { id: 'enter',      label: 'ENTER↑', shifted: { id: 'catalog', label: 'CATALOG' }, alphaChar: 'N', row: 4, col: 0, colSpan: 2, variant: 'enter' },
+  { id: 'xeq_prompt', label: 'XEQ', shifted: { id: 'asn',     label: 'ASN' }, alphaChar: 'K', row: 3, col: 1, keyCode: 21 },
+  { id: 'sto_prompt', label: 'STO', shifted: { id: 'lbl_prompt', label: 'LBL' }, alphaChar: 'L', row: 3, col: 2, keyCode: 22 },
+  { id: 'rcl_prompt', label: 'RCL', shifted: { id: 'gto_prompt', label: 'GTO' }, alphaChar: 'M', row: 3, col: 3, keyCode: 23 },
+  { id: 'sst',        label: 'SST', shifted: { id: 'bst',     label: 'BST' }, row: 3, col: 4, keyCode: 32 },
+  // Row 4 — entry (ENTER spans 2). HP-41 hardware row 4: USER(41), f(42), g(43), ENTER(44/84), ÷(45).
+  // CLI keys.rs encodes ENTER as 84 (row 8 col 4 in some HP-41C variants).
+  // CHS has no unambiguous CLI mapping (hardware row 4 col 5 = 45 conflicts
+  // with div's mapping); leave keyCode undefined. clx_or_a likewise.
+  { id: 'enter',      label: 'ENTER↑', shifted: { id: 'catalog', label: 'CATALOG' }, alphaChar: 'N', row: 4, col: 0, colSpan: 2, variant: 'enter', keyCode: 84 },
   { id: 'chs',        label: 'CHS', shifted: { id: 'isg_prompt', label: 'ISG' }, alphaChar: 'O', row: 4, col: 2 },
-  { id: 'e',          label: 'EEX', shifted: { id: 'rtn',         label: 'RTN' }, alphaChar: 'P', row: 4, col: 3 },
+  { id: 'e',          label: 'EEX', shifted: { id: 'rtn',         label: 'RTN' }, alphaChar: 'P', row: 4, col: 3, keyCode: 83 },
   { id: 'clx_or_a',   label: '←',   shifted: { id: 'clx_or_a',    label: 'CL X/A' }, row: 4, col: 4 },
-  // Row 5 — operator − + digits 7/8/9
-  { id: 'minus',      label: '−', shifted: { id: 'x_eq_y_prompt', label: 'x=y?' }, alphaChar: 'Q', row: 5, col: 0 },
-  { id: '7',          label: '7', shifted: { id: 'sf_prompt',     label: 'SF' },   alphaChar: 'R', row: 5, col: 1 },
-  { id: '8',          label: '8', shifted: { id: 'cf_prompt',     label: 'CF' },   alphaChar: 'S', row: 5, col: 2 },
-  { id: '9',          label: '9', shifted: { id: 'fs_prompt',     label: 'FS?' },  alphaChar: 'T', row: 5, col: 3 },
-  // Row 6 — operator + + digits 4/5/6
-  { id: 'plus',       label: '+', shifted: { id: 'x_le_y_prompt', label: 'x≤y?' }, alphaChar: 'U', row: 6, col: 0 },
-  { id: '4',          label: '4', shifted: { id: 'beep',          label: 'BEEP' }, alphaChar: 'V', row: 6, col: 1 },
-  { id: '5',          label: '5', shifted: { id: 'polar_to_rect', label: 'P→R' },  alphaChar: 'W', row: 6, col: 2 },
-  { id: '6',          label: '6', shifted: { id: 'rect_to_polar', label: 'R→P' },  alphaChar: 'X', row: 6, col: 3 },
-  // Row 7 — operator × + digits 1/2/3
-  { id: 'mul',        label: '×', shifted: { id: 'x_gt_y_prompt', label: 'x>y?' }, alphaChar: 'Y', row: 7, col: 0 },
-  { id: '1',          label: '1', shifted: { id: 'fix_prompt',    label: 'FIX' },  alphaChar: 'Z', row: 7, col: 1 },
-  { id: '2',          label: '2', shifted: { id: 'sci_prompt',    label: 'SCI' },  alphaChar: '=', row: 7, col: 2 },
-  { id: '3',          label: '3', shifted: { id: 'eng_prompt',    label: 'ENG' },  alphaChar: '?', row: 7, col: 3 },
-  // Row 8 — operator ÷ + 0 . R/S
-  { id: 'div',        label: '÷', shifted: { id: 'x_eq_0_prompt', label: 'x=0?' }, alphaChar: ':', row: 8, col: 0 },
-  { id: '0',          label: '0', shifted: { id: 'pi',            label: 'π' },    alphaChar: ' ', row: 8, col: 1 },
-  { id: '.',          label: '.', shifted: { id: 'lastx',         label: 'LAST X' }, alphaChar: ',', row: 8, col: 2 },
-  { id: 'r_s',        label: 'R/S', shifted: { id: 'view',        label: 'VIEW' }, row: 8, col: 3 },
+  // Row 5 — operator − + digits 7/8/9. HP-41 hardware row 5: 7(51), 8(52), 9(53), ×(54).
+  // CLI keys.rs encodes − as 64 (HP-41 row 6 col 4) — the wide-row operator
+  // column 0 in the GUI doesn't align to HP-41's column 5; we use the CLI's
+  // canonical key→code mapping (where '-' → 64), preserving the GETKEY contract.
+  { id: 'minus',      label: '−', shifted: { id: 'x_eq_y_prompt', label: 'x=y?' }, alphaChar: 'Q', row: 5, col: 0, keyCode: 64 },
+  { id: '7',          label: '7', shifted: { id: 'sf_prompt',     label: 'SF' },   alphaChar: 'R', row: 5, col: 1, keyCode: 51 },
+  { id: '8',          label: '8', shifted: { id: 'cf_prompt',     label: 'CF' },   alphaChar: 'S', row: 5, col: 2, keyCode: 52 },
+  { id: '9',          label: '9', shifted: { id: 'fs_prompt',     label: 'FS?' },  alphaChar: 'T', row: 5, col: 3, keyCode: 53 },
+  // Row 6 — operator + + digits 4/5/6. HP-41 hardware row 6: 4(61), 5(62), 6(63), −(64).
+  // CLI maps '+' → 74 (hardware row 7 col 4).
+  { id: 'plus',       label: '+', shifted: { id: 'x_le_y_prompt', label: 'x≤y?' }, alphaChar: 'U', row: 6, col: 0, keyCode: 74 },
+  { id: '4',          label: '4', shifted: { id: 'beep',          label: 'BEEP' }, alphaChar: 'V', row: 6, col: 1, keyCode: 61 },
+  { id: '5',          label: '5', shifted: { id: 'polar_to_rect', label: 'P→R' },  alphaChar: 'W', row: 6, col: 2, keyCode: 62 },
+  { id: '6',          label: '6', shifted: { id: 'rect_to_polar', label: 'R→P' },  alphaChar: 'X', row: 6, col: 3, keyCode: 63 },
+  // Row 7 — operator × + digits 1/2/3. HP-41 hardware row 7: 1(71), 2(72), 3(73), +(74).
+  // CLI maps '*' → 54 (hardware row 5 col 4).
+  { id: 'mul',        label: '×', shifted: { id: 'x_gt_y_prompt', label: 'x>y?' }, alphaChar: 'Y', row: 7, col: 0, keyCode: 54 },
+  { id: '1',          label: '1', shifted: { id: 'fix_prompt',    label: 'FIX' },  alphaChar: 'Z', row: 7, col: 1, keyCode: 71 },
+  { id: '2',          label: '2', shifted: { id: 'sci_prompt',    label: 'SCI' },  alphaChar: '=', row: 7, col: 2, keyCode: 72 },
+  { id: '3',          label: '3', shifted: { id: 'eng_prompt',    label: 'ENG' },  alphaChar: '?', row: 7, col: 3, keyCode: 73 },
+  // Row 8 — operator ÷ + 0 . R/S. HP-41 hardware row 8: 0(81), .(82), EEX(83), ENTER(84/85).
+  // CLI maps '/' → 45 (hardware row 4 col 5). R/S → 31 per CLI Phase 19 binding.
+  { id: 'div',        label: '÷', shifted: { id: 'x_eq_0_prompt', label: 'x=0?' }, alphaChar: ':', row: 8, col: 0, keyCode: 45 },
+  { id: '0',          label: '0', shifted: { id: 'pi',            label: 'π' },    alphaChar: ' ', row: 8, col: 1, keyCode: 81 },
+  { id: '.',          label: '.', shifted: { id: 'lastx',         label: 'LAST X' }, alphaChar: ',', row: 8, col: 2, keyCode: 82 },
+  { id: 'r_s',        label: 'R/S', shifted: { id: 'view',        label: 'VIEW' }, row: 8, col: 3, keyCode: 31 },
 ];
 
-const KEY_DEFS: KeyDef[] = [...TOP_ROW, ...MAIN_GRID];
+// Exported so Vitest can assert KEY_DEFS keyCode parity with the hp41-cli
+// canonical mapping (W9 drift-catch). Treat as readonly outside this file.
+export const KEY_DEFS: readonly KeyDef[] = [...TOP_ROW, ...MAIN_GRID];
 
 function keyPosition(key: KeyDef): { x: number; y: number; w: number; h: number } {
   const cs = key.colSpan ?? 1;
@@ -138,10 +173,39 @@ export interface KeyboardProps {
   busyRef: MutableRefObject<boolean>;
   shiftActive: boolean;
   alphaActive: boolean;
+  // Phase 26 D-26.9 — USER-mode per-key relabel. When `userActive=true` and
+  // a KEY_DEFS entry has `keyCode` matching an ASN entry in `userKeymap`,
+  // the keycap renders the ASN'd label INSTEAD of the primary label.
+  // Wired by Task 3; the props are declared in Task 2 so App.tsx can
+  // pass them now without a TypeScript error.
+  userActive?: boolean;
+  userKeymap?: ReadonlyArray<[number, string]>;
 }
 
-export function Keyboard({ onKey, busyRef, shiftActive, alphaActive }: KeyboardProps) {
+export function Keyboard({
+  onKey,
+  busyRef,
+  shiftActive,
+  alphaActive,
+  userActive = false,
+  userKeymap = [],
+}: KeyboardProps) {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
+
+  // Phase 26 D-26.9 — USER-mode relabel resolver. Returns the ASN'd label
+  // for a given keyCode, or null if no ASN entry exists for this key.
+  // Defense-in-depth length cap of 7 chars: HP-41 ASN labels are up to 6
+  // chars per the ALPHA pack convention; the slice caps the visual blast
+  // radius of a malicious or accidental long label. React's default text-
+  // node rendering escapes content automatically — `<script>` becomes
+  // literal text in the SVG <text> element, NOT an injected script tag
+  // (T-26-03-04 mitigation; covered by Keyboard.test.tsx XSS test).
+  function resolveUserLabel(keyCode: number | undefined): string | null {
+    if (!userActive || keyCode === undefined) return null;
+    const entry = userKeymap.find(([code]) => code === keyCode);
+    if (!entry) return null;
+    return entry[1].slice(0, 7);
+  }
 
   const handleKeyClick = (key: KeyDef) => {
     if (!key.id) return;                 // ON and other unwired keys
@@ -256,7 +320,10 @@ export function Keyboard({ onKey, busyRef, shiftActive, alphaActive }: KeyboardP
             <rect x={x + 1} y={y + 1} width={w - 2} height={h / 2} rx={4} ry={4}
                   fill="url(#bevel-hi)" className="key-bevel" />
 
-            {/* Primary label */}
+            {/* Primary label — D-26.9: replace with USER-mode ASN'd label
+                when annunciators.user is active AND this key has a keyCode
+                that matches an entry in userKeymap. Text-node rendering
+                escapes content (T-26-03-04 XSS mitigation). */}
             <text
               x={x + w / 2}
               y={y + h / 2 + 5}
@@ -265,7 +332,7 @@ export function Keyboard({ onKey, busyRef, shiftActive, alphaActive }: KeyboardP
               fontSize={key.variant === 'enter' ? 13 : 14}
               fontWeight="bold"
             >
-              {key.label}
+              {resolveUserLabel(key.keyCode) ?? key.label}
             </text>
 
             {/* Blue alpha letter below (skip on top-row, shift, and ENTER) */}
