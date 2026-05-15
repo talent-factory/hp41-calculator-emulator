@@ -51,6 +51,19 @@
   white-space: pre;
 }
 
+/* Phase 26 Plan 02 W6 — explicit SVG sizing rule for the 14-segment LCD.
+   The new <Display14Seg /> component renders inside `.display`; without
+   `display: block` the SVG's default inline-flow leaves a small vertical
+   baseline gap. `width: 100%` makes the SVG fill the available container
+   width; `height: 100%` lets the SVG's own preserveAspectRatio="xMidYMid meet"
+   maintain aspect ratio while filling the container's `min-height: 2em`.
+   The .display rule itself is preserved byte-identical per D-26.7. */
+.display svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* Error row — surfaces GuiError messages from the backend so they reach
    the user instead of dying at console.error (silent-failure-hunter CRIT-1/2). */
 .error-row {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 import { Keyboard, type KeyDef } from './Keyboard';
+import Display14Seg from './Display14Seg';
 import {
   handleModalKey,
   renderModalLcd,
@@ -432,7 +433,7 @@ function App() {
           </span>
         ))}
       </div>
-      <div className="display">{displayText}</div>
+      <div className="display"><Display14Seg text={displayText} /></div>
       {toast && (
         <div key={toast.seq} className="toast" role="status">{toast.msg}</div>
       )}
