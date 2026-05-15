@@ -197,8 +197,7 @@ fn isg_ind_inside_run_loop() {
     let exit_val = &state.regs[12];
     assert!(
         exit_val.inner() > Decimal::from_str("5").unwrap(),
-        "ISG IND must drive counter past the target; got {:?}",
-        exit_val
+        "ISG IND must drive counter past the target; got {exit_val:?}"
     );
 }
 
@@ -239,8 +238,7 @@ fn dse_ind_inside_run_loop() {
     let exit_val = &state.regs[12];
     assert!(
         exit_val.trunc_int().inner() <= Decimal::from_str("1").unwrap(),
-        "DSE IND must drive counter down to target; got {:?}",
-        exit_val
+        "DSE IND must drive counter down to target; got {exit_val:?}"
     );
 }
 
@@ -439,8 +437,7 @@ fn flag_test_ind_high_flag_no_panic() {
     // is "no panic". Match either outcome.
     assert!(
         result.is_ok() || matches!(result, Err(HpError::InvalidOp)),
-        "high flag must not panic: {:?}",
-        result
+        "high flag must not panic: {result:?}"
     );
 }
 

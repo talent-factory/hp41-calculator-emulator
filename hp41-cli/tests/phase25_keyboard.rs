@@ -315,9 +315,7 @@ fn key_to_op_v1x_letters_removed() {
         let op = hp41_cli::keys::key_to_op(ev, &app);
         assert!(
             op.is_none(),
-            "v1.x letter binding for {:?} must be removed (got {:?})",
-            c,
-            op
+            "v1.x letter binding for {c:?} must be removed (got {op:?})"
         );
     }
 
@@ -332,9 +330,7 @@ fn key_to_op_v1x_letters_removed() {
         let op = hp41_cli::keys::key_to_op(ev, &app);
         assert!(
             op.is_none(),
-            "v1.x letter binding for {:?} must be removed (got {:?})",
-            c,
-            op
+            "v1.x letter binding for {c:?} must be removed (got {op:?})"
         );
     }
 }

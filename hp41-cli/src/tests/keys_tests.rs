@@ -109,8 +109,7 @@ fn trig_math_uppercase_shift_removed_d25_3() {
         assert_eq!(
             key_to_op(press(KeyCode::Char(c)), &app),
             None,
-            "v1.x binding for {:?} must be removed per D-25.3",
-            c
+            "v1.x binding for {c:?} must be removed per D-25.3"
         );
     }
     // Phase 5: 'u' maps to Op::UserMode — primary HP-41CV USER-mode toggle.
