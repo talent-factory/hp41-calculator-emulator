@@ -30,14 +30,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      # See ci.yml: macOS-latest occasionally leaves cargo proxying to rustup-init
-      # after the toolchain action runs. Explicit rustup default stable rebinds
-      # the cargo proxy. No-op on Linux/Windows.
-      - run: rustup default stable
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: hp41-gui/src-tauri -> hp41-gui/src-tauri/target
+
+      # See ci.yml: macOS-latest occasionally leaves cargo proxying to rustup-init
+      # AFTER Swatinem/rust-cache restores ~/.cargo/bin/. Running rustup default
+      # stable POST cache-restore rebinds the cargo proxy.
+      - run: rustup default stable
 
       - uses: actions/setup-node@v4
         with:

@@ -36,14 +36,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      # macOS-latest runners intermittently leave `cargo` proxying to rustup-init
-      # after dtolnay/rust-toolchain@stable, producing `error: unexpected argument
-      # 'build' found / Usage: rustup-init[EXE]` on the first cargo invocation
-      # (observed 3× during Phase 27 CI). Explicitly `rustup default stable` rebinds
-      # the cargo proxy to the installed stable toolchain so subsequent `cargo`
-      # invocations route to the real binary. No-op on Linux/Windows.
-      - run: rustup default stable
       - uses: Swatinem/rust-cache@v2
+      # macOS-latest runners intermittently leave `cargo` proxying to rustup-init
+      # after the toolchain action + cache restore, producing `error: unexpected
+      # argument 'build' found / Usage: rustup-init[EXE]` on the first cargo
+      # invocation (observed 4× during Phase 27 CI). Swatinem/rust-cache restores
+      # `~/.cargo/bin/` contents which can clobber rustup's proxy config; running
+      # `rustup default stable` AFTER the cache restore rebinds the cargo proxy
+      # to the installed stable toolchain. No-op on Linux/Windows.
+      - run: rustup default stable
       - uses: taiki-e/install-action@v2
         with:
           tool: just
