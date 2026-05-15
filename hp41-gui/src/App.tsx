@@ -292,12 +292,45 @@ function App() {
 
     // Rule 6: if a modal is open, route through handleModalKey.
     if (pendingInput !== null) {
-      // Special case: assign_key modal expects a keycode via magic prefix.
-      // Compute it from the clicked key's row/col (HP-41 row×10+col).
-      const routedKey =
-        pendingInput.kind === 'assign_key'
-          ? makeKeyCodeMagic(key.row * 10 + (key.col + 1))
-          : effectiveId;
+      // Phase 26 Plan 04 — translate on-screen click ids to the modal's
+      // key alphabet, then route through handleModalKey. Four cases in
+      // priority order:
+      //   (a) assign_key + key.keyCode defined: encode the canonical HP-41
+      //       hardware keyCode via makeKeyCodeMagic. CR-01: use key.keyCode
+      //       (hardcoded CLI-canonical literal per Keyboard.tsx W9 doc),
+      //       NOT a computed row-times-ten formula on (row, col) which
+      //       would store the ASN at a keyCode no KeyDef advertises
+      //       (breaking USER-mode relabel end-to-end).
+      //   (b) assign_key + key.keyCode undefined: the clicked key has no
+      //       canonical HP-41 mapping (variant 'top'/'shift', CHS, xge_y,
+      //       clx_or_a, empty-id). Surface a toast and leave the modal
+      //       open. D-07 forbids silent discards.
+      //   (c) effectiveId === 'enter' / 'clx_or_a': translate to the modal
+      //       alphabet 'Enter' / 'Backspace' so pending_input.ts's existing
+      //       `key === 'Enter'` / `key === 'Backspace'` predicates match.
+      //       Without this CR-03 fix, clicking the on-screen ENTER/← keys
+      //       inside an open assign_label / clp / xeq_name / gto / lbl
+      //       modal does nothing (the modal can only be confirmed by the
+      //       physical keyboard).
+      //   (d) default: forward effectiveId verbatim.
+      let routedKey: string;
+      if (pendingInput.kind === 'assign_key') {
+        if (key.keyCode === undefined) {
+          // CR-01 toast: defense-in-depth surfacing of the W9 contract
+          // (variant 'top'/'shift' + chs + xge_y + clx_or_a have no
+          // unambiguous CLI mapping — they cannot be ASN targets).
+          showToast('This key cannot be assigned');
+          if (consumesShift) setShiftActive(false);
+          return;
+        }
+        routedKey = makeKeyCodeMagic(key.keyCode);
+      } else if (effectiveId === 'enter') {
+        routedKey = 'Enter';
+      } else if (effectiveId === 'clx_or_a') {
+        routedKey = 'Backspace';
+      } else {
+        routedKey = effectiveId;
+      }
       const result = handleModalKey(routedKey, pendingInput, shiftActive);
       // Consume the click shift on a modal-key transition too.
       if (consumesShift && !result.consumesShift) setShiftActive(false);
@@ -385,6 +418,14 @@ function App() {
       setShiftActive(prev => !prev);
       return;
     }
+    // Phase 26 Plan 04 CR-02 — when the `?` help overlay is open, its
+    // <input> search box owns focus. The window-level keydown listener
+    // must NOT leak keystrokes to resolveKeyId / dispatchKeyId, or every
+    // character typed into the search box also dispatches an Op (e.g.
+    // 's' → Op::Sqrt, 'q' → Op::Sin, Backspace → Op::Clx) and corrupts
+    // calculator state in the background. Esc and '?' are already
+    // handled above; this is the third gate layer.
+    if (helpOpen) return;
     if (busyRef.current) return; // debounce: ignore while invoke pending
 
     // Phase 26 D-26.4: if a modal is open, route the key through handleModalKey
@@ -427,6 +468,23 @@ function App() {
     }
   }, [calcState]);
 
+  // Phase 26 Plan 04 CR-04b — consume calcState.event_buffer per IPC response.
+  // The backend (Phase 21 ROM ops) pushes BEEP / TONE / etc. strings into
+  // CalcState.event_buffer; commands.rs drains the buffer into the projected
+  // CalcStateView.event_buffer Vec on every IPC response. Pre-fix, the
+  // projection arrived but React never read it — BEEP/TONE were silently
+  // dropped. Surface each event line via the toast queue (single-toast
+  // policy; the seq counter inside showToast re-fires identical messages).
+  // A future v3.x Web Audio API replacement plugs in here without changing
+  // the projection contract; the event_buffer schema stays the same.
+  useEffect(() => {
+    if (calcState && calcState.event_buffer.length > 0) {
+      for (const line of calcState.event_buffer) {
+        showToast(line);
+      }
+    }
+  }, [calcState, showToast]);
+
   // Auto-scroll to bottom whenever the print log grows.
   useEffect(() => {
     printEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -460,11 +518,15 @@ function App() {
   ];
 
   // Phase 26 D-26.3 — modal preview replaces LCD content during accumulation.
-  // Plan 26-02 will swap the inner content to <Display14Seg text={displayText} />;
-  // the derivation here is forward-compatible.
+  // Phase 26 Plan 04 CR-04a — when no modal is open, prefer
+  // `calcState.display_override` (set by Phase 21 ROM ops AView/Prompt/View
+  // and cleared by the next op) over `calcState.display_str`. Without this
+  // the backend's display_override projection is wired through IPC but the
+  // React render path drops it — AVIEW / PROMPT / VIEW produce no visible
+  // effect. Precedence order: modal preview > display_override > display_str.
   const displayText: string = pendingInput
     ? renderModalLcd(pendingInput)
-    : calcState.display_str;
+    : (calcState.display_override ?? calcState.display_str);
 
   return (
     <div className="calculator">
