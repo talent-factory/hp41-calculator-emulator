@@ -26,8 +26,11 @@ export default defineConfig({
   // render tests (@testing-library/react requires a DOM). The existing
   // pending_input.test.ts is a pure-function test that runs equally well
   // under jsdom — no behavior change there.
+  // Phase 26 Plan 04 — setupFiles enables the React 19 act() environment
+  // for App.test.tsx integration tests; pure-function tests are unaffected.
   test: {
     environment: 'jsdom',
     globals: false,
+    setupFiles: ['./src/test_setup.ts'],
   },
 })

@@ -540,7 +540,7 @@ function App() {
           </span>
         ))}
       </div>
-      <div className="display"><Display14Seg text={displayText} /></div>
+      <div className="display" data-displaytext={displayText}><Display14Seg text={displayText} /></div>
       {toast && (
         <div key={toast.seq} className="toast" role="status">{toast.msg}</div>
       )}
