@@ -23,6 +23,11 @@ interface CalcStateView {
   print_lines: string[];
   program_steps: string[];  // Phase 18 D-01: pre-formatted step strings from Rust
   pc: number;               // Phase 18 D-01: current program counter index
+  // Phase 26 D-26.11 (BLOCKER B5): TS-side mirror of the new Rust projections.
+  user_keymap: Array<[number, string]>;   // mirrors Vec<(u8, String)>
+  flags: number[];                         // mirrors Vec<u8> of set-flag indices
+  display_override: string | null;         // mirrors Option<String>
+  event_buffer: string[];                  // mirrors Vec<String> (drained per IPC)
 }
 
 // Tauri rejects with GuiError { message: string } — String(err) yields
