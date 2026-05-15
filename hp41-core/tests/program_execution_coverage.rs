@@ -281,12 +281,12 @@ fn op_pse_in_run_program() {
     ];
     run_program(&mut state, "T").unwrap();
     // Pse writes display_override AND event_buffer; does not break run_loop.
-    assert!(state.display_override.is_some(), "PSE must set display_override");
     assert!(
-        state
-            .event_buffer
-            .iter()
-            .any(|e| e.contains("PAUSE 1000")),
+        state.display_override.is_some(),
+        "PSE must set display_override"
+    );
+    assert!(
+        state.event_buffer.iter().any(|e| e.contains("PAUSE 1000")),
         "event_buffer must contain PAUSE 1000 marker"
     );
     // Subsequent op did execute (X = 99).

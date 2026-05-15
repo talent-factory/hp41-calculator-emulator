@@ -12,9 +12,7 @@
 //! The IND-flag property (Property 5) lives here per D-27.12 — example tests
 //! for `_IND` ops live in `phase24_ind_variants.rs` / `indirect_addressing.rs`.
 
-use hp41_core::ops::{
-    dispatch, flags::flag_get, program::run_program, FlagTestKind, Op,
-};
+use hp41_core::ops::{dispatch, flags::flag_get, program::run_program, FlagTestKind, Op};
 use hp41_core::{CalcState, HpNum};
 use proptest::prelude::*;
 use proptest::test_runner::Config as ProptestConfig;

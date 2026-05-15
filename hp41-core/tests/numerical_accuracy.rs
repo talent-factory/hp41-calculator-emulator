@@ -2734,7 +2734,12 @@ fn test_numerical_accuracy_suite() {
     {
         let mut s = CalcState::new();
         dispatch(&mut s, Op::Pi).unwrap();
-        case!("pi", "PI = 3.141592654 (HP-41 hardware value)", 3.141_592_654, get_x(&s));
+        case!(
+            "pi",
+            "PI = 3.141592654 (HP-41 hardware value)",
+            3.141_592_654,
+            get_x(&s)
+        );
     }
     {
         // PI in DEG mode is value-preserving — angle mode does not affect the
@@ -2761,7 +2766,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "0");
         dispatch(&mut s, Op::Fact).unwrap();
-        case!("fact", "FACT(0) = 1 (HP-41C OM p.234, Free42 do_fact)", 1.0, get_x(&s));
+        case!(
+            "fact",
+            "FACT(0) = 1 (HP-41C OM p.234, Free42 do_fact)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
@@ -2787,7 +2797,13 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "20");
         dispatch(&mut s, Op::Fact).unwrap();
-        case!("fact", "FACT(20) = 2.432902008e18", 2.432_902_008e18, get_x(&s), wide);
+        case!(
+            "fact",
+            "FACT(20) = 2.432902008e18",
+            2.432_902_008e18,
+            get_x(&s),
+            wide
+        );
     }
     {
         let mut s = CalcState::new();
@@ -2844,7 +2860,12 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "7");
         push(&mut s, "-3");
         dispatch(&mut s, Op::Mod).unwrap();
-        case!("mod", "MOD(7,-3) = 1 (sign-follows-Y, Free42 do_mod)", 1.0, get_x(&s));
+        case!(
+            "mod",
+            "MOD(7,-3) = 1 (sign-follows-Y, Free42 do_mod)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // Cross-checked against Free42 source ops_math.cc::do_mod — sign
@@ -2881,7 +2902,12 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "7.5");
         push(&mut s, "2");
         dispatch(&mut s, Op::Mod).unwrap();
-        case!("mod", "MOD(7.5, 2) = 1.5 (non-integer dividend)", 1.5, get_x(&s));
+        case!(
+            "mod",
+            "MOD(7.5, 2) = 1.5 (non-integer dividend)",
+            1.5,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
@@ -2947,7 +2973,12 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "0.2");
         dispatch(&mut s, Op::Add).unwrap();
         dispatch(&mut s, Op::Rnd).unwrap();
-        case!("rnd", "RND(0.1+0.2, FIX 5) = 0.3 (BCD purity)", 0.3, get_x(&s));
+        case!(
+            "rnd",
+            "RND(0.1+0.2, FIX 5) = 0.3 (BCD purity)",
+            0.3,
+            get_x(&s)
+        );
     }
     {
         // HP-41C Owner's Manual p.59: SCI mode keeps n+1 significant digits.
@@ -2955,21 +2986,36 @@ fn test_numerical_accuracy_suite() {
         s.display_mode = hp41_core::DisplayMode::Sci(2);
         push(&mut s, "1234.5678");
         dispatch(&mut s, Op::Rnd).unwrap();
-        case!("rnd", "RND(1234.5678, SCI 2) = 1230 (3 sig figs)", 1230.0, get_x(&s));
+        case!(
+            "rnd",
+            "RND(1234.5678, SCI 2) = 1230 (3 sig figs)",
+            1230.0,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
         s.display_mode = hp41_core::DisplayMode::Fix(0);
         push(&mut s, "3.7");
         dispatch(&mut s, Op::Rnd).unwrap();
-        case!("rnd", "RND(3.7, FIX 0) = 4 (round-half-away)", 4.0, get_x(&s));
+        case!(
+            "rnd",
+            "RND(3.7, FIX 0) = 4 (round-half-away)",
+            4.0,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
         s.display_mode = hp41_core::DisplayMode::Fix(0);
         push(&mut s, "-3.7");
         dispatch(&mut s, Op::Rnd).unwrap();
-        case!("rnd", "RND(-3.7, FIX 0) = -4 (round-half-away)", -4.0, get_x(&s));
+        case!(
+            "rnd",
+            "RND(-3.7, FIX 0) = -4 (round-half-away)",
+            -4.0,
+            get_x(&s)
+        );
     }
     {
         // RND idempotency: RND(RND(x)) = RND(x) for any mode (D-01/D-02).
@@ -2992,7 +3038,12 @@ fn test_numerical_accuracy_suite() {
         s.display_mode = hp41_core::DisplayMode::Fix(1);
         push(&mut s, "0.05");
         dispatch(&mut s, Op::Rnd).unwrap();
-        case!("rnd", "RND(0.05, FIX 1) = 0.1 (half-away-from-zero)", 0.1, get_x(&s));
+        case!(
+            "rnd",
+            "RND(0.05, FIX 1) = 0.1 (half-away-from-zero)",
+            0.1,
+            get_x(&s)
+        );
     }
 
     // ── v2.2 Op::Frc (cases 538–545) ────────────────────────────────────────
@@ -3009,7 +3060,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "-3.14");
         dispatch(&mut s, Op::Frc).unwrap();
-        case!("frc", "FRC(-3.14) = -0.14 (sign follows input)", -0.14, get_x(&s));
+        case!(
+            "frc",
+            "FRC(-3.14) = -0.14 (sign follows input)",
+            -0.14,
+            get_x(&s)
+        );
     }
     {
         let mut s = CalcState::new();
@@ -3103,7 +3159,13 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "10");
         push(&mut s, "45");
         dispatch(&mut s, Op::PolarToRect).unwrap();
-        case!("pr", "PR(R=10, θ=45°) X=7.071...", 7.071_067_812, get_x(&s), wide);
+        case!(
+            "pr",
+            "PR(R=10, θ=45°) X=7.071...",
+            7.071_067_812,
+            get_x(&s),
+            wide
+        );
     }
     {
         // PR with negative R: sign carries through.
@@ -3146,7 +3208,13 @@ fn test_numerical_accuracy_suite() {
         push(&mut s, "3");
         push(&mut s, "4");
         dispatch(&mut s, Op::RectToPolar).unwrap();
-        case!("rp", "RP(x=3, y=4) θ≈53.13°", 53.130_102_35, get_x(&s), wide);
+        case!(
+            "rp",
+            "RP(x=3, y=4) θ≈53.13°",
+            53.130_102_35,
+            get_x(&s),
+            wide
+        );
     }
     {
         let mut s = new_deg_state();

@@ -71,7 +71,10 @@ fn fmt_eng_carry_threshold_crossing_999_9995_in_eng_3() {
     // an invalid "1000.000E 00" instead of "1.000E 03".
     let s = format_hpnum(&num("999.9995"), &DisplayMode::Eng(3));
     // After carry: mantissa = 1.000, eng_exp = 3.
-    assert_eq!(s, "1.000E 03", "ENG carry must bump to next decade: got {s}");
+    assert_eq!(
+        s, "1.000E 03",
+        "ENG carry must bump to next decade: got {s}"
+    );
 }
 
 #[test]

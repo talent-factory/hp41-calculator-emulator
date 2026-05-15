@@ -35,22 +35,17 @@ use rust_decimal::Decimal;
 /// surface is the algorithmic correctness of FRC/INT/MOD/FACT/RND/P↔R, which
 /// the ±18 effective range covers thoroughly.
 fn arb_hp_decimal() -> impl Strategy<Value = Decimal> {
-    (
-        any::<bool>(),
-        1u64..10_000_000_000u64,
-        -18i32..=18i32,
-    )
-        .prop_map(|(neg, mantissa, exp)| {
-            let mut d = Decimal::from(mantissa);
-            if neg {
-                d.set_sign_negative(true);
-            }
-            if exp >= 0 {
-                d * Decimal::from(10i64.pow(exp as u32))
-            } else {
-                d / Decimal::from(10i64.pow((-exp) as u32))
-            }
-        })
+    (any::<bool>(), 1u64..10_000_000_000u64, -18i32..=18i32).prop_map(|(neg, mantissa, exp)| {
+        let mut d = Decimal::from(mantissa);
+        if neg {
+            d.set_sign_negative(true);
+        }
+        if exp >= 0 {
+            d * Decimal::from(10i64.pow(exp as u32))
+        } else {
+            d / Decimal::from(10i64.pow((-exp) as u32))
+        }
+    })
 }
 
 /// Tolerance-based comparison helper (mirrors numerical_accuracy.rs:58).

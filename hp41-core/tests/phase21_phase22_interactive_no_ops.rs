@@ -134,7 +134,10 @@ fn op_pse_interactive_writes_pause_to_display_override() {
     // a separate semantic. This test pins the interactive side effect.
     let mut s = CalcState::new();
     dispatch(&mut s, Op::Pse).unwrap();
-    assert!(s.display_override.is_some(), "PSE must write display_override interactively");
+    assert!(
+        s.display_override.is_some(),
+        "PSE must write display_override interactively"
+    );
     assert!(
         s.event_buffer.iter().any(|e| e.contains("PAUSE 1000")),
         "PSE must push PAUSE 1000 to event_buffer"
@@ -184,9 +187,7 @@ fn op_isg_ind_interactive_discards_skip_signal() {
     s.regs[5] = hp41_core::HpNum::from(7i32);
     // Set regs[7] to a counter at the boundary so op_isg_ind would
     // return true (skip) — but interactively that signal must be ignored.
-    s.regs[7] = hp41_core::HpNum::rounded(
-        rust_decimal::Decimal::from_str_exact("5.005").unwrap(),
-    );
+    s.regs[7] = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_str_exact("5.005").unwrap());
     let pc_before = s.pc;
     dispatch(&mut s, Op::IsgInd(5)).unwrap();
     assert_eq!(s.pc, pc_before, "interactive IsgInd must not advance pc");
@@ -198,9 +199,7 @@ fn op_dse_ind_interactive_discards_skip_signal() {
     // mod.rs:912.
     let mut s = CalcState::new();
     s.regs[5] = hp41_core::HpNum::from(7i32);
-    s.regs[7] = hp41_core::HpNum::rounded(
-        rust_decimal::Decimal::from_str_exact("1.000").unwrap(),
-    );
+    s.regs[7] = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_str_exact("1.000").unwrap());
     let pc_before = s.pc;
     dispatch(&mut s, Op::DseInd(5)).unwrap();
     assert_eq!(s.pc, pc_before, "interactive DseInd must not advance pc");
