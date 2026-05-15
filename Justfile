@@ -79,12 +79,25 @@ gui-build:
 gui-check:
 	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
 
-# gui-ci: CI gate — TypeScript type-check, Rust tests, and release build (called from ci-gui.yml)
+# gui-ci: CI gate — TypeScript type-check, Rust tests, release build, Vitest (D-27.14)
 gui-ci:
 	cd hp41-gui && npm install
 	cd hp41-gui && npx tsc --noEmit
 	cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml
 	cargo build --release --manifest-path hp41-gui/src-tauri/Cargo.toml
+	cd hp41-gui && npm test
+
+# gui-e2e: WebdriverIO + tauri-driver smoke (Linux only — invoked from ci-gui.yml).
+# Phase 27 Plan 27-04, FN-QUAL-05, D-27.15 AMENDED 2026-05-15.
+# Preconditions:
+#   1. `just gui-build` has produced hp41-gui/src-tauri/target/release/hp41-gui
+#   2. `cargo install tauri-driver --locked --version 2.0.6` is on PATH
+#      (typically ~/.cargo/bin/tauri-driver)
+#   3. `webkit2gtk-driver` apt package is installed (Pitfall 6)
+#   4. When running on a headless Ubuntu runner, wrap with `xvfb-run -a` (A5)
+gui-e2e:
+	cd hp41-gui && npm install
+	cd hp41-gui && npx wdio run wdio.conf.js
 
 # Regenerate the HP-41CV function matrix from canonical JSON (developer-side).
 # Reads docs/hp41cv-functions.json and writes docs/hp41cv-function-matrix.md.
