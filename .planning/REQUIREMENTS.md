@@ -100,11 +100,11 @@
 
 ### Test Hardening (FN-QUAL)
 
-- [ ] **FN-QUAL-01**: `hp41-core` line coverage ≥ 95 % (recover from current 92.5 %); enforced by `just coverage` gate
-- [ ] **FN-QUAL-02**: Numerical accuracy suite (`hp41-core/tests/numerical_accuracy.rs`) extended with cases for every new math/conversion op (PI, P→R, R→P, RND, FRC, MOD, FACT); ≥ 98 % pass rate maintained
-- [ ] **FN-QUAL-03**: Flag-semantics property tests (proptest) — set/clear/test invariants across all 56 user flags
-- [ ] **FN-QUAL-04**: Indirect-addressing integration tests — every IND op resolves correctly and rejects non-integer with `HpError::InvalidOp`
-- [ ] **FN-QUAL-05**: GUI E2E smoke test via Playwright in `ci-gui.yml` — boots the app, clicks a representative subset of keys, asserts display state
+- [x] **FN-QUAL-01**: `hp41-core` line coverage ≥ 95 % (recover from current 92.5 %); enforced by `just coverage` gate ✅ 95.25 % lines / 93.75 % regions measured 2026-05-15 (Phase 27-01)
+- [x] **FN-QUAL-02**: Numerical accuracy suite (`hp41-core/tests/numerical_accuracy.rs`) extended with cases for every new math/conversion op (PI, P→R, R→P, RND, FRC, MOD, FACT); ≥ 98 % pass rate maintained ✅ 561/566 = 99.1 % combined; 27 Free42/manual citations (Phase 27-01 hand + 27-02 shape)
+- [x] **FN-QUAL-03**: Flag-semantics property tests (proptest) — set/clear/test invariants across all 56 user flags ✅ 14 properties × 1024 cases in `proptest_flags.rs`; IND-resolved equivalence + conditional-skip sentinel covered (Phase 27-02)
+- [x] **FN-QUAL-04**: Indirect-addressing integration tests — every IND op resolves correctly and rejects non-integer with `HpError::InvalidOp` ✅ 42 tests in `indirect_addressing.rs` covering all 17 _IND ops (happy + non-integer reject); skip-semantic ops drive through `run_program` (Phase 27-03)
+- [x] **FN-QUAL-05**: GUI E2E smoke test via WebdriverIO + tauri-driver (D-27.15 AMENDED — replaces Playwright) in `ci-gui.yml` — boots the app, clicks `2 ENTER 3 +`, asserts the LCD reads `5.0000` ✅ `e2e-linux` job green on Ubuntu CI 2026-05-15 (Phase 27-04)
 
 ---
 
@@ -190,10 +190,10 @@ None deferred for v2.x. Module-Pacs explicitly out of scope (→ v3.x).
 | FN-POLISH-02 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
 | FN-POLISH-03 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
 | FN-POLISH-04 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
-| FN-QUAL-01 | Phase 27 — Test Hardening | TBD |
-| FN-QUAL-02 | Phase 27 — Test Hardening | TBD |
-| FN-QUAL-03 | Phase 27 — Test Hardening | TBD |
-| FN-QUAL-04 | Phase 27 — Test Hardening | TBD |
-| FN-QUAL-05 | Phase 27 — Test Hardening | TBD |
+| FN-QUAL-01 | Phase 27-01 — Coverage push | ✅ 2026-05-15 (95.25 % lines / 93.75 % regions; gate 80→95 ratchet) |
+| FN-QUAL-02 | Phase 27-01 (hand) + 27-02 (shape) | ✅ 2026-05-15 (561/566 = 99.1 %; 27 Free42 citations) |
+| FN-QUAL-03 | Phase 27-02 — Proptest flags | ✅ 2026-05-15 (14 props × 1024 cases) |
+| FN-QUAL-04 | Phase 27-03 — IND integration | ✅ 2026-05-15 (42 tests, all 17 _IND ops) |
+| FN-QUAL-05 | Phase 27-04 — WebdriverIO E2E | ✅ 2026-05-15 (e2e-linux green on Ubuntu CI; D-27.15 AMENDED) |
 
 **Coverage:** 63 / 63 requirements mapped ✓

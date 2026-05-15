@@ -1,7 +1,7 @@
 # Roadmap: HP-41 Calculator Emulator
 
 **Project:** HP-41 Calculator Emulator
-**Current milestone:** v2.2 HP-41CV Feature Completeness (planning)
+**Current milestone:** v2.2 HP-41CV Feature Completeness — 8/8 phases shipped, CI green, milestone complete
 
 ---
 
@@ -11,7 +11,7 @@
 - ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09 · [Archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v2.0 Tauri GUI** — Phases 13–18, pixel-perfect HP-41C desktop app — SHIPPED 2026-05-10 · [Archive](milestones/v2.0-ROADMAP.md)
 - ✅ **v2.1 Card Reader + Keyboard Authenticity** — recorded as two quick tasks (no Phase 19 GSD directory); SHIPPED 2026-05-13 · see MILESTONES.md
-- 🟡 **v2.2 HP-41CV Feature Completeness** — Phases 20–27, ROM built-in 130-function set + docs + GUI integration + polish + test hardening (in planning)
+- ✅ **v2.2 HP-41CV Feature Completeness** — Phases 20–27, ROM built-in 130-function set + docs + GUI integration + polish + test hardening — SHIPPED 2026-05-15
 
 ---
 
@@ -26,7 +26,7 @@
 - [x] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer ✅ shipped 2026-05-14 (2 plans, 11 new Op variants, resolve_indirect two-tier helper, 43 integration tests + 7 inline + 4 D-24.5 sentinels = 54 new tests, coverage 93.48%)
 - [x] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + JSON-derived `key_ref_entries()` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs` (JSON pipeline); ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README ✅ shipped 2026-05-15 (4 plans, 17 commits, App.shift_armed one-shot + 6 new PendingInput variants + builtin_card_op 4→12 surgical extension + 130+ JSON function entries + scripts/docs-matrix standalone bin + key_coverage parity test, 1045/1045 tests passing)
 - [x] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode` (completed 2026-05-15)
-- [ ] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; Playwright GUI E2E smoke test
+- [x] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; WebdriverIO + tauri-driver GUI E2E smoke test ✅ shipped 2026-05-15 (4 plans, ~24 commits, coverage 95.25% lines / 93.75% regions, numerical_accuracy 561/566 = 99.1 %, 19 proptests, 42 IND integration tests, e2e-linux job green on Ubuntu CI per D-27.15 AMENDED; D-27.16 1-retry verified)
 
 ---
 
@@ -199,10 +199,10 @@ Plans:
   4. Integration tests in `hp41-core/tests/indirect_addressing.rs` verify every `_IND` op (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — happy path + non-integer rejection
   5. An E2E spec (WebdriverIO + tauri-driver per D-27.15 AMENDED 2026-05-15; originally Playwright) runs as a new job in `.github/workflows/ci-gui.yml` on Linux, boots the production Tauri build, clicks `2 ENTER 3 +`, and asserts the display reads `5.0000` (or current display-mode equivalent) — green on the Ubuntu runner
 **Plans**:
-  - 27-01 — Coverage push + atomic 80→95 gate raise (FN-QUAL-01, FN-QUAL-02 hand)
-  - 27-02 — Proptest suites (`proptest_flags.rs` + `proptest_math.rs`) (FN-QUAL-02 shape + FN-QUAL-03)
-  - 27-03 — IND integration suite (`indirect_addressing.rs`) (FN-QUAL-04)
-  - 27-04 — WebdriverIO + tauri-driver E2E smoke + Vitest CI gating (FN-QUAL-05, D-27.14)
+  - [x] 27-01 — Coverage push + atomic 80→95 gate raise (FN-QUAL-01, FN-QUAL-02 hand) ✅ shipped 2026-05-15 — 92 `// Catches:` rationale comments, 95.25 % lines / 93.75 % regions, 27 Free42/manual citations
+  - [x] 27-02 — Proptest suites (`proptest_flags.rs` + `proptest_math.rs`) (FN-QUAL-02 shape + FN-QUAL-03) ✅ shipped 2026-05-15 — 14 × 1024-case flag properties + 5 × 256-case math shape invariants; FACT range narrowed 0..=26 (Rule-1 deviation, math.rs:450 wall)
+  - [x] 27-03 — IND integration suite (`indirect_addressing.rs`) (FN-QUAL-04) ✅ shipped 2026-05-15 — 42 tests covering all 17 _IND ops with happy + non-integer reject; both PLAN-CHECK variant-syntax mismatches auto-corrected on read_first
+  - [x] 27-04 — WebdriverIO + tauri-driver E2E smoke + Vitest CI gating (FN-QUAL-05, D-27.14) ✅ shipped 2026-05-15 — e2e-linux job green on Ubuntu CI per D-27.15 AMENDED; D-27.16 1-retry verified; Vitest gated in `gui-ci` per D-27.14
 **Cross-cutting constraints:**
   - Coverage gate raise (80% → 95%) is a `justfile`/`just coverage` recipe change — must be committed atomically with the test additions or CI will fail
   - Proptest cases should NOT exceed 256 iterations per case to keep CI runtime reasonable; flag invariants are fast — 1024 iterations is fine for those
@@ -242,4 +242,4 @@ Plans:
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
 | 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
 | 26. GUI Integration & Polish | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 27. Test Hardening | v2.2 | 0/4 | Planned    |  |
+| 27. Test Hardening | v2.2 | 4/4 | Complete | 2026-05-15 |

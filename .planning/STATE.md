@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
-status: executing
-last_updated: "2026-05-15T15:00:00.000Z"
-last_activity: 2026-05-15 -- Phase 27 context gathered
+status: complete
+last_updated: "2026-05-15T18:25:00.000Z"
+last_activity: 2026-05-15 -- Phase 27 shipped; v2.2 milestone complete (8/8 phases, CI green)
 progress:
   total_phases: 8
-  completed_phases: 7
-  total_plans: 22
-  completed_plans: 22
-  percent: 88
+  completed_phases: 8
+  total_plans: 26
+  completed_plans: 26
+  percent: 100
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -26,7 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
-**Current focus:** Phase 27 — test-hardening (planning)
+**Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green (`ci` + `ci-gui` + new `e2e-linux` job)
+**Current focus:** v2.2 wrap-up — branch protection wiring for `e2e-linux` is the sole remaining manual repo-setting follow-up (HUMAN-UAT item 2); ready to plan v3.x module emulation
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -34,16 +35,15 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 27 (test-hardening) — CONTEXT GATHERED
-Plan: pending /gsd-plan-phase 27
-Plans: TBD (FN-QUAL-01..05; coverage push + accuracy ext + proptests + IND tests + Playwright E2E + Vitest gating)
-Status: Phase 27 context captured; ready for planning
-Resume file: .planning/phases/27-test-hardening/27-CONTEXT.md
-Last activity: 2026-05-15 -- Phase 27 context gathered (4 areas, 16 decisions D-27.1..D-27.16)
+Phase: 27 (test-hardening) — SHIPPED 2026-05-15
+Plans: 4/4 complete (27-01 coverage push, 27-02 proptest suites, 27-03 IND integration, 27-04 WebdriverIO E2E + Vitest CI gating)
+Status: v2.2 milestone complete; CI fully green on develop (20/20 PR checks SUCCESS); HUMAN-UAT item 1 PASSED (e2e-linux observed green); HUMAN-UAT item 2 (branch protection setting) pending manual repo configuration
+Verification: 27-VERIFICATION.md — 5/5 SC verified, 16/16 D-27.x decisions honored, 0 gaps
+Last activity: 2026-05-15 -- Phase 27 shipped + CI flake remediation (MSRV ci-msrv split, gui-build self-installing, wdio.conf .cjs rename + hostname/port/browserName fixes, SVG click via browser.execute)
 
-Progress: 7 / 8 phases (Phase 26 GUI Integration shipped; Phase 27 Test Hardening final phase of v2.2)
+Progress: 8 / 8 phases (v2.2 milestone complete — all FN-QUAL-01..05 validated)
 
-**Phase 27 baseline (measured 2026-05-15):** hp41-core line coverage 93.59% / regions 91.21% / functions 97.42% (target ≥95.0% lines per FN-QUAL-01).
+**Phase 27 final metrics (measured 2026-05-15):** hp41-core line coverage 95.25% / regions 93.75% / functions 97.68% (gate ≥95.0% PASSES); numerical_accuracy 561/566 = 99.1 % combined pass rate; workspace tests 1202/1202 pass; vitest 142/142 pass; e2e-linux smoke green on Ubuntu CI.
 
 ---
 
