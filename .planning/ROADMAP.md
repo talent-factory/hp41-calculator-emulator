@@ -197,8 +197,12 @@ Plans:
   2. `hp41-core/tests/numerical_accuracy.rs` reports ≥ 490 / 500 cases passing (≥98%) with the v2.2 case extensions for PI, P→R, R→P, RND, FRC, MOD, FACT added
   3. A proptest module (e.g. `hp41-core/tests/flag_properties.rs`) asserts: for all u8 n in 0..56, `SF(n); FS?(n) == true`; `CF(n); FC?(n) == true`; `SF(n); FS?C(n); FC?(n) == true` — runs in CI as part of `just test`
   4. Integration tests in `hp41-core/tests/indirect_addressing.rs` verify every `_IND` op (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — happy path + non-integer rejection
-  5. A Playwright spec runs as a new job in `.github/workflows/ci-gui.yml` on Linux, boots `just gui-dev` (or production build), clicks `2 ENTER 3 +`, and asserts the display reads `5.0000` (or current display-mode equivalent) — green on the Ubuntu runner
-**Plans**: TBD
+  5. An E2E spec (WebdriverIO + tauri-driver per D-27.15 AMENDED 2026-05-15; originally Playwright) runs as a new job in `.github/workflows/ci-gui.yml` on Linux, boots the production Tauri build, clicks `2 ENTER 3 +`, and asserts the display reads `5.0000` (or current display-mode equivalent) — green on the Ubuntu runner
+**Plans**:
+  - 27-01 — Coverage push + atomic 80→95 gate raise (FN-QUAL-01, FN-QUAL-02 hand)
+  - 27-02 — Proptest suites (`proptest_flags.rs` + `proptest_math.rs`) (FN-QUAL-02 shape + FN-QUAL-03)
+  - 27-03 — IND integration suite (`indirect_addressing.rs`) (FN-QUAL-04)
+  - 27-04 — WebdriverIO + tauri-driver E2E smoke + Vitest CI gating (FN-QUAL-05, D-27.14)
 **Cross-cutting constraints:**
   - Coverage gate raise (80% → 95%) is a `justfile`/`just coverage` recipe change — must be committed atomically with the test additions or CI will fail
   - Proptest cases should NOT exceed 256 iterations per case to keep CI runtime reasonable; flag invariants are fast — 1024 iterations is fine for those
@@ -238,4 +242,4 @@ Plans:
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
 | 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
 | 26. GUI Integration & Polish | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
+| 27. Test Hardening | v2.2 | 0/4 | Planned    |  |
