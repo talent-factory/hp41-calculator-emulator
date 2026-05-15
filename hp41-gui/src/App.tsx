@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 import { Keyboard, type KeyDef } from './Keyboard';
 import Display14Seg from './Display14Seg';
+import HelpOverlay from './HelpOverlay';
 import {
   handleModalKey,
   renderModalLcd,
@@ -89,13 +90,23 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
   if (e.key.length === 1 && '0123456789'.includes(e.key)) return e.key;
   if (e.key === '.') return '.';
   if (e.key === 'e') return 'e';
-  // Modal-trigger keys — silently ignore, no invoke (D-05)
-  if (e.key.length === 1 && 'SRfFPX'.includes(e.key)) return null;
+  // Modal-trigger keys — silently ignore, no invoke (D-05).
+  // 'P' was in this list pre-Phase-26 but Phase 26 D-26.10 reassigns it
+  // to 'prx' (SHIFT+P prints X). 'p' (lowercase) was 'prx' pre-Phase-26
+  // and is now 'prgm_mode' per D-26.10.
+  if (e.key.length === 1 && 'SRfFX'.includes(e.key)) return null;
   // Named op mapping — authoritative source: hp41-cli/src/keys.rs key_to_op()
   const MAP: Record<string, string> = {
     'Enter': 'enter', 'Backspace': 'clx',
     '+': 'plus', '-': 'minus', '*': 'mul', '/': 'div',
-    'r': 'rdn', 'x': 'xy_swap', 'l': 'lastx', 's': 'sqrt', 'p': 'prx',
+    'r': 'rdn', 'x': 'xy_swap', 'l': 'lastx', 's': 'sqrt',
+    // Phase 26 D-26.10 — physical-keyboard 'p' remap.
+    // Pre-Phase-26: 'p' was 'prx'. The conflict with the cluster of
+    // letter-key shortcuts (every other letter is a math/program op,
+    // not a print directive) was deferred from v2.0. v2.2 resolves it:
+    // lowercase 'p' now toggles PRGM mode; SHIFT+'P' prints X.
+    'p': 'prgm_mode',
+    'P': 'prx',
     'a': 'asin', 'c': 'acos', 'k': 'atan',
     'C': 'cos', 'T': 'tan', 'L': 'ln', 'G': 'log', 'E': 'exp',
     'H': 'tenpow', 'I': 'recip', 'W': 'sq', 'Y': 'ypow',
@@ -170,6 +181,10 @@ function App() {
   // `invokeForKey(parameterizedId)`. Esc clears both shiftActive AND
   // pendingInput.
   const [pendingInput, setPendingInput] = useState<PendingInput | null>(null);
+  // Phase 26 D-26.8 — `?` help overlay open/close. Frontend-only state
+  // (no IPC round-trip — the help data is bundled at build time via
+  // help_data.ts's vite JSON import).
+  const [helpOpen, setHelpOpen] = useState(false);
   // Toast overlay for GuiError responses (single-toast policy, 2s auto-dismiss).
   // The monotonic `seq` is required because two clicks on the same stubbed
   // key produce identical message strings — setting state to the same value
@@ -326,13 +341,41 @@ function App() {
   }, [calcState, shiftActive, pendingInput, applyModalResult, showToast]);
 
   // Physical-keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode.
-  // Tab toggles SHIFT, Esc cancels BOTH SHIFT AND pendingInput (D-26.4).
+  // Tab toggles SHIFT, Esc cancels in precedence order: help → modal → shift
+  // (Phase 26 D-26.8 + D-26.4).
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.repeat) return;        // SC-4 fix: ignore OS key-repeat events — each IPC round-trip
                                  // completes before the next repeat fires, defeating busyRef alone
+
+    // Phase 26 D-26.8 — '?' opens the help overlay. Guard against ALPHA mode
+    // (where '?' is a valid ALPHA register input — same convention as the
+    // CLI Phase 25 `?` overlay). Skip if the overlay is already open so
+    // typing '?' in the search input doesn't re-fire the toggle.
+    const alphaOn = calcState?.annunciators.alpha ?? false;
+    if (e.key === '?' && !alphaOn && !helpOpen) {
+      e.preventDefault();
+      setHelpOpen(true);
+      return;
+    }
+
+    // Esc precedence (D-26.8 + D-26.4):
+    //   1. Help overlay first (closes on Esc; doesn't clear modal/shift).
+    //   2. pendingInput second (closes the modal, clears shiftActive).
+    //   3. shiftActive last (clears the one-shot SHIFT prefix).
+    // This precedence keeps each layer independently dismissable: opening
+    // help doesn't lose an in-progress modal; canceling help leaves the
+    // modal intact.
     if (e.key === 'Escape') {
+      if (helpOpen) {
+        setHelpOpen(false);
+        return;
+      }
+      if (pendingInput !== null) {
+        setPendingInput(null);
+        setShiftActive(false);
+        return;
+      }
       setShiftActive(false);
-      setPendingInput(null);  // D-26.4: Esc cancels any open modal
       return;
     }
     if (e.key === 'Tab') {
@@ -364,7 +407,7 @@ function App() {
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
     e.preventDefault();
     dispatchKeyId(keyId);
-  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult]);
+  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult, helpOpen]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -453,6 +496,8 @@ function App() {
         busyRef={busyRef}
         shiftActive={shiftActive}
         alphaActive={calcState.annunciators.alpha}
+        userActive={calcState.annunciators.user}
+        userKeymap={calcState.user_keymap}
       />
       {calcState.annunciators.prgm && (
         <div className="prgm-panel">
@@ -487,6 +532,11 @@ function App() {
           </div>
         </div>
       )}
+      {/* Phase 26 D-26.8 — `?` help overlay. The component returns null when
+          open=false, so unconditional placement in the tree is safe. Anchored
+          inside `.calculator` (position: relative) so the overlay's `position:
+          absolute` covers the calculator footprint only, not the page. */}
+      <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

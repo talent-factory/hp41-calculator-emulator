@@ -138,6 +138,13 @@ export interface KeyboardProps {
   busyRef: MutableRefObject<boolean>;
   shiftActive: boolean;
   alphaActive: boolean;
+  // Phase 26 D-26.9 — USER-mode per-key relabel. When `userActive=true` and
+  // a KEY_DEFS entry has `keyCode` matching an ASN entry in `userKeymap`,
+  // the keycap renders the ASN'd label INSTEAD of the primary label.
+  // Wired by Task 3; the props are declared in Task 2 so App.tsx can
+  // pass them now without a TypeScript error.
+  userActive?: boolean;
+  userKeymap?: ReadonlyArray<[number, string]>;
 }
 
 export function Keyboard({ onKey, busyRef, shiftActive, alphaActive }: KeyboardProps) {
