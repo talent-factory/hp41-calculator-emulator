@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
@@ -8,6 +9,15 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: process.env.TAURI_DEV_HOST || 'localhost',
+    // Phase 26 Plan 03 W8 — the JSON import in src/help_data.ts uses
+    // `../../docs/hp41cv-functions.json`, which climbs outside the default
+    // vite project root (`hp41-gui/`). Extend `fs.allow` to include the
+    // repo root so the import resolves at build time.
+    // `path.resolve(__dirname, '..')` evaluates to the repo root
+    // (`<repo>/hp41-calculator-emulator/`).
+    fs: {
+      allow: [path.resolve(__dirname, '..')],
+    },
   },
   build: {
     outDir: 'dist',
