@@ -236,5 +236,5 @@ Plans:
 | 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
 | 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 26. GUI Integration & Polish | v2.2 | 3/3 | Complete   | 2026-05-15 |
+| 26. GUI Integration & Polish | v2.2 | 4/4 | Complete   | 2026-05-15 |
 | 27. Test Hardening | v2.2 | 0/TBD | Not started | — |
