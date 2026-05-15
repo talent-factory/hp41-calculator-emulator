@@ -111,7 +111,7 @@ gui-ci:
 #   4. When running on a headless Ubuntu runner, wrap with `xvfb-run -a` (A5)
 gui-e2e:
 	cd hp41-gui && npm install
-	cd hp41-gui && npx wdio run wdio.conf.js
+	cd hp41-gui && npx wdio run wdio.conf.cjs
 
 # Regenerate the HP-41CV function matrix from canonical JSON (developer-side).
 # Reads docs/hp41cv-functions.json and writes docs/hp41cv-function-matrix.md.
