@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 import { Keyboard, type KeyDef } from './Keyboard';
+import {
+  handleModalKey,
+  renderModalLcd,
+  makeKeyCodeMagic,
+  type PendingInput,
+  type ModalKeyResult,
+} from './pending_input';
 
 interface Annunciators {
   user: boolean;
@@ -23,6 +30,11 @@ interface CalcStateView {
   print_lines: string[];
   program_steps: string[];  // Phase 18 D-01: pre-formatted step strings from Rust
   pc: number;               // Phase 18 D-01: current program counter index
+  // Phase 26 D-26.11 (BLOCKER B5): TS-side mirror of the new Rust projections.
+  user_keymap: Array<[number, string]>;   // mirrors Vec<(u8, String)>
+  flags: number[];                         // mirrors Vec<u8> of set-flag indices
+  display_override: string | null;         // mirrors Option<String>
+  event_buffer: string[];                  // mirrors Vec<String> (drained per IPC)
 }
 
 // Tauri rejects with GuiError { message: string } — String(err) yields
@@ -97,6 +109,46 @@ function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | n
   return MAP[e.key] ?? null;
 }
 
+// Phase 26 D-26.5 — modal-opener factory table. Mapping from clickable
+// modal-opener id → factory function returning the initial PendingInput.
+// The 13 *_prompt ids + asn/view/catalog/xeq_prompt/gto_prompt/lbl_prompt are
+// intercepted in `handleClick` BEFORE they reach `dispatch_op` — the backend
+// stub-error arm in key_map.rs stays as defense-in-depth (D-07 invariant).
+//
+// The 4 conditional-test prompts (x_eq_y_prompt, etc.) route through the
+// `direct` variant (B1) — they dispatch immediately on the next handleModalKey
+// call; no accumulator, no IND-toggle.
+const MODAL_OPENERS: Record<string, () => PendingInput> = {
+  // Register-modal openers (accumulator + IND-toggle).
+  sto_prompt: () => ({ kind: 'register', op: 'Sto', ind: false, acc: '' }),
+  rcl_prompt: () => ({ kind: 'register', op: 'Rcl', ind: false, acc: '' }),
+  isg_prompt: () => ({ kind: 'register', op: 'Isg', ind: false, acc: '' }),
+  // Flag-modal openers (accumulator + IND-toggle).
+  sf_prompt: () => ({ kind: 'flag', testKind: 'SF', ind: false, acc: '' }),
+  cf_prompt: () => ({ kind: 'flag', testKind: 'CF', ind: false, acc: '' }),
+  fs_prompt: () => ({ kind: 'flag', testKind: 'FsQuery', ind: false, acc: '' }),
+  // Fmt-modal openers (single-digit FIX/SCI/ENG N).
+  fix_prompt: () => ({ kind: 'fmt', mode: 'fix' }),
+  sci_prompt: () => ({ kind: 'fmt', mode: 'sci' }),
+  eng_prompt: () => ({ kind: 'fmt', mode: 'eng' }),
+  // BLOCKER B1: conditional-test prompts dispatch IMMEDIATELY via `direct`.
+  x_eq_y_prompt: () => ({ kind: 'direct', dispatchId: 'x_eq_y' }),
+  x_le_y_prompt: () => ({ kind: 'direct', dispatchId: 'x_le_y' }),
+  x_gt_y_prompt: () => ({ kind: 'direct', dispatchId: 'x_gt_y' }),
+  x_eq_0_prompt: () => ({ kind: 'direct', dispatchId: 'x_eq_0' }),
+  // Label-bearing modals (text input + Enter) — xeq_name shape reused.
+  xeq_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'xeq' }),
+  gto_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'gto' }),
+  lbl_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'lbl' }),
+  // BLOCKER B2: catalog + tone share single_digit with op + max discriminator.
+  catalog: () => ({ kind: 'single_digit', op: 'Catalog', max: 3 }),
+  tone: () => ({ kind: 'single_digit', op: 'Tone', max: 9 }),
+  // ASN flow: AssignKey → (next key click via __keycode__NN) → AssignLabel.
+  asn: () => ({ kind: 'assign_key' }),
+  // VIEW — takes a register, same shape as register-modal but op='View'.
+  view: () => ({ kind: 'register', op: 'View', ind: false, acc: '' }),
+};
+
 function App() {
   const [calcState, setCalcState] = useState<CalcStateView | null>(null);
   // Surfaces GuiError messages from the backend (DivByZero, "unknown key", load
@@ -110,6 +162,13 @@ function App() {
   const activeStepRef = useRef<HTMLDivElement>(null);
   // Frontend-owned SHIFT one-shot prefix (no IPC round-trip).
   const [shiftActive, setShiftActive] = useState(false);
+  // Phase 26 D-26.1 — frontend-owned modal state (no IPC round-trip).
+  // PendingInput | null carries the 14 logical states from CLI Phase 25
+  // (parity invariant D-25.6). Accumulator keystrokes route through
+  // `handleModalKey`; dispatch happens at end-of-accumulation via
+  // `invokeForKey(parameterizedId)`. Esc clears both shiftActive AND
+  // pendingInput.
+  const [pendingInput, setPendingInput] = useState<PendingInput | null>(null);
   // Toast overlay for GuiError responses (single-toast policy, 2s auto-dismiss).
   // The monotonic `seq` is required because two clicks on the same stubbed
   // key produce identical message strings — setting state to the same value
@@ -151,17 +210,47 @@ function App() {
       .finally(() => { busyRef.current = false; });
   }, []);
 
+  // Apply a ModalKeyResult — updates state and optionally dispatches.
+  // Returns true if a dispatch was issued (caller can short-circuit).
+  const applyModalResult = useCallback(
+    async (result: ModalKeyResult): Promise<boolean> => {
+      setPendingInput(result.nextPending);
+      if (result.consumesShift) setShiftActive(false);
+      if (result.dispatchId === null) return false;
+      busyRef.current = true;
+      try {
+        const view = await invokeForKey(result.dispatchId);
+        setCalcState(view);
+        setErrorMessage(null);
+      } catch (err) {
+        showToast(extractErrMessage(err));
+      } finally {
+        busyRef.current = false;
+      }
+      return true;
+    },
+    [showToast],
+  );
+
   // On-screen keyboard click router. Resolution order:
   //   1. SHIFT key toggles local shiftActive, no dispatch.
   //   2. ALPHA mode + alphaChar → alpha_<char> (SHIFT ignored in ALPHA mode).
   //   3. shiftActive + key.shifted → shifted.id, consumes the one-shot.
   //   4. otherwise → primary id.
+  //   5. Phase 26 D-26.5: if effectiveId in MODAL_OPENERS, intercept BEFORE
+  //      invokeForKey and open the React modal. The `direct` variant resolves
+  //      on the same tick (B1).
+  //   6. If a modal is already open (pendingInput !== null), route the click
+  //      through handleModalKey (D-26.2).
   // Special routes: sst/bst/r_s go to dedicated commands; clx_or_a branches on
   // the live ALPHA annunciator into clx | alpha_clear.
   const handleClick = useCallback(async (key: KeyDef) => {
     if (busyRef.current) return;
 
     // SHIFT key itself toggles state, no dispatch (rule 1 above).
+    // CRITICAL (W2): SHIFT toggling inside an open modal goes HERE, NOT
+    // through handleModalKey — the modal's IND-toggle path requires
+    // shiftActive to be set BEFORE the "0" keystroke arrives.
     if (key.id === 'shift') {
       setShiftActive(prev => !prev);
       return;
@@ -183,6 +272,36 @@ function App() {
 
     if (!effectiveId) return;
 
+    // Rule 6: if a modal is open, route through handleModalKey.
+    if (pendingInput !== null) {
+      // Special case: assign_key modal expects a keycode via magic prefix.
+      // Compute it from the clicked key's row/col (HP-41 row×10+col).
+      const routedKey =
+        pendingInput.kind === 'assign_key'
+          ? makeKeyCodeMagic(key.row * 10 + (key.col + 1))
+          : effectiveId;
+      const result = handleModalKey(routedKey, pendingInput, shiftActive);
+      // Consume the click shift on a modal-key transition too.
+      if (consumesShift && !result.consumesShift) setShiftActive(false);
+      await applyModalResult(result);
+      return;
+    }
+
+    // Rule 5: modal-opener intercept (D-26.5).
+    if (MODAL_OPENERS[effectiveId]) {
+      const initial = MODAL_OPENERS[effectiveId]();
+      // B1 fast path: `direct` variant — open and resolve on the same tick.
+      if (initial.kind === 'direct') {
+        const result = handleModalKey('', initial, false);
+        if (consumesShift) setShiftActive(false);
+        await applyModalResult(result);
+        return;
+      }
+      setPendingInput(initial);
+      if (consumesShift) setShiftActive(false);
+      return;
+    }
+
     busyRef.current = true;
     try {
       let view: CalcStateView;
@@ -203,15 +322,16 @@ function App() {
       if (consumesShift) setShiftActive(false);
       busyRef.current = false;
     }
-  }, [calcState, shiftActive]);
+  }, [calcState, shiftActive, pendingInput, applyModalResult, showToast]);
 
   // Physical-keyboard handler — useCallback with calcState dep so 'n' reads latest in_eex_mode.
-  // Tab toggles SHIFT, Esc cancels SHIFT (no IPC).
+  // Tab toggles SHIFT, Esc cancels BOTH SHIFT AND pendingInput (D-26.4).
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.repeat) return;        // SC-4 fix: ignore OS key-repeat events — each IPC round-trip
                                  // completes before the next repeat fires, defeating busyRef alone
     if (e.key === 'Escape') {
       setShiftActive(false);
+      setPendingInput(null);  // D-26.4: Esc cancels any open modal
       return;
     }
     if (e.key === 'Tab') {
@@ -220,11 +340,30 @@ function App() {
       return;
     }
     if (busyRef.current) return; // debounce: ignore while invoke pending
+
+    // Phase 26 D-26.4: if a modal is open, route the key through handleModalKey
+    // BEFORE the normal resolveKeyId path. Esc is already handled above.
+    if (pendingInput !== null) {
+      // Translate physical keys to the modal's input alphabet.
+      let modalKey: string | null = null;
+      if (e.key === 'Enter') modalKey = 'Enter';
+      else if (e.key === 'Backspace') modalKey = 'Backspace';
+      else if (e.key.length === 1) {
+        // Single printable character — digit, letter, or punctuation.
+        modalKey = e.key;
+      }
+      if (modalKey === null) return;
+      e.preventDefault();
+      const result = handleModalKey(modalKey, pendingInput, shiftActive);
+      void applyModalResult(result);
+      return;
+    }
+
     const keyId = resolveKeyId(e, calcState);
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
     e.preventDefault();
     dispatchKeyId(keyId);
-  }, [calcState, dispatchKeyId]);
+  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -274,6 +413,13 @@ function App() {
     ['L', calcState.lastx_str],
   ];
 
+  // Phase 26 D-26.3 — modal preview replaces LCD content during accumulation.
+  // Plan 26-02 will swap the inner content to <Display14Seg text={displayText} />;
+  // the derivation here is forward-compatible.
+  const displayText: string = pendingInput
+    ? renderModalLcd(pendingInput)
+    : calcState.display_str;
+
   return (
     <div className="calculator">
       <div className="annunciators">
@@ -286,7 +432,7 @@ function App() {
           </span>
         ))}
       </div>
-      <div className="display">{calcState.display_str}</div>
+      <div className="display">{displayText}</div>
       {toast && (
         <div key={toast.seq} className="toast" role="status">{toast.msg}</div>
       )}

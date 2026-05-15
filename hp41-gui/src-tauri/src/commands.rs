@@ -210,8 +210,12 @@ pub fn handle_op_finalize(
     if let Some(r) = read_result {
         cards::apply_card_read_result(calc, r);
     }
+    // Phase 26 D-26.11: drain print_buffer AND event_buffer before from_state
+    // (both are &mut, then from_state takes &). Mirror of the v2.0 print_buffer
+    // drain — preserves the no-IPC-leakage pattern across both transient buffers.
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines))
+    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
 }
 
 /// Pure-Rust helper for get_state — drains print_buffer and builds a CalcStateView.
@@ -223,7 +227,8 @@ pub fn handle_op_finalize(
 /// every React poll — a syscall in the redraw path.
 pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines))
+    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
 }
 
 /// Tauri command: step the program counter forward by 1 (SST — Single Step).
@@ -261,14 +266,16 @@ pub fn handle_sst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
         calc.pc += 1;
     }
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines))
+    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
 }
 
 /// Pure-Rust helper for bst_step — decrements pc via saturating_sub, clamped at 0.
 pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     calc.pc = calc.pc.saturating_sub(1);
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines))
+    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
 }
 
 /// Pure-Rust helper for run_stop — toggles `is_running`. Unit-testable
@@ -276,7 +283,8 @@ pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
 pub fn handle_run_stop(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     calc.is_running = !calc.is_running;
     let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines))
+    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
+    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
 }
 
 #[cfg(test)]
