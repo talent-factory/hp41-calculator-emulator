@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — HP-41CV Feature Completeness
 status: executing
-last_updated: "2026-05-15T08:42:15.692Z"
-last_activity: 2026-05-15 -- Phase 26 execution started
+last_updated: "2026-05-15T15:00:00.000Z"
+last_activity: 2026-05-15 -- Phase 27 context gathered
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 21
+  total_plans: 22
   completed_plans: 22
   percent: 88
 ---
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
-**Current focus:** Phase 26 — gui-integration-and-polish
+**Current focus:** Phase 27 — test-hardening (planning)
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -34,14 +34,16 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 26 (gui-integration-and-polish) — EXECUTING
-Plan: 1 of 4
-Plans: 3 plans planned (26-01 modal+wiring, 26-02 14-seg LCD, 26-03 polish-bundle) — pending /gsd-plan-phase 26
-Status: Executing Phase 26
-Resume file: .planning/phases/26-gui-integration-and-polish/26-CONTEXT.md
-Last activity: 2026-05-15 -- Phase 26 execution started
+Phase: 27 (test-hardening) — CONTEXT GATHERED
+Plan: pending /gsd-plan-phase 27
+Plans: TBD (FN-QUAL-01..05; coverage push + accuracy ext + proptests + IND tests + Playwright E2E + Vitest gating)
+Status: Phase 27 context captured; ready for planning
+Resume file: .planning/phases/27-test-hardening/27-CONTEXT.md
+Last activity: 2026-05-15 -- Phase 27 context gathered (4 areas, 16 decisions D-27.1..D-27.16)
 
-Progress: 6 / 8 phases (Phase 25 complete; Phase 26 GUI Integration next)
+Progress: 7 / 8 phases (Phase 26 GUI Integration shipped; Phase 27 Test Hardening final phase of v2.2)
+
+**Phase 27 baseline (measured 2026-05-15):** hp41-core line coverage 93.59% / regions 91.21% / functions 97.42% (target ≥95.0% lines per FN-QUAL-01).
 
 ---
 
