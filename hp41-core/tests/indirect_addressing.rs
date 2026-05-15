@@ -50,7 +50,7 @@ fn non_integer_register() -> HpNum {
     HpNum::rounded(Decimal::from_str("12.5").unwrap())
 }
 
-/// Copy of the helper at `phase24_ind_variants.rs:30` — read flag n's bit.
+/// Copy of the helper at `phase24_ind_variants.rs` — read flag n's bit.
 fn flag_set_test(flags: u64, n: u8) -> bool {
     flags & (1u64 << n) != 0
 }
@@ -177,7 +177,7 @@ ind_happy_and_reject!(
 );
 
 // ── A.5 — STO+_IND, STO-_IND, STO×_IND, STO÷_IND ──────────────────────────
-// `Op::StoArithInd` is a TUPLE variant `(u8, StoArithKind)` per mod.rs:537 —
+// `Op::StoArithInd` is a TUPLE variant `(u8, StoArithKind)` per mod.rs —
 // NOT a struct variant. Plan template error (PLAN-CHECK Suggestion #1)
 // corrected here.
 
@@ -264,7 +264,7 @@ ind_happy_and_reject!(
 
 // ── A.7 — ASTO_IND ────────────────────────────────────────────────────────
 // op_asto packs first 6 chars of alpha_reg into state.text_regs (sidecar)
-// and zeros state.regs[resolved_addr]. Mirrors phase24_ind_variants.rs:504.
+// and zeros state.regs[resolved_addr]. Mirrors phase24_ind_variants.rs.
 // Catches: ASTO_IND writing the packed text to text_regs[5] (the pointer
 // register) instead of text_regs[12] (the resolved register).
 
@@ -318,8 +318,8 @@ ind_happy_and_reject!(
 // DSE / FlagTestInd happy paths MUST drive through run_program — plain
 // dispatch interactively returns Neutral / discards the skip signal
 // (`Op::IsgInd(reg) => indirect::op_isg_ind(state, reg).map(|_| ())` at
-// ops/mod.rs:911; FlagTestInd is `() = { /* interactive no-op */ }` at
-// ops/mod.rs:915-918).
+// ops/mod.rs; FlagTestInd is `() = { /* interactive no-op */ }` at
+// ops/mod.rs).
 //
 // Test shape:
 //   regs[5] = 12;                              // pointer
@@ -464,7 +464,7 @@ fn dse_ind_fn_qual_04_rejects_non_integer_pointer() {
 
 // ── B.3 — FlagTestInd: FS?_IND (IsSet) ────────────────────────────────────
 // `Op::FlagTestInd { kind, ind_reg }` is a STRUCT variant with field name
-// `ind_reg` per mod.rs:560-563 — NOT `flag`. Plan template error
+// `ind_reg` per mod.rs — NOT `flag`. Plan template error
 // (PLAN-CHECK Suggestion #1) corrected here.
 //
 // HP-41 semantics: FS? skips next step when flag is NOT set (test fires "skip

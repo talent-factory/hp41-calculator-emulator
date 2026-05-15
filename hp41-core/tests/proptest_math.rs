@@ -136,7 +136,7 @@ proptest! {
 //
 // FACT(0) = 1, FACT(n+1) = FACT(n) × (n+1). HP-41 hardware-spec OutOfRange
 // fires at X > 69 (Owner's Manual p.234), but the practical Decimal
-// representable-range wall is X ≤ 27 (op_fact D-05 comment in math.rs:450
+// representable-range wall is X ≤ 27 (op_fact D-05 comment in math.rs
 // — Decimal::from_f64 returns Overflow for f64 factorials of 28..=69).
 // To keep both FACT(n) and FACT(n+1) representable, the proptest range
 // is n in 0..=26 (so n+1 ≤ 27, the safe interior).
@@ -146,7 +146,7 @@ proptest! {
     // Catches: off-by-one or sign regression in op_fact's inner
     // multiplication. Range deviation from PLAN.md: range narrowed
     // from 0..=68 to 0..=26 because op_fact returns Overflow for
-    // n in 28..=69 (per D-05 / math.rs:450). Hand-curated tests
+    // n in 28..=69 (per D-05 / math.rs). Hand-curated tests
     // (Plan 27-01) exercise the boundary individually.
     #[test]
     fn fact_recursive_invariant(n in 0i32..=26i32) {

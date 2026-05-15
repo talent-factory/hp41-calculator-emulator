@@ -316,7 +316,7 @@ fn test_ins_is_not_self_recorded_in_prgm_mode() {
 // `state.program.len()` before `Vec::insert` so hp41-core stays
 // panic-free even in that pathological state. Mirrors the existing
 // `op_del` `saturating_sub` / `.min(...)` neutralization. Targets the
-// Phase 22 review Warning at `program.rs:208`.
+// Phase 22 review Warning at `program.rs`.
 
 #[test]
 fn test_ins_at_pc_past_len_does_not_panic() {

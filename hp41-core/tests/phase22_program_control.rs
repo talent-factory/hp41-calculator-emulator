@@ -207,7 +207,7 @@ fn test_pse_display_override_cleared_by_next_dispatch() {
     );
 
     // Next interactive dispatch — any op — clears display_override via the
-    // mod.rs:410 dispatch-top clear. This is Phase 21's Pitfall 5 in action.
+    // mod.rs dispatch-top clear. This is Phase 21's Pitfall 5 in action.
     dispatch(&mut state, Op::Add).ok();
     // Don't care if Op::Add errors (stack may be partial) — the clear happens
     // BEFORE the op runs, at the top of dispatch().

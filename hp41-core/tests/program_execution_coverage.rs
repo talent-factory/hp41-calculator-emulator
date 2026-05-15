@@ -55,7 +55,7 @@ fn push(state: &mut CalcState, s: &str) {
 
 #[test]
 fn op_pi_in_run_program() {
-    // Catches: program-context divergence on Op::Pi — execute_op arm at program.rs:650
+    // Catches: program-context divergence on Op::Pi — execute_op arm at program.rs
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Pi).unwrap();
     // PI: HpNum::rounded(3.141592653589793) → 3.141592654 (10 sig digits).
@@ -65,7 +65,7 @@ fn op_pi_in_run_program() {
 
 #[test]
 fn op_rnd_in_run_program() {
-    // Catches: program-context divergence on Op::Rnd — execute_op arm at program.rs:661
+    // Catches: program-context divergence on Op::Rnd — execute_op arm at program.rs
     let mut state = CalcState::new();
     state.display_mode = hp41_core::DisplayMode::Fix(2);
     push(&mut state, "3.14159");
@@ -75,7 +75,7 @@ fn op_rnd_in_run_program() {
 
 #[test]
 fn op_frc_in_run_program() {
-    // Catches: program-context divergence on Op::Frc — execute_op arm at program.rs:662
+    // Catches: program-context divergence on Op::Frc — execute_op arm at program.rs
     let mut state = CalcState::new();
     push(&mut state, "3.14");
     run_op_in_program(&mut state, Op::Frc).unwrap();
@@ -88,7 +88,7 @@ fn op_frc_in_run_program() {
 #[test]
 fn op_abs_negative_in_run_program() {
     // Catches: program-context divergence on Op::Abs (negative branch) —
-    // execute_op arm at program.rs:663. Negative input flips sign; closes
+    // execute_op arm at program.rs. Negative input flips sign; closes
     // RESEARCH §Priority 5 op_abs branch coverage.
     let mut state = CalcState::new();
     push(&mut state, "-7.5");
@@ -108,7 +108,7 @@ fn op_abs_positive_in_run_program() {
 
 #[test]
 fn op_sign_in_run_program() {
-    // Catches: program-context divergence on Op::Sign — execute_op arm at program.rs:664
+    // Catches: program-context divergence on Op::Sign — execute_op arm at program.rs
     let mut state = CalcState::new();
     push(&mut state, "-42");
     run_op_in_program(&mut state, Op::Sign).unwrap();
@@ -117,7 +117,7 @@ fn op_sign_in_run_program() {
 
 #[test]
 fn op_fact_in_run_program() {
-    // Catches: program-context divergence on Op::Fact — execute_op arm at program.rs:665
+    // Catches: program-context divergence on Op::Fact — execute_op arm at program.rs
     let mut state = CalcState::new();
     push(&mut state, "5");
     run_op_in_program(&mut state, Op::Fact).unwrap();
@@ -127,7 +127,7 @@ fn op_fact_in_run_program() {
 #[test]
 fn op_mod_in_run_program() {
     // Catches: program-context divergence on Op::Mod (HP-41 sign-follows-Y
-    // convention) — execute_op arm at program.rs:670
+    // convention) — execute_op arm at program.rs
     let mut state = CalcState::new();
     push(&mut state, "7");
     push(&mut state, "-3");
@@ -138,7 +138,7 @@ fn op_mod_in_run_program() {
 
 #[test]
 fn op_polar_to_rect_in_run_program() {
-    // Catches: program-context divergence on Op::PolarToRect — execute_op arm at program.rs:682
+    // Catches: program-context divergence on Op::PolarToRect — execute_op arm at program.rs
     let mut state = CalcState::new();
     dispatch(&mut state, Op::SetDeg).unwrap();
     push(&mut state, "5"); // r
@@ -153,7 +153,7 @@ fn op_polar_to_rect_in_run_program() {
 
 #[test]
 fn op_rect_to_polar_in_run_program() {
-    // Catches: program-context divergence on Op::RectToPolar — execute_op arm at program.rs:683
+    // Catches: program-context divergence on Op::RectToPolar — execute_op arm at program.rs
     let mut state = CalcState::new();
     dispatch(&mut state, Op::SetDeg).unwrap();
     push(&mut state, "3"); // x-coord in Y
@@ -167,7 +167,7 @@ fn op_rect_to_polar_in_run_program() {
 
 #[test]
 fn op_sf_flag_in_run_program() {
-    // Catches: program-context divergence on Op::SfFlag — execute_op arm at program.rs:771
+    // Catches: program-context divergence on Op::SfFlag — execute_op arm at program.rs
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::SfFlag(5)).unwrap();
     assert_eq!(state.flags & (1u64 << 5), 1u64 << 5);
@@ -175,7 +175,7 @@ fn op_sf_flag_in_run_program() {
 
 #[test]
 fn op_cf_flag_in_run_program() {
-    // Catches: program-context divergence on Op::CfFlag — execute_op arm at program.rs:772
+    // Catches: program-context divergence on Op::CfFlag — execute_op arm at program.rs
     let mut state = CalcState::new();
     state.flags = u64::MAX;
     run_op_in_program(&mut state, Op::CfFlag(5)).unwrap();
@@ -184,7 +184,7 @@ fn op_cf_flag_in_run_program() {
 
 #[test]
 fn op_flag_test_skip_in_run_program() {
-    // Catches: run_loop conditional-skip arm for Op::FlagTest (program.rs:550).
+    // Catches: run_loop conditional-skip arm for Op::FlagTest (program.rs).
     // FS? on a CLEAR flag → skip next step. Body: [LBL T, FS?(5), PushNum(1), PushNum(2), RTN].
     // With flag 5 CLEAR, FS? IsSet ⇒ should_skip = true. PushNum(1) skipped.
     // X then receives PushNum(2) = 2.
@@ -206,7 +206,7 @@ fn op_flag_test_skip_in_run_program() {
 
 #[test]
 fn op_flag_test_set_then_clear_in_run_program() {
-    // Catches: run_loop FS?C always-clear side effect (program.rs:557-560).
+    // Catches: run_loop FS?C always-clear side effect (program.rs).
     // Set flag 5 → FS?C(5) should not skip AND should clear the flag.
     let mut state = CalcState::new();
     state.flags = 1u64 << 5;
@@ -228,7 +228,7 @@ fn op_flag_test_set_then_clear_in_run_program() {
 
 #[test]
 fn op_aon_in_run_program() {
-    // Catches: program-context divergence on Op::Aon — execute_op arm at program.rs:779
+    // Catches: program-context divergence on Op::Aon — execute_op arm at program.rs
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Aon).unwrap();
     // Aon sets system flag 48.
@@ -237,7 +237,7 @@ fn op_aon_in_run_program() {
 
 #[test]
 fn op_aoff_in_run_program() {
-    // Catches: program-context divergence on Op::Aoff — execute_op arm at program.rs:780
+    // Catches: program-context divergence on Op::Aoff — execute_op arm at program.rs
     let mut state = CalcState::new();
     state.flags = 1u64 << 48;
     run_op_in_program(&mut state, Op::Aoff).unwrap();
@@ -246,7 +246,7 @@ fn op_aoff_in_run_program() {
 
 #[test]
 fn op_cld_in_run_program() {
-    // Catches: program-context divergence on Op::Cld — execute_op arm at program.rs:781
+    // Catches: program-context divergence on Op::Cld — execute_op arm at program.rs
     let mut state = CalcState::new();
     state.display_override = Some("STALE".to_string());
     run_op_in_program(&mut state, Op::Cld).unwrap();
@@ -255,7 +255,7 @@ fn op_cld_in_run_program() {
 
 #[test]
 fn op_tone_in_run_program() {
-    // Catches: program-context divergence on Op::Tone — execute_op arm at program.rs:784.
+    // Catches: program-context divergence on Op::Tone — execute_op arm at program.rs.
     // Tone pushes "TONE n" into event_buffer.
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Tone(3)).unwrap();
@@ -270,7 +270,7 @@ fn op_tone_in_run_program() {
 fn op_pse_in_run_program() {
     // Catches: program-context divergence on Op::Pse + Pitfall-3 invariant
     // (display_override + event_buffer "PAUSE 1000" both written; run_loop
-    // does NOT break). execute_op arm at program.rs:795.
+    // does NOT break). execute_op arm at program.rs.
     let mut state = CalcState::new();
     push(&mut state, "42");
     state.program = vec![
@@ -295,7 +295,7 @@ fn op_pse_in_run_program() {
 
 #[test]
 fn op_beep_in_run_program() {
-    // Catches: program-context divergence on Op::Beep — execute_op arm at program.rs:783
+    // Catches: program-context divergence on Op::Beep — execute_op arm at program.rs
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Beep).unwrap();
     assert!(
@@ -309,7 +309,7 @@ fn op_beep_in_run_program() {
 
 #[test]
 fn op_cla_in_run_program() {
-    // Catches: program-context divergence on Op::Cla — execute_op arm at program.rs:809.
+    // Catches: program-context divergence on Op::Cla — execute_op arm at program.rs.
     // Cla is the hardware-faithful "CLA" alias (vs legacy AlphaClear).
     let mut state = CalcState::new();
     state.alpha_reg = "HELLO".to_string();
@@ -319,7 +319,7 @@ fn op_cla_in_run_program() {
 
 #[test]
 fn op_clst_in_run_program() {
-    // Catches: program-context divergence on Op::Clst — execute_op arm at program.rs:811.
+    // Catches: program-context divergence on Op::Clst — execute_op arm at program.rs.
     // D-22.14 invariant: CLST zeros X/Y/Z/T while preserving LASTX and lift_enabled.
     let mut state = CalcState::new();
     state.stack.x = HpNum::from(1i32);
@@ -338,20 +338,33 @@ fn op_clst_in_run_program() {
 
 #[test]
 fn op_pack_in_run_program() {
-    // Catches: program-context divergence on Op::Pack — execute_op arm at program.rs:814.
+    // Catches: program-context divergence on Op::Pack — execute_op arm in program.rs.
     // PACK is a documented no-op on the flat-Vec program model (D-22.12).
+    // The assertion must witness a non-trivial state surface to catch a
+    // regressing implementation that mutates regs / flags / lift instead
+    // of returning Ok(()): set X=42 + flag 5 + a register, run PACK, then
+    // require all three are unchanged.
     let mut state = CalcState::new();
-    let original_pc_after_t = state.pc;
+    push(&mut state, "42");
+    state.regs[7] = HpNum::rounded(Decimal::from(99));
+    state.flags = hp41_core::ops::flags::flag_set(state.flags, 5);
+    let x_before = state.stack.x.clone();
+    let reg7_before = state.regs[7].clone();
+    let flags_before = state.flags;
+    let lift_before = state.stack.lift_enabled;
     run_op_in_program(&mut state, Op::Pack).unwrap();
-    // PACK must not mutate stack / regs.
-    assert!(state.stack.x.is_zero());
-    // pc moved through the program normally (no anomalous pc-rewind).
-    let _ = original_pc_after_t; // sanity: original was 0 pre-run
+    assert_eq!(state.stack.x, x_before, "PACK must not mutate X");
+    assert_eq!(state.regs[7], reg7_before, "PACK must not mutate registers");
+    assert_eq!(state.flags, flags_before, "PACK must not mutate flags");
+    assert_eq!(
+        state.stack.lift_enabled, lift_before,
+        "PACK must not mutate lift"
+    );
 }
 
 #[test]
 fn op_size_in_run_program() {
-    // Catches: program-context divergence on Op::Size — execute_op arm at program.rs:806.
+    // Catches: program-context divergence on Op::Size — execute_op arm at program.rs.
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Size(50)).unwrap();
     assert_eq!(state.regs.len(), 50);
@@ -359,7 +372,7 @@ fn op_size_in_run_program() {
 
 #[test]
 fn op_catalog_in_run_program() {
-    // Catches: program-context divergence on Op::Catalog — execute_op arm at program.rs:821.
+    // Catches: program-context divergence on Op::Catalog — execute_op arm at program.rs.
     // CAT 1 emits a header line to print_buffer; CAT 2 emits NOT AVAILABLE.
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Catalog(2)).unwrap();
@@ -375,7 +388,7 @@ fn op_catalog_in_run_program() {
 
 #[test]
 fn op_asn_in_run_program() {
-    // Catches: program-context divergence on Op::Asn — execute_op arm at program.rs:824.
+    // Catches: program-context divergence on Op::Asn — execute_op arm at program.rs.
     let mut state = CalcState::new();
     run_op_in_program(
         &mut state,
@@ -390,7 +403,7 @@ fn op_asn_in_run_program() {
 
 #[test]
 fn op_view_in_run_program() {
-    // Catches: program-context divergence on Op::View — execute_op arm at program.rs:777.
+    // Catches: program-context divergence on Op::View — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[3] = HpNum::from(42i32);
     state.display_mode = hp41_core::DisplayMode::Fix(2);
@@ -400,7 +413,7 @@ fn op_view_in_run_program() {
 
 #[test]
 fn op_aview_in_run_program() {
-    // Catches: program-context divergence on Op::AView — execute_op arm at program.rs:778.
+    // Catches: program-context divergence on Op::AView — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.alpha_reg = "WORLD".to_string();
     run_op_in_program(&mut state, Op::AView).unwrap();
@@ -409,7 +422,7 @@ fn op_aview_in_run_program() {
 
 #[test]
 fn op_stop_in_run_program() {
-    // Catches: run_loop Stop break semantic (program.rs:600).
+    // Catches: run_loop Stop break semantic (program.rs).
     // Op::Stop breaks run_loop without writing display_override (unlike Prompt).
     let mut state = CalcState::new();
     state.program = vec![
@@ -428,7 +441,7 @@ fn op_stop_in_run_program() {
 
 #[test]
 fn op_arcl_in_run_program() {
-    // Catches: program-context divergence on Op::Arcl — execute_op arm at program.rs:828.
+    // Catches: program-context divergence on Op::Arcl — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[3] = HpNum::from(42i32);
     state.display_mode = hp41_core::DisplayMode::Fix(0);
@@ -439,7 +452,7 @@ fn op_arcl_in_run_program() {
 
 #[test]
 fn op_asto_in_run_program() {
-    // Catches: program-context divergence on Op::Asto — execute_op arm at program.rs:829.
+    // Catches: program-context divergence on Op::Asto — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.alpha_reg = "ABC".to_string();
     run_op_in_program(&mut state, Op::Asto(3)).unwrap();
@@ -450,7 +463,7 @@ fn op_asto_in_run_program() {
 
 #[test]
 fn op_atox_in_run_program() {
-    // Catches: program-context divergence on Op::Atox — execute_op arm at program.rs:833.
+    // Catches: program-context divergence on Op::Atox — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.alpha_reg = "ABC".to_string();
     run_op_in_program(&mut state, Op::Atox).unwrap();
@@ -462,7 +475,7 @@ fn op_atox_in_run_program() {
 
 #[test]
 fn op_xtoa_in_run_program() {
-    // Catches: program-context divergence on Op::Xtoa — execute_op arm at program.rs:834.
+    // Catches: program-context divergence on Op::Xtoa — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.stack.x = HpNum::from(66i32); // 'B'
     run_op_in_program(&mut state, Op::Xtoa).unwrap();
@@ -471,7 +484,7 @@ fn op_xtoa_in_run_program() {
 
 #[test]
 fn op_arot_in_run_program() {
-    // Catches: program-context divergence on Op::Arot — execute_op arm at program.rs:835.
+    // Catches: program-context divergence on Op::Arot — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.alpha_reg = "ABCDE".to_string();
     state.stack.x = HpNum::from(1i32);
@@ -482,7 +495,7 @@ fn op_arot_in_run_program() {
 
 #[test]
 fn op_posa_in_run_program() {
-    // Catches: program-context divergence on Op::Posa — execute_op arm at program.rs:836.
+    // Catches: program-context divergence on Op::Posa — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.alpha_reg = "HELLO".to_string();
     state.stack.x = HpNum::from(76i32); // 'L' (ASCII 76)
@@ -500,7 +513,7 @@ fn op_posa_in_run_program() {
 
 #[test]
 fn op_sto_ind_in_run_program() {
-    // Catches: program-context divergence on Op::StoInd — execute_op arm at program.rs:842.
+    // Catches: program-context divergence on Op::StoInd — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[5] = HpNum::from(7i32); // pointer
     state.stack.x = HpNum::from(99i32); // value
@@ -510,7 +523,7 @@ fn op_sto_ind_in_run_program() {
 
 #[test]
 fn op_rcl_ind_in_run_program() {
-    // Catches: program-context divergence on Op::RclInd — execute_op arm at program.rs:843.
+    // Catches: program-context divergence on Op::RclInd — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[5] = HpNum::from(7i32); // pointer
     state.regs[7] = HpNum::from(123i32); // target value
@@ -520,7 +533,7 @@ fn op_rcl_ind_in_run_program() {
 
 #[test]
 fn op_sto_arith_ind_in_run_program() {
-    // Catches: program-context divergence on Op::StoArithInd — execute_op arm at program.rs:844.
+    // Catches: program-context divergence on Op::StoArithInd — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[5] = HpNum::from(7i32);
     state.regs[7] = HpNum::from(10i32);
@@ -532,7 +545,7 @@ fn op_sto_arith_ind_in_run_program() {
 
 #[test]
 fn op_sf_flag_ind_in_run_program() {
-    // Catches: program-context divergence on Op::SfFlagInd — execute_op arm at program.rs:845.
+    // Catches: program-context divergence on Op::SfFlagInd — execute_op arm at program.rs.
     let mut state = CalcState::new();
     state.regs[5] = HpNum::from(10i32); // flag number = 10
     run_op_in_program(&mut state, Op::SfFlagInd(5)).unwrap();
@@ -541,7 +554,7 @@ fn op_sf_flag_ind_in_run_program() {
 
 #[test]
 fn op_isg_ind_skip_in_run_program() {
-    // Catches: run_loop IsgInd skip semantic (program.rs:536). Counter exits on
+    // Catches: run_loop IsgInd skip semantic (program.rs). Counter exits on
     // first iteration when initial current > final. With pointer regs[5]=12 and
     // regs[12]="5.005" (current=5, target=5, step=1): new_current=6, 6 > 5 ⇒ skip.
     let mut state = CalcState::new();
@@ -561,7 +574,7 @@ fn op_isg_ind_skip_in_run_program() {
 
 #[test]
 fn op_dse_ind_skip_in_run_program() {
-    // Catches: run_loop DseInd skip semantic (program.rs:541). Counter exits
+    // Catches: run_loop DseInd skip semantic (program.rs). Counter exits
     // (new_current <= final). Pointer regs[5]=12; regs[12]="1.000" current=1,
     // target=0, step=1; new_current=0, 0 <= 0 ⇒ skip.
     let mut state = CalcState::new();
@@ -580,7 +593,7 @@ fn op_dse_ind_skip_in_run_program() {
 
 #[test]
 fn op_flag_test_ind_skip_in_run_program() {
-    // Catches: run_loop FlagTestInd skip + always-clear semantic (program.rs:575).
+    // Catches: run_loop FlagTestInd skip + always-clear semantic (program.rs).
     // regs[5] = 7 (flag number 7). Flag 7 is SET; FS?C(IND 5) ⇒ should_skip = false,
     // but always clears flag 7.
     let mut state = CalcState::new();

@@ -37,7 +37,7 @@ fn neutral_capture() -> (CalcState, usize, u64, bool) {
 #[test]
 fn op_flag_test_isset_interactive_neutral() {
     // Catches: accidental skip / mutation on interactive FS? — covers
-    // mod.rs:804 Op::FlagTest { .. } => Neutral no-op arm.
+    // mod.rs Op::FlagTest { .. } => Neutral no-op arm.
     let (mut s, pc, flags, _) = neutral_capture();
     dispatch(
         &mut s,
@@ -70,7 +70,7 @@ fn op_flag_test_isclear_interactive_neutral() {
 #[test]
 fn op_flag_test_issetclear_interactive_neutral() {
     // Catches: accidental ALWAYS-CLEAR side effect on interactive FS?C.
-    // The always-clear semantic lives in run_loop ONLY (mod.rs:804); a
+    // The always-clear semantic lives in run_loop ONLY (mod.rs); a
     // future regression that wires the clear into the interactive arm
     // would break this test.
     let (mut s, pc, _, _) = neutral_capture();
@@ -114,7 +114,7 @@ fn op_flag_test_isclearclear_interactive_neutral() {
 
 #[test]
 fn op_stop_interactive_neutral() {
-    // Catches: accidental side effect on interactive STOP — covers mod.rs:822.
+    // Catches: accidental side effect on interactive STOP — covers mod.rs.
     // STOP is a run_loop-only break primitive; interactively it is a Neutral
     // no-op (D-22.5).
     let (mut s, pc, flags, lift) = neutral_capture();
@@ -129,7 +129,7 @@ fn op_stop_interactive_neutral() {
 #[test]
 fn op_pse_interactive_writes_pause_to_display_override() {
     // Catches: missing PSE side effect in interactive dispatch — covers
-    // mod.rs:829-834. Pse DOES write display_override + event_buffer
+    // mod.rs. Pse DOES write display_override + event_buffer
     // interactively (NOT a pure no-op); the run_loop break behavior is
     // a separate semantic. This test pins the interactive side effect.
     let mut s = CalcState::new();
@@ -146,7 +146,7 @@ fn op_pse_interactive_writes_pause_to_display_override() {
 
 #[test]
 fn op_prompt_interactive_arm_exists() {
-    // Catches: regression on Op::Prompt interactive arm — covers mod.rs:811.
+    // Catches: regression on Op::Prompt interactive arm — covers mod.rs.
     // Interactively, PROMPT writes ALPHA to display_override and does NOT
     // panic. The run_loop break behavior is a separate semantic.
     let mut s = CalcState::new();
@@ -160,7 +160,7 @@ fn op_prompt_interactive_arm_exists() {
 #[test]
 fn op_gto_ind_interactive_returns_invalid_op() {
     // Catches: regression on Op::GtoInd interactive arm — covers
-    // mod.rs:839. GTO IND requires run_loop state-machine context; outside
+    // mod.rs. GTO IND requires run_loop state-machine context; outside
     // it, the op returns InvalidOp.
     let mut s = CalcState::new();
     let r = dispatch(&mut s, Op::GtoInd(5));
@@ -170,7 +170,7 @@ fn op_gto_ind_interactive_returns_invalid_op() {
 #[test]
 fn op_xeq_ind_interactive_returns_invalid_op() {
     // Catches: regression on Op::XeqInd interactive arm — covers
-    // mod.rs:839 (shared with GtoInd via `|`-pattern).
+    // mod.rs (shared with GtoInd via `|`-pattern).
     let mut s = CalcState::new();
     let r = dispatch(&mut s, Op::XeqInd(5));
     assert!(matches!(r, Err(HpError::InvalidOp)));
@@ -181,7 +181,7 @@ fn op_xeq_ind_interactive_returns_invalid_op() {
 #[test]
 fn op_isg_ind_interactive_discards_skip_signal() {
     // Catches: accidental pc advance on interactive IsgInd — covers
-    // mod.rs:911. The `.map(|_| ())` arm discards the skip-bool; pc must
+    // mod.rs. The `.map(|_| ())` arm discards the skip-bool; pc must
     // not advance even if op_isg_ind returned true (counter exit).
     let mut s = CalcState::new();
     s.regs[5] = hp41_core::HpNum::from(7i32);
@@ -196,7 +196,7 @@ fn op_isg_ind_interactive_discards_skip_signal() {
 #[test]
 fn op_dse_ind_interactive_discards_skip_signal() {
     // Catches: accidental pc advance on interactive DseInd — covers
-    // mod.rs:912.
+    // mod.rs.
     let mut s = CalcState::new();
     s.regs[5] = hp41_core::HpNum::from(7i32);
     s.regs[7] = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_str_exact("1.000").unwrap());
@@ -210,7 +210,7 @@ fn op_dse_ind_interactive_discards_skip_signal() {
 #[test]
 fn op_flag_test_ind_interactive_neutral() {
     // Catches: accidental skip / always-clear side effect on interactive
-    // FS?C IND — covers mod.rs:915. Mirrors the Op::FlagTest interactive
+    // FS?C IND — covers mod.rs. Mirrors the Op::FlagTest interactive
     // arm; ind_reg pointer is irrelevant because the arm is a pure no-op.
     let mut s = CalcState::new();
     s.flags = 1u64 << 5;

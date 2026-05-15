@@ -57,7 +57,7 @@ impl Snapshot {
 
 #[test]
 fn op_sigma_minus_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::SigmaMinus — guard at stats.rs:62
+    // Catches: SIZE-shrink-induced panic on Op::SigmaMinus — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::SigmaMinus);
@@ -67,7 +67,7 @@ fn op_sigma_minus_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_sigma_plus_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::SigmaPlus — guard at stats.rs:25.
+    // Catches: SIZE-shrink-induced panic on Op::SigmaPlus — guard at stats.rs.
     // Σ+ shares the same guard; including it gives the matched pair for the
     // accumulator (Σ+ adds, Σ- removes) so the failure-class is fully bracketed.
     let mut s = shrunken_state();
@@ -79,7 +79,7 @@ fn op_sigma_plus_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_mean_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::Mean — guard at stats.rs:93
+    // Catches: SIZE-shrink-induced panic on Op::Mean — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::Mean);
@@ -89,7 +89,7 @@ fn op_mean_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_sdev_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::Sdev — guard at stats.rs:120
+    // Catches: SIZE-shrink-induced panic on Op::Sdev — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::Sdev);
@@ -99,7 +99,7 @@ fn op_sdev_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_lr_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::LR — guard at stats.rs:158
+    // Catches: SIZE-shrink-induced panic on Op::LR — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::LR);
@@ -109,7 +109,7 @@ fn op_lr_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_yhat_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::Yhat — guard at stats.rs:206
+    // Catches: SIZE-shrink-induced panic on Op::Yhat — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::Yhat);
@@ -119,7 +119,7 @@ fn op_yhat_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_corr_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::Corr — guard at stats.rs:245
+    // Catches: SIZE-shrink-induced panic on Op::Corr — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::Corr);
@@ -129,7 +129,7 @@ fn op_corr_shrunken_returns_invalid_op() {
 
 #[test]
 fn op_cl_sigma_stat_shrunken_returns_invalid_op() {
-    // Catches: SIZE-shrink-induced panic on Op::ClSigmaStat — guard at stats.rs:279
+    // Catches: SIZE-shrink-induced panic on Op::ClSigmaStat — guard at stats.rs
     let mut s = shrunken_state();
     let snap = Snapshot::of(&s);
     let r = dispatch(&mut s, Op::ClSigmaStat);
@@ -159,7 +159,7 @@ fn add_point(state: &mut CalcState, y_val: &str, x_val: &str) {
 #[test]
 fn op_lr_denom_zero_two_points_with_identical_x_returns_invalid_op() {
     // Catches: divide-by-zero in linear-regression slope when all x_i are
-    // equal — denom = n·Σx² − (Σx)² = 0 (stats.rs:172-174).
+    // equal — denom = n·Σx² − (Σx)² = 0 (stats.rs).
     let mut s = CalcState::new();
     add_point(&mut s, "5", "3"); // y=5, x=3
     add_point(&mut s, "7", "3"); // y=7, x=3 (same x!)
@@ -169,7 +169,7 @@ fn op_lr_denom_zero_two_points_with_identical_x_returns_invalid_op() {
 
 #[test]
 fn op_yhat_n_zero_empty_sigma_returns_invalid_op() {
-    // Catches: YHAT on empty Σ block — n == 0 guard at stats.rs:209-211.
+    // Catches: YHAT on empty Σ block — n == 0 guard at stats.rs.
     let mut s = CalcState::new();
     // Fresh state: regs[3] = n = 0 by default.
     let r = dispatch(&mut s, Op::Yhat);
@@ -179,7 +179,7 @@ fn op_yhat_n_zero_empty_sigma_returns_invalid_op() {
 #[test]
 fn op_yhat_denom_zero_returns_invalid_op() {
     // Catches: divide-by-zero in YHAT linear-regression-slope step when all
-    // x_i are equal — denom guard at stats.rs:220-222.
+    // x_i are equal — denom guard at stats.rs.
     let mut s = CalcState::new();
     add_point(&mut s, "1", "5");
     add_point(&mut s, "2", "5"); // identical x → denom == 0
@@ -189,7 +189,7 @@ fn op_yhat_denom_zero_returns_invalid_op() {
 
 #[test]
 fn op_corr_n_zero_empty_sigma_returns_invalid_op() {
-    // Catches: CORR on empty Σ block — n == 0 guard at stats.rs:248-250.
+    // Catches: CORR on empty Σ block — n == 0 guard at stats.rs.
     let mut s = CalcState::new();
     let r = dispatch(&mut s, Op::Corr);
     assert!(matches!(r, Err(HpError::InvalidOp)));
@@ -197,7 +197,7 @@ fn op_corr_n_zero_empty_sigma_returns_invalid_op() {
 
 #[test]
 fn op_mean_n_zero_empty_sigma_returns_invalid_op() {
-    // Catches: MEAN on empty Σ block — n == 0 guard at stats.rs:96-98.
+    // Catches: MEAN on empty Σ block — n == 0 guard at stats.rs.
     // Symmetric to corr/yhat n=0 cases; closes the n=0 sentinel cluster.
     let mut s = CalcState::new();
     let r = dispatch(&mut s, Op::Mean);
@@ -207,7 +207,7 @@ fn op_mean_n_zero_empty_sigma_returns_invalid_op() {
 #[test]
 fn op_sdev_n_lt_2_returns_invalid_op() {
     // Catches: SDEV needs >= 2 data points — n_minus_1 == 0 guard at
-    // stats.rs:124-126. Single data point ⇒ n=1 ⇒ n_minus_1=0.
+    // stats.rs. Single data point ⇒ n=1 ⇒ n_minus_1=0.
     let mut s = CalcState::new();
     add_point(&mut s, "5", "3");
     let r = dispatch(&mut s, Op::Sdev);

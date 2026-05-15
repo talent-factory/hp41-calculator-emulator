@@ -4,4 +4,11 @@
 #
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
-cc ee1ca00ce81a4780959d3f132342d8afa88a131718e8e086d7c4ffffdc7bf96b # shrinks to n = 27
+#
+# Historical note: an earlier `cc ... shrinks to n = 27` seed was retired
+# in commit (this commit) when the `fact_recursive_invariant` strategy
+# narrowed to `0..=26i32`. The property computes BOTH FACT(n) AND
+# FACT(n+1), so the upper bound must be one less than the last
+# representable factorial (n=27, n+1=28 hits the Decimal::from_f64 wall
+# per math.rs::op_fact D-05). A seed outside the live strategy is dead
+# weight — proptest silently skips it.

@@ -53,7 +53,7 @@ proptest! {
 // ─── Property 1c: ROADMAP-3 invariant — SF(n) → FS?C(n) → FC?(n) = true ────────
 //
 // FS?C's clear-after-test side effect only fires inside run_loop (the
-// interactive Op::FlagTest dispatch arm at ops/mod.rs:804 is a Neutral
+// interactive Op::FlagTest dispatch arm at ops/mod.rs is a Neutral
 // no-op, per D-21.x and verified by reading the source — phase21_flags.rs
 // test_fs_q_c_clears_flag_after_test:197 uses run_program for the same
 // reason). The property MUST go through run_program to exercise the
@@ -329,7 +329,7 @@ proptest! {
 // ─── Property 6c: Conditional-skip sentinel — FS?C skip-AND-clear semantics ───
 //
 // FS?C: skip iff flag CLEAR; ALWAYS clear the flag after the test
-// regardless of test outcome (RESEARCH A4, ops/mod.rs:60).
+// regardless of test outcome (RESEARCH A4, ops/mod.rs).
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(1024))]
 
