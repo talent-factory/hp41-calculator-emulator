@@ -28,9 +28,14 @@ export default defineConfig({
   // under jsdom — no behavior change there.
   // Phase 26 Plan 04 — setupFiles enables the React 19 act() environment
   // for App.test.tsx integration tests; pure-function tests are unaffected.
+  // Phase 27 Plan 04 — exclude `e2e/**` from Vitest discovery; that
+  // directory hosts the WebdriverIO + tauri-driver smoke spec (run via
+  // `just gui-e2e`, NOT `npm test`). The default Vitest excludes
+  // (node_modules, dist) are preserved.
   test: {
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test_setup.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   },
 })
