@@ -37,10 +37,12 @@ exports.config = {
   maxInstances: 1,
   capabilities: [{
     maxInstances: 1,
-    // `wry` is the Tauri webview wrapper name; tauri-driver uses it for
-    // capability routing and to satisfy WDIO 9's capability validation.
-    // Matches the upstream Tauri webdriver examples.
-    browserName: 'wry',
+    // No `browserName` — tauri-driver routes via the `tauri:options`
+    // extension; setting browserName='wry' or other made-up values causes
+    // the wrapped webkit2gtk-driver to reject the session with
+    // "Failed to match capabilities". The hostname/port above already
+    // satisfy WDIO 9's capability validation (it requires EITHER a
+    // recognized browserName OR explicit hostname/port; we have the latter).
     // tauri-driver passes this through to webkitwebdriver as the application
     // to spawn. Binary name resolved during Plan 27-04 read_first:
     //   hp41-gui/src-tauri/Cargo.toml [[bin]] name = "hp41-gui"
