@@ -161,7 +161,15 @@ Per the plan's `<output>` block requirement: **`Op::Int` exists as a tuple-less 
 
 ## Failing seeds (Pitfall 1 outcome)
 
-None. All 19 properties passed on first run after the FACT range fix. The `proptest-regressions/` directory ships empty (`.gitkeep` only). If a future CI run uncovers a failing seed, the persisted file will land in this directory and replay deterministically on every subsequent run per RESEARCH Assumption A7.
+One persisted seed file landed: `hp41-core/tests/proptest_math.proptest-regressions` (sibling of the test file, NOT inside the central `proptest-regressions/` dir).
+
+**Where it came from:** The first run of `fact_recursive_invariant` with the plan's range `0..=68` shrank to `n = 27` (the Decimal-conversion wall — see Deviation #1). The seed was auto-persisted before I narrowed the range to `0..=26`. After the fix, the seed becomes inert: with the new bound, proptest skips out-of-strategy seeds. But per RESEARCH §Pitfall 1 the seed file must still be committed so any future widening of the range immediately replays the n=27 regression.
+
+**Why it's not in `proptest-regressions/`:** proptest's default `FileFailurePersistence::SourceParallel` writes seeds as a sibling file `<test_filename>.proptest-regressions` next to the source, not into a central directory. The plan and RESEARCH §Pitfall 1 anticipated `proptest-regressions/proptest_<file>.txt` based on a different default — but proptest 1.11's actual behavior (verified by the failure-mode message "FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs") falls back to sibling-file persistence in workspaces. The `proptest-regressions/.gitkeep` dir I created in Task 3 stays as a defensive anchor for any future test file that does opt into directory-based persistence.
+
+**[Rule 2 - Critical compat]:** the sibling seed file IS committed (so Pitfall 1 mitigation holds for real proptest behavior, not the plan's assumed layout). Future regressions in proptest_flags.rs will write `hp41-core/tests/proptest_flags.proptest-regressions` (still inside the tests/ tree, still tracked).
+
+**Future cleanup option:** add a `proptest.toml` config at workspace root with `failure_persistence = "file_glob"` pointing at `proptest-regressions/{name}.txt` to centralize seed storage. Out of scope for Plan 27-02 — defer to v3.x or a follow-up cleanup task if the sibling-file pattern proves awkward.
 
 ## Commits
 
@@ -170,6 +178,7 @@ None. All 19 properties passed on first run after the FACT range fix. The `propt
 | 4123610 | 🧪 test(27-02) | proptest_flags suite — FN-QUAL-03 flag invariants |
 | ae539b8 | 🧪 test(27-02) | proptest_math suite — FN-QUAL-02 shape invariants |
 | 87707e7 | 🔧 chore(27-02) | seed proptest-regressions/ — auto-persist failing seeds |
+| (next)  | 🧪 test(27-02) | commit inert n=27 FACT seed (proptest_math.proptest-regressions) |
 
 ## Self-Check: PASSED
 
