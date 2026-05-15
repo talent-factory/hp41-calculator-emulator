@@ -54,7 +54,7 @@ jobs:
         run: just test
 
   coverage:
-    name: Coverage (>=80%)
+    name: Coverage (>=95%)
     runs-on: ubuntu-latest
     needs: test
     steps:

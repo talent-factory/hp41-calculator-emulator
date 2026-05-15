@@ -2750,7 +2750,7 @@ fn test_numerical_accuracy_suite() {
     }
     {
         // PI followed by SIN in RAD mode → 0 (sin(π) = 0 within tolerance).
-        // Cross-checked against Free42 source ops_trig.cc::do_sin.
+        // Cross-checked against Free42 source core_math2.cc::do_sin.
         let mut s = new_rad_state();
         dispatch(&mut s, Op::Pi).unwrap();
         dispatch(&mut s, Op::Sin).unwrap();
@@ -2758,11 +2758,11 @@ fn test_numerical_accuracy_suite() {
     }
 
     // ── v2.2 Op::Fact (cases 507–516) ───────────────────────────────────────
-    // Cross-checked against Free42 source ops_math.cc::do_fact and
+    // Cross-checked against Free42 source core_math1.cc::do_fact and
     // HP-41C Owner's Manual p.234. FACT(0) = 1 is the headline quirk case.
     {
         // HP-41C Owner's Manual p.234: FACT(0) = 1 (mathematical convention).
-        // Cross-checked against Free42 source ops_math.cc::do_fact.
+        // Cross-checked against Free42 source core_math1.cc::do_fact.
         let mut s = CalcState::new();
         push(&mut s, "0");
         dispatch(&mut s, Op::Fact).unwrap();
@@ -2792,7 +2792,7 @@ fn test_numerical_accuracy_suite() {
         case!("fact", "FACT(10) = 3628800", 3_628_800.0, get_x(&s));
     }
     {
-        // Cross-checked against Free42 ops_math.cc::do_fact — wide-tol because
+        // Cross-checked against Free42 core_math1.cc::do_fact — wide-tol because
         // the f64 product accumulates rounding past the HP-41 10-digit display.
         let mut s = CalcState::new();
         push(&mut s, "20");
@@ -2843,7 +2843,7 @@ fn test_numerical_accuracy_suite() {
     }
 
     // ── v2.2 Op::Mod (cases 517–528) ────────────────────────────────────────
-    // Cross-checked against Free42 source ops_math.cc::do_mod —
+    // Cross-checked against Free42 source core_math1.cc::do_mod —
     // HP-41 sign follows Y, per HP-41C Owner's Manual p.234.
     {
         let mut s = CalcState::new();
@@ -2853,7 +2853,7 @@ fn test_numerical_accuracy_suite() {
         case!("mod", "MOD(7, 3) = 1 (control)", 1.0, get_x(&s));
     }
     {
-        // Cross-checked against Free42 source ops_math.cc::do_mod — Free42
+        // Cross-checked against Free42 source core_math1.cc::do_mod — Free42
         // returns 1 for MOD(7, -3), matching HP-41C Owner's Manual p.234.
         // Sign follows Y (HP-41 hardware convention; NOT Rust % semantics).
         let mut s = CalcState::new();
@@ -2868,7 +2868,7 @@ fn test_numerical_accuracy_suite() {
         );
     }
     {
-        // Cross-checked against Free42 source ops_math.cc::do_mod — sign
+        // Cross-checked against Free42 source core_math1.cc::do_mod — sign
         // follows Y, so MOD(-7, 3) = -1.
         let mut s = CalcState::new();
         push(&mut s, "-7");
@@ -2938,7 +2938,7 @@ fn test_numerical_accuracy_suite() {
         case!("mod", "MOD(1, 1) = 0", 0.0, get_x(&s));
     }
     {
-        // Cross-checked against Free42 source ops_math.cc::do_mod — small
+        // Cross-checked against Free42 source core_math1.cc::do_mod — small
         // positive remainder.
         let mut s = CalcState::new();
         push(&mut s, "0.7");
@@ -3318,15 +3318,38 @@ fn test_numerical_accuracy_suite() {
 
     println!("Numerical accuracy: {passes}/{total} cases passed");
 
-    // D-27.6: v1.x baseline (first 503 cases) must NOT regress below its
-    // pre-extension pass count. The historical floor was `passes >= 493`
-    // (~98% of 503); the actual baseline pass count was 498/503 (5
-    // documented HP-41 hardware-rounding divergences acceptable per the
-    // pre-existing failure budget). v1.x baseline drift detection: the
-    // pass count must stay >= 498 when v2.2 cases are appended.
+    // D-27.6: v1.x baseline (first 503 cases) must NOT regress, and the
+    // SET of failing cases must not drift either direction. The historical
+    // floor was a one-sided `baseline_passes >= 498`, but that admits a
+    // silent compensating-drift failure mode: a new regression masked by
+    // a coincidental new fix would leave the count unchanged while the
+    // SET of failing IDs differs. Pin the exact 5 expected-failing IDs
+    // so both kinds of drift surface.
+    //
+    // The 5 known HP-41 hardware-rounding divergences (within the
+    // historical failure budget):
+    //   #124 sin(45.5deg) — trig BCD rounding at 8th sig digit (~3.7e-8)
+    //   #279 ln(0.99)     — small-arg log precision (~4.5e-7)
+    //   #344 10^1.301..   — exp10 round-trip from log10(20)  (~1.0e-9)
+    //   #438 ln(1.001)    — transcendental near 1            (~3.3e-8)
+    //   #480 HMS(0.0030)  — HMS<->decimal round-trip wide-tol (~3.3e-2)
+    const EXPECTED_BASELINE_FAILURES: &[usize] = &[124, 279, 344, 438, 480];
+    let baseline_failures: Vec<usize> = cases
+        .iter()
+        .filter(|c| c.id < 504) // v1.x baseline cases have id < 504; v2.2 extension ids start at 504
+        .filter(|c| !passes_with_tol(c.actual, c.expected, c.tol))
+        .map(|c| c.id)
+        .collect();
+    assert_eq!(
+        baseline_failures, EXPECTED_BASELINE_FAILURES,
+        "D-27.6 BASELINE DRIFT: v1.x failing-case SET changed.\n  expected: {EXPECTED_BASELINE_FAILURES:?}\n  actual:   {baseline_failures:?}\nA regression that masks one failure while introducing another would slip the one-sided pass-count gate; this set check catches both directions. If a fix retires a known divergence (e.g. #480 HMS round-trip now passes), update EXPECTED_BASELINE_FAILURES."
+    );
+    // Belt-and-suspenders: keep the pass-count floor too in case the
+    // failing-set diverged in a way the eq check didn't catch (e.g. an
+    // id renumber elsewhere). Should never fire if the set check passed.
     assert!(
         baseline_passes >= 498,
-        "D-27.6 BASELINE REGRESSION: v1.x 503-case baseline pass count {baseline_passes}/{baseline_total} dropped below pre-extension floor of 498. Existing v1.x cases must not regress when v2.2 cases are added."
+        "D-27.6 BASELINE REGRESSION: pass count {baseline_passes}/{baseline_total} below floor 498."
     );
 
     // D-27.6: combined gate ≥ 98% pass rate on the full ~570+ case suite.
@@ -3338,13 +3361,13 @@ fn test_numerical_accuracy_suite() {
 }
 
 // ── v2.2 Op::Fact / Op::Mod error-path tests (D-27.5 headline quirks) ──────
-// Cross-checked against Free42 source ops_math.cc and HP-41C Owner's
+// Cross-checked against Free42 source core_math1.cc and HP-41C Owner's
 // Manual p.234. These are separate #[test]s because they assert errors,
 // not numeric values (case! infrastructure expects f64 expected).
 
 #[test]
 fn fact_70_returns_out_of_range() {
-    // Cross-checked against Free42 source ops_math.cc::do_fact:
+    // Cross-checked against Free42 source core_math1.cc::do_fact:
     //   Free42 returns ERR_OUT_OF_RANGE for n > 69, matching the HP-41C
     //   ROM behavior documented in the Owner's Manual p.234.
     let mut s = CalcState::new();
@@ -3353,6 +3376,73 @@ fn fact_70_returns_out_of_range() {
     assert!(
         matches!(r, Err(hp41_core::HpError::OutOfRange)),
         "FACT(70) must return OutOfRange per HP-41C OM p.234"
+    );
+}
+
+#[test]
+fn fact_27_is_last_representable() {
+    // I-5 boundary: FACT(27) is the LAST n for which `Decimal::from_f64(n!)`
+    // succeeds. FACT(28) hits the Decimal magnitude wall and returns Overflow
+    // (math.rs::op_fact step 5; D-05). This test pins the upper Ok boundary
+    // so a future tightening of `op_fact` (e.g. early-rejecting n > 12 or
+    // n > 20) is caught immediately. Mathematically 27! ≈ 1.089e28.
+    // Catches: silent shrinking of the FACT representable range.
+    let mut s = CalcState::new();
+    push(&mut s, "27");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        r.is_ok(),
+        "FACT(27) must succeed (last n before Decimal::from_f64 wall per D-05); got {r:?}"
+    );
+    // Order-of-magnitude check — 27! is ≈ 1.0888869e28. Use HpNum's f64
+    // accessor to compare without nailing every digit (HP-41 hardware
+    // would emit `1.088869450 28` in SCI 9 mode; the exact mantissa
+    // depends on Decimal rounding at the 10-sig-digit boundary).
+    let x_f64 = s.stack.x.inner().to_string();
+    assert!(
+        x_f64.starts_with("1088"),
+        "FACT(27) ≈ 1.088869e28; got X = {x_f64}"
+    );
+}
+
+#[test]
+fn fact_28_returns_overflow() {
+    // I-5 boundary: FACT(28) is the FIRST n at which `Decimal::from_f64`
+    // fails. Per math.rs::op_fact (D-05), this surfaces as `Overflow`
+    // (NOT `OutOfRange` — that variant is reserved for the hardware-spec
+    // `X > 69` pre-flight check). The 27→28 transition is the contract:
+    // 27 returns Ok, 28 returns Err(Overflow). If a future refactor
+    // unified the two error variants, the existing `fact_70_returns_out_of_range`
+    // test would silently change semantics — this test pins the variant.
+    // Catches: error-type drift between Decimal-wall (Overflow) and
+    // hardware-spec (OutOfRange) FACT failure modes.
+    let mut s = CalcState::new();
+    push(&mut s, "28");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Overflow)),
+        "FACT(28) must return Overflow (Decimal::from_f64 wall per D-05); got {r:?}"
+    );
+}
+
+#[test]
+fn fact_69_returns_overflow_not_out_of_range() {
+    // I-5 boundary: FACT(69) is the LAST n in the Decimal-wall corridor —
+    // the next valid input (n=70) flips to OutOfRange because the hardware
+    // pre-flight (`v > 69.0` at math.rs::op_fact step 2) runs BEFORE the
+    // Decimal conversion. So 28..=69 returns Overflow; 70..=∞ returns
+    // OutOfRange. This 69→70 boundary is order-of-checks-dependent and
+    // would silently invert if a refactor moved the Decimal check before
+    // the hardware-spec check. Pinning it as an explicit test makes the
+    // order-of-checks contract a regression sentinel.
+    // Catches: order-of-checks inversion between hardware-spec pre-flight
+    // (OutOfRange) and Decimal magnitude wall (Overflow) in op_fact.
+    let mut s = CalcState::new();
+    push(&mut s, "69");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Overflow)),
+        "FACT(69) must return Overflow (Decimal wall fires before hardware OutOfRange); got {r:?}"
     );
 }
 
@@ -3384,7 +3474,7 @@ fn fact_negative_returns_domain() {
 
 #[test]
 fn mod_divide_by_zero_returns_domain() {
-    // Cross-checked against Free42 source ops_math.cc::do_mod — Free42
+    // Cross-checked against Free42 source core_math1.cc::do_mod — Free42
     // returns ERR_DIVIDE_BY_0 for MOD(y, 0). Our implementation returns
     // Domain (HP-41 hardware-faithful: indistinguishable error class).
     let mut s = CalcState::new();
