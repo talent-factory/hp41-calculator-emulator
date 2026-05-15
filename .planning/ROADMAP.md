@@ -172,7 +172,11 @@ Plans:
   3. The HP-41 12-char display in the GUI renders via a 14-segment SVG font (one `<g>` per character with 14 line/polygon segments) — visually distinguishable from the previous CSS-text version; matches HP-41C hardware look
   4. Pressing `?` in the GUI opens a keyboard shortcut overlay populated from a TypeScript port of `help_data.rs`; toggling USER mode (existing `Op::User` already wired) overlays current `Op::Asn` mappings on the SVG skin keys
   5. Pressing the `p` key now opens PRGM mode (not PRX); the SC-4 invariant grep (`fn op_(add|sub|...|format_hpnum)`) returns nothing in `hp41-gui/src-tauri/src/` — no calculator/math logic duplicated; `CalcStateView` size stays ≤500 bytes (relaxed from ≤300 to accommodate `flags` field — recorded in CLAUDE.md)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 26-01-modal-architecture-and-key-wiring-PLAN.md — Wave 1 (no deps within phase): Extend key_map.rs::resolve (~80 bare-op arms) + resolve_parameterized (~20 new prefixes incl. IND-bearing); shrink stub-error arm to v3.x-module ops only (defense-in-depth keeps 13 *_prompt ids); CalcStateView projections for user_keymap/flags/display_override/event_buffer (D-26.11, ≤500-byte budget); event_buffer drained per IPC mirroring print_buffer; PendingInput discriminated TS union (12 variants per D-26.4) + handleModalKey + renderModalLcd + handleClick MODAL_OPENERS intercept (D-26.5); IND-toggle via shift-0 inside open modal (D-26.2); ASN 2-step flow; comprehensive Vitest + Rust tests (FN-GUI-01, FN-GUI-02, FN-GUI-05)
+- [ ] 26-02-14-seg-lcd-PLAN.md — Wave 2 (depends on 26-01): Display14Seg.tsx with full segment grid + dim 'off' segments per D-26.6; SEGMENT_MAP for A-Z, 0-9, punctuation, modal cursor underscore; drop-in replacement inside existing .display div per D-26.7 (CSS rule preserved byte-identical); modal-preview displayText flow from Plan 26-01; Vitest render-and-count tests (FN-POLISH-01)
+- [ ] 26-03-polish-bundle-PLAN.md — Wave 2 (depends on 26-01, parallel with 26-02): HelpOverlay.tsx + help_data.ts (vite JSON-import of docs/hp41cv-functions.json per D-26.8); ?-key handler with Esc precedence (help → modal → shift); USER mode per-key relabel via KeyDef.keyCode + Keyboard userKeymap prop (D-26.9, computed via row*10+col helper); 'p' MAP swap → prgm_mode + 'P' → prx (D-26.10); XSS-safety test for ASN labels; full Vitest coverage (FN-POLISH-02, FN-POLISH-03, FN-POLISH-04, FN-GUI-03, FN-GUI-04)
 **Cross-cutting constraints:**
   - **SC-4 invariant non-negotiable**: NEVER add `op_*` / `flush_entry_*` / `format_hpnum` to `hp41-gui/src-tauri/` — `op_display_name` in `prgm_display.rs` remains the ONLY display-formatter exception
   - Stub-error arm shrinks to v3.x-only — every HP-41CV ROM op resolves successfully; only module-Pac functions (Math 1 / Stat 1 / Time / Advantage) remain as stubs
@@ -187,7 +191,6 @@ Plans:
 ### Phase 27: Test Hardening
 **Goal**: `hp41-core` line coverage returns to ≥95% (recovering from the 92.5% slip recorded in v1.1/v2.1); the 500-case numerical accuracy suite is extended with cases for every new math/conversion op (PI, P→R, R→P, RND, FRC, MOD, FACT) and maintains the ≥98% pass rate gate; proptest covers flag set/clear/test invariants across all 56 user flags; integration tests verify indirect addressing resolution and non-integer rejection on every `_IND` op; a Playwright E2E smoke test in `ci-gui.yml` boots the Tauri app, clicks a representative subset of keys, and asserts display state.
 **Depends on**: Phase 26 (all functionality must be in place before final coverage push and E2E test)
-**Requirements**: FN-QUAL-01, FN-QUAL-02, FN-QUAL-03, FN-QUAL-04, FN-QUAL-05
 **Success Criteria** (what must be TRUE):
   1. `just coverage` reports `hp41-core` line coverage ≥ 95.0% — the gate config in `justfile` is updated to enforce this threshold (raised from 80%)
   2. `hp41-core/tests/numerical_accuracy.rs` reports ≥ 490 / 500 cases passing (≥98%) with the v2.2 case extensions for PI, P→R, R→P, RND, FRC, MOD, FACT added
@@ -233,5 +236,5 @@ Plans:
 | 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
 | 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
 | 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 26. GUI Integration & Polish | v2.2 | 0/TBD | Not started | — |
+| 26. GUI Integration & Polish | v2.2 | 0/3 | Planned    | — |
 | 27. Test Hardening | v2.2 | 0/TBD | Not started | — |

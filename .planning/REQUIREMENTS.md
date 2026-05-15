@@ -181,15 +181,15 @@ None deferred for v2.x. Module-Pacs explicitly out of scope (→ v3.x).
 | FN-DOC-02 | Phase 25 — CLI Integration & Documentation | TBD |
 | FN-DOC-03 | Phase 25 — CLI Integration & Documentation | TBD |
 | FN-DOC-04 | Phase 25 — CLI Integration & Documentation | TBD |
-| FN-GUI-01 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-GUI-02 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-GUI-03 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-GUI-04 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-GUI-05 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-POLISH-01 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-POLISH-02 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-POLISH-03 | Phase 26 — GUI Integration & Polish | TBD |
-| FN-POLISH-04 | Phase 26 — GUI Integration & Polish | TBD |
+| FN-GUI-01 | Phase 26 — GUI Integration & Polish | 26-01-modal-architecture-and-key-wiring-PLAN.md |
+| FN-GUI-02 | Phase 26 — GUI Integration & Polish | 26-01-modal-architecture-and-key-wiring-PLAN.md |
+| FN-GUI-03 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
+| FN-GUI-04 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
+| FN-GUI-05 | Phase 26 — GUI Integration & Polish | 26-01-modal-architecture-and-key-wiring-PLAN.md |
+| FN-POLISH-01 | Phase 26 — GUI Integration & Polish | 26-02-14-seg-lcd-PLAN.md |
+| FN-POLISH-02 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
+| FN-POLISH-03 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
+| FN-POLISH-04 | Phase 26 — GUI Integration & Polish | 26-03-polish-bundle-PLAN.md |
 | FN-QUAL-01 | Phase 27 — Test Hardening | TBD |
 | FN-QUAL-02 | Phase 27 — Test Hardening | TBD |
 | FN-QUAL-03 | Phase 27 — Test Hardening | TBD |
