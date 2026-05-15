@@ -23,6 +23,13 @@ const { spawn } = require('child_process');
 let tauriDriver;
 
 exports.config = {
+  // Connect to the local tauri-driver spawned by beforeSession (line ~60).
+  // Without these, WDIO 9 errors: "No browserName defined in capabilities
+  // nor hostname or port found!" — it cannot infer where to send WebDriver
+  // commands from `tauri:options` alone. Match the port tauri-driver
+  // listens on (default 4444); localhost-only so no inbound exposure.
+  hostname: '127.0.0.1',
+  port: 4444,
   // Spec glob — accept both .ts and .js so the executor can pick either
   // depending on whether the WDIO TS loader plays nicely with the current
   // tsconfig. The smoke is small (~20 lines); types are not load-bearing.
@@ -30,6 +37,10 @@ exports.config = {
   maxInstances: 1,
   capabilities: [{
     maxInstances: 1,
+    // `wry` is the Tauri webview wrapper name; tauri-driver uses it for
+    // capability routing and to satisfy WDIO 9's capability validation.
+    // Matches the upstream Tauri webdriver examples.
+    browserName: 'wry',
     // tauri-driver passes this through to webkitwebdriver as the application
     // to spawn. Binary name resolved during Plan 27-04 read_first:
     //   hp41-gui/src-tauri/Cargo.toml [[bin]] name = "hp41-gui"
