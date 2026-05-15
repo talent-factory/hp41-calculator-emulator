@@ -16,11 +16,43 @@
 // `just gui-build` BEFORE `just gui-e2e`, so this config does NOT re-build the
 // binary (no onPrepare step — keeps local + CI usage symmetric).
 
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 
 let tauriDriver;
+
+// Probe TCP port 4444 in a loop until tauri-driver is accepting connections,
+// or timeout. Without this, the first WDIO POST /session may race the driver's
+// bind() and surface as "WebDriverError: Failed to match capabilities" /
+// ECONNREFUSED — which mochaOpts.retries: 1 would then mask (silent flake).
+function waitForPort(host, port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const sock = net
+        .createConnection({ host, port })
+        .on('connect', () => {
+          sock.end();
+          resolve();
+        })
+        .on('error', () => {
+          sock.destroy();
+          if (Date.now() > deadline) {
+            reject(
+              new Error(
+                `tauri-driver did not bind ${host}:${port} within ${timeoutMs}ms`,
+              ),
+            );
+          } else {
+            setTimeout(attempt, 100);
+          }
+        });
+    };
+    attempt();
+  });
+}
 
 exports.config = {
   // Connect to the local tauri-driver spawned by beforeSession (line ~60).
@@ -30,10 +62,13 @@ exports.config = {
   // listens on (default 4444); localhost-only so no inbound exposure.
   hostname: '127.0.0.1',
   port: 4444,
-  // Spec glob — accept both .ts and .js so the executor can pick either
-  // depending on whether the WDIO TS loader plays nicely with the current
-  // tsconfig. The smoke is small (~20 lines); types are not load-bearing.
-  specs: ['./e2e/**/*.spec.ts', './e2e/**/*.spec.js'],
+  // Spec glob — `.spec.js` only. The smoke is small (~60 lines) and uses
+  // ambient `declare` globals for Mocha + WDIO at runtime, so type-checking
+  // adds no value. Sticking to `.js` removes the WDIO 9 → tsx auto-detection
+  // dependency (no `tsx` devDep needed) and the matching tsconfig include
+  // rule. If a future spec genuinely needs TS, add `tsx` to devDeps AND
+  // restore `./e2e/**/*.spec.ts` here AND update tsconfig.json `include`.
+  specs: ['./e2e/**/*.spec.js'],
   maxInstances: 1,
   capabilities: [{
     maxInstances: 1,
@@ -68,14 +103,43 @@ exports.config = {
 
   // Spawn tauri-driver on 127.0.0.1:4444 before each WDIO session; kill after.
   // Localhost-only; not exposed to the public internet (threat T-27-04-02).
-  beforeSession: () => {
-    tauriDriver = spawn(
-      path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'),
-      [],
-      { stdio: [null, process.stdout, process.stderr] }
-    );
+  //
+  // Spawn hardening (against silent-flake masking by mochaOpts.retries: 1):
+  // - `.on('error', ...)` catches ENOENT (tauri-driver binary missing) and
+  //   similar process-creation failures that spawn() does NOT throw on.
+  // - `.on('exit', ...)` catches early termination (panic, EADDRINUSE) so a
+  //   driver that died before WDIO's first POST /session doesn't surface
+  //   only as a connection error.
+  // - `waitForPort(...)` blocks until tauri-driver is actually accepting
+  //   connections — otherwise the first WDIO POST races the bind() and a
+  //   transient ECONNREFUSED could be masked by the 1-retry budget.
+  beforeSession: async () => {
+    const driverPath = path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver');
+    tauriDriver = spawn(driverPath, [], {
+      stdio: [null, process.stdout, process.stderr],
+    });
+    tauriDriver.on('error', (err) => {
+      console.error(`tauri-driver spawn error (${driverPath}):`, err);
+      process.exitCode = 1;
+    });
+    tauriDriver.on('exit', (code, signal) => {
+      if (code !== 0 && code !== null) {
+        console.error(
+          `tauri-driver exited early (code=${code}, signal=${signal}) before session completed`,
+        );
+        process.exitCode = code;
+      }
+    });
+    await waitForPort('127.0.0.1', 4444, 10000);
   },
   afterSession: () => {
-    if (tauriDriver) tauriDriver.kill();
+    if (tauriDriver) {
+      const killed = tauriDriver.kill();
+      if (!killed) {
+        console.warn(
+          'tauri-driver.kill() returned false — process may be orphaned (rerun risks port 4444 collision)',
+        );
+      }
+    }
   },
 };
