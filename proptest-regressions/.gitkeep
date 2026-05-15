@@ -1,0 +1,9 @@
+# proptest-regressions/ is committed intentionally.
+#
+# Proptest auto-persists failing seeds here as `proptest_<filename>.txt`
+# (e.g. proptest_flags.txt, proptest_math.txt). CI replays persisted
+# seeds on every run, so a regression that surfaces locally is
+# deterministically caught in CI.
+#
+# Do NOT add this directory to .gitignore.
+# Phase 27 / Plan 27-02 — RESEARCH §Pitfall 1 mitigation.
