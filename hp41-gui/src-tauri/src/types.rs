@@ -175,6 +175,7 @@ mod tests {
         let state = CalcState::new();
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
+        // Phase 26 measured baseline: 337 bytes (337 << 500 budget).
         assert!(
             json.len() <= 500,
             "CalcStateView JSON (empty program + empty assignments + no flags) must be ≤500 bytes, got {} bytes: {}",
@@ -197,6 +198,7 @@ mod tests {
         state.flags = (1u64 << 5) | (1u64 << 10) | (1u64 << 22); // flags 5, 10, 22 set
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
+        // Phase 26 measured load: 401 bytes (~20% headroom under the 500 budget).
         assert!(
             json.len() <= 500,
             "CalcStateView JSON (realistic ASN+flag load) must be ≤500 bytes, got {} bytes: {}",
