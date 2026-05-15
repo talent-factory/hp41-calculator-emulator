@@ -153,7 +153,9 @@ const MODAL_OPENERS: Record<string, () => PendingInput> = {
   gto_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'gto' }),
   lbl_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'lbl' }),
   // BLOCKER B2: catalog + tone share single_digit with op + max discriminator.
-  catalog: () => ({ kind: 'single_digit', op: 'Catalog', max: 3 }),
+  // Phase 26 Plan 04 CR-05 — Catalog max raised from 3 to 4 so XFNS (CAT 4) is
+  // reachable from the GUI; matches hp41-core op_catalog (accepts n in 1..=4).
+  catalog: () => ({ kind: 'single_digit', op: 'Catalog', max: 4 }),
   tone: () => ({ kind: 'single_digit', op: 'Tone', max: 9 }),
   // ASN flow: AssignKey → (next key click via __keycode__NN) → AssignLabel.
   asn: () => ({ kind: 'assign_key' }),

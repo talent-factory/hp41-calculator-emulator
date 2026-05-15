@@ -220,6 +220,98 @@ describe('handleModalKey — single_digit modal (BLOCKER B2)', () => {
   });
 });
 
+describe('handleModalKey — single_digit Catalog bounds (CR-05)', () => {
+  // Phase 26 Plan 04 CR-05 — frontend Catalog modal must mirror
+  // hp41-core's op_catalog acceptance (n in 1..=4). Without the
+  // op-specific lower-bound guard the modal accepted '0' (which the
+  // backend rejects with InvalidOp) and the App.tsx MODAL_OPENERS.catalog
+  // cap of max:3 prevented '4' (XFNS catalog) from ever being reachable.
+
+  it('Catalog accepts digit 1 → dispatches catalog_1', () => {
+    const pending: PendingInput = {
+      kind: 'single_digit',
+      op: 'Catalog',
+      max: 4,
+    };
+    const r = handleModalKey('1', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('catalog_1');
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('Catalog accepts digit 4 → dispatches catalog_4', () => {
+    const pending: PendingInput = {
+      kind: 'single_digit',
+      op: 'Catalog',
+      max: 4,
+    };
+    const r = handleModalKey('4', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('catalog_4');
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('Catalog REJECTS digit 0 (lower-bound guard, CR-05)', () => {
+    const pending: PendingInput = {
+      kind: 'single_digit',
+      op: 'Catalog',
+      max: 4,
+    };
+    const r = handleModalKey('0', pending, false);
+    expect(r.nextPending).toEqual(pending);
+    expect(r.dispatchId).toBeNull();
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('Catalog REJECTS digit 5 (upper-bound guard)', () => {
+    const pending: PendingInput = {
+      kind: 'single_digit',
+      op: 'Catalog',
+      max: 4,
+    };
+    const r = handleModalKey('5', pending, false);
+    expect(r.nextPending).toEqual(pending);
+    expect(r.dispatchId).toBeNull();
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('Tone accepts digit 0 → dispatches tone_0 (asymmetric lower bound)', () => {
+    const pending: PendingInput = { kind: 'single_digit', op: 'Tone', max: 9 };
+    const r = handleModalKey('0', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('tone_0');
+  });
+
+  it('Tone accepts digit 9 → dispatches tone_9', () => {
+    const pending: PendingInput = { kind: 'single_digit', op: 'Tone', max: 9 };
+    const r = handleModalKey('9', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('tone_9');
+  });
+
+  it('Catalog non-digit keys leave modal unchanged', () => {
+    const pending: PendingInput = {
+      kind: 'single_digit',
+      op: 'Catalog',
+      max: 4,
+    };
+    for (const key of ['Enter', 'a', 'Backspace']) {
+      const r = handleModalKey(key, pending, false);
+      expect(r.nextPending).toEqual(pending);
+      expect(r.dispatchId).toBeNull();
+    }
+  });
+
+  it('Tone non-digit keys leave modal unchanged', () => {
+    const pending: PendingInput = { kind: 'single_digit', op: 'Tone', max: 9 };
+    for (const key of ['Enter', 'a', 'Backspace']) {
+      const r = handleModalKey(key, pending, false);
+      expect(r.nextPending).toEqual(pending);
+      expect(r.dispatchId).toBeNull();
+    }
+  });
+});
+
 describe('handleModalKey — fmt modal', () => {
   it('dispatches fix_3 / sci_5 / eng_2', () => {
     expect(handleModalKey('3', { kind: 'fmt', mode: 'fix' }, false).dispatchId).toBe(
