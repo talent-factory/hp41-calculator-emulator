@@ -99,6 +99,13 @@ These decisions are final — do not revisit without strong justification:
 - **SC-4 invariant unchanged**: Phase 25 touches `hp41-cli`, `docs/`, `scripts/`, root `*.md`, and `justfile` only — NO `hp41-gui` changes (those land in Phase 26). The CLI ↔ GUI parity invariant D-25.6 is the contract Phase 26 must satisfy.
 - **Save-file backward compat preserved**: NO new `CalcState` fields in Phase 25. v1.0–v2.1 save files continue to load without migration.
 
+### v2.2 additions (Test Hardening, Phase 27)
+
+- **Coverage gate raise (FN-QUAL-01):** `just coverage` enforces ≥ 95 % line coverage on `hp41-core` (raised atomically from 80 % per D-27.2 — gate-and-test atomicity invariant). The 5 new test files (`program_execution_coverage.rs`, `phase22_stats_size_shrink.rs`, `phase21_phase22_interactive_no_ops.rs`, `format_eng_edges.rs`, `numerical_accuracy.rs` v2.2 extension) close the gap with risk-weighted tests catching real bug classes per D-27.1, not coverage padding per D-27.3. Final achieved coverage: 95.25 % lines / 93.75 % regions (baseline pre-Task-1: 93.59 % / 91.21 % per 2026-05-15 RESEARCH measurement). Largest single uplift: `ops/stats.rs` 84.04 % → 100 % lines via Pitfall-5 SIZE-shrink sentinels.
+- **Numerical accuracy ≥ 98 % gate extended (FN-QUAL-02):** the 503-case v1.x baseline grew to 566 cases covering PI / P→R / R→P / RND / FRC / MOD / FACT per D-27.5. Quirky cases (FACT(70) → OutOfRange, MOD(7,-3) = 1 sign-follows-Y, FACT(0) = 1) carry Free42 / Owner's Manual citations per D-27.7 (27 total citations). The v1.x baseline non-regression floor is asserted independently: `baseline_passes >= 498` per D-27.6 (5 pre-existing HP-41 hardware-rounding divergences acceptable per the historical failure budget). Combined pass rate: 99.1 % (561/566).
+- **Frozen invariants preserved:** no `hp41-core/src/` source changes (frozen since Plan 25-01); no `hp41-gui/src-tauri/` source changes (SC-4 invariant); MSRV 1.88 unchanged; `#![deny(clippy::unwrap_used)]` continues to apply (new test files carry `#![allow]` at file scope per the established Phase 1 onward pattern).
+- **`// Catches: <bug class>` rationale (D-27.1):** every new test in Phase 27 plans 01–04 carries this doc comment naming the bug class it guards against. The `case!` macro invocations in `numerical_accuracy.rs` carry equivalent provenance via Free42 / OM citations. A grep audit on the four new test files yields ≥ 80 `// Catches:` comments total (program_execution_coverage 42, phase22_stats_size_shrink 14, phase21_phase22_interactive_no_ops 12, format_eng_edges 24).
+
 ## Tech Stack
 
 **Core / CLI (v1.0 + v1.1):**
@@ -108,7 +115,7 @@ These decisions are final — do not revisit without strong justification:
 - ratatui 0.30 + crossterm 0.29 (TUI)
 - serde + serde_json (state persistence, human-readable JSON)
 - proptest (property tests for stack invariants)
-- cargo-llvm-cov (coverage gate: ≥80% on `hp41-core`)
+- cargo-llvm-cov (coverage gate: ≥95% on `hp41-core` — Phase 27 / FN-QUAL-01, atomic raise from 80% per D-27.2)
 - criterion (dispatch benchmarks — advisory, not CI-gated)
 - clap 4.x (CLI argument parsing)
 
@@ -118,17 +125,17 @@ These decisions are final — do not revisit without strong justification:
 - `dirs` crate (resolves `~/.hp41/autosave.json` shared with hp41-cli)
 - Two-layer CI: `ci.yml` (CLI, unchanged) + `ci-gui.yml` (3-OS matrix, path-filtered to `hp41-gui/**` and `hp41-core/**`, runs `cargo test` before `cargo build --release`)
 
-## Quality Gates (maintained across v1.0 → v2.0)
+## Quality Gates (maintained across v1.0 → v2.2)
 
-| Gate | Target | v1.0 | v1.1 / v2.0 |
-|------|--------|------|-------------|
-| Cold-start | ≤ 0.5 s | 2.2 ms (M1) | unchanged (CLI); GUI cold-start not gated |
-| Key latency | ≤ 50 ms median | ~65 ns/op | unchanged |
-| Numerical accuracy | ≥ 98% (500 cases) | 99% (495/500) | unchanged |
-| `hp41-core` coverage | ≥ 80% | 94.87% | 92.5% lines / 89.9% regions (slipped slightly from v1.0 high-water mark — see Phase 12 / ops/mod.rs synthetic dispatch arms) |
-| Panics in `hp41-core` | 0 | 0 | 0 |
-| CI | Win 10+, macOS 12+, Ubuntu 22.04+ | ✅ `ci.yml` | ✅ `ci.yml` + `ci-gui.yml` (independent) |
-| MSRV | declared | — | 1.88 (CI-enforced) |
+| Gate | Target | v1.0 | v1.1 / v2.0 | v2.2 (Phase 27) |
+|------|--------|------|-------------|------------------|
+| Cold-start | ≤ 0.5 s | 2.2 ms (M1) | unchanged (CLI); GUI cold-start not gated | unchanged |
+| Key latency | ≤ 50 ms median | ~65 ns/op | unchanged | unchanged |
+| Numerical accuracy | ≥ 98% (combined ~570 cases) | 99% (495/500) | unchanged | 99.1% (561/566); v1.x 503-case baseline floor 498 preserved per D-27.6 |
+| `hp41-core` coverage | ≥ 95% (raised from 80% per D-27.2) | 94.87% | 92.5% lines / 89.9% regions (slipped from v1.0 high-water mark — Phase 12 / ops/mod.rs synthetic arms) | 95.25% lines / 93.75% regions (FN-QUAL-01 closed, Phase 27 risk-weighted push) |
+| Panics in `hp41-core` | 0 | 0 | 0 | 0 |
+| CI | Win 10+, macOS 12+, Ubuntu 22.04+ | ✅ `ci.yml` | ✅ `ci.yml` + `ci-gui.yml` (independent) | unchanged |
+| MSRV | declared | — | 1.88 (CI-enforced) | 1.88 |
 
 ## Key Files
 
