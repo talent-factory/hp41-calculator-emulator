@@ -292,9 +292,21 @@ export function handleModalKey(
     }
 
     case 'single_digit': {
-      // B2: single 0..=max keystroke. Reject digits > max silently.
+      // B2: single minDigit..=max keystroke. Reject digits out of range silently.
+      //
+      // Phase 26 Plan 04 CR-05 — Catalog allows 1..=max (hp41-core op_catalog
+      // accepts n in 1..=4; n==0 / n>=5 returns InvalidOp). Tone allows
+      // 0..=max (hp41-core op_tone accepts the full 0..=9 range). The lower
+      // bound is op-specific, so we cannot rely on the existing > max guard
+      // alone — without this minDigit check the frontend modal would dispatch
+      // catalog_0 (rejected by core with InvalidOp) and surface a toast for
+      // a click the user could not reasonably know was forbidden.
       if (isDigit(key)) {
         const digit = Number(key);
+        const minDigit = pending.op === 'Catalog' ? 1 : 0;
+        if (digit < minDigit) {
+          return { nextPending: pending, dispatchId: null, consumesShift: false };
+        }
         if (digit > pending.max) {
           return { nextPending: pending, dispatchId: null, consumesShift: false };
         }

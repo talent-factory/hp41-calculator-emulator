@@ -277,6 +277,12 @@ export function Keyboard({
               className={
                 shiftActive ? 'key key-shift-active' : isPressed ? 'key key-pressed' : 'key'
               }
+              // Phase 26 Plan 04 Task 3 — test-only locator for integration
+              // tests in App.test.tsx (`container.querySelector(
+              // '[data-key-id="shift"]')`). React passes data-* attributes
+              // through to the DOM without listener attachment, so no
+              // production effect.
+              data-key-id={key.id || undefined}
             >
               <rect x={x + 1} y={y + 2} width={w} height={h} rx={5} ry={5} fill="#000" opacity={0.45} />
               <rect x={x} y={y} width={w} height={h} rx={5} ry={5}
@@ -293,6 +299,8 @@ export function Keyboard({
             key={labelKey}
             onClick={() => handleKeyClick(key)}
             className={isPressed ? 'key key-pressed' : 'key'}
+            // Phase 26 Plan 04 Task 3 — test-only locator (see SHIFT branch above).
+            data-key-id={key.id || undefined}
           >
             {/* Orange shift label above (skip on top-row keys) */}
             {key.shifted && (
