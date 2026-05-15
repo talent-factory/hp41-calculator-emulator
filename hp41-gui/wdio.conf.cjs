@@ -44,11 +44,15 @@ exports.config = {
     // satisfy WDIO 9's capability validation (it requires EITHER a
     // recognized browserName OR explicit hostname/port; we have the latter).
     // tauri-driver passes this through to webkitwebdriver as the application
-    // to spawn. Binary name resolved during Plan 27-04 read_first:
-    //   hp41-gui/src-tauri/Cargo.toml [[bin]] name = "hp41-gui"
-    // -> hp41-gui/src-tauri/target/release/hp41-gui
+    // to spawn. Path is interpreted relative to the WDIO process cwd, which
+    // is `hp41-gui/` (per `just gui-e2e: cd hp41-gui && npx wdio ...`). The
+    // binary lands at `hp41-gui/src-tauri/target/release/hp41-gui` per
+    // Cargo.toml `[[bin]] name = "hp41-gui"`, so the relative path from
+    // `hp41-gui/` is `src-tauri/...` — NOT `../src-tauri/...` (that would
+    // escape to repo-root where no `src-tauri/` exists, surfacing as
+    // "Failed to execute child process ... (No such file or directory)").
     'tauri:options': {
-      application: '../src-tauri/target/release/hp41-gui',
+      application: 'src-tauri/target/release/hp41-gui',
     },
   }],
   reporters: ['spec'],
