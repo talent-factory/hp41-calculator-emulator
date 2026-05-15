@@ -211,6 +211,13 @@ export default function Display14Seg({ text }: Display14SegProps) {
             xmlns="http://www.w3.org/2000/svg"
             aria-label="HP-41 14-segment display"
             preserveAspectRatio="xMidYMid meet"
+            // Phase 27 Plan 04 Task 1 — WebdriverIO E2E locator (RESEARCH Pitfall 10).
+            // data-testid is the selector hook; data-text exposes the raw text so the
+            // smoke spec can assert against a DOM attribute when the LCD renders only
+            // SVG segment paths (no plain text content). Allowed under SC-4 — this is
+            // hp41-gui/src/ which is OUTSIDE the SC-4 boundary (which scopes hp41-gui/src-tauri/).
+            data-testid="lcd-display"
+            data-text={text}
         >
             {cells.map((cell, i) => {
                 const litSet = SEGMENT_MAP[cell.char.toUpperCase()] ?? [];
