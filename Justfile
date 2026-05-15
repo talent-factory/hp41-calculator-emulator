@@ -39,6 +39,16 @@ coverage:
 # Full CI gate: lint → test → coverage
 ci: lint test coverage
 
+# CI gate for MSRV jobs: lint → test (NO coverage).
+# Coverage is rustc-version-dependent — different rustc versions instrument llvm-cov
+# differently and produce slightly different line counts. Phase 27's atomic 80→95 gate
+# raise (D-27.2) was calibrated on stable (≈ 95.25 % lines); MSRV 1.88 produces ≈
+# 94.42 % on the same source. Gating MSRV on coverage would force an artificial
+# test-padding arms race tied to the lowest measurement-tool baseline. The dedicated
+# `Coverage (>=80%)` job in `ci.yml` runs on stable and enforces the 95 % gate; the
+# MSRV job verifies code still builds and tests still pass on the declared minimum rustc.
+ci-msrv: lint test
+
 # Check formatting without modifying files (mirrors CI)
 fmt-check:
 	cargo fmt --all -- --check
@@ -71,8 +81,12 @@ gui-install:
 gui-dev:
 	cd hp41-gui && npm run tauri dev
 
-# GUI: production bundle (native app)
+# GUI: production bundle (native app). Self-sufficient — installs npm deps first so
+# the Tauri CLI from `@tauri-apps/cli` is on PATH (required by `npm run tauri build`).
+# CI e2e-linux job runs on a fresh runner with no prior `npm install`; making this
+# recipe self-installing matches the gui-ci / gui-e2e pattern.
 gui-build:
+	cd hp41-gui && npm install
 	cd hp41-gui && npm run tauri build
 
 # GUI: Rust type-check (fast CI check without launching dev server)
