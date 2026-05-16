@@ -892,6 +892,15 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
         Op::PolyWorkflow => crate::ops::math1::poly::op_poly_workflow(state),
         Op::Roots => crate::ops::math1::poly::op_roots(state),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────
+        Op::MatrixWorkflow => crate::ops::math1::matrix::op_matrix_workflow(state),
+        Op::MatSize => crate::ops::math1::matrix::op_mat_size(state),
+        Op::MatVmat => crate::ops::math1::matrix::op_mat_vmat(state),
+        Op::MatEdit => crate::ops::math1::matrix::op_mat_edit(state),
+        Op::MatDet => crate::ops::math1::matrix::op_mat_det(state),
+        Op::MatInv => crate::ops::math1::matrix::op_mat_inv(state),
+        Op::MatSimeq => crate::ops::math1::matrix::op_mat_simeq(state),
+        Op::MatVcol => crate::ops::math1::matrix::op_mat_vcol(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

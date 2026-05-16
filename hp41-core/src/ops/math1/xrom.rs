@@ -38,6 +38,8 @@ pub struct XromModule {
 /// Plan 28-04: 12 complex function entries (MAGZ, CINV, Z↑N, Z↑1/N, E↑Z, LNZ,
 ///             SINZ, COSZ, TANZ, A↑Z, LOGZ, Z↑W) with ASCII aliases for Unicode ops.
 /// Plan 28-05: 2 POLY/ROOTS entries (POLY modal opener, ROOTS executor).
+/// Plan 28-06: 8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL).
+///             "INV" confirmed non-shadowing: builtin_card_op registers no "INV" string.
 pub const MATH_1: XromModule = XromModule {
     id: 7,
     name: "MATH 1A",
@@ -78,6 +80,18 @@ pub const MATH_1: XromModule = XromModule {
         // ── Plan 28-05: POLY / ROOTS ──────────────────────────────────────────
         ("POLY", Op::PolyWorkflow),
         ("ROOTS", Op::Roots),
+        // ── Plan 28-06: MATRIX ────────────────────────────────────────────────
+        ("MATRIX", Op::MatrixWorkflow),
+        ("SIZE", Op::MatSize),
+        ("VMAT", Op::MatVmat),
+        ("EDIT", Op::MatEdit),
+        ("DET", Op::MatDet),
+        // "INV" non-shadowing: v2.2 Op::Inv (reciprocal) uses the "1/x" display
+        // mnemonic in builtin_card_op, not "INV" — claiming "INV" for MATRIX is safe.
+        // Confirmed: RESEARCH §"Resolver-Chain Conflict Map" lines 636-638.
+        ("INV", Op::MatInv),
+        ("SIMEQ", Op::MatSimeq),
+        ("VCOL", Op::MatVcol),
     ],
 };
 
@@ -151,7 +165,19 @@ fn math1_resolve(name: &str) -> Option<Op> {
         // ── Plan 28-05: POLY / ROOTS ──────────────────────────────────────────
         "POLY" => Some(Op::PolyWorkflow),
         "ROOTS" => Some(Op::Roots),
-        // Plans 28-06..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-06: MATRIX ────────────────────────────────────────────────
+        "MATRIX" => Some(Op::MatrixWorkflow),
+        "SIZE" => Some(Op::MatSize),
+        "VMAT" => Some(Op::MatVmat),
+        "EDIT" => Some(Op::MatEdit),
+        "DET" => Some(Op::MatDet),
+        // "INV" is non-shadowing: builtin_card_op does not register "INV"
+        // (Op::Inv reciprocal uses "1/x" display name, not "INV" string).
+        // Confirmed via RESEARCH §"Resolver-Chain Conflict Map".
+        "INV" => Some(Op::MatInv),
+        "SIMEQ" => Some(Op::MatSimeq),
+        "VCOL" => Some(Op::MatVcol),
+        // Plans 28-07..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -235,12 +261,13 @@ mod tests {
     // Plan 28-04: +17 complex function entries (MAGZ, CINV, Z↑N, Z^N, Z↑1/N, Z^1/N, E↑Z, E^Z,
     //             LNZ, SINZ, COSZ, TANZ, A↑Z, A^Z, LOGZ, Z↑W, Z^W)
     // Plan 28-05: +2 POLY/ROOTS entries
+    // Plan 28-06: +8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL)
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            32,
-            "MATH_1.ops must have exactly 32 entries after Plan 28-05 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly)"
+            40,
+            "MATH_1.ops must have exactly 40 entries after Plan 28-06 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix)"
         );
     }
 
