@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: — HP-41CV Feature Completeness
-status: complete
-last_updated: "2026-05-15T18:25:00.000Z"
-last_activity: 2026-05-15 -- Phase 27 shipped; v2.2 milestone complete (8/8 phases, CI green)
+milestone: v3.0
+milestone_name: — Math 1 Pac Emulation
+status: planning
+last_updated: "2026-05-16T00:00:00.000Z"
+last_activity: 2026-05-16 -- Milestone v3.0 started (Math 1 Pac); research-first; phase numbering continues from 28
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 26
-  completed_plans: 26
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -19,15 +19,15 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-08)
+See: .planning/PROJECT.md (updated 2026-05-16)
 
 **Core value:** Faithful HP-41 RPN fidelity — four-level stack, stack-lift semantics, display, and keystroke programming must behave identically to original hardware; everything else is secondary.
 **Shipped:** v1.0 CLI (2026-05-08)
 **Shipped:** v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12 complete
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
-**Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green (`ci` + `ci-gui` + new `e2e-linux` job)
-**Current focus:** v2.2 wrap-up — branch protection wiring for `e2e-linux` is the sole remaining manual repo-setting follow-up (HUMAN-UAT item 2); ready to plan v3.x module emulation
+**Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green
+**Current focus:** v3.0 Math 1 Pac Emulation — XROM-Modul-Framework + Math-1-Funktionsbibliothek (Matrix / Komplex / Polynom / Integration / Solver / Vektor). Stat 1 → v3.1.
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -35,51 +35,35 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 27 (test-hardening) — SHIPPED 2026-05-15
-Plans: 4/4 complete (27-01 coverage push, 27-02 proptest suites, 27-03 IND integration, 27-04 WebdriverIO E2E + Vitest CI gating)
-Status: v2.2 milestone complete; CI fully green on develop (20/20 PR checks SUCCESS); HUMAN-UAT item 1 PASSED (e2e-linux observed green); HUMAN-UAT item 2 (branch protection setting) pending manual repo configuration
-Verification: 27-VERIFICATION.md — 5/5 SC verified, 16/16 D-27.x decisions honored, 0 gaps
-Last activity: 2026-05-15 -- Phase 27 shipped + CI flake remediation (MSRV ci-msrv split, gui-build self-installing, wdio.conf .cjs rename + hostname/port/browserName fixes, SVG click via browser.execute)
-
-Progress: 8 / 8 phases (v2.2 milestone complete — all FN-QUAL-01..05 validated)
-
-**Phase 27 final metrics (measured 2026-05-15):** hp41-core line coverage 95.25% / regions 93.75% / functions 97.68% (gate ≥95.0% PASSES); numerical_accuracy 561/566 = 99.1 % combined pass rate; workspace tests 1202/1202 pass; vitest 142/142 pass; e2e-linux smoke green on Ubuntu CI.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements — research-first selected; 4 parallel agents (Stack / Features / Architecture / Pitfalls) to run before REQUIREMENTS.md
+Last activity: 2026-05-16 — Milestone v3.0 started
 
 ---
 
-## Performance Metrics (v1.0 Shipped Values)
+## Performance Metrics (carried from v2.2 ship)
 
-| Metric | Target | Achieved |
-|--------|--------|---------|
+| Metric | Target | Last measured (v2.2) |
+|--------|--------|----------------------|
 | Cold-start latency | ≤ 0.5 s | 2.2 ms (M1) — 228× under gate |
 | Key-press latency (median) | ≤ 50 ms | ~65 ns/op |
-| `hp41-core` test coverage | ≥ 80% (v2.2 raises to ≥ 95%) | 93.48% lines (Phase 24 — up from Phase 21 baseline 92.68%; v2.2 target ≥ 95% at Phase 27) |
-| Numerical accuracy (500-case) | ≥ 98% | 500/500 (Phase 20 confirmed; up from 495/500 v2.1 baseline) |
+| `hp41-core` test coverage | ≥ 95 % | 95.25 % lines / 93.75 % regions / 97.68 % functions |
+| Numerical accuracy | ≥ 98 % (566 cases) | 99.1 % (561/566) — v1.x baseline floor 498/503 preserved |
 | Panics in `hp41-core` | 0 | 0 — enforced by `#![deny(clippy::unwrap_used)]` |
-| CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml`) |
+| CI platforms | Win/macOS/Ubuntu | All green (`ci.yml` + `ci-gui.yml` + `e2e-linux`) |
 
 ---
 
-## v2.2 Phase Plan (Phases 20–27)
+## v3.0 Phase Plan
 
-| Phase | Name | Requirements | Build Stage |
-|-------|------|--------------|-------------|
-| 20 | Core Math & Conversions | FN-MATH-01..09, FN-STACK-01 (10) | core |
-| 21 | Flags, Display Control & Sound | FN-FLAG-01..02, FN-DISP-01..05, FN-SOUND-01..02 (9) | core |
-| 22 | Program Control & Memory Ops | FN-PROG-01..07, FN-MEM-01..05, FN-KEY-01 (13) | core |
-| 23 | ALPHA Operations | FN-ALPHA-01..06 (6) | core |
-| 24 | Indirect Addressing (Cross-Cutting) | FN-IND-01..02 (2) | core |
-| 25 | CLI Integration & Documentation | FN-TEST-01, FN-CLI-01..04, FN-DOC-01..04 (9) | cli + docs |
-| 26 | GUI Integration & Polish | FN-GUI-01..05, FN-POLISH-01..04 (9) | gui |
-| 27 | Test Hardening | FN-QUAL-01..05 (5) | tests |
-
-**Total: 63 requirements across 8 phases — 100% coverage.**
+*To be filled via `/gsd-roadmapper` after REQUIREMENTS.md is approved. Phase numbering continues from Phase 28 (consistent with v1.0=1-8, v1.1=9-12, v2.0=13-18, v2.1=19, v2.2=20-27).*
 
 ---
 
 ## Accumulated Context
 
-### Key Decisions
+### Key Decisions (carried forward from v1.x–v2.x)
 
 | Decision | Rationale | Phase |
 |----------|-----------|-------|
@@ -93,37 +77,31 @@ Progress: 8 / 8 phases (v2.2 milestone complete — all FN-QUAL-01..05 validated
 | No async in `hp41-core` | Single-threaded event loop | All |
 | `#![deny(clippy::unwrap_used)]` | Compile-time zero-panic guarantee | Phase 7 |
 | `print_buffer: Vec<String>` on CalcState | Keeps hp41-core I/O-free; hp41-cli drains buffer | Phase 11 |
-| EEX trailing-e → append "00" | Hardware fidelity; `flush_entry_buf` normalizes before parse chain | Phase 9 |
-| Empty-buffer EEX inserts "1e" | HP-41 hardware behavior; implicit mantissa | Phase 9 |
-| `format_entry_buf_display` in ui.rs | TUI exponent placeholder rendering separated from `get_display_string` | Phase 9 |
-| `pending_input` routing before modal interceptors | Prevents active dialogs being silently discarded by S/R/Ctrl+A | Phase 9 |
-| `entry_buf` preserved on parse failure | Silent data loss fix; clear only on successful parse | Phase 9 |
-| MSRV 1.85 with workspace inheritance | `rust-version.workspace = true` in member crates; CI job with llvm-tools | Phase 9 |
-| CHS during EEX entry toggles exponent sign | 'n' in EEX mode mutates entry_buf in-place (no flush); "e-" normalized to "e-00" in flush_entry_buf | Quick 260508-y30 |
-| Bundle identifier `ch.talent-factory.hp41` (D-02) | Overrides scaffold default `com.tauri.dev`; avoids macOS sandbox/keychain issues | Phase 13 |
-| capabilities/default.json core:default only | Minimum Tauri v2 capability; hp41-specific IPC permissions added in Phase 14 when commands are registered | Phase 13 |
-| Mutex lock: `.unwrap_or_else(\|e\| e.into_inner())` | Poisoned-lock recovery required by zero-panic policy; applies to all Phase 14+ command handlers | Phase 13 |
-| Tauri v2.11 app-command permissions: TOML files required | For inline app commands (not plugins), Tauri v2.11 does NOT auto-generate allow-<cmd> permissions. Create TOML in src-tauri/permissions/<cmd-kebab>.toml with `[[permission]] identifier + commands.allow = ["fn_name"]` | Phase 14 |
-| CalcStateView display_str priority: entry_buf → format_alpha(alpha_mode) → format_hpnum(stack.x) | Matches hp41-cli get_display_string logic; x_str always uses format_hpnum for Phase 15 stack panel | Phase 14 |
-| EEX-CHS gap in handle_op | In-buffer exponent sign toggle (Op::Chs during EEX entry) is missing from commands.rs handle_op; deferred to Phase 15 keyboard wiring. Frontend must send "eex_chs" key ID | Phase 14 |
-| KEY_DEFS has 44 entries, not 40 | HP-41C has 44 key positions (9+8+9+9+9 across 5 rows); ENTER is one entry with colSpan:2. Plan text said "40" in error; implementation follows the actual key list. | Phase 16 |
-| SVG shadow: manual rect over filter | Shadow implemented as 1px-offset black rect (45% opacity) rather than SVG feDropShadow filter — simpler, no GPU compositing overhead, no per-element filter allocation | Phase 16 |
-| transform-box: fill-box required for SVG animation | Without this CSS property, scale() transforms from SVG canvas origin rather than each key's own center — keys would translate instead of shrink in place | Phase 16 |
+| Bundle identifier `ch.talent-factory.hp41` (D-02) | Overrides scaffold default `com.tauri.dev` | Phase 13 |
+| Tauri v2.11 app-command permissions: TOML files required | Inline app commands don't auto-generate `allow-<cmd>` permissions | Phase 14 |
+| One-shot SHIFT frontend-only (`shiftActive`) | Never crosses IPC; ALPHA overrides SHIFT | v2.1 |
+| f-prefix one-shot on CLI mirrors GUI (`shift_armed`) | D-25.6 CLI ↔ GUI parity invariant | Phase 25 |
+| Hybrid `PendingInput` struct-variants | Collapses 34 logical ops into 2 carriers (FlagPrompt, RegisterPrompt) | Phase 25 |
+| `docs/hp41cv-functions.json` as single source of truth | JSON-canonical pipeline; `scripts/docs-matrix` regenerates matrix; bidirectional parity tests | Phase 25 |
+| `data-testid="lcd-display"` on `Display14Seg.tsx` | Allowed under SC-4 (hp41-gui/src/ outside boundary); enables WebdriverIO assertion | Phase 27 |
+| Coverage gate atomic raise 80 % → 95 % (D-27.2) | Avoid gate-and-test split that masks regressions | Phase 27 |
+| WebdriverIO + tauri-driver (not Playwright) for E2E | tauri-driver speaks WebDriver classic; Playwright is CDP/native only | Phase 27 |
 
-### Critical Implementation Traps (v2.2 — adapted for new milestone)
+### Critical Implementation Traps (carried forward — relevant for v3.0)
 
-- **Every new Op variant must be added to 4 places (not 2!):** `dispatch()` in `ops/mod.rs` + `execute_op()` in `ops/program.rs` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. The exhaustive matches will fail to compile if any of these is missed.
-- **New CalcState fields need `#[serde(default)]`** for backward compatibility with v1.0/v1.1/v2.0/v2.1 save files. Critical for `flags`, `display_override`, `event_buffer`.
-- **SC-4 invariant (no core duplication in hp41-gui):** Use stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` — `op_display_name` is the only intentional exception.
-- **No `println!`/`eprintln!` in hp41-core:** `BEEP`/`TONE` must route through a buffer (existing `print_buffer` or new `event_buffer`).
-- **`pending_input` routing block must remain ABOVE modal-opening interceptors** (S/R/Ctrl+A) to prevent active dialogs being silently discarded.
-- **D-07 (no silent discards) preserved in GUI:** Phase 26 modal routing replaces toast for HP-41CV builtins, but unhandled IDs still produce `GuiError` toast — never silent.
+- **Every new Op variant must be added to 4 places:** `dispatch()` in `ops/mod.rs` + `execute_op()` in `ops/program.rs` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. Exhaustive matches fail to compile if any is missed.
+- **New CalcState fields need `#[serde(default)]`** for backward compatibility with v1.0/v1.1/v2.0/v2.1/v2.2 save files.
+- **SC-4 invariant (no core duplication in hp41-gui):** stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` — `op_display_name` is the only intentional exception. Critical when adding XROM-Modul-Dispatch.
+- **No `println!`/`eprintln!` in hp41-core:** route side effects via `print_buffer` or new buffer field.
+- **`pending_input` routing block must remain ABOVE modal-opening interceptors** to prevent active dialogs being silently discarded.
+- **D-07 (no silent discards) preserved across CLI + GUI:** v3.0 module functions must surface as `GuiError`-toast or modal flow, never silent.
+- **HP-copyrighted ROM-image redistribution is permanently excluded** (PROJECT.md:160) — v3.0 Math 1 Emulation is BEHAVIORAL only, based on Owner's Manual documented behavior. No HP ROM bytes in the repo, ever.
 
 ### Blockers
 
 None.
 
-### Quick Tasks Completed
+### Quick Tasks Completed (historical record)
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
@@ -136,10 +114,10 @@ None.
 
 ## Session Continuity
 
-**Last active:** 2026-05-15
-**Last action:** `/gsd-execute-phase 25` complete — 4 plans, 17 commits, 1045/1045 workspace tests passing, `just docs-matrix-check` green, `cargo clippy --workspace --all-targets -- -D warnings` clean. **Shipped artifacts:** (1) `App.shift_armed` one-shot f-prefix state machine in `hp41-cli/src/app.rs` mirroring GUI v2.1 `shiftActive`; ALPHA-overrides-prefix preserved; 26 v1.x letter direct dispatches stripped from `key_to_op` per D-25.3. (2) 6 new `PendingInput` variants (12→18): `FlagPrompt { kind, ind, acc }` + `RegisterPrompt { op, ind, acc }` struct-group, `ClpLabel` + `DelCount` + `TonePrompt` + `XeqByName` specialty; IND-toggle via shift-0 reuses `App.shift_armed` (W2 fix); `pending_prompt()` exhaustive — no `_=>` or `unreachable!()`. (3) Surgical `hp41-core::ops::program::builtin_card_op` 4→12 extension (the one cleared exception to the FROZEN rule); `pub(super)` visibility preserved (W1 fix); CLI `xeq_by_name_local_resolve` + XeqByName modal Enter-arm dispatches all 8 non-keyboard conditional tests. (4) `docs/hp41cv-functions.json` (130 entries, canonical source) + `help_data.rs` JSON pipeline via `include_str!` + `std::sync::OnceLock` (D-25.16); `scripts/docs-matrix/` standalone non-workspace Rust bin emits `docs/hp41cv-function-matrix.md`; `just docs-matrix` + `just docs-matrix-check` recipes; bidirectional `function_matrix_parity.rs` + `key_coverage.rs` tests (the B2 fix that closes FN-CLI-01 verifiability). (5) `KEY_REF_TABLE` const deleted → `key_ref_entries()` JSON-derived per D-25.18; CLAUDE.md "v2.2 additions" subsection; README soft "feature-complete HP-41CV" claim with matrix link. **Auto-fixes during execution:** Plan 03 narrowed help-overlay `?` interceptor so XEQ-by-Name modal can accept HP-41CV mnemonics ending in `?` (e.g. `X=Y?`); Plan 02 wired Esc inside FlagPrompt/RegisterPrompt to also clear `shift_armed` (T-25-07 mitigation). **Boundary preserved:** root `Cargo.toml` `members = ["hp41-core", "hp41-cli"]` unchanged; hp41-gui untouched; SC-4 invariant intact; the only hp41-core touch was the 4→12 cleared surgical extension. PR #11 updated; pushed.
-**Next action:** `/gsd-discuss-phase 26` — start GUI Integration & Polish. Phase 26 mirrors the Phase 25 prefix-modal model into hp41-gui (D-25.6 parity invariant): every new v2.2 key ID resolves via `key_map.rs::resolve`; previously-stubbed prompts (`sto_prompt`, `rcl_prompt`, `fix_prompt`, etc.) route to real React modals; 14-seg SVG LCD font; `?` overlay ports `help_data.rs` to TS via the same JSON; `p`-key remap to `prgm_mode`.
+**Last active:** 2026-05-16
+**Last action:** Milestone v3.0 started — PROJECT.md updated with Math 1 Pac scope, v2.2 phase directories archived to `.planning/milestones/v2.2-phases/`, MILESTONES.md v2.2 section written, STATE.md reset for v3.0. Research-first selected; 4 parallel agents to run next.
+**Next action:** Spawn 4 parallel `gsd-project-researcher` agents (Stack / Features / Architecture / Pitfalls), then `gsd-research-synthesizer`, then user-driven REQUIREMENTS.md scoping, then `gsd-roadmapper` for phase plan starting at Phase 28.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-15 — Phase 25 shipped; Phase 26 next*
+*Last updated: 2026-05-16 — Milestone v3.0 Math 1 Pac Emulation started; research-first*
