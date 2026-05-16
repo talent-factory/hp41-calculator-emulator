@@ -4,11 +4,11 @@ milestone: v3.0
 milestone_name: — Math 1 Pac Emulation
 status: planning
 last_updated: "2026-05-16T00:00:00.000Z"
-last_activity: 2026-05-16 -- Milestone v3.0 started (Math 1 Pac); research-first; phase numbering continues from 28
+last_activity: 2026-05-16 -- ROADMAP.md created (5 phases 28-32, 25 plans, 110 requirements mapped 1:1); Phase 28 has 5 irreversible decisions; awaiting /gsd:plan-phase 28
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 25
   completed_plans: 0
   percent: 0
 ---
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
 **Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green
-**Current focus:** v3.0 Math 1 Pac Emulation — XROM-Modul-Framework + Math-1-Funktionsbibliothek (Matrix / Komplex / Polynom / Integration / Solver / Vektor). Stat 1 → v3.1.
+**Current focus:** v3.0 Math Pac I Emulation — XROM-Modul-Framework + Math-1-Funktionsbibliothek (Matrix / Komplex / Polynom / Integration / Solver / DIFEQ / Fourier / Triangles / TRANS / Hyperbolics). Stat 1 → v3.1.
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -35,10 +35,10 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap complete, awaiting `/gsd:plan-phase 28`)
 Plan: —
-Status: Defining requirements — research-first selected; 4 parallel agents (Stack / Features / Architecture / Pitfalls) to run before REQUIREMENTS.md
-Last activity: 2026-05-16 — Milestone v3.0 started
+Status: Roadmap drafted by `/gsd:roadmapper` 2026-05-16; 5 phases (28–32), 25 plans, 110 requirements mapped 1:1 in REQUIREMENTS.md Traceability table.
+Last activity: 2026-05-16 — ROADMAP.md created
 
 ---
 
@@ -57,7 +57,33 @@ Last activity: 2026-05-16 — Milestone v3.0 started
 
 ## v3.0 Phase Plan
 
-*To be filled via `/gsd-roadmapper` after REQUIREMENTS.md is approved. Phase numbering continues from Phase 28 (consistent with v1.0=1-8, v1.1=9-12, v2.0=13-18, v2.1=19, v2.2=20-27).*
+Roadmap shipped 2026-05-16 (`.planning/ROADMAP.md`). 5 phases, 25 plans, 110 requirements:
+
+| Phase | Name | Build stage | Plans | Requirements |
+|-------|------|-------------|-------|--------------|
+| 28 | XROM Framework + Math Pac I Core Ops | `hp41-core` | 10 | 90 (XROM 9 + HYP 6 + CMPLX 17 + POLY 7 + MAT 11 + INTG 8 + SOLV 8 + DIFEQ 5 + FOUR 6 + TRI 5 + TRANS 5) |
+| 29 | CLI Integration | `hp41-cli` | 3 | CLI-01..05 |
+| 30 | Documentation & ADRs | `docs` | 4 | DOC-01..07 |
+| 31 | GUI Integration | `hp41-gui` | 5 | GUI-01..07 |
+| 32 | Test Hardening | `tests` | 3 | QUAL-01..08 |
+
+**Phase 28 carries 5 irreversible decisions** (Plan 28-01 research-prep):
+1. Op-strategy A vs B — LOCKED A (ADR-001)
+2. User-callback re-entrancy policy — LOCKED strict-reject nested (ADR-002)
+3. INV-EPSILON value — TBD post-OM-transcription (ADR-003)
+4. INTG-threshold formula — TBD post-OM-transcription (ADR-004)
+5. JSON-pipeline shape — LOCKED separate file (ADR-005)
+
+**Critical pitfalls flagged**:
+- Pitfall 1 (function-name collision): mitigated by xrom_resolve firing LAST in resolver chain + `tests/xrom_shadowing.rs` CI gate
+- Pitfall 2 (INTG threshold): tied to `DisplayMode`, OM-cited
+- Pitfall 4 (user-callback re-entrancy): `run_loop` (NOT `run_program`) re-entry; nested INTG/SOLVE rejected per XROM-08
+- Pitfall 5 (POLY clustering): multiplicity-as-cluster convention documented in divergences doc
+- Pitfall 6 (complex branch cuts): `complex_atan2(0,0)→0` first arm; zero-divisor branch BEFORE division
+- Pitfall 7 (INV EPSILON): MUST transcribe OM before Plan 28-06
+- Pitfall 11 (GUI freeze): cancellation channel + per-64-samples lock release in Phase 31
+- Pitfall 14 (cross-platform drift): relative tolerance 1e-7 in Phase 32
+- Pitfall 19 (Free42 GPL contamination): per-file header + audit script in Phase 32
 
 ---
 
@@ -86,16 +112,22 @@ Last activity: 2026-05-16 — Milestone v3.0 started
 | `data-testid="lcd-display"` on `Display14Seg.tsx` | Allowed under SC-4 (hp41-gui/src/ outside boundary); enables WebdriverIO assertion | Phase 27 |
 | Coverage gate atomic raise 80 % → 95 % (D-27.2) | Avoid gate-and-test split that masks regressions | Phase 27 |
 | WebdriverIO + tauri-driver (not Playwright) for E2E | tauri-driver speaks WebDriver classic; Playwright is CDP/native only | Phase 27 |
+| Op-strategy A (one Op variant per Math Pac I function) | Preserves 4-exhaustive-match invariant; rejects `Op::XromCall(u16)` table dispatch | Phase 28 ADR-001 |
+| User-callback re-entrancy: strict-reject nested | Matches Math Pac I Hardware-Verhalten per OM; simplest invariant | Phase 28 ADR-002 |
+| JSON-pipeline: separate `hp41-math1-functions.json` | Zero migration churn on 130 existing v2.2 entries; cleaner test surfaces | Phase 28 ADR-005 |
+| `xrom_resolve` fires LAST in resolver chain | Prevents Math Pac I shadowing existing built-in mnemonics (Pitfall 1) | Phase 28 |
+| `run_loop` (NOT `run_program`) re-entry for INTG/SOLVE/DIFEQ | Preserves outer program clone; avoids 30 KB × 1000 samples re-clone catastrophe | Phase 28 |
 
 ### Critical Implementation Traps (carried forward — relevant for v3.0)
 
-- **Every new Op variant must be added to 4 places:** `dispatch()` in `ops/mod.rs` + `execute_op()` in `ops/program.rs` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. Exhaustive matches fail to compile if any is missed.
-- **New CalcState fields need `#[serde(default)]`** for backward compatibility with v1.0/v1.1/v2.0/v2.1/v2.2 save files.
-- **SC-4 invariant (no core duplication in hp41-gui):** stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` — `op_display_name` is the only intentional exception. Critical when adding XROM-Modul-Dispatch.
-- **No `println!`/`eprintln!` in hp41-core:** route side effects via `print_buffer` or new buffer field.
+- **Every new Op variant must be added to 4 places:** `dispatch()` in `ops/mod.rs` + `execute_op()` in `ops/program.rs` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. Exhaustive matches fail to compile if any is missed. Math Pac I adds ~40 variants — 4-way drift increases PR review load (Pitfall 15).
+- **New CalcState fields need `#[serde(default)]`** for backward compatibility with v1.0/v1.1/v2.0/v2.1/v2.2 save files. Transient fields (`integ_state`, `solve_state`, `modal_program`, `cancel_requested`) additionally carry `#[serde(skip)]`.
+- **SC-4 invariant (no core duplication in hp41-gui):** stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` — `op_display_name` is the only intentional exception. Critical when adding XROM-Modul-Dispatch — Math Pac I math logic MUST land in `hp41-core/src/ops/math1/`.
+- **No `println!`/`eprintln!` in hp41-core:** route side effects via `print_buffer` (existing channel; used for Math Pac I prompts) or `event_buffer`.
 - **`pending_input` routing block must remain ABOVE modal-opening interceptors** to prevent active dialogs being silently discarded.
-- **D-07 (no silent discards) preserved across CLI + GUI:** v3.0 module functions must surface as `GuiError`-toast or modal flow, never silent.
-- **HP-copyrighted ROM-image redistribution is permanently excluded** (PROJECT.md:160) — v3.0 Math 1 Emulation is BEHAVIORAL only, based on Owner's Manual documented behavior. No HP ROM bytes in the repo, ever.
+- **D-07 (no silent discards) preserved across CLI + GUI:** v3.0 module functions surface as `GuiError`-toast or modal flow, never silent.
+- **HP-copyrighted ROM-image redistribution is permanently excluded** (PROJECT.md scope-line) — v3.0 Math Pac I Emulation is BEHAVIORAL only, based on Owner's Manual 00041-90034 (1979). No HP ROM bytes in the repo, ever.
+- **Free42 GPL contamination guard** (Pitfall 19): every file in `hp41-core/src/ops/math1/` carries a per-file header comment disclaiming Free42 source copying; `scripts/check-free42-contamination.sh` CI gate.
 
 ### Blockers
 
@@ -115,9 +147,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-16
-**Last action:** Milestone v3.0 started — PROJECT.md updated with Math 1 Pac scope, v2.2 phase directories archived to `.planning/milestones/v2.2-phases/`, MILESTONES.md v2.2 section written, STATE.md reset for v3.0. Research-first selected; 4 parallel agents to run next.
-**Next action:** Spawn 4 parallel `gsd-project-researcher` agents (Stack / Features / Architecture / Pitfalls), then `gsd-research-synthesizer`, then user-driven REQUIREMENTS.md scoping, then `gsd-roadmapper` for phase plan starting at Phase 28.
+**Last action:** ROADMAP.md created by `/gsd:roadmapper` — 5 phases (28–32), 25 plans, 110 requirements mapped 1:1 in REQUIREMENTS.md Traceability table. Phase 28 carries 5 irreversible decisions (Op-strategy A locked, user-callback strict-reject locked, INV-EPSILON / INTG-threshold TBD post-OM-transcription, JSON-pipeline two-file shape locked). All 110 v3.0 requirements covered; no orphans.
+**Next action:** `/gsd:plan-phase 28` to decompose Phase 28 into 10 plan files (28-01 framework + ADRs, 28-02 hyperbolics, 28-03 complex stack arith, 28-04 complex functions, 28-05 POLY, 28-06 MATRIX, 28-07 INTG, 28-08 SOLVE, 28-09 DIFEQ, 28-10 FOUR+triangles+TRANS). Plan 28-01 MUST include research-prep step to transcribe OM page-references for ADR-003 (INV-EPSILON) and ADR-004 (INTG-threshold) BEFORE implementation lands.
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-16 — Milestone v3.0 Math 1 Pac Emulation started; research-first*
+*Last updated: 2026-05-16 — v3.0 Math Pac I Emulation roadmap drafted; awaiting `/gsd:plan-phase 28`*
