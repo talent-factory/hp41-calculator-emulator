@@ -626,6 +626,18 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
             Op::Integ => {
                 crate::ops::math1::integ::op_integ_run_loop(state, program)?;
             }
+            // ── Phase 28: SOLVE / SOL (Plan 28-08) ───────────────────────────
+            // Op::Solve and Op::Sol must run inside run_loop (not dispatch) to allow
+            // re-entrant run_loop calls for each secant iteration (C-28.5 / Pitfall 4).
+            // The real implementations are in op_solve_run_loop / op_sol_run_loop;
+            // the dispatch arm (execute_op and dispatch()) returns InvalidOp per the
+            // Op::Integ precedent from Plan 28-07.
+            Op::Solve => {
+                crate::ops::math1::solve::op_solve_run_loop(state, program)?;
+            }
+            Op::Sol => {
+                crate::ops::math1::solve::op_sol_run_loop(state, program)?;
+            }
             other => {
                 // All other ops execute without flush_entry_buf (no digit entry mid-program)
                 // and without prgm_mode check (RESEARCH Pitfall 2)
@@ -934,7 +946,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
         | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
         | Op::Ins                               // Phase 22: INS is a PRGM-mode editing primitive
-        | Op::Integ => Err(HpError::InvalidOp), // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
+        | Op::Integ                             // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
+        | Op::Solve                             // Phase 28: SOLVE has run_loop arm; dispatch returns InvalidOp
+        | Op::Sol => Err(HpError::InvalidOp),   // Phase 28: SOL has run_loop arm; dispatch returns InvalidOp
     }
 }
 
