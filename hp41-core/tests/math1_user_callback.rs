@@ -17,6 +17,7 @@
 use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
 use hp41_core::ops::math1::integ::op_integ_run_loop;
+use hp41_core::ops::math1::solve::op_solve_run_loop;
 use hp41_core::ops::Op;
 use hp41_core::state::CalcState;
 use rust_decimal::prelude::ToPrimitive;
@@ -123,13 +124,88 @@ fn nested_solve_inside_integ_rejected() {
     );
 }
 
+/// Build a CalcState configured for SOLVE where the callback tries to call INTG.
+/// Outer: SOLVE on a function "NI" that executes Op::Integ internally.
+fn make_solve_with_nested_integ() -> (CalcState, Vec<Op>) {
+    // Callback "NI": tries to call INTG (nested INTG inside SOLVE user function)
+    let program = vec![
+        Op::Lbl("NI".to_string()),
+        Op::Integ, // nested Op::Integ inside SOLVE callback — must be rejected
+        Op::Rtn,
+    ];
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = "NI".to_string();
+    state.regs[0] = HpNum::from(-1i32); // x1 = -1
+    state.regs[1] = HpNum::from(1i32);  // x2 = 1
+    state.stack.lift_enabled = false;
+    (state, program)
+}
+
+/// Build a CalcState configured for SOLVE where the callback tries to call SOLVE itself.
+fn make_solve_with_nested_solve() -> (CalcState, Vec<Op>) {
+    // Callback "NS": tries to call SOLVE (nested SOLVE inside SOLVE user function)
+    let program = vec![
+        Op::Lbl("NS".to_string()),
+        Op::Solve, // nested Op::Solve inside SOLVE callback — must be rejected
+        Op::Rtn,
+    ];
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = "NS".to_string();
+    state.regs[0] = HpNum::from(-1i32); // x1 = -1
+    state.regs[1] = HpNum::from(1i32);  // x2 = 1
+    state.stack.lift_enabled = false;
+    (state, program)
+}
+
 /// Nested INTG inside a SOLVE user function must return HpError::InvalidOp.
-/// Catches: re-entrancy guard missing in op_solve entry.
+/// Catches: re-entrancy guard missing in op_solve entry — checks only integ_state
+/// but not solve_state (XROM-08 / ADR-002 strict-reject must check ALL three solver states).
 /// Filled by Plan 28-08.
+///
+/// When op_solve_run_loop starts the secant loop, it sets state.solve_state = Some(...).
+/// Each secant step calls run_user_function which executes Op::Integ.
+/// The inner op_integ_run_loop sees solve_state.is_some() → Err(InvalidOp).
+/// This error propagates back through run_user_function → run_secant_loop → test.
 #[test]
-#[ignore = "filled by Plan 28-08"]
 fn nested_integ_inside_solve_rejected() {
-    unimplemented!("filled by Plan 28-08");
+    let (mut state, program) = make_solve_with_nested_integ();
+    let result = op_solve_run_loop(&mut state, &program);
+
+    // The nested INTG attempt returns InvalidOp which propagates out
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested INTG inside SOLVE user function must return HpError::InvalidOp (ADR-002 / XROM-08)"
+    );
+    // solve_state must be cleared after the error (no state leak)
+    assert!(
+        state.solve_state.is_none(),
+        "solve_state must be None after nested INTG rejection"
+    );
+}
+
+/// Nested SOLVE inside a SOLVE user function must return HpError::InvalidOp.
+/// Catches: re-entrancy guard missing in op_solve entry — nested SOLVE-in-SOLVE case.
+/// New test added in Plan 28-08 (not scaffolded in Plan 28-01).
+///
+/// When op_solve_run_loop sets solve_state = Some(...), any inner Op::Solve
+/// call sees solve_state.is_some() → Err(InvalidOp) per XROM-08.
+#[test]
+fn nested_solve_inside_solve_rejected() {
+    let (mut state, program) = make_solve_with_nested_solve();
+    let result = op_solve_run_loop(&mut state, &program);
+
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested SOLVE inside SOLVE user function must return HpError::InvalidOp (XROM-08 / SOLV-08)"
+    );
+    assert!(
+        state.solve_state.is_none(),
+        "solve_state must be None after nested SOLVE rejection"
+    );
 }
 
 /// Nested DIFEQ inside an INTG user function must return HpError::InvalidOp.

@@ -94,6 +94,9 @@ pub const MATH_1: XromModule = XromModule {
         ("VCOL", Op::MatVcol),
         // ── Plan 28-07: INTG ──────────────────────────────────────────────────
         ("INTG", Op::Integ),
+        // ── Plan 28-08: SOLVE / SOL ───────────────────────────────────────────
+        ("SOLVE", Op::Solve),
+        ("SOL", Op::Sol),
     ],
 };
 
@@ -181,7 +184,13 @@ fn math1_resolve(name: &str) -> Option<Op> {
         "VCOL" => Some(Op::MatVcol),
         // ── Plan 28-07: INTG ──────────────────────────────────────────────────
         "INTG" => Some(Op::Integ),
-        // Plans 28-08..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-08: SOLVE / SOL ───────────────────────────────────────────
+        // "SOLVE" non-shadowing: RESEARCH §"Resolver-Chain Conflict Map" line 628
+        // confirms neither "SOLVE" nor "SOL" appears in v2.2 xeq_by_name_local_resolve
+        // or builtin_card_op. Safe to claim both for Math Pac I.
+        "SOLVE" => Some(Op::Solve),
+        "SOL" => Some(Op::Sol),
+        // Plans 28-09..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -267,12 +276,13 @@ mod tests {
     // Plan 28-05: +2 POLY/ROOTS entries
     // Plan 28-06: +8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL)
     // Plan 28-07: +1 INTG entry
+    // Plan 28-08: +2 SOLVE/SOL entries
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            41,
-            "MATH_1.ops must have exactly 41 entries after Plan 28-07 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg)"
+            43,
+            "MATH_1.ops must have exactly 43 entries after Plan 28-08 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg + 2 solve)"
         );
     }
 

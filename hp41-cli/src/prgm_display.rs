@@ -275,6 +275,9 @@ fn op_display_name(op: &Op) -> String {
         Op::MatVcol => "VCOL".to_string(),
         // ── Phase 28: INTG (Plan 28-07) ────────────────────────────────────────
         Op::Integ => "INTG".to_string(),
+        // ── Phase 28: SOLVE / SOL (Plan 28-08) ────────────────────────────────
+        Op::Solve => "SOLVE".to_string(),
+        Op::Sol => "SOL".to_string(),
     }
 }
 

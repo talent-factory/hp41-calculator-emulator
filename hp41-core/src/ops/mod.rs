@@ -718,6 +718,32 @@ pub enum Op {
     /// Max evaluations: 32768 per INTG call (OM p. 37).
     /// LiftEffect: Enable (pushes result to X on completion). INTG-01..08 / HP 00041-90034 Ch.3.
     Integ,
+    // ── Phase 28: SOLVE (Plan 28-08) ────────────────────────────────────────────
+    /// SOLVE — modified secant root-finder with user-supplied LBL function.
+    ///
+    /// Master entry: opens 3-prompt modal (FUNCTION NAME? / GUESS 1=? / GUESS 2=?),
+    /// then runs modified-secant iteration. Dispatch arm returns `HpError::InvalidOp`;
+    /// run_loop arm calls `op_solve_run_loop(state, program)`.
+    ///
+    /// Pre-mutation guards (XROM-08 / ADR-002 / SOLV-08 / Pitfall 4):
+    /// 1. Strict-reject nested INTG/SOLVE/DIFEQ → InvalidOp BEFORE mutation.
+    /// 2. call_stack.len() >= 4 → CallDepth BEFORE mutation.
+    ///
+    /// Three termination paths (SOLV-04 / PATTERNS line 537) written to print_buffer:
+    /// - "ROOT IS <v>" — convergence achieved
+    /// - "ROOT IS BETWEEN <v1> AND <v2>" — sign change but not narrowable
+    /// - "NO ROOT FOUND" — 100-iteration cap reached (SOLV-07)
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6.
+    Solve,
+    /// SOL — SOLVE sub-entry that bypasses the 3-prompt modal.
+    ///
+    /// Reads user_label from `state.alpha_reg`, x1 from R00, x2 from R01
+    /// (scratch convention per SOLV-05). If alpha_reg is empty, returns InvalidOp.
+    /// Dispatch arm returns `HpError::InvalidOp`; run_loop arm calls `op_sol_run_loop`.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6, p. 38.
+    Sol,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -1105,6 +1131,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // Real implementation runs only inside run_loop's Op::Integ arm.
         // Mirrors Op::XeqInd pattern: dispatch arm rejects; run_loop arm does work.
         Op::Integ => math1::integ::op_integ(state),
+        // ── Phase 28: SOLVE / SOL (Plan 28-08) ───────────────────────────────
+        // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
+        // Real implementation runs only inside run_loop's Op::Solve / Op::Sol arm.
+        // Mirrors Op::Integ precedent from Plan 28-07.
+        Op::Solve => math1::solve::op_solve(state),
+        Op::Sol => math1::solve::op_sol(state),
     }
 }
 

@@ -113,24 +113,38 @@ impl MatrixInputStep {
 
 /// Per-step state for the SOLVE workflow (Plan 28-08).
 ///
-/// Steps follow the HP-41C Math Pac I OM SOLVE program prompting sequence.
-/// Extended by Plan 28-08.
+/// Steps follow the HP-41C Math Pac I OM SOLVE program prompting sequence
+/// (HP 00041-90034, 1979), Chapter 6 "Root Finder".
+///
+/// Prompt sequence: FUNCTION NAME? → GUESS 1=? → GUESS 2=? → Ready (computing).
+/// Plan 28-08 extends Plan 28-01's 3-variant stub with the `Ready` variant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SolveInputStep {
     /// Awaiting user function label name. Prompt: "FUNCTION NAME?"
+    /// Source: HP 00041-90034 (1979), Chapter 6, p. 33.
     FunctionNamePrompt,
-    /// Awaiting first guess. Prompt: "GUESS 1=?"
+    /// Awaiting first guess x1. Prompt: "GUESS 1=?"
+    /// Source: HP 00041-90034 (1979), Chapter 6, p. 34.
     Guess1Prompt,
-    /// Awaiting second guess. Prompt: "GUESS 2=?"
+    /// Awaiting second guess x2. Prompt: "GUESS 2=?"
+    /// Source: HP 00041-90034 (1979), Chapter 6, p. 34.
     Guess2Prompt,
+    /// SOLVE workflow complete; computing or done. No prompt displayed.
+    /// Added by Plan 28-08 (mirrors IntegInputStep::Ready pattern from Plan 28-07).
+    Ready,
 }
 
 impl SolveInputStep {
+    /// Returns the OM-cited prompt text for the current SOLVE workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6, pp. 33–34.
+    /// `Ready` returns `None` because no user input is needed during computation.
     pub fn current_prompt(&self) -> Option<String> {
         match self {
             SolveInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
             SolveInputStep::Guess1Prompt => Some("GUESS 1=?".to_string()),
             SolveInputStep::Guess2Prompt => Some("GUESS 2=?".to_string()),
+            SolveInputStep::Ready => None,
         }
     }
 }
@@ -500,6 +514,60 @@ mod tests {
     fn matrix_simeq_done_returns_none() {
         let mp = ModalProgram::Matrix(MatrixInputStep::SimeqDone);
         assert_eq!(mp.current_prompt(), None);
+    }
+
+    // ── Plan 28-08: SolveInputStep prompt tests ──────────────────────────────
+
+    // Catches: SolveInputStep::FunctionNamePrompt returning wrong text
+    #[test]
+    fn solve_function_name_prompt_text() {
+        let mp = ModalProgram::Solve(SolveInputStep::FunctionNamePrompt);
+        assert_eq!(mp.current_prompt(), Some("FUNCTION NAME?".to_string()));
+    }
+
+    // Catches: SolveInputStep::Guess1Prompt returning wrong text
+    #[test]
+    fn solve_guess1_prompt_text() {
+        let mp = ModalProgram::Solve(SolveInputStep::Guess1Prompt);
+        assert_eq!(mp.current_prompt(), Some("GUESS 1=?".to_string()));
+    }
+
+    // Catches: SolveInputStep::Guess2Prompt returning wrong text
+    #[test]
+    fn solve_guess2_prompt_text() {
+        let mp = ModalProgram::Solve(SolveInputStep::Guess2Prompt);
+        assert_eq!(mp.current_prompt(), Some("GUESS 2=?".to_string()));
+    }
+
+    // Catches: SolveInputStep::Ready not returning None (computing state must show no prompt)
+    #[test]
+    fn solve_ready_returns_none() {
+        let mp = ModalProgram::Solve(SolveInputStep::Ready);
+        assert_eq!(mp.current_prompt(), None);
+    }
+
+    // Catches: Clone + PartialEq derive regression on SolveInputStep including Ready variant
+    #[test]
+    fn solve_input_step_clone_and_eq() {
+        let step = SolveInputStep::Ready;
+        assert_eq!(step.clone(), step);
+        let step2 = SolveInputStep::Guess1Prompt;
+        assert_ne!(step, step2);
+    }
+
+    // Catches: ModalProgram::Solve dispatch regression — all 4 variants in one round-trip
+    #[test]
+    fn solve_modal_dispatch_round_trip() {
+        let variants = [
+            (SolveInputStep::FunctionNamePrompt, Some("FUNCTION NAME?".to_string())),
+            (SolveInputStep::Guess1Prompt, Some("GUESS 1=?".to_string())),
+            (SolveInputStep::Guess2Prompt, Some("GUESS 2=?".to_string())),
+            (SolveInputStep::Ready, None),
+        ];
+        for (step, expected) in variants {
+            let mp = ModalProgram::Solve(step.clone());
+            assert_eq!(mp.current_prompt(), expected, "failed for step: {step:?}");
+        }
     }
 
     // ── Plan 28-07: IntegInputStep prompt tests ───────────────────────────────
