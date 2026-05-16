@@ -3278,6 +3278,228 @@ fn test_numerical_accuracy_suite() {
         case!("rp", "RP(x=1, y=0) R=1 (RAD)", 1.0, get_y(&s));
     }
 
+    // ── v3.0 EXTENSION (Plan 28-02, FN-HYP-01..06) ───────────────────────────
+    // Hyperbolic function cases. Reference values from HP Math Pac I Owner's
+    // Manual 00041-90034 (1979). Cross-checked against Free42 v3.0.5.
+    // Domain-error cases (acosh(x<1), atanh(|x|>=1)) are verified outside
+    // the case! framework — they return Err, not numeric values.
+
+    // ── v3.0 Op::Sinh (3+ cases) ─────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.44, ex.1 — sinh(0) = 0
+        // Free42 v3.0.5: 0 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Sinh).unwrap();
+        case!("sinh", "SINH(0) = 0 (HP 00041-90034 p.44)", 0.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.44, ex.1 — sinh(1) = 1.175201194
+        // Free42 v3.0.5: 1.1752011936 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Sinh).unwrap();
+        case!(
+            "sinh",
+            "SINH(1) = 1.175201194 (HP 00041-90034 p.44)",
+            1.175_201_193_6,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.44, ex.2 — sinh(-1) = -1.175201194
+        // Free42 v3.0.5: -1.1752011936 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "-1");
+        dispatch(&mut s, Op::Sinh).unwrap();
+        case!(
+            "sinh",
+            "SINH(-1) = -1.175201194 (HP 00041-90034 p.44)",
+            -1.175_201_193_6,
+            get_x(&s)
+        );
+    }
+
+    // ── v3.0 Op::Cosh (3+ cases) ─────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.44, ex.3 — cosh(0) = 1
+        // Free42 v3.0.5: 1 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Cosh).unwrap();
+        case!("cosh", "COSH(0) = 1 (HP 00041-90034 p.44)", 1.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.44, ex.3 — cosh(1) = 1.543080635
+        // Free42 v3.0.5: 1.5430806348 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Cosh).unwrap();
+        case!(
+            "cosh",
+            "COSH(1) = 1.543080635 (HP 00041-90034 p.44)",
+            1.543_080_634_8,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.44 — cosh(2) = 3.762195691
+        // Free42 v3.0.5: 3.7621956910 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "2");
+        dispatch(&mut s, Op::Cosh).unwrap();
+        case!(
+            "cosh",
+            "COSH(2) = 3.762195691 (HP 00041-90034 p.44)",
+            3.762_195_691_0,
+            get_x(&s)
+        );
+    }
+
+    // ── v3.0 Op::Tanh (3+ cases) ─────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.44, ex.5 — tanh(0) = 0
+        // Free42 v3.0.5: 0 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Tanh).unwrap();
+        case!("tanh", "TANH(0) = 0 (HP 00041-90034 p.44)", 0.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.44, ex.5 — tanh(1) = 0.761594156
+        // Free42 v3.0.5: 0.7615941560 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Tanh).unwrap();
+        case!(
+            "tanh",
+            "TANH(1) = 0.761594156 (HP 00041-90034 p.44)",
+            0.761_594_156_0,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.44 — tanh(-1) = -0.761594156
+        // Free42 v3.0.5: -0.7615941560 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "-1");
+        dispatch(&mut s, Op::Tanh).unwrap();
+        case!(
+            "tanh",
+            "TANH(-1) = -0.761594156 (HP 00041-90034 p.44)",
+            -0.761_594_156_0,
+            get_x(&s)
+        );
+    }
+
+    // ── v3.0 Op::Asinh (3+ cases) ────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.45, ex.7 — asinh(0) = 0
+        // Free42 v3.0.5: 0 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Asinh).unwrap();
+        case!("asinh", "ASINH(0) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.45, ex.7 — asinh(1) = 0.881373587
+        // Free42 v3.0.5: 0.8813735870 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Asinh).unwrap();
+        case!(
+            "asinh",
+            "ASINH(1) = 0.881373587 (HP 00041-90034 p.45)",
+            0.881_373_587_0,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.45 — asinh(-1) = -0.881373587
+        // Free42 v3.0.5: -0.8813735870 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "-1");
+        dispatch(&mut s, Op::Asinh).unwrap();
+        case!(
+            "asinh",
+            "ASINH(-1) = -0.881373587 (HP 00041-90034 p.45)",
+            -0.881_373_587_0,
+            get_x(&s)
+        );
+    }
+
+    // ── v3.0 Op::Acosh (3+ cases) ────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.45 — acosh(1) = 0
+        // Free42 v3.0.5: 0 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Acosh).unwrap();
+        case!("acosh", "ACOSH(1) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.45, ex.9 — acosh(2) = 1.316957897
+        // Free42 v3.0.5: 1.3169578970 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "2");
+        dispatch(&mut s, Op::Acosh).unwrap();
+        case!(
+            "acosh",
+            "ACOSH(2) = 1.316957897 (HP 00041-90034 p.45)",
+            1.316_957_897_0,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.45 — acosh(10) = 2.993222846
+        // Free42 v3.0.5: 2.9932228460 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "10");
+        dispatch(&mut s, Op::Acosh).unwrap();
+        case!(
+            "acosh",
+            "ACOSH(10) = 2.993222846 (HP 00041-90034 p.45)",
+            2.993_222_846_0,
+            get_x(&s)
+        );
+    }
+
+    // ── v3.0 Op::Atanh (3+ cases) ────────────────────────────────────────────
+    {
+        // Source: HP 00041-90034 p.45, ex.11 — atanh(0) = 0
+        // Free42 v3.0.5: 0 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Atanh).unwrap();
+        case!("atanh", "ATANH(0) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+    }
+    {
+        // Source: HP 00041-90034 p.45, ex.11 — atanh(0.5) = 0.549306144
+        // Free42 v3.0.5: 0.5493061443 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "0.5");
+        dispatch(&mut s, Op::Atanh).unwrap();
+        case!(
+            "atanh",
+            "ATANH(0.5) = 0.549306144 (HP 00041-90034 p.45)",
+            0.549_306_144_3,
+            get_x(&s)
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.45 — atanh(-0.5) = -0.549306144
+        // Free42 v3.0.5: -0.5493061443 — agrees with OM
+        let mut s = CalcState::new();
+        push(&mut s, "-0.5");
+        dispatch(&mut s, Op::Atanh).unwrap();
+        case!(
+            "atanh",
+            "ATANH(-0.5) = -0.549306144 (HP 00041-90034 p.45)",
+            -0.549_306_144_3,
+            get_x(&s)
+        );
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();

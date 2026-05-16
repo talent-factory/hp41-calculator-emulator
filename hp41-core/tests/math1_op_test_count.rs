@@ -127,8 +127,12 @@ fn each_math1_op_has_at_least_5_tests() {
         return;
     }
 
-    // Find the tests directory (relative to workspace root where cargo sets cwd).
-    let tests_dir = Path::new("hp41-core/tests");
+    // Find the tests directory using CARGO_MANIFEST_DIR (set at compile time to the
+    // hp41-core package directory). This is robust across workspace root / package root
+    // CWD differences when running tests via `cargo test -p hp41-core`.
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let tests_dir_buf = manifest_dir.join("tests");
+    let tests_dir = tests_dir_buf.as_path();
 
     let mut failures: Vec<String> = Vec::new();
     for variant_name in &variants {

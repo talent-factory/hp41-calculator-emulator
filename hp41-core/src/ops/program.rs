@@ -863,6 +863,13 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ViewInd(reg) => crate::ops::indirect::op_view_ind(state, reg),
         Op::IsgInd(reg) => crate::ops::indirect::op_isg_ind(state, reg).map(|_| ()),
         Op::DseInd(reg) => crate::ops::indirect::op_dse_ind(state, reg).map(|_| ()),
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => crate::ops::math1::hyperbolics::op_sinh(state),
+        Op::Cosh => crate::ops::math1::hyperbolics::op_cosh(state),
+        Op::Tanh => crate::ops::math1::hyperbolics::op_tanh(state),
+        Op::Asinh => crate::ops::math1::hyperbolics::op_asinh(state),
+        Op::Acosh => crate::ops::math1::hyperbolics::op_acosh(state),
+        Op::Atanh => crate::ops::math1::hyperbolics::op_atanh(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

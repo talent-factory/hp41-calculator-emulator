@@ -11,6 +11,7 @@
 //! - `difeq`: DifeqState placeholder (Plan 28-09 fills)
 
 pub mod difeq;
+pub mod hyperbolics;
 pub mod integ;
 pub mod modal;
 pub mod solve;

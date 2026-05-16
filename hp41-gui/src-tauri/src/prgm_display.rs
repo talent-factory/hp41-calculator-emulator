@@ -256,6 +256,13 @@ fn op_display_name(op: &Op) -> String {
             };
             format!("{mnemonic} IND {ind_reg:02}")
         }
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => "SINH".to_string(),
+        Op::Cosh => "COSH".to_string(),
+        Op::Tanh => "TANH".to_string(),
+        Op::Asinh => "ASINH".to_string(),
+        Op::Acosh => "ACOSH".to_string(),
+        Op::Atanh => "ATANH".to_string(),
     }
 }
 

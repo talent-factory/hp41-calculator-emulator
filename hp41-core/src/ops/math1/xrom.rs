@@ -30,11 +30,21 @@ pub struct XromModule {
 ///
 /// - `id = 7` — real HP-41C hardware Math Pac I XROM module ID.
 /// - `name = "MATH 1A"` — as displayed by CATALOG 2 on real hardware.
-/// - `ops = &[]` — empty until Plan 28-02 registers `Op::Sinh` etc.
+/// - `ops` — mnemonic → Op mapping; grows with each Plan 28-02..28-10.
+///
+/// Plan 28-02: 6 hyperbolic entries added (SINH, COSH, TANH, ASINH, ACOSH, ATANH).
 pub const MATH_1: XromModule = XromModule {
     id: 7,
     name: "MATH 1A",
-    ops: &[],
+    ops: &[
+        // ── Plan 28-02: Hyperbolics ────────────────────────────────────────────
+        ("SINH", Op::Sinh),
+        ("COSH", Op::Cosh),
+        ("TANH", Op::Tanh),
+        ("ASINH", Op::Asinh),
+        ("ACOSH", Op::Acosh),
+        ("ATANH", Op::Atanh),
+    ],
 };
 
 /// Resolve an XEQ-by-name label against loaded XROM modules.
@@ -76,19 +86,26 @@ pub fn xrom_resolve(name: &str, modules: u8) -> Option<Op> {
 /// // Plan 28-09 adds DIFEQ ...
 /// // Plan 28-10 adds FOUR / SSS / SAS / ASA / SSA / AAS / TRANS ...
 /// ```
-fn math1_resolve(_name: &str) -> Option<Op> {
-    // No Math Pac I Op variants exist yet. Plans 28-02..28-10 grow this match.
-    None
+fn math1_resolve(name: &str) -> Option<Op> {
+    match name {
+        // ── Plan 28-02: Hyperbolics ────────────────────────────────────────────
+        "SINH" => Some(Op::Sinh),
+        "COSH" => Some(Op::Cosh),
+        "TANH" => Some(Op::Tanh),
+        "ASINH" => Some(Op::Asinh),
+        "ACOSH" => Some(Op::Acosh),
+        "ATANH" => Some(Op::Atanh),
+        // Plans 28-03..28-10 extend this match block as new Op variants are added.
+        _ => None,
+    }
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::{xrom_resolve, MATH_1};
+    use crate::ops::Op;
 
-    // Test-only probe: before Plan 28-02 adds Op::Sinh, use a name guaranteed
-    // to never exist to verify the "module loaded but name unknown" path.
-    // This approach lets the resolver tests pass without a real Math Pac I variant.
     const NONEXISTENT_NAME: &str = "__MATH1_PROBE_NONEXISTENT__";
 
     // Catches: bit-mask off-by-one (module loaded bit check)
@@ -132,5 +149,52 @@ mod tests {
             MATH_1.name, "MATH 1A",
             "MATH_1.name must be 'MATH 1A' (HP-41C CATALOG 2 display string)"
         );
+    }
+
+    // ── Plan 28-02: Positive resolution tests (hyperbolic mnemonics) ─────────
+
+    // Catches: math1_resolve not recognizing SINH when module is loaded
+    #[test]
+    fn resolve_sinh_with_module_loaded() {
+        let result = xrom_resolve("SINH", 0b0000_0001);
+        assert_eq!(result, Some(Op::Sinh), "xrom_resolve('SINH', bit0=1) must return Some(Op::Sinh)");
+    }
+
+    // Catches: module-not-loaded path not short-circuiting before math1_resolve
+    #[test]
+    fn resolve_sinh_module_not_loaded_returns_none() {
+        let result = xrom_resolve("SINH", 0b0000_0000);
+        assert!(result.is_none(), "xrom_resolve('SINH', bit0=0) must return None (module not loaded)");
+    }
+
+    // Catches: missing ASINH in math1_resolve match block
+    #[test]
+    fn resolve_asinh_with_module_loaded() {
+        let result = xrom_resolve("ASINH", 0b0000_0001);
+        assert_eq!(result, Some(Op::Asinh), "xrom_resolve('ASINH', bit0=1) must return Some(Op::Asinh)");
+    }
+
+    // Catches: MATH_1.ops slice not populated with 6 entries
+    #[test]
+    fn math1_ops_has_six_hyperbolic_entries() {
+        assert_eq!(
+            MATH_1.ops.len(),
+            6,
+            "MATH_1.ops must have exactly 6 entries after Plan 28-02 (SINH/COSH/TANH/ASINH/ACOSH/ATANH)"
+        );
+    }
+
+    // Catches: MATH_1.ops mnemonic strings not matching math1_resolve keys
+    #[test]
+    fn math1_ops_mnemonics_resolve_consistently() {
+        // Every mnemonic in MATH_1.ops must resolve to the same Op via xrom_resolve
+        for (name, expected_op) in MATH_1.ops {
+            let resolved = xrom_resolve(name, 0b0000_0001);
+            assert_eq!(
+                resolved.as_ref(),
+                Some(expected_op),
+                "MATH_1.ops mnemonic {name:?} must resolve to {expected_op:?} via xrom_resolve"
+            );
+        }
     }
 }

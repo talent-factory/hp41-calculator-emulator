@@ -16,7 +16,8 @@
 
 use hp41_core::ops::program::{op_xeq, run_program};
 use hp41_core::ops::Op;
-use hp41_core::{CalcState, HpError};
+use hp41_core::{CalcState, HpError, HpNum};
+use rust_decimal::Decimal;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -68,20 +69,22 @@ fn builtin_wprgm_wins_over_xrom() {
     );
 }
 
-/// Catches: xrom resolver returning Some() for a name not yet registered.
-/// At Plan 28-01 stage (no Math 1 Op variants), all names including future
-/// Math Pac I mnemonics must fall through to InvalidOp.
+/// Catches: xrom resolver not firing for a registered Math Pac I mnemonic.
+/// Plan 28-02: SINH is now registered in math1_resolve; op_xeq("SINH") must
+/// dispatch via xrom_resolve → Op::Sinh → op_sinh rather than InvalidOp.
+/// CalcState::new() defaults xrom_modules = 0b0000_0001 (Math 1 pre-loaded).
 #[test]
-fn future_math1_mnemonic_returns_invalid_op_at_plan_28_01() {
+fn math1_sinh_resolves_via_xrom() {
     let mut state = fresh_state();
-    // "SINH" will be a Math Pac I mnemonic in Plan 28-02. At Plan 28-01 stage,
-    // it must still return InvalidOp because math1_resolve returns None for it.
+    // Push X = 0 so SINH(0) = 0 (success, no domain error)
+    state.stack.x = HpNum::from(Decimal::ZERO);
+    state.stack.lift_enabled = true;
+    // xrom_modules defaults to 0b0000_0001 (Math 1 loaded) in fresh CalcState
     let result = op_xeq(&mut state, "SINH");
-    assert_eq!(
-        result,
-        Err(HpError::InvalidOp),
-        "SINH must return InvalidOp at Plan 28-01 stage (no Math Pac I Op variants yet). \
-         Plan 28-02 changes this test expectation."
+    assert!(
+        result.is_ok(),
+        "XEQ 'SINH' with Math 1 loaded must dispatch successfully (not InvalidOp): {:?}",
+        result
     );
 }
 
