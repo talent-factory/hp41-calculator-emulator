@@ -30,6 +30,7 @@ use math::{
     op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd, op_set_deg,
     op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
+use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
     op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
@@ -576,6 +577,25 @@ pub enum Op {
     /// so the display shows the resolved register's contents. Phase 24
     /// (FN-IND-01).
     ViewInd(u8),
+    // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+    /// SINH — hyperbolic sine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction; Overflow for extreme magnitudes.
+    Sinh,
+    /// COSH — hyperbolic cosine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction; Overflow for extreme magnitudes.
+    Cosh,
+    /// TANH — hyperbolic tangent. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Saturates to ±1 for large |X| (not an error).
+    Tanh,
+    /// ASINH — inverse hyperbolic sine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction.
+    Asinh,
+    /// ACOSH — inverse hyperbolic cosine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Domain: X >= 1.0; X < 1.0 → HpError::Domain.
+    Acosh,
+    /// ATANH — inverse hyperbolic tangent. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Domain: |X| < 1.0; |X| >= 1.0 → HpError::Domain.
+    Atanh,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -920,6 +940,13 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ArclInd(reg) => indirect::op_arcl_ind(state, reg),
         Op::AstoInd(reg) => indirect::op_asto_ind(state, reg),
         Op::ViewInd(reg) => indirect::op_view_ind(state, reg),
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => op_sinh(state),
+        Op::Cosh => op_cosh(state),
+        Op::Tanh => op_tanh(state),
+        Op::Asinh => op_asinh(state),
+        Op::Acosh => op_acosh(state),
+        Op::Atanh => op_atanh(state),
     }
 }
 
