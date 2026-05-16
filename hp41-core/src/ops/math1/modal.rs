@@ -189,27 +189,47 @@ impl PolyInputStep {
 
 /// Per-step state for the INTG workflow (Plan 28-07).
 ///
-/// Steps follow the HP-41C Math Pac I OM INTG program prompting sequence.
-/// Extended by Plan 28-07.
+/// Steps follow the HP-41C Math Pac I OM INTG program prompting sequence
+/// (HP 00041-90034, 1979), Chapter 3 "Numerical Integration", pp. 33–42.
+///
+/// Prompt choices:
+/// - ModeChoice → "INTG MODE?" (explicit per plan behavior; OM pp. 33-34)
+/// - FunctionNamePrompt → "FUNCTION NAME?" (OM pp. 35/38: prompts for user LBL)
+/// - IntervalPrompt → "(A,B)=?" (OM p. 36: integration interval — lower then upper)
+/// - SubdivisionPrompt → "N=?" (OM p. 37: subdivision count for explicit mode)
+/// - Ready → None (computing; no prompt)
+///
+/// Plan 28-07 extends Plan 28-01's 4-variant stub with the `Ready` variant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntegInputStep {
-    /// Awaiting integration mode choice (automatic vs. manual). Prompt: "MODE?"
+    /// Awaiting integration mode choice (Discrete vs. Explicit).
+    /// Prompt: "INTG MODE?" (OM p. 34 — user selects C/D for discrete, FUNCTION for explicit).
     ModeChoice,
-    /// Awaiting user function label name. Prompt: "FUNCTION NAME?"
+    /// Awaiting user function label name (Explicit mode only).
+    /// Prompt: "FUNCTION NAME?" (OM p. 38: XEQ label of the integrand function).
     FunctionNamePrompt,
-    /// Awaiting integration interval (lower bound a). Prompt: "LOWER LIMIT=?"
+    /// Awaiting integration interval bounds (a, b) (Explicit mode).
+    /// Prompt: "(A,B)=?" (OM p. 36: lower bound a and upper bound b entered as A in X, B in Y).
     IntervalPrompt,
-    /// Awaiting number of initial subdivisions. Prompt: "SUBDIVISIONS=?"
+    /// Awaiting subdivision count N for the interval.
+    /// Prompt: "N=?" (OM p. 37: number of subdivisions; cap 32768 per INTG-07/ADR-004).
     SubdivisionPrompt,
+    /// INTG workflow complete; computing or done. No prompt displayed.
+    Ready,
 }
 
 impl IntegInputStep {
+    /// Returns the OM-cited prompt text for the current INTG workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 3, pp. 33–42.
+    /// `Ready` returns `None` because no user input is needed during computation.
     pub fn current_prompt(&self) -> Option<String> {
         match self {
-            IntegInputStep::ModeChoice => Some("MODE?".to_string()),
+            IntegInputStep::ModeChoice => Some("INTG MODE?".to_string()),
             IntegInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
-            IntegInputStep::IntervalPrompt => Some("LOWER LIMIT=?".to_string()),
-            IntegInputStep::SubdivisionPrompt => Some("SUBDIVISIONS=?".to_string()),
+            IntegInputStep::IntervalPrompt => Some("(A,B)=?".to_string()),
+            IntegInputStep::SubdivisionPrompt => Some("N=?".to_string()),
+            IntegInputStep::Ready => None,
         }
     }
 }
@@ -480,5 +500,65 @@ mod tests {
     fn matrix_simeq_done_returns_none() {
         let mp = ModalProgram::Matrix(MatrixInputStep::SimeqDone);
         assert_eq!(mp.current_prompt(), None);
+    }
+
+    // ── Plan 28-07: IntegInputStep prompt tests ───────────────────────────────
+
+    // Catches: ModeChoice returning wrong text (must be "INTG MODE?" not "MODE?")
+    #[test]
+    fn integ_mode_choice_prompt() {
+        let mp = ModalProgram::Integ(IntegInputStep::ModeChoice);
+        assert_eq!(mp.current_prompt(), Some("INTG MODE?".to_string()));
+    }
+
+    // Catches: FunctionNamePrompt returning wrong text
+    #[test]
+    fn integ_function_name_prompt() {
+        let mp = ModalProgram::Integ(IntegInputStep::FunctionNamePrompt);
+        assert_eq!(mp.current_prompt(), Some("FUNCTION NAME?".to_string()));
+    }
+
+    // Catches: IntervalPrompt returning wrong text (must be "(A,B)=?" not "LOWER LIMIT=?")
+    #[test]
+    fn integ_interval_prompt() {
+        let mp = ModalProgram::Integ(IntegInputStep::IntervalPrompt);
+        assert_eq!(mp.current_prompt(), Some("(A,B)=?".to_string()));
+    }
+
+    // Catches: SubdivisionPrompt returning wrong text (must be "N=?" not "SUBDIVISIONS=?")
+    #[test]
+    fn integ_subdivision_prompt() {
+        let mp = ModalProgram::Integ(IntegInputStep::SubdivisionPrompt);
+        assert_eq!(mp.current_prompt(), Some("N=?".to_string()));
+    }
+
+    // Catches: Ready not returning None (computing state must show no prompt)
+    #[test]
+    fn integ_ready_returns_none() {
+        let mp = ModalProgram::Integ(IntegInputStep::Ready);
+        assert_eq!(mp.current_prompt(), None);
+    }
+
+    // Catches: Clone + PartialEq derive regression on IntegInputStep
+    #[test]
+    fn integ_input_step_clone_and_eq() {
+        let step = IntegInputStep::SubdivisionPrompt;
+        assert_eq!(step.clone(), step);
+    }
+
+    // Catches: ModalProgram::Integ dispatch regression via current_prompt
+    #[test]
+    fn integ_modal_dispatch_round_trip() {
+        let variants = [
+            (IntegInputStep::ModeChoice, Some("INTG MODE?".to_string())),
+            (IntegInputStep::FunctionNamePrompt, Some("FUNCTION NAME?".to_string())),
+            (IntegInputStep::IntervalPrompt, Some("(A,B)=?".to_string())),
+            (IntegInputStep::SubdivisionPrompt, Some("N=?".to_string())),
+            (IntegInputStep::Ready, None),
+        ];
+        for (step, expected) in variants {
+            let mp = ModalProgram::Integ(step.clone());
+            assert_eq!(mp.current_prompt(), expected, "failed for step: {step:?}");
+        }
     }
 }

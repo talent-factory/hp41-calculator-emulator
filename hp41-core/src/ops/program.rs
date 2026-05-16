@@ -618,6 +618,14 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 state.display_override = Some(state.alpha_reg.chars().take(24).collect::<String>());
                 break;
             }
+            // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────
+            // Op::Integ must run inside run_loop (not dispatch) to allow re-entrant
+            // run_loop calls for each sample point (C-28.5 / Pitfall 4).
+            // The real implementation is in op_integ_run_loop; the dispatch arm
+            // (execute_op and dispatch()) returns InvalidOp per the XeqInd precedent.
+            Op::Integ => {
+                crate::ops::math1::integ::op_integ_run_loop(state, program)?;
+            }
             other => {
                 // All other ops execute without flush_entry_buf (no digit entry mid-program)
                 // and without prgm_mode check (RESEARCH Pitfall 2)
@@ -634,6 +642,13 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
 ///
 /// MUST NOT call flush_entry_buf (no digit entry mid-program, RESEARCH Pitfall 2).
 /// MUST NOT check prgm_mode (always false when is_running = true).
+///
+/// `pub(crate)` visibility so `ops::math1::integ::run_user_function` can call it
+/// for user-callback re-entry (Plan 28-07 / C-28.5). Do NOT call from outside hp41-core.
+pub(crate) fn execute_op_pub(state: &mut CalcState, op: Op) -> Result<(), HpError> {
+    execute_op(state, op)
+}
+
 fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     use crate::ops::alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
     use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
@@ -918,7 +933,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
         | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
         | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
-        | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
+        | Op::Ins                               // Phase 22: INS is a PRGM-mode editing primitive
+        | Op::Integ => Err(HpError::InvalidOp), // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
     }
 }
 

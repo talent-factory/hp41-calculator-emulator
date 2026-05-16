@@ -92,6 +92,8 @@ pub const MATH_1: XromModule = XromModule {
         ("INV", Op::MatInv),
         ("SIMEQ", Op::MatSimeq),
         ("VCOL", Op::MatVcol),
+        // ── Plan 28-07: INTG ──────────────────────────────────────────────────
+        ("INTG", Op::Integ),
     ],
 };
 
@@ -177,7 +179,9 @@ fn math1_resolve(name: &str) -> Option<Op> {
         "INV" => Some(Op::MatInv),
         "SIMEQ" => Some(Op::MatSimeq),
         "VCOL" => Some(Op::MatVcol),
-        // Plans 28-07..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-07: INTG ──────────────────────────────────────────────────
+        "INTG" => Some(Op::Integ),
+        // Plans 28-08..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -262,12 +266,13 @@ mod tests {
     //             LNZ, SINZ, COSZ, TANZ, A↑Z, A^Z, LOGZ, Z↑W, Z^W)
     // Plan 28-05: +2 POLY/ROOTS entries
     // Plan 28-06: +8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL)
+    // Plan 28-07: +1 INTG entry
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            40,
-            "MATH_1.ops must have exactly 40 entries after Plan 28-06 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix)"
+            41,
+            "MATH_1.ops must have exactly 41 entries after Plan 28-07 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg)"
         );
     }
 
