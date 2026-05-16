@@ -4,18 +4,26 @@
 
 **Status:** planning (started 2026-05-16)
 
-**Goal:** Behavioral Emulation des HP-41 Math 1 Pacs als erstes XROM-Modul — vollständige Funktionsbibliothek (Matrix-Ops, komplexe Zahlen, Polynom-/Vektor-Ops, numerische Integration und Solver), nutzbar in CLI + GUI über das v2.x-Built-in-Pattern hinaus, ohne HP-copyrighted ROM-Image-Redistribution.
+**Goal:** Behavioral Emulation des HP-41C **Math Pac I** (HP-Teilenummer 00041-90034, Owner's Manual 1979) als erstes XROM-Modul — 10 prompt-getriebene Workflow-Programme mit ~55 XEQ-by-Name Entry Points, nutzbar in CLI + GUI über eine neue Modal-Workflow-Schicht hinaus dem v2.x-Built-in-Pattern, ohne HP-copyrighted ROM-Image-Redistribution.
 
-**Target feature areas (vorläufig — Research wird verfeinern):**
-- XROM-Modul-Framework: Slot-Management, Funktions-Dispatch, XROM-Nummerierung; Math 1 als erste Reference-Implementierung
-- Matrix-Operationen: `M+`, `M-`, `MAT*`, `INV`, `TRANS`, `DET` und verwandte Built-ins
-- Komplexe Zahlen: `CADD`, `CSUB`, `CMUL`, `CDIV`, `CABS`, `CARG`, `CCHS`, `CCONJ`
-- Polynom-Solver: `PROOT` (komplexe Wurzeln)
-- Numerische Integration: `INTEG` mit benutzerdefinierter Funktion
-- Numerische Solver: `SOLVE` mit benutzerdefinierter Funktion
-- Vektor-Operationen: `V+`, `V-`, `VDOT`
-- CLI- + GUI-Integration: analog zum v2.2-Pattern (Op-Variante in core, dann key_map / KEY_DEFS / Modal-Routing)
-- Quality-Gates: `hp41-core` Coverage ≥ 95 %, numerische Accuracy-Suite erweitert (Modul-spezifische Cases), GUI-E2E-Smoke erweitert
+**Scope-Korrektur (2026-05-16):** Nach FEATURES-Research wurde klar, dass Math Pac I NICHT die ursprünglich angenommenen Funktionen (`M+`/`MAT*`/`INV`-as-transpose/`PROOT`/`CABS`/`CARG`/`V+`/`VDOT`) enthält — die sind im **Advanced Matrix Pac** und **Advantage Pac** (separate HP-Module). Math Pac I ist user-code in ROM (multi-step Modal-Workflows mit ALPHA-Prompts), nicht Nut-CPU-microcode (one-shot Stack-Ops). v3.0 emuliert den tatsächlichen Math Pac I; Advanced Matrix / Advantage werden separate Milestones.
+
+**Target feature areas (Math Pac I per HP 00041-90034, 10 Top-Level Programme):**
+- XROM-Modul-Framework: Slot-Management, XROM 7 (echte Math Pac ID), statisch verlinkter Resolver, vorbereitet für Stat 1 / Time / Advantage in v3.1+
+- `MATRIX`: Determinante, Inverse, lineare Gleichungssysteme; Gauss-Elimination mit partieller Pivotsuche; bis 14×14; Matrix lebt ab R15
+- `SOLVE`: reelle Nullstelle von f(x)=0 via modifizierter Sekanten-Iteration; ruft user-program LBL als Funktions-Callback
+- `POLY`: Polynom-Wurzeln Grad 2–5 + Auswertung
+- `INTG`: numerische Integration via Simpson; user-program LBL als Integrand-Callback
+- `DIFEQ`: 1./2. Ordnung ODE-Solver via Runge-Kutta 4. Ordnung
+- `FOUR`: Fourier-Reihen (rect + polar Koeffizienten)
+- Komplex-Stack: zwei-Komplex-Zahlen-Stack (ζ/τ) überlagert auf X/Y/Z/T; arithmetik C+, C-, C×, C÷ + 13 weitere Funktionen
+- Hyperbolicus: SINH, COSH, TANH, ASINH, ACOSH, ATANH (6 Ops im klassischen v2.2-Stil — einzige Familie mit one-shot UX)
+- Dreiecks-Solver: SSS, ASA, SAA, SAS, SSA (5 Programme)
+- `TRANS`: 2D + 3D Koordinaten-Transformationen (translate/rotate)
+- Modal-Workflow-Schicht: ALPHA-Prompt-driven Mehrschritt-Flows (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`, `GUESS 1=?`) — neue Infrastruktur, parallel zur v2.2 `PendingInput`-Modal-Architektur
+- User-Program-Callback: Re-entrancy in `run_loop` für INTG / SOLVE / DIFEQ; Stack-Tiefen-Cap honoriert
+- CLI- + GUI-Integration: XEQ-by-Name fallback (keine dedizierten Math-Pac-Keys); JSON-canonical pipeline um `docs/hp41-math1-functions.json` erweitert
+- Quality-Gates: `hp41-core` Coverage ≥ 95 %, neue Accuracy-Cases für MATRIX/POLY/INTG/SOLVE/DIFEQ/FOUR/Komplex/Hyperbolicus, GUI-E2E-Smoke erweitert um einen Math-Pac-Workflow
 
 **Scope boundary (locked 2026-05-13, bestätigt 2026-05-16):** v3.0 ist Math 1 Pac only. Stat 1 deferred zu v3.1; Time + Advantage zu v3.2 / v3.3. HP-copyrighted ROM-Image-Redistribution bleibt permanent ausgeschlossen — wir liefern BEHAVIORAL Emulation der dokumentierten Funktionen (Owner's Manual als Verhaltens-Spec), nicht die ROM-Bytes.
 
