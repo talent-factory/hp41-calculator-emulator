@@ -27,6 +27,10 @@
 - **`pending_input` routing above modal interceptors** — D-07 (no silent discards)
 - **CLI ↔ GUI parity** (D-25.6 invariant) — every new module function reachable in both surfaces
 
+## Backlog (carried into v3.x planning)
+
+- **On-screen keyboard cannot feed letters into open LBL / XEQ / GTO / ASN-label modal** — D-07 silent-discard gap discovered 2026-05-16. See [`notes/v3.x-tech-debt-on-screen-modal-letter-input.md`](notes/v3.x-tech-debt-on-screen-modal-letter-input.md) for root cause + three fix options. Recommended: Option A (`alphaChar`-fallback im Modal-Klickpfad).
+
 ---
 
 ## v2.x ROADMAP archives
@@ -38,4 +42,4 @@
 
 ---
 
-*Last updated: 2026-05-16 — skeleton; awaiting requirements approval.*
+*Last updated: 2026-05-16 — skeleton; awaiting requirements approval. Backlog entry added 2026-05-16.*
