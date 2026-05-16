@@ -152,6 +152,11 @@ const MODAL_OPENERS: Record<string, () => PendingInput> = {
   xeq_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'xeq' }),
   gto_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'gto' }),
   lbl_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'lbl' }),
+  // v2.2.1 / quick-task 260516-c1p — CLP modal opener. Backend (Op::Clp +
+  // key_map.rs resolve clp_<name>) and modal shape (pending_input.ts kind:
+  // 'clp') were ready in v2.2 but no opener was wired. Reached via SHIFT +
+  // √x in PRGM mode (mode-aware shiftedInPrgm on KeyDef).
+  clp_prompt: () => ({ kind: 'clp', acc: '' }),
   // BLOCKER B2: catalog + tone share single_digit with op + max discriminator.
   // Phase 26 Plan 04 CR-05 — Catalog max raised from 3 to 4 so XFNS (CAT 4) is
   // reachable from the GUI; matches hp41-core op_catalog (accepts n in 1..=4).
@@ -276,13 +281,26 @@ function App() {
 
     // Resolve the effective id per rules 2-4.
     const alphaOn = calcState?.annunciators.alpha ?? false;
+    const prgmOn = calcState?.annunciators.prgm ?? false;
     let effectiveId: string;
     let consumesShift = false;
 
     if (alphaOn && key.alphaChar) {
       effectiveId = `alpha_${key.alphaChar}`;
-    } else if (shiftActive && key.shifted) {
-      effectiveId = key.shifted.id;
+    } else if (shiftActive && (key.shifted || key.shiftedInPrgm)) {
+      // v2.2.1 / quick-task 260516-c1p — mode-aware shifted variant.
+      // When PRGM is active AND the key carries shiftedInPrgm, prefer
+      // that id (e.g. √x → CLP in PRGM; → x² outside). The fall-through
+      // to `key.id` only triggers for a future shiftedInPrgm-only entry
+      // pressed outside PRGM; today's only such entry (sqrt) also has a
+      // regular shifted slot, so the branch stays unreachable for now.
+      if (prgmOn && key.shiftedInPrgm) {
+        effectiveId = key.shiftedInPrgm.id;
+      } else if (key.shifted) {
+        effectiveId = key.shifted.id;
+      } else {
+        effectiveId = key.id;
+      }
       consumesShift = true;
     } else {
       effectiveId = key.id;
@@ -312,7 +330,15 @@ function App() {
       //       inside an open assign_label / clp / xeq_name / gto / lbl
       //       modal does nothing (the modal can only be confirmed by the
       //       physical keyboard).
-      //   (d) default: forward effectiveId verbatim.
+      //   (d) v2.2.1 / quick-task 260516-c1p — text-input modal (xeq_name,
+      //       clp, assign_label) with a key that carries alphaChar: route
+      //       the alphaChar (single uppercase letter) instead of the raw
+      //       op-id. Lets on-screen Σ+ (alphaChar 'A'), 1/x ('B'), √x ('C')
+      //       etc. type letters into a LBL/XEQ/GTO/CLP/ASN-label modal
+      //       without requiring the physical keyboard. Also fixes the
+      //       latent pre-fix EEX-types-'E' bug (effectiveId 'e' was being
+      //       accepted by isPrintableChar; now correctly types 'P').
+      //   (e) default: forward effectiveId verbatim.
       let routedKey: string;
       if (pendingInput.kind === 'assign_key') {
         if (key.keyCode === undefined) {
@@ -328,6 +354,13 @@ function App() {
         routedKey = 'Enter';
       } else if (effectiveId === 'clx_or_a') {
         routedKey = 'Backspace';
+      } else if (
+        (pendingInput.kind === 'xeq_name'
+          || pendingInput.kind === 'clp'
+          || pendingInput.kind === 'assign_label')
+        && key.alphaChar
+      ) {
+        routedKey = key.alphaChar;
       } else {
         routedKey = effectiveId;
       }
