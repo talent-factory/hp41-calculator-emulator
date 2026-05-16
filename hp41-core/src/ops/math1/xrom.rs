@@ -60,7 +60,7 @@ pub fn xrom_resolve(name: &str, modules: u8) -> Option<Op> {
 /// Currently returns `None` for all names (no Math Pac I `Op` variants exist yet).
 /// Plans 28-02..28-10 extend this match block as new `Op` variants are added:
 ///
-/// ```
+/// ```text
 /// // Plan 28-02:
 /// "SINH" => Some(Op::Sinh),
 /// "COSH" => Some(Op::Cosh),
