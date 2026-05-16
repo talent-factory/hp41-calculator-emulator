@@ -392,3 +392,101 @@ describe('USER-mode end-to-end — CR-01 + CR-03 round-trip', () => {
     });
   });
 });
+
+// =====================================================================
+// Group G — v2.2.1 / quick-task 260516-c1p
+// Mode-aware √x shifted (CLP in PRGM, x² outside) + alphaChar fallback
+// for on-screen letter clicks inside text-input modals (xeq_name / clp /
+// assign_label). Closes the GUI-parity gap blocking section 3 step 4 of
+// docs/verifying-card-reader.md.
+// =====================================================================
+
+describe('quick-task 260516-c1p — mode-aware √x shifted', () => {
+  it('G1: PRGM=true, SHIFT + √x → opens CLP modal (no sq dispatch)', async () => {
+    // Seed prgm=true on initial get_state. mockResolvedValueOnce overrides
+    // ONLY the next invoke call (the mount's get_state); subsequent calls
+    // fall back to the beforeEach mockResolvedValue(makeEmptyView()) — but
+    // CLP-modal opening is frontend-only so no further invoke fires here.
+    mockInvoke.mockResolvedValueOnce(
+      makeEmptyView({
+        annunciators: { user: false, prgm: true, alpha: false, rad: false, grad: false },
+      }),
+    );
+    const { container } = await renderAppAndWait();
+
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sqrt');
+
+    expect(getDisplayText(container)).toBe('CLP _');
+    // CLP modal is frontend-only: no dispatch_op fired for sq (or anything else)
+    // beyond the initial get_state.
+    expect(mockInvoke).not.toHaveBeenCalledWith('dispatch_op', { keyId: 'sq' });
+    expect(mockInvoke).not.toHaveBeenCalledWith('dispatch_op', { keyId: 'sqrt' });
+  });
+
+  it('G2: PRGM=false, SHIFT + √x → dispatches sq (x²) — unchanged behavior', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'shift');
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'sqrt');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'sq' });
+    // No CLP modal opened.
+    expect(getDisplayText(container)).not.toContain('CLP');
+  });
+});
+
+describe('quick-task 260516-c1p — alphaChar fallback in label modals', () => {
+  it('G3: LBL modal — click Σ+, 1/x, √x, LOG (alphaChars A/B/C/D) → acc=ABCD; ENTER dispatches lbl_ABCD', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sto_prompt');
+    expect(getDisplayText(container)).toBe('LBL _');
+
+    // alphaChar fallback: the on-screen click on a key carrying alphaChar
+    // is routed as the single uppercase letter into the modal, not the
+    // raw primary op-id (which would be rejected by isPrintableChar).
+    await clickKey(container, 'sigma_plus'); // alphaChar 'A'
+    await clickKey(container, 'recip');      // alphaChar 'B'
+    await clickKey(container, 'sqrt');       // alphaChar 'C'
+    await clickKey(container, 'log');        // alphaChar 'D'
+    expect(getDisplayText(container)).toBe('LBL ABCD_');
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'enter');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'lbl_ABCD' });
+  });
+
+  it('G4: CLP modal — same flow; ENTER dispatches clp_ABCD', async () => {
+    mockInvoke.mockResolvedValueOnce(
+      makeEmptyView({
+        annunciators: { user: false, prgm: true, alpha: false, rad: false, grad: false },
+      }),
+    );
+    const { container } = await renderAppAndWait();
+
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sqrt'); // SHIFT + √x in PRGM → CLP modal
+    expect(getDisplayText(container)).toBe('CLP _');
+
+    await clickKey(container, 'sigma_plus');
+    await clickKey(container, 'recip');
+    await clickKey(container, 'sqrt');
+    await clickKey(container, 'log');
+    expect(getDisplayText(container)).toBe('CLP ABCD_');
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'enter');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'clp_ABCD' });
+  });
+
+  it('G5: EEX in XEQ-by-name modal types alphaChar P (not the legacy "e" → "E" path)', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'xeq_prompt');
+    expect(getDisplayText(container)).toBe('XEQ _');
+    // Pre-fix: clicking EEX dispatched effectiveId 'e', which passed
+    // isPrintableChar and got appended as 'E' — wrong (blue letter is P).
+    // Post-fix: alphaChar fallback routes 'P' into the modal accumulator.
+    await clickKey(container, 'e');
+    expect(getDisplayText(container)).toBe('XEQ P_');
+  });
+});
