@@ -29,7 +29,7 @@
 
 ## Backlog (carried into v3.x planning)
 
-- **On-screen keyboard cannot feed letters into open LBL / XEQ / GTO / ASN-label modal** — D-07 silent-discard gap discovered 2026-05-16. See [`notes/v3.x-tech-debt-on-screen-modal-letter-input.md`](notes/v3.x-tech-debt-on-screen-modal-letter-input.md) for root cause + three fix options. Recommended: Option A (`alphaChar`-fallback im Modal-Klickpfad).
+- ~~**On-screen keyboard cannot feed letters into open LBL / XEQ / GTO / ASN-label modal**~~ — RESOLVED in v2.2.1 (quick-task [`260516-c1p`](quick/260516-c1p-fix-gui-clp-binding-and-modal-letter-clicks/260516-c1p-PLAN.md)). Bundled with the CLP-binding gap (mode-aware √x shifted in PRGM mode). See `notes/v3.x-tech-debt-on-screen-modal-letter-input.md` (status: RESOLVED-IN-v2.2.1) for full root-cause analysis.
 
 ---
 
