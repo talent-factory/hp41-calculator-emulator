@@ -4342,3 +4342,163 @@ fn matrix_singular_detection_at_inv_epsilon() {
         "Matrix with pivot << INV_EPSILON must yield NO SOLUTION (ADR-003)"
     );
 }
+
+// ── Phase 28 Plan 28-07: INTG Numerical Accuracy ─────────────────────────────
+//
+// Reference: HP-41C Math Pac I Owner's Manual (HP 00041-90034, 1979), Chapter 3.
+// Free42 v3.0.5 used as sanity-check oracle (not copied).
+// ADR-004 (Plan 28-01): convergence threshold = 5e-(n+1) tied to DisplayMode.
+// Pitfall-2 guard: SAME integral in Fix(4) vs Fix(9) must produce SAME correct result
+// with DIFFERENT tolerance margins — demonstrates threshold formula correctness.
+
+fn make_integ_state_for_acc(label: &str, a: f64, b: f64, n: u32, program: Vec<Op>) -> (CalcState, Vec<Op>) {
+    use hp41_core::num::HpNum;
+    use rust_decimal::Decimal;
+    use rust_decimal::prelude::FromPrimitive;
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = label.to_string();
+    state.regs[0] = HpNum::from(n as i32);
+    state.stack.x = HpNum::from(Decimal::from_f64(a).unwrap_or(Decimal::ZERO));
+    state.stack.y = HpNum::from(Decimal::from_f64(b).unwrap_or(Decimal::ZERO));
+    state.stack.lift_enabled = false;
+    (state, program)
+}
+
+#[test]
+fn integ_sin_over_0_to_pi() {
+    // Source: HP 00041-90034 (1979), Chapter 3 "Numerical Integration".
+    // ∫₀^π sin(x) dx = 2.0 (exact, well-known OM worked example)
+    // Free42 v3.0.5: 2.000000000 (10-digit BCD precision)
+    // Catches: Simpson rule sign error or endpoint weight error
+    use hp41_core::ops::math1::integ::op_integ_run_loop;
+    use hp41_core::state::DisplayMode;
+
+    let program = vec![
+        Op::Lbl("S".to_string()),
+        Op::Sin, // f(x) = sin(x)
+        Op::Rtn,
+    ];
+    let (mut state, prog) = make_integ_state_for_acc("S", 0.0, std::f64::consts::PI, 100, program);
+    state.display_mode = DisplayMode::Fix(4);
+    // Use RAD mode for sin
+    dispatch(&mut state, Op::SetRad).unwrap();
+
+    let result = op_integ_run_loop(&mut state, &prog);
+    assert!(result.is_ok(), "∫₀^π sin(x) dx failed: {result:?}");
+
+    let x_val = state.stack.x.inner().to_f64().unwrap();
+    // OM result: 2.0 (exact). Tolerance 1e-3 at n=100 subdivisions.
+    assert!(
+        (x_val - 2.0).abs() < WIDE_TOL * 10.0,
+        "∫₀^π sin(x) dx must be ≈ 2.0, got {x_val}"
+    );
+}
+
+#[test]
+fn integ_x_squared_over_0_to_1() {
+    // Source: HP 00041-90034 (1979), Chapter 3, p. 37 "worked example".
+    // ∫₀¹ x² dx = 1/3 (exact, polynomial — Simpson is exact for ≤degree-3 with even subdivisions)
+    // Free42 v3.0.5: 0.3333333333
+    // Catches: Simpson coefficient pattern wrong (1-4-2-4-...-4-1 vs wrong weights)
+    use hp41_core::ops::math1::integ::op_integ_run_loop;
+    use hp41_core::state::DisplayMode;
+
+    let program = vec![
+        Op::Lbl("X2".to_string()),
+        Op::Sq, // f(x) = x^2
+        Op::Rtn,
+    ];
+    let (mut state, prog) = make_integ_state_for_acc("X2", 0.0, 1.0, 10, program);
+    state.display_mode = DisplayMode::Fix(6);
+
+    let result = op_integ_run_loop(&mut state, &prog);
+    assert!(result.is_ok(), "∫₀¹ x² dx failed: {result:?}");
+
+    let x_val = state.stack.x.inner().to_f64().unwrap();
+    // Simpson rule is exact for polynomials of degree ≤ 3, so with n=10 this should
+    // be numerically exact (or very close to machine precision)
+    assert!(
+        (x_val - 1.0 / 3.0).abs() < WIDE_TOL,
+        "∫₀¹ x² dx must be ≈ 1/3, got {x_val}"
+    );
+}
+
+#[test]
+fn integ_recip_x_over_1_to_e() {
+    // Source: OM Chapter 3 (standard natural log identity)
+    // ∫₁^e 1/x dx = ln(e) = 1.0
+    // Free42 v3.0.5: 1.000000000
+    // Catches: interval [a,b] endpoint inclusion wrong
+    use hp41_core::ops::math1::integ::op_integ_run_loop;
+    use hp41_core::state::DisplayMode;
+    use std::f64::consts::E;
+
+    let program = vec![
+        Op::Lbl("R".to_string()),
+        Op::Recip, // f(x) = 1/x
+        Op::Rtn,
+    ];
+    let (mut state, prog) = make_integ_state_for_acc("R", 1.0, E, 50, program);
+    state.display_mode = DisplayMode::Fix(5);
+
+    let result = op_integ_run_loop(&mut state, &prog);
+    assert!(result.is_ok(), "∫₁^e 1/x dx failed: {result:?}");
+
+    let x_val = state.stack.x.inner().to_f64().unwrap();
+    // ∫₁^e 1/x dx = 1.0 (definition of e); tolerance 1e-3 at n=50
+    assert!(
+        (x_val - 1.0).abs() < WIDE_TOL * 100.0,
+        "∫₁^e 1/x dx must be ≈ 1.0, got {x_val}"
+    );
+}
+
+#[test]
+fn integ_pitfall2_fix4_vs_fix9_different_precision() {
+    // Pitfall-2 guard (ADR-004): SAME integral in Fix(4) vs Fix(9).
+    // Result must be correct in BOTH modes. This test exists to verify that
+    // the integ_threshold formula produces DIFFERENT tolerances for different modes.
+    // If both modes converge with the same tolerance, the formula is wrong.
+    //
+    // Source: docs/adr/v3.0-004-intg-threshold.md (Plan 28-01)
+    // ∫₀¹ x² dx = 1/3 ≈ 0.3333 (Fix(4)) ≈ 0.333333333 (Fix(9))
+    use hp41_core::ops::math1::integ::{integ_threshold, op_integ_run_loop};
+    use hp41_core::state::DisplayMode;
+
+    // Verify the threshold formula produces different values
+    let t4 = integ_threshold(DisplayMode::Fix(4));
+    let t9 = integ_threshold(DisplayMode::Fix(9));
+    assert!(
+        t4 > t9 * 10.0,
+        "Fix(4) threshold ({t4}) must be >> Fix(9) threshold ({t9}) — ADR-004 Pitfall-2"
+    );
+
+    // Both modes should produce a correct result for x^2
+    let program = vec![
+        Op::Lbl("P2".to_string()),
+        Op::Sq,
+        Op::Rtn,
+    ];
+
+    // Fix(4) test
+    let (mut state4, prog4) = make_integ_state_for_acc("P2", 0.0, 1.0, 10, program.clone());
+    state4.display_mode = DisplayMode::Fix(4);
+    op_integ_run_loop(&mut state4, &prog4).unwrap();
+    let x4 = state4.stack.x.inner().to_f64().unwrap();
+
+    // Fix(9) test
+    let (mut state9, prog9) = make_integ_state_for_acc("P2", 0.0, 1.0, 100, program);
+    state9.display_mode = DisplayMode::Fix(9);
+    op_integ_run_loop(&mut state9, &prog9).unwrap();
+    let x9 = state9.stack.x.inner().to_f64().unwrap();
+
+    // Both should be close to 1/3; Fix(9) should be more precise
+    assert!(
+        (x4 - 1.0 / 3.0).abs() < 0.01,
+        "Fix(4): ∫₀¹ x² dx should be ≈ 1/3, got {x4}"
+    );
+    assert!(
+        (x9 - 1.0 / 3.0).abs() < 0.0001,
+        "Fix(9): ∫₀¹ x² dx should be ≈ 1/3 (higher precision), got {x9}"
+    );
+}
