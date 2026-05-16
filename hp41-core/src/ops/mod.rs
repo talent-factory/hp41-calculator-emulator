@@ -14,6 +14,7 @@ pub mod flags;
 pub mod hms;
 pub mod indirect;
 pub mod math;
+pub mod math1;
 pub mod print;
 pub mod program;
 pub mod registers;
