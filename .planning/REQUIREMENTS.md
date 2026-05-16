@@ -56,6 +56,7 @@
 - [ ] **CMPLX-15**: `Op::ApowZ` (A↑Z) — A^ζ (allgemeine Basis)
 - [ ] **CMPLX-16**: `Op::LogZ` (LOGZ) — Zehnerlogarithmus auf Komplex
 - [ ] **CMPLX-17**: `Op::ZpowW` (Z↑W) — ζ^τ; Domain-Error bei (0,0)^W mit Re(W) ≤ 0
+- [ ] **CMPLX-18**: `Op::Real` (XEQ "REAL") — deactivates `complex_mode`; resets it to `false`; no other side effects on the stack. Derived from D-28.3 (deviation from OM 1979 for UX — not in Math Pac I hardware). Documented in `docs/hp41-math1-divergences.md` (Phase 30 / DOC-04).
 
 ### Polynomial Roots — POLY/ROOTS (Phase 28-05) — Table Stakes
 
@@ -207,7 +208,7 @@
 
 ## Traceability
 
-Filled 2026-05-16 by `/gsd:roadmapper`. Every v3.0 requirement maps to exactly one phase; no orphans, no duplicates. Coverage: **110 / 110**.
+Filled 2026-05-16 by `/gsd:roadmapper`. Every v3.0 requirement maps to exactly one phase; no orphans, no duplicates. Coverage: **111 / 111** (CMPLX-18 added by Plan 28-03 — derived requirement per D-28.3).
 
 ### Per-REQ-ID Mapping
 
@@ -245,6 +246,7 @@ Filled 2026-05-16 by `/gsd:roadmapper`. Every v3.0 requirement maps to exactly o
 | CMPLX-15 | Complex func | 28 | 28-04 | planned |
 | CMPLX-16 | Complex func | 28 | 28-04 | planned |
 | CMPLX-17 | Complex func | 28 | 28-04 | planned |
+| CMPLX-18 | Complex arith (derived) | 28 | 28-03 | planned |
 | POLY-01 | Polynomial | 28 | 28-05 | planned |
 | POLY-02 | Polynomial | 28 | 28-05 | planned |
 | POLY-03 | Polynomial | 28 | 28-05 | planned |
