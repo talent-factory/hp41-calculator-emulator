@@ -30,4 +30,34 @@ pub enum HpError {
     /// frontend can surface something more useful than a generic "CARD DATA".
     #[error("card data: {0}")]
     CardData(String),
+    /// User-initiated cancellation of a long-running solver (INTG/SOLVE/DIFEQ).
+    /// Distinct from Domain. Surfaces as "CANCELED" in GUI/CLI.
+    /// D-28.7 / D-28.8 / D-28.9; wiring in Phase 31 / GUI-05.
+    #[error("canceled")]
+    Canceled,
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::HpError;
+
+    // Catches: Display regression if thiserror attribute is mistyped
+    #[test]
+    fn canceled_display() {
+        assert_eq!(HpError::Canceled.to_string(), "canceled");
+    }
+
+    // Catches: PartialEq or Clone derive regression
+    #[test]
+    fn canceled_partial_eq() {
+        assert_eq!(HpError::Canceled, HpError::Canceled);
+        assert_eq!(HpError::Canceled.clone(), HpError::Canceled);
+    }
+
+    // Catches: variant conflation with Domain or other error types
+    #[test]
+    fn canceled_distinct_from_domain() {
+        assert_ne!(HpError::Canceled, HpError::Domain);
+    }
 }

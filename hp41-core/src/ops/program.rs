@@ -66,12 +66,18 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 /// LiftEffect: Neutral.
 pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
-        // Built-in XEQ-by-name fallback for the four Card Reader ops.
+        // Built-in XEQ-by-name fallback for Card Reader ops + conditional tests.
         // No user-label scan here: user-program XEQ goes through run_loop,
         // not op_xeq. If a user wants to call their own LBL interactively
         // they use run_program(state, label) directly, not dispatch.
         if let Some(card_op) = builtin_card_op(label) {
             return crate::ops::dispatch(state, card_op);
+        }
+        // Phase 28 (v3.0) XROM resolver — fires LAST (C-28.4 / Pitfall 1).
+        // Checked after builtin_card_op so built-in names always win.
+        // xeq_by_name_local_resolve (hp41-cli) is the third call site — Phase 29 / CLI-01.
+        if let Some(xrom_op) = crate::ops::math1::xrom::xrom_resolve(label, state.xrom_modules) {
+            return crate::ops::dispatch(state, xrom_op);
         }
         return Err(HpError::InvalidOp);
     }
@@ -509,6 +515,14 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                             // single instruction (not a control-flow change), so pc resumes
                             // at the step that follows the XEQ.
                             crate::ops::dispatch(state, card_op)?;
+                        } else if let Some(xrom_op) =
+                            // Phase 28 (v3.0) XROM resolver — fires LAST (C-28.4 / Pitfall 1).
+                            // Checked after builtin_card_op so built-in names always win.
+                            crate::ops::math1::xrom::xrom_resolve(&label, state.xrom_modules)
+                        {
+                            // No pc adjustment — same rationale as card_op above: XROM ops
+                            // are single instructions dispatched inline, not subroutine calls.
+                            crate::ops::dispatch(state, xrom_op)?;
                         } else {
                             return Err(HpError::InvalidOp);
                         }
@@ -1004,6 +1018,13 @@ pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
         "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
         _ => None,
     }
+}
+
+/// Test-only re-export of `builtin_card_op` for integration tests in `tests/xrom_shadowing.rs`.
+/// Production visibility stays `pub(super)` — this shim keeps prod API narrow.
+#[cfg(test)]
+pub fn __test_builtin_card_op(name: &str) -> Option<Op> {
+    builtin_card_op(name)
 }
 
 #[cfg(test)]
@@ -1687,5 +1708,42 @@ mod phase25_builtin_card_op_tests {
         // preserved.
         assert_eq!(state.stack.x, HpNum(Decimal::from_str("7").unwrap()));
         assert_eq!(state.stack.y, HpNum(Decimal::from_str("5").unwrap()));
+    }
+
+    // ── Phase 28 / Task 6: resolver chain extension tests ──────────────────────
+
+    // Catches: unknown XEQ name must still return InvalidOp (regression from v2.2)
+    #[test]
+    fn xeq_unknown_returns_invalid_op() {
+        use crate::error::HpError;
+        use crate::ops::program::op_xeq;
+        let mut state = CalcState::new();
+        let result = op_xeq(&mut state, "COMPLETELY_UNKNOWN_NAME_XYZZY");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "XEQ of an unknown name must return HpError::InvalidOp"
+        );
+    }
+
+    // Catches: builtin_card_op must continue to take precedence over xrom (C-28.4)
+    #[test]
+    fn xeq_wprgm_built_in() {
+        use crate::error::HpError;
+        use crate::ops::program::op_xeq;
+        // WPRGM is a builtin_card_op entry — must resolve to Op::Wprgm, not fall through
+        // to the xrom resolver. This ensures built-ins win over XROM (C-28.4 / Pitfall 1).
+        let mut state = CalcState::new();
+        // Dispatch WPRGM — it writes a "WPRGM" line to pending_card_op or errors if
+        // alpha_reg is empty. Either way, it must NOT return InvalidOp.
+        let result = op_xeq(&mut state, "WPRGM");
+        // WPRGM with empty alpha_reg returns HpError::AlphaData — that's fine.
+        // The important thing is it did NOT return InvalidOp (which would mean
+        // builtin_card_op was bypassed).
+        assert_ne!(
+            result,
+            Err(HpError::InvalidOp),
+            "XEQ 'WPRGM' must resolve via builtin_card_op, not fall through to InvalidOp"
+        );
     }
 }
