@@ -299,6 +299,15 @@ fn op_display_name(op: &Op) -> String {
         // ── Phase 28: SOLVE / SOL (Plan 28-08) ────────────────────────────────
         Op::Solve => "SOLVE".to_string(),
         Op::Sol => "SOL".to_string(),
+        // ── Phase 28: FOUR / Triangle Solvers / TRANS (Plan 28-10) ────────────────
+        Op::Four => "FOUR".to_string(),
+        Op::TriSss => "SSS".to_string(),
+        Op::TriAsa => "ASA".to_string(),
+        Op::TriSaa => "SAA".to_string(),
+        Op::TriSas => "SAS".to_string(),
+        Op::TriSsa => "SSA".to_string(),
+        Op::Trans2d => "TRANS".to_string(),
+        Op::Trans3d => "T3D".to_string(),
     }
 }
 

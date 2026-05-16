@@ -97,6 +97,18 @@ pub const MATH_1: XromModule = XromModule {
         // ── Plan 28-08: SOLVE / SOL ───────────────────────────────────────────
         ("SOLVE", Op::Solve),
         ("SOL", Op::Sol),
+        // ── Plan 28-10: FOUR / Triangle Solvers / TRANS ───────────────────────
+        // All 8 mnemonics confirmed non-shadowing per RESEARCH §"Resolver-Chain
+        // Conflict Map" lines 619-633 (no v2.2 builtin uses SSS/ASA/SAA/SAS/SSA/FOUR/TRANS/T3D).
+        // "T3D" chosen for Op::Trans3d to disambiguate from 2D TRANS (Plan 28-10 decision).
+        ("FOUR", Op::Four),
+        ("SSS", Op::TriSss),
+        ("ASA", Op::TriAsa),
+        ("SAA", Op::TriSaa),
+        ("SAS", Op::TriSas),
+        ("SSA", Op::TriSsa),
+        ("TRANS", Op::Trans2d),
+        ("T3D", Op::Trans3d),
     ],
 };
 

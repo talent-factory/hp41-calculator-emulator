@@ -744,6 +744,43 @@ pub enum Op {
     ///
     /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6, p. 38.
     Sol,
+    // ── Phase 28: FOUR (Plan 28-10) ─────────────────────────────────────────────
+    /// FOUR — Fourier analysis program.
+    ///
+    /// Master entry: opens 3-prompt modal (NO. SAMPLES=? / NO. FREQ=? / 1ST COEFF=?),
+    /// then iterates Y1=?..YN=? sample input. On completion computes DFT coefficients.
+    /// RECT? toggle (FOUR-03) chooses rectangular (aₙ, bₙ) or polar (cₙ, φₙ) form.
+    /// Scratch registers R00–R26 per FOUR-05. USER-mode E-key evaluates series at t.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program.
+    Four,
+    // ── Phase 28: Triangle Solvers (Plan 28-10) ────────────────────────────────
+    /// SSS — Triangle solver: three sides → three angles via Law of Cosines.
+    /// Source: HP-41C Math Pac I OM p.46 (TRI-01).
+    TriSss,
+    /// ASA — Triangle solver: Angle-Side-Angle → remaining sides/angle.
+    /// Source: HP-41C Math Pac I OM p.46 (TRI-02).
+    TriAsa,
+    /// SAA — Triangle solver: Side-Angle-Angle → remaining sides/angle.
+    /// Source: HP-41C Math Pac I OM p.46 (TRI-03).
+    TriSaa,
+    /// SAS — Triangle solver: Side-Angle-Side → third side and remaining angles.
+    /// Source: HP-41C Math Pac I OM p.46 (TRI-04).
+    TriSas,
+    /// SSA — Triangle solver: Side-Side-Angle (AMBIGUOUS CASE).
+    /// May have 0, 1, or 2 solutions per OM display sequence (TRI-05).
+    /// Source: HP-41C Math Pac I OM p.46 (TRI-05).
+    TriSsa,
+    // ── Phase 28: TRANS — Coordinate Transforms (Plan 28-10) ──────────────────
+    /// TRANS — 2D coordinate transform: rotation + translation.
+    /// A-entry: init (x₀, y₀, θ) per TRANS-01. C=forward, E=inverse per TRANS-02.
+    /// Source: HP-41C Math Pac I OM, TRANS program (TRANS-01..02).
+    Trans2d,
+    /// T3D — 3D coordinate transform via Rodrigues' rotation formula.
+    /// A-entry: origin per TRANS-03. B-entry: axis (a, b, c, θ). C=forward, E=inverse.
+    /// Source: HP-41C Math Pac I OM, TRANS program (TRANS-03..04).
+    /// "T3D" mnemonic disambiguates from 2D TRANS in xrom_resolve (Plan 28-10 decision).
+    Trans3d,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -1137,6 +1174,15 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // Mirrors Op::Integ precedent from Plan 28-07.
         Op::Solve => math1::solve::op_solve(state),
         Op::Sol => math1::solve::op_sol(state),
+        // ── Phase 28: FOUR / Triangle Solvers / TRANS (Plan 28-10) ───────────
+        Op::Four => math1::four::op_four(state),
+        Op::TriSss => math1::tri::op_tri_sss(state),
+        Op::TriAsa => math1::tri::op_tri_asa(state),
+        Op::TriSaa => math1::tri::op_tri_saa(state),
+        Op::TriSas => math1::tri::op_tri_sas(state),
+        Op::TriSsa => math1::tri::op_tri_ssa(state),
+        Op::Trans2d => math1::trans::op_trans2d(state),
+        Op::Trans3d => math1::trans::op_trans3d(state),
     }
 }
 

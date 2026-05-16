@@ -12,10 +12,13 @@
 
 pub mod complex;
 pub mod difeq;
+pub mod four;
 pub mod hyperbolics;
 pub mod integ;
 pub mod matrix;
 pub mod modal;
 pub mod poly;
 pub mod solve;
+pub mod trans;
+pub mod tri;
 pub mod xrom;
