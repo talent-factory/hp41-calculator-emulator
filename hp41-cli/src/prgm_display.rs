@@ -242,6 +242,12 @@ fn op_display_name(op: &Op) -> String {
         Op::Asinh => "ASINH".to_string(),
         Op::Acosh => "ACOSH".to_string(),
         Op::Atanh => "ATANH".to_string(),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ───────────────────────
+        Op::CPlus => "C+".to_string(),
+        Op::CMinus => "C-".to_string(),
+        Op::CTimes => "C\u{00D7}".to_string(),
+        Op::CDiv => "C\u{00F7}".to_string(),
+        Op::Real => "REAL".to_string(),
     }
 }
 
