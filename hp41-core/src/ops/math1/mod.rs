@@ -10,6 +10,7 @@
 //! - `solve`: SolveState placeholder (Plan 28-08 fills)
 //! - `difeq`: DifeqState placeholder (Plan 28-09 fills)
 
+pub mod complex;
 pub mod difeq;
 pub mod hyperbolics;
 pub mod integ;
