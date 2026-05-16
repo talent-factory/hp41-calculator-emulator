@@ -74,7 +74,7 @@
   - [x] 28-07-PLAN.md — INTG (with user-callback infrastructure): `Op::Integ` discrete (A=h, B=f(xⱼ), C=trapezoidal, D=Simpson, even-n check returns `N NOT EVEN`) + explicit mode (A=(a,b), B=n, `FUNCTION NAME?` prompt); `run_loop` re-entrancy from `op_integ()` (NOT `run_program` recursion — preserves outer program clone, avoids 30 KB × 1000 samples re-clone catastrophe); `state.call_stack` 4-deep cap enforced pre-mutation per `Op::XeqInd` precedent; subdivision cap 2^15; convergence threshold = `10^(-decimals - 1)` tied to `state.display_mode` (Pitfall 2 mitigation); `integ_state: Option<IntegState>` with `#[serde(skip)]`; INTG-01..08
   - [x] 28-08-PLAN.md — SOLVE: `Op::{Solve, Sol}` + modified secant iteration (OM-spec); three termination paths `NO ROOT FOUND` / `ROOT IS <v>` / `ROOT IS BETWEEN <v1> AND <v2>` (Pitfall 3 mitigation, OM-cited branches); 100-iteration cap; reuses INTG's user-program callback infrastructure (same `run_loop` re-entrancy); `solve_state: Option<SolveState>` with `#[serde(skip)]`; nested INTG-in-SOLVE / SOLVE-in-INTG rejected per XROM-08; SOLV-01..08
   - [ ] 28-09-PLAN.md — DIFEQ: `Op::Difeq` + 4th-order Runge-Kutta + `FUNCTION NAME?` / `ORDER=?` (1 or 2) / `STEP SIZE=?` / `X0=?` / `Y0=?` (+ `Y'0=?` for 2nd order) prompts; step-by-step output via `print_buffer`; reuses INTG callback infrastructure; DIFEQ-01..05
-  - [ ] 28-10-PLAN.md — FOUR + Triangle Solutions + TRANS (differentiators): `Op::Four` (DFT with `NO. SAMPLES=?` / `NO. FREQ=?` / `1ST COEFF=?` + `Y1..YN=?` + `RECT?` toggle, USER-mode `E`-key for evaluation); `Op::{TriSss, TriAsa, TriSaa, TriSas, TriSsa}` (Law of Sines/Cosines, ambiguous-case for SSA); `Op::{Trans2d, Trans3d}` (Rodrigues rotation for 3D); FOUR-01..06, TRI-01..05, TRANS-01..05
+  - [x] 28-10-PLAN.md — FOUR + Triangle Solutions + TRANS (differentiators): `Op::Four` (DFT with `NO. SAMPLES=?` / `NO. FREQ=?` / `1ST COEFF=?` + `Y1..YN=?` + `RECT?` toggle, USER-mode `E`-key for evaluation); `Op::{TriSss, TriAsa, TriSaa, TriSas, TriSsa}` (Law of Sines/Cosines, ambiguous-case for SSA); `Op::{Trans2d, Trans3d}` (Rodrigues rotation for 3D); FOUR-01..06, TRI-01..05, TRANS-01..05
 
 **Notable risks/decisions (Phase 28 is the gating phase)**:
   - **5 irreversible decisions** must be locked in Plan 28-01 research-prep BEFORE any implementation:
@@ -254,7 +254,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 28. XROM Framework + Math Pac I Core Ops | v3.0 | 8/10 | In Progress|  |
+| 28. XROM Framework + Math Pac I Core Ops | v3.0 | 9/10 | In Progress|  |
 | 29. CLI Integration | v3.0 | 0/3 | Planned | |
 | 30. Documentation & ADRs | v3.0 | 0/4 | Planned | |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
