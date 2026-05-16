@@ -287,29 +287,48 @@ impl DifeqInputStep {
 
 /// Per-step state for the FOUR (Fourier analysis) workflow (Plan 28-10).
 ///
-/// Steps follow the HP-41C Math Pac I OM FOUR program prompting sequence.
-/// Extended by Plan 28-10.
+/// Prompt sequence per HP-41C Math Pac I OM:
+/// NO. SAMPLES=? → NO. FREQ=? → 1ST COEFF=? → [RECT?] → Y1=? … YN=? → Ready.
+///
+/// Plan 28-10 adds `RectTogglePrompt` (FOUR-03) and uses OM-faithful prompt strings.
+/// Plan 28-01's placeholder prompt strings (N SAMPLES=?, N FREQS=?, FIRST COEFF=?)
+/// are updated to match OM wording: "NO. SAMPLES=?", "NO. FREQ=?", "1ST COEFF=?".
 #[derive(Debug, Clone, PartialEq)]
 pub enum FourInputStep {
-    /// Awaiting number of samples N. Prompt: "N SAMPLES=?"
+    /// Awaiting number of samples N. Prompt: "NO. SAMPLES=?"
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program.
     NumSamplesPrompt,
-    /// Awaiting number of frequencies to compute. Prompt: "N FREQS=?"
+    /// Awaiting number of frequencies L to compute (1..=10). Prompt: "NO. FREQ=?"
+    /// Source: HP-41C Math Pac I OM FOUR program. Cap: MAX_FOURIER_PAIRS = 10.
     NumFreqPrompt,
-    /// Awaiting first coefficient input. Prompt: "FIRST COEFF=?"
+    /// Awaiting first coefficient number (starting index). Prompt: "1ST COEFF=?"
+    /// Source: HP-41C Math Pac I OM FOUR program.
     FirstCoeffPrompt,
-    /// Awaiting sample value n. Prompt: "SAMPLE n=?"
+    /// Awaiting rectangular/polar output choice. Prompt: "RECT?"
+    /// FOUR-03: if user presses R/S (yes) → rectangular (aₙ, bₙ) form;
+    /// if user presses any other key → polar (cₙ, φₙ) form.
+    /// Added by Plan 28-10 (FOUR-03).
+    RectTogglePrompt,
+    /// Awaiting sample value Yk (0-indexed). Prompt: "Yk=?" where k = idx+1.
+    /// Source: HP-41C Math Pac I OM FOUR program, sample-input sequence.
     SamplePrompt(u8),
-    /// All samples entered; computing. Prompt: None.
+    /// All samples entered and DFT computed. No prompt displayed (computing/done state).
     Ready,
 }
 
 impl FourInputStep {
+    /// Returns the OM-cited prompt text for the current FOUR workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program prompting.
+    /// `Ready` returns `None` — computation in progress, no user input needed.
     pub fn current_prompt(&self) -> Option<String> {
         match self {
-            FourInputStep::NumSamplesPrompt => Some("N SAMPLES=?".to_string()),
-            FourInputStep::NumFreqPrompt => Some("N FREQS=?".to_string()),
-            FourInputStep::FirstCoeffPrompt => Some("FIRST COEFF=?".to_string()),
-            FourInputStep::SamplePrompt(_) => Some("SAMPLE=?".to_string()),
+            FourInputStep::NumSamplesPrompt => Some("NO. SAMPLES=?".to_string()),
+            FourInputStep::NumFreqPrompt => Some("NO. FREQ=?".to_string()),
+            FourInputStep::FirstCoeffPrompt => Some("1ST COEFF=?".to_string()),
+            FourInputStep::RectTogglePrompt => Some("RECT?".to_string()),
+            // SamplePrompt(idx): 0-indexed → 1-indexed for OM-faithful display ("Y1=?", "Y2=?", ...).
+            FourInputStep::SamplePrompt(idx) => Some(format!("Y{}=?", idx + 1)),
             FourInputStep::Ready => None,
         }
     }
@@ -319,24 +338,51 @@ impl FourInputStep {
 
 /// Per-step state for the TRANS (coordinate transform) workflow (Plan 28-10).
 ///
-/// Steps follow the HP-41C Math Pac I OM TRANS program prompting sequence.
-/// Extended by Plan 28-10.
+/// Plan 28-10 revises Plan 28-01's generic `InitPrompt/ForwardPrompt/InversePrompt`
+/// with 2D/3D-specific variants per TRANS-01..04. The schema revision is SAFE:
+/// the Plan 28-01 placeholder variants had no downstream consumers (no CLI/GUI
+/// wiring existed for TRANS before Plan 28-10). All TRANS modal routing lands in
+/// Phases 29 (CLI) and 31 (GUI) per the standard v3.0 plan-boundary convention.
+///
+/// **TransInputStep schema revision note (Plan 28-10):**
+/// - `InitPrompt` → split into `Init2dPrompt` (TRANS-01 A-entry 2D) and
+///   `Init3dOriginPrompt` + `Init3dAxisPrompt` (TRANS-03 A/B-entry 3D).
+/// - `ForwardPrompt` and `InversePrompt` retained (now carry both 2D/3D semantics).
+/// - New `Ready` variant added (computation/done state, no user input).
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransInputStep {
-    /// Awaiting transform initialization parameters. Prompt: "INIT=?"
-    InitPrompt,
-    /// Awaiting forward-transform input. Prompt: "FORWARD=?"
+    /// TRANS-01 A-entry: Awaiting 2D transform parameters (x₀, y₀, θ). Prompt: "X0,Y0,θ?"
+    /// Source: HP-41C Math Pac I OM, TRANS program, 2D initialization sequence.
+    Init2dPrompt,
+    /// TRANS-03 A-entry: Awaiting 3D origin point (x₀, y₀, z₀). Prompt: "ORIGIN?"
+    /// Source: HP-41C Math Pac I OM, TRANS program, 3D initialization — origin entry.
+    Init3dOriginPrompt,
+    /// TRANS-03 B-entry: Awaiting 3D rotation axis and angle (a, b, c, θ). Prompt: "AXIS+θ?"
+    /// Source: HP-41C Math Pac I OM, TRANS program, 3D initialization — axis+angle entry.
+    Init3dAxisPrompt,
+    /// TRANS-02/04 C-entry: Awaiting forward-transform input point. Prompt: "FWD?"
+    /// Valid for both 2D and 3D modes after initialization.
     ForwardPrompt,
-    /// Awaiting inverse-transform input. Prompt: "INVERSE=?"
+    /// TRANS-02/04 E-entry: Awaiting inverse-transform input point. Prompt: "INV?"
+    /// Valid for both 2D and 3D modes after initialization.
     InversePrompt,
+    /// Transform computation complete or initialized; ready for FWD/INV queries. No prompt.
+    Ready,
 }
 
 impl TransInputStep {
+    /// Returns the OM-cited prompt text for the current TRANS workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), TRANS program prompting.
+    /// `Ready` returns `None` — no user input needed in this state.
     pub fn current_prompt(&self) -> Option<String> {
         match self {
-            TransInputStep::InitPrompt => Some("INIT=?".to_string()),
-            TransInputStep::ForwardPrompt => Some("FORWARD=?".to_string()),
-            TransInputStep::InversePrompt => Some("INVERSE=?".to_string()),
+            TransInputStep::Init2dPrompt => Some("X0,Y0,\u{03B8}?".to_string()),
+            TransInputStep::Init3dOriginPrompt => Some("ORIGIN?".to_string()),
+            TransInputStep::Init3dAxisPrompt => Some("AXIS+\u{03B8}?".to_string()),
+            TransInputStep::ForwardPrompt => Some("FWD?".to_string()),
+            TransInputStep::InversePrompt => Some("INV?".to_string()),
+            TransInputStep::Ready => None,
         }
     }
 }
@@ -566,6 +612,155 @@ mod tests {
         ];
         for (step, expected) in variants {
             let mp = ModalProgram::Solve(step.clone());
+            assert_eq!(mp.current_prompt(), expected, "failed for step: {step:?}");
+        }
+    }
+
+    // ── Plan 28-10: FourInputStep prompt tests ────────────────────────────────
+
+    // Catches: FourInputStep::NumSamplesPrompt returning wrong text (OM: "NO. SAMPLES=?")
+    #[test]
+    fn four_num_samples_prompt() {
+        let mp = ModalProgram::Four(FourInputStep::NumSamplesPrompt);
+        assert_eq!(mp.current_prompt(), Some("NO. SAMPLES=?".to_string()));
+    }
+
+    // Catches: FourInputStep::NumFreqPrompt returning wrong text (OM: "NO. FREQ=?")
+    #[test]
+    fn four_num_freq_prompt() {
+        let mp = ModalProgram::Four(FourInputStep::NumFreqPrompt);
+        assert_eq!(mp.current_prompt(), Some("NO. FREQ=?".to_string()));
+    }
+
+    // Catches: FourInputStep::FirstCoeffPrompt returning wrong text (OM: "1ST COEFF=?")
+    #[test]
+    fn four_first_coeff_prompt() {
+        let mp = ModalProgram::Four(FourInputStep::FirstCoeffPrompt);
+        assert_eq!(mp.current_prompt(), Some("1ST COEFF=?".to_string()));
+    }
+
+    // Catches: FourInputStep::RectTogglePrompt returning wrong text (FOUR-03: "RECT?")
+    #[test]
+    fn four_rect_toggle_prompt() {
+        let mp = ModalProgram::Four(FourInputStep::RectTogglePrompt);
+        assert_eq!(mp.current_prompt(), Some("RECT?".to_string()));
+    }
+
+    // Catches: SamplePrompt 0-indexed offset wrong (must add 1 for OM-faithful "Y1=?"..."YN=?")
+    #[test]
+    fn four_sample_prompt_first() {
+        let mp = ModalProgram::Four(FourInputStep::SamplePrompt(0));
+        assert_eq!(mp.current_prompt(), Some("Y1=?".to_string()));
+    }
+
+    // Catches: SamplePrompt index 7 returning wrong label (e.g., "Y8=?")
+    #[test]
+    fn four_sample_prompt_eighth() {
+        let mp = ModalProgram::Four(FourInputStep::SamplePrompt(7));
+        assert_eq!(mp.current_prompt(), Some("Y8=?".to_string()));
+    }
+
+    // Catches: FourInputStep::Ready not returning None (computing state must show no prompt)
+    #[test]
+    fn four_ready_returns_none() {
+        let mp = ModalProgram::Four(FourInputStep::Ready);
+        assert_eq!(mp.current_prompt(), None);
+    }
+
+    // Catches: Clone + PartialEq derive regression on FourInputStep including RectTogglePrompt
+    #[test]
+    fn four_input_step_clone_and_eq() {
+        let step = FourInputStep::SamplePrompt(3);
+        assert_eq!(step.clone(), step);
+        let step2 = FourInputStep::RectTogglePrompt;
+        assert_ne!(step, step2);
+    }
+
+    // Catches: ModalProgram::Four dispatch regression — all 6 variants in one round-trip
+    #[test]
+    fn four_modal_dispatch_round_trip() {
+        let variants: Vec<(FourInputStep, Option<String>)> = vec![
+            (FourInputStep::NumSamplesPrompt, Some("NO. SAMPLES=?".to_string())),
+            (FourInputStep::NumFreqPrompt, Some("NO. FREQ=?".to_string())),
+            (FourInputStep::FirstCoeffPrompt, Some("1ST COEFF=?".to_string())),
+            (FourInputStep::RectTogglePrompt, Some("RECT?".to_string())),
+            (FourInputStep::SamplePrompt(0), Some("Y1=?".to_string())),
+            (FourInputStep::SamplePrompt(9), Some("Y10=?".to_string())),
+            (FourInputStep::Ready, None),
+        ];
+        for (step, expected) in variants {
+            let mp = ModalProgram::Four(step.clone());
+            assert_eq!(mp.current_prompt(), expected, "failed for step: {step:?}");
+        }
+    }
+
+    // ── Plan 28-10: TransInputStep prompt tests ───────────────────────────────
+
+    // Catches: TransInputStep::Init2dPrompt returning wrong text (TRANS-01: "X0,Y0,θ?")
+    #[test]
+    fn trans_init2d_prompt() {
+        let mp = ModalProgram::Trans(TransInputStep::Init2dPrompt);
+        // Unicode theta (θ = U+03B8)
+        assert_eq!(mp.current_prompt(), Some("X0,Y0,\u{03B8}?".to_string()));
+    }
+
+    // Catches: TransInputStep::Init3dOriginPrompt returning wrong text (TRANS-03: "ORIGIN?")
+    #[test]
+    fn trans_init3d_origin_prompt() {
+        let mp = ModalProgram::Trans(TransInputStep::Init3dOriginPrompt);
+        assert_eq!(mp.current_prompt(), Some("ORIGIN?".to_string()));
+    }
+
+    // Catches: TransInputStep::Init3dAxisPrompt returning wrong text (TRANS-03: "AXIS+θ?")
+    #[test]
+    fn trans_init3d_axis_prompt() {
+        let mp = ModalProgram::Trans(TransInputStep::Init3dAxisPrompt);
+        assert_eq!(mp.current_prompt(), Some("AXIS+\u{03B8}?".to_string()));
+    }
+
+    // Catches: TransInputStep::ForwardPrompt returning wrong text (TRANS-02: "FWD?")
+    #[test]
+    fn trans_forward_prompt() {
+        let mp = ModalProgram::Trans(TransInputStep::ForwardPrompt);
+        assert_eq!(mp.current_prompt(), Some("FWD?".to_string()));
+    }
+
+    // Catches: TransInputStep::InversePrompt returning wrong text (TRANS-02/04: "INV?")
+    #[test]
+    fn trans_inverse_prompt() {
+        let mp = ModalProgram::Trans(TransInputStep::InversePrompt);
+        assert_eq!(mp.current_prompt(), Some("INV?".to_string()));
+    }
+
+    // Catches: TransInputStep::Ready not returning None (done state must show no prompt)
+    #[test]
+    fn trans_ready_returns_none() {
+        let mp = ModalProgram::Trans(TransInputStep::Ready);
+        assert_eq!(mp.current_prompt(), None);
+    }
+
+    // Catches: Clone + PartialEq derive regression on TransInputStep
+    #[test]
+    fn trans_input_step_clone_and_eq() {
+        let step = TransInputStep::Init2dPrompt;
+        assert_eq!(step.clone(), step);
+        let step2 = TransInputStep::Init3dOriginPrompt;
+        assert_ne!(step, step2);
+    }
+
+    // Catches: ModalProgram::Trans dispatch regression — all 6 variants in one round-trip
+    #[test]
+    fn trans_modal_dispatch_round_trip() {
+        let variants: Vec<(TransInputStep, Option<String>)> = vec![
+            (TransInputStep::Init2dPrompt, Some("X0,Y0,\u{03B8}?".to_string())),
+            (TransInputStep::Init3dOriginPrompt, Some("ORIGIN?".to_string())),
+            (TransInputStep::Init3dAxisPrompt, Some("AXIS+\u{03B8}?".to_string())),
+            (TransInputStep::ForwardPrompt, Some("FWD?".to_string())),
+            (TransInputStep::InversePrompt, Some("INV?".to_string())),
+            (TransInputStep::Ready, None),
+        ];
+        for (step, expected) in variants {
+            let mp = ModalProgram::Trans(step.clone());
             assert_eq!(mp.current_prompt(), expected, "failed for step: {step:?}");
         }
     }
