@@ -309,7 +309,7 @@ export function Keyboard({
                 y={y - 2}
                 textAnchor="middle"
                 fill="#d68a1c"
-                fontSize={9}
+                fontSize={11}
                 fontWeight="bold"
               >
                 {key.shifted.label}
@@ -347,10 +347,10 @@ export function Keyboard({
             {key.alphaChar && key.variant !== 'top' && (
               <text
                 x={x + w / 2}
-                y={y + h + 10}
+                y={y + h + 11}
                 textAnchor="middle"
                 fill={alphaActive ? '#7fb9e0' : '#5b8fb9'}
-                fontSize={9}
+                fontSize={11}
                 fontWeight="bold"
               >
                 {key.alphaChar === ' ' ? 'SPACE' : key.alphaChar}

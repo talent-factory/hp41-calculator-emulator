@@ -83,25 +83,32 @@ export const SEGMENT_PATHS: string[] = [
     'M 4 19 L 11 19 L 12 20 L 11 21 L 4 21 L 3 20 Z',
     // index 7: 'g2' — middle horizontal, right half
     'M 13 19 L 20 19 L 21 20 L 20 21 L 13 21 L 12 20 Z',
-    // index 8: 'h' — NW diagonal (top-left to middle-center)
-    'M 6 5 L 7 5 L 11 17 L 11 18 L 10 18 Z',
+    // index 8: 'h' — NW diagonal (top-left to middle-center); 2-unit parallelogram
+    'M 6 5 L 8 5 L 12 18 L 10 18 Z',
     // index 9: 'i' — top vertical center (top to middle)
     'M 11 4 L 13 4 L 13 18 L 11 18 Z',
-    // index 10: 'j' — NE diagonal (top-right to middle-center)
-    'M 18 5 L 17 5 L 13 17 L 13 18 L 14 18 Z',
-    // index 11: 'k' — SE diagonal (middle-center to bottom-right)
-    'M 13 22 L 14 22 L 18 35 L 17 35 L 13 23 Z',
+    // index 10: 'j' — NE diagonal (top-right to middle-center); 2-unit parallelogram
+    'M 18 5 L 16 5 L 12 18 L 14 18 Z',
+    // index 11: 'k' — SE diagonal (middle-center to bottom-right); 2-unit parallelogram
+    'M 12 22 L 14 22 L 18 35 L 16 35 Z',
     // index 12: 'l' — bottom vertical center (middle to bottom)
     'M 11 22 L 13 22 L 13 36 L 11 36 Z',
-    // index 13: 'm' — SW diagonal (middle-center to bottom-left)
-    'M 11 22 L 10 22 L 6 35 L 7 35 L 11 23 Z',
+    // index 13: 'm' — SW diagonal (middle-center to bottom-left); 2-unit parallelogram
+    'M 12 22 L 10 22 L 6 35 L 8 35 Z',
 ];
 
 // W4: decimal point is rendered OUTSIDE the 14-segment grid as a 15th conditional
 // dot. Per HP-41 LCD hardware behavior, the period overlays the previous digit
 // (not its own cell). Display14Seg.tsx lights this dot in cell i when
 // chars[i+1] === '.'; the period itself does not consume a cell slot.
-export const DECIMAL_DOT_PATH = 'M 20 35 L 22 35 L 22 37 L 20 37 Z';
+//
+// Sized 3×3 at (x=22-25, y=37-40). Horizontally centered in the inter-digit
+// gap (cell 'c' right edge at x=21, next cell digit-stem at global x=27, so
+// gap center at local x≈24). Vertically placed below the 'd' baseline (y=38)
+// with only a 1-unit overlap so it remains visually distinct from the digit's
+// segments. The prior position at x=20-23 sat inside the 'c' bottom-right
+// vertical segment and was visually hidden for almost every digit.
+export const DECIMAL_DOT_PATH = 'M 22 37 L 25 37 L 25 40 L 22 40 Z';
 
 // Character-to-segment-indices map (W4 pinned).
 //
