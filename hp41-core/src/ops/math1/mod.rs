@@ -14,6 +14,7 @@ pub mod complex;
 pub mod difeq;
 pub mod hyperbolics;
 pub mod integ;
+pub mod matrix;
 pub mod modal;
 pub mod poly;
 pub mod solve;
