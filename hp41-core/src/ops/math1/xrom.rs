@@ -97,6 +97,11 @@ pub const MATH_1: XromModule = XromModule {
         // ── Plan 28-08: SOLVE / SOL ───────────────────────────────────────────
         ("SOLVE", Op::Solve),
         ("SOL", Op::Sol),
+        // ── Plan 28-09: DIFEQ ─────────────────────────────────────────────────
+        // "DIFEQ" non-shadowing: RESEARCH §"Resolver-Chain Conflict Map" line 628
+        // confirms "DIFEQ" appears in neither v2.2 xeq_by_name_local_resolve nor
+        // builtin_card_op. Safe to claim for Math Pac I.
+        ("DIFEQ", Op::Difeq),
         // ── Plan 28-10: FOUR / Triangle Solvers / TRANS ───────────────────────
         // All 8 mnemonics confirmed non-shadowing per RESEARCH §"Resolver-Chain
         // Conflict Map" lines 619-633 (no v2.2 builtin uses SSS/ASA/SAA/SAS/SSA/FOUR/TRANS/T3D).
@@ -202,6 +207,9 @@ fn math1_resolve(name: &str) -> Option<Op> {
         // or builtin_card_op. Safe to claim both for Math Pac I.
         "SOLVE" => Some(Op::Solve),
         "SOL" => Some(Op::Sol),
+        // ── Plan 28-09: DIFEQ ─────────────────────────────────────────────────
+        // "DIFEQ" non-shadowing: confirmed safe per RESEARCH §"Resolver-Chain Conflict Map".
+        "DIFEQ" => Some(Op::Difeq),
         // ── Plan 28-10: FOUR / Triangle Solvers / TRANS ───────────────────────
         // All 8 mnemonics confirmed non-shadowing per RESEARCH §"Resolver-Chain
         // Conflict Map" lines 619-633. "T3D" disambiguates from 2D "TRANS" (Plan 28-10).
@@ -299,14 +307,15 @@ mod tests {
     // Plan 28-06: +8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL)
     // Plan 28-07: +1 INTG entry
     // Plan 28-08: +2 SOLVE/SOL entries
+    // Plan 28-09: +1 DIFEQ entry
     // Plan 28-10: +8 FOUR/SSS/ASA/SAA/SAS/SSA/TRANS/T3D entries
-    // Total: 6+7+17+2+8+1+2+8 = 51 entries
+    // Total: 6+7+17+2+8+1+2+1+8 = 52 entries
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            51,
-            "MATH_1.ops must have exactly 51 entries after Plan 28-10 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg + 2 solve + 8 four/tri/trans)"
+            52,
+            "MATH_1.ops must have exactly 52 entries after Plan 28-09 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg + 2 solve + 1 difeq + 8 four/tri/trans)"
         );
     }
 

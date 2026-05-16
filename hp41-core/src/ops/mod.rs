@@ -718,6 +718,30 @@ pub enum Op {
     /// Max evaluations: 32768 per INTG call (OM p. 37).
     /// LiftEffect: Enable (pushes result to X on completion). INTG-01..08 / HP 00041-90034 Ch.3.
     Integ,
+    // ── Phase 28: DIFEQ (Plan 28-09) ────────────────────────────────────────────
+    /// DIFEQ — 4th-order Runge-Kutta differential equation solver with user-supplied ODE function.
+    ///
+    /// Master entry: opens 5- or 6-prompt modal depending on ORDER:
+    /// - ORDER=1 (5 prompts): FUNCTION NAME? / ORDER=? / STEP SIZE=? / X0=? / Y0=?
+    /// - ORDER=2 (6 prompts): adds Y'0=? for initial derivative condition
+    /// Then runs 4th-order Runge-Kutta integration per OM Chapter 7.
+    ///
+    /// Dispatch arm returns `HpError::InvalidOp`; run_loop arm calls `op_difeq_run_loop`.
+    ///
+    /// Pre-mutation guards (XROM-08 FINAL 3-state form / ADR-002 / Pitfall 4):
+    /// 1. Strict-reject: integ_state OR solve_state OR difeq_state → InvalidOp BEFORE mutation.
+    ///    This is the FINAL canonical 3-state guard (D-28.7 / PATTERNS lines 531-534).
+    ///    Plan 28-09 is the last plan to grow this guard; unchanged in subsequent plans.
+    /// 2. call_stack.len() >= 4 → CallDepth BEFORE mutation.
+    ///
+    /// User callback per DIFEQ-04:
+    /// - ORDER=1: f(x, y) — user LBL receives x in X, y in Y; returns f in X.
+    /// - ORDER=2: f(x, y, y') — user LBL receives x in X, y in Y, y' in Z; returns f in X.
+    ///
+    /// Step-by-step output per DIFEQ-05: each RK4 step pushes "X=<v> Y=<v> [Y'=<v>]" to print_buffer.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 7 "Differential Equations".
+    Difeq,
     // ── Phase 28: SOLVE (Plan 28-08) ────────────────────────────────────────────
     /// SOLVE — modified secant root-finder with user-supplied LBL function.
     ///
@@ -1163,6 +1187,11 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::MatInv => op_mat_inv(state),
         Op::MatSimeq => op_mat_simeq(state),
         Op::MatVcol => op_mat_vcol(state),
+        // ── Phase 28: DIFEQ (Plan 28-09) ─────────────────────────────────────
+        // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
+        // Real implementation runs only inside run_loop's Op::Difeq arm.
+        // Mirrors Op::Integ (Plan 28-07) and Op::Solve (Plan 28-08) pattern.
+        Op::Difeq => math1::difeq::op_difeq(state),
         // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────────
         // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
         // Real implementation runs only inside run_loop's Op::Integ arm.

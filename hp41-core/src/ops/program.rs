@@ -618,6 +618,14 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 state.display_override = Some(state.alpha_reg.chars().take(24).collect::<String>());
                 break;
             }
+            // ── Phase 28: DIFEQ (Plan 28-09) ─────────────────────────────────
+            // Op::Difeq must run inside run_loop (not dispatch) to allow re-entrant
+            // run_loop calls for each RK4 sub-step (C-28.5 / Pitfall 4).
+            // The real implementation is in op_difeq_run_loop; the dispatch arm
+            // (execute_op and dispatch()) returns InvalidOp per the Op::Integ / Op::Solve precedents.
+            Op::Difeq => {
+                crate::ops::math1::difeq::op_difeq_run_loop(state, program)?;
+            }
             // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────
             // Op::Integ must run inside run_loop (not dispatch) to allow re-entrant
             // run_loop calls for each sample point (C-28.5 / Pitfall 4).
@@ -946,6 +954,7 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
         | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
         | Op::Ins                               // Phase 22: INS is a PRGM-mode editing primitive
+        | Op::Difeq                             // Phase 28: DIFEQ has run_loop arm; dispatch returns InvalidOp (Plan 28-09)
         | Op::Integ                             // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
         | Op::Solve                             // Phase 28: SOLVE has run_loop arm; dispatch returns InvalidOp
         | Op::Sol => Err(HpError::InvalidOp),   // Phase 28: SOL has run_loop arm; dispatch returns InvalidOp

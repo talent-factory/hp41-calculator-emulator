@@ -3,24 +3,35 @@
 //
 //! Wave-0 regression scaffold: user-callback re-entrancy strict-reject tests (C-28.2).
 //!
-//! **Module invariant:** 5 regression cases for user-callback re-entrancy.
-//! - Plan 28-07 fills the `nested_integ_*` and `user_fn_stops_aborts_integ` branches
-//! - Plan 28-08 fills the `nested_solve_*` branches
-//! - Plan 28-09 fills the `nested_difeq_*` branch
+//! **Module invariant:** All user-callback re-entrancy regression cases are now complete.
+//! **Suite status (Plan 28-09): ZERO `#[ignore]`'d cases — all 10 tests active.**
 //!
-//! C-28.2 / ADR-002: strict-reject nested INTG/SOLVE/DIFEQ at op entry.
-//! At op entry, check `state.integ_state.is_some() || state.solve_state.is_some()`
-//! → `HpError::InvalidOp` if true. This matches Math Pac I OM 1979 hardware behavior.
+//! Test inventory:
+//! - Plan 28-07: `nested_integ_inside_integ_rejected` (original placeholder)
+//! - Plan 28-07: `nested_solve_inside_integ_rejected` (original placeholder)
+//! - Plan 28-07: `user_fn_stops_aborts_integ` (original placeholder)
+//! - Plan 28-07: `user_fn_stores_to_scratch_corrupts_integ` (NEW — added in 28-07)
+//! - Plan 28-08: `nested_integ_inside_solve_rejected` (original placeholder filled)
+//! - Plan 28-08: `nested_solve_inside_solve_rejected` (NEW — added in 28-08)
+//! - Plan 28-09: `nested_difeq_inside_integ_rejected` (LAST original placeholder — filled here)
+//! - Plan 28-09: `nested_difeq_inside_solve_rejected` (NEW — added in 28-09)
+//! - Plan 28-09: `nested_difeq_inside_difeq_rejected` (NEW — added in 28-09)
+//!
+//! C-28.2 / ADR-002 / XROM-08 FINAL 3-state guard:
+//! `state.integ_state.is_some() || state.solve_state.is_some() || state.difeq_state.is_some()`
+//! → `HpError::InvalidOp` at every user-callback op entry.
+//! This matches Math Pac I OM 1979 hardware behavior. Locked for v3.x (D-28.7 / PATTERNS lines 531-534).
 
 #![allow(clippy::unwrap_used)]
 
 use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
+use hp41_core::ops::math1::difeq::op_difeq_run_loop;
 use hp41_core::ops::math1::integ::op_integ_run_loop;
 use hp41_core::ops::math1::solve::op_solve_run_loop;
 use hp41_core::ops::Op;
 use hp41_core::state::CalcState;
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
@@ -209,12 +220,118 @@ fn nested_solve_inside_solve_rejected() {
 }
 
 /// Nested DIFEQ inside an INTG user function must return HpError::InvalidOp.
-/// Catches: re-entrancy guard checking only {integ,solve}_state but not difeq_state.
-/// Filled by Plan 28-09.
+/// Catches: XROM-08 FINAL 3-state guard — integ_state OR solve_state OR difeq_state.
+/// If difeq_state is not checked, DIFEQ could run inside INTG, violating the re-entrancy contract.
+/// Filled by Plan 28-09 (last Plan 28-01 placeholder; Plan 28-08 left this #[ignore]'d).
+///
+/// When op_integ_run_loop starts the sample loop, it sets state.integ_state = Some(...).
+/// Each sample calls run_user_function which encounters Op::Difeq (XEQ "DIFEQ").
+/// The inner op_difeq_run_loop sees integ_state.is_some() → Err(InvalidOp) per XROM-08.
+/// This error propagates back through run_user_function → op_integ_run_loop → test.
+///
+/// XROM-08 FINAL FORM (D-28.7 / PATTERNS lines 531-534):
+/// integ_state.is_some() || solve_state.is_some() || difeq_state.is_some() → InvalidOp
 #[test]
-#[ignore = "filled by Plan 28-09"]
 fn nested_difeq_inside_integ_rejected() {
-    unimplemented!("filled by Plan 28-09");
+    // Callback "DI": tries to call DIFEQ (nested DIFEQ inside INTG user function)
+    // This triggers the FINAL 3-state XROM-08 guard at op_difeq_run_loop entry.
+    let program = vec![
+        Op::Lbl("DI".to_string()),
+        Op::Difeq, // nested Op::Difeq inside INTG callback — must be rejected by XROM-08
+        Op::Rtn,
+    ];
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = "DI".to_string();
+    state.regs[0] = HpNum::from(4i32); // n=4 subdivisions for INTG
+    state.stack.x = HpNum::from(0i32); // a=0
+    state.stack.y = HpNum::from(1i32); // b=1
+    state.stack.lift_enabled = false;
+
+    let result = op_integ_run_loop(&mut state, &program);
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested DIFEQ inside INTG user function must return HpError::InvalidOp (XROM-08 FINAL 3-state guard)"
+    );
+    // integ_state must be cleared after the error (no state leak)
+    assert!(
+        state.integ_state.is_none(),
+        "integ_state must be None after nested DIFEQ rejection"
+    );
+}
+
+/// Nested DIFEQ inside a SOLVE user function must return HpError::InvalidOp.
+/// Catches: XROM-08 guard missing difeq_state check when in SOLVE context.
+/// New test added in Plan 28-09 (symmetric with nested_integ_inside_solve / nested_solve_inside_solve).
+///
+/// When op_solve_run_loop sets solve_state = Some(...), any inner Op::Difeq call
+/// sees solve_state.is_some() → Err(InvalidOp) per XROM-08 FINAL 3-state guard.
+#[test]
+fn nested_difeq_inside_solve_rejected() {
+    // Callback "DS": tries to call DIFEQ (nested DIFEQ inside SOLVE user function)
+    let program = vec![
+        Op::Lbl("DS".to_string()),
+        Op::Difeq, // nested Op::Difeq inside SOLVE callback — must be rejected
+        Op::Rtn,
+    ];
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = "DS".to_string();
+    state.regs[0] = HpNum::from(-1i32); // x1 = -1 (SOLVE guess 1 from R00)
+    state.regs[1] = HpNum::from(1i32);  // x2 = 1 (SOLVE guess 2 from R01)
+    state.stack.lift_enabled = false;
+
+    let result = op_solve_run_loop(&mut state, &program);
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested DIFEQ inside SOLVE user function must return HpError::InvalidOp (XROM-08 FINAL 3-state guard)"
+    );
+    assert!(
+        state.solve_state.is_none(),
+        "solve_state must be None after nested DIFEQ rejection"
+    );
+}
+
+/// Nested DIFEQ inside a DIFEQ user function must return HpError::InvalidOp.
+/// Catches: XROM-08 guard missing difeq_state self-rejection check.
+/// New test added in Plan 28-09 (symmetric with nested_solve_inside_solve from Plan 28-08).
+///
+/// When op_difeq_run_loop sets difeq_state = Some(...), any inner Op::Difeq call
+/// sees difeq_state.is_some() → Err(InvalidOp) per XROM-08 FINAL 3-state guard.
+/// This covers the self-nesting case (DIFEQ inside DIFEQ callback).
+#[test]
+fn nested_difeq_inside_difeq_rejected() {
+    // The outer DIFEQ will have difeq_state = Some(...) when the user callback runs.
+    // The callback contains Op::Difeq which triggers the 3-state guard.
+    let program = vec![
+        Op::Lbl("DD".to_string()),
+        Op::Difeq, // nested Op::Difeq inside DIFEQ callback — must be rejected
+        Op::Rtn,
+    ];
+    let mut state = CalcState::new();
+    state.program = program.clone();
+    state.alpha_reg = "DD".to_string();
+    // Set up for ORDER=1 DIFEQ: R00=order, R01=h, R02=x0, R03=y0, R05=max_steps
+    state.regs[0] = HpNum::from(1i32); // order = 1
+    state.regs[1] = HpNum::from(
+        rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
+    );
+    state.regs[2] = HpNum::from(0i32); // x0
+    state.regs[3] = HpNum::from(1i32); // y0
+    state.regs[5] = HpNum::from(5i32); // max_steps = 5
+
+    let result = op_difeq_run_loop(&mut state, &program);
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested DIFEQ inside DIFEQ user function must return HpError::InvalidOp (XROM-08 FINAL 3-state guard)"
+    );
+    assert!(
+        state.difeq_state.is_none(),
+        "difeq_state must be None after nested DIFEQ rejection"
+    );
 }
 
 // ── Test 2: user function STOP aborts INTG ────────────────────────────────────

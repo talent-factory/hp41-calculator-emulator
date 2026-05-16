@@ -252,25 +252,51 @@ impl IntegInputStep {
 
 /// Per-step state for the DIFEQ workflow (Plan 28-09).
 ///
-/// Steps follow the HP-41C Math Pac I OM DIFEQ program prompting sequence.
-/// Extended by Plan 28-09.
+/// Steps follow the HP-41C Math Pac I OM DIFEQ program prompting sequence
+/// (HP 00041-90034, 1979), Chapter 7 "Differential Equations".
+///
+/// Prompt sequence:
+/// - ORDER=1 (5 prompts): FUNCTION NAME? → ORDER=? → STEP SIZE=? → X0=? → Y0=? → Ready
+/// - ORDER=2 (6 prompts): FUNCTION NAME? → ORDER=? → STEP SIZE=? → X0=? → Y0=? → Y'0=? → Ready
+///
+/// Y1PrimePrompt is only routed when the OrderPrompt user-entered value equals 2;
+/// the routing logic lives in op_difeq_run_loop (Plan 28-09). Plan 28-09 stores
+/// ORDER=1 vs ORDER=2 in DifeqState.order and skips/visits Y1PrimePrompt accordingly.
+///
+/// Plan 28-09 extends Plan 28-01's 6-variant stub with the `Ready` variant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DifeqInputStep {
-    /// Awaiting differential equation function label name. Prompt: "FUNCTION NAME?"
+    /// Awaiting differential equation function label name.
+    /// Prompt: "FUNCTION NAME?"
+    /// Source: HP 00041-90034 (1979), Chapter 7, DIFEQ program.
     FunctionNamePrompt,
-    /// Awaiting ODE order n. Prompt: "ORDER=?"
+    /// Awaiting ODE order (1 or 2). Prompt: "ORDER=?"
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
     OrderPrompt,
     /// Awaiting step size h. Prompt: "STEP SIZE=?"
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
     StepSizePrompt,
     /// Awaiting initial x value x0. Prompt: "X0=?"
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
     X0Prompt,
     /// Awaiting initial y value y(x0). Prompt: "Y0=?"
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
     Y0Prompt,
-    /// Awaiting initial y' value y'(x0) (for 2nd-order ODEs). Prompt: "Y'0=?"
+    /// Awaiting initial y' value y'(x0) (for 2nd-order ODEs only). Prompt: "Y'0=?"
+    /// Only visited when ORDER=2; skipped when ORDER=1.
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence (2nd-order extension).
     Y1PrimePrompt,
+    /// DIFEQ workflow complete; computing or done. No prompt displayed.
+    /// Added by Plan 28-09 (mirrors IntegInputStep::Ready + SolveInputStep::Ready pattern).
+    Ready,
 }
 
 impl DifeqInputStep {
+    /// Returns the OM-cited prompt text for the current DIFEQ workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 7, DIFEQ program.
+    /// `Ready` returns `None` because no user input is needed during computation.
+    /// `Y1PrimePrompt` returns `"Y'0=?"` — only displayed for ORDER=2 ODEs.
     pub fn current_prompt(&self) -> Option<String> {
         match self {
             DifeqInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
@@ -279,6 +305,7 @@ impl DifeqInputStep {
             DifeqInputStep::X0Prompt => Some("X0=?".to_string()),
             DifeqInputStep::Y0Prompt => Some("Y0=?".to_string()),
             DifeqInputStep::Y1PrimePrompt => Some("Y'0=?".to_string()),
+            DifeqInputStep::Ready => None,
         }
     }
 }
@@ -426,16 +453,69 @@ mod tests {
         );
     }
 
-    // Catches: DifeqInputStep dispatch regression
+    // Catches: DifeqInputStep dispatch regression (Plan 28-09 expands to all 7 variants)
     #[test]
-    fn difeq_step_prompts() {
+    fn difeq_step_function_name_prompt() {
+        // Source: HP 00041-90034 (1979), Chapter 7, DIFEQ program prompt sequence.
         assert_eq!(
             ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt).current_prompt(),
             Some("FUNCTION NAME?".to_string())
         );
+    }
+
+    // Catches: OrderPrompt returning wrong text or returning None
+    #[test]
+    fn difeq_step_order_prompt() {
+        assert_eq!(
+            ModalProgram::Difeq(DifeqInputStep::OrderPrompt).current_prompt(),
+            Some("ORDER=?".to_string())
+        );
+    }
+
+    // Catches: StepSizePrompt returning wrong text
+    #[test]
+    fn difeq_step_step_size_prompt() {
+        assert_eq!(
+            ModalProgram::Difeq(DifeqInputStep::StepSizePrompt).current_prompt(),
+            Some("STEP SIZE=?".to_string())
+        );
+    }
+
+    // Catches: X0Prompt returning wrong text
+    #[test]
+    fn difeq_step_x0_prompt() {
+        assert_eq!(
+            ModalProgram::Difeq(DifeqInputStep::X0Prompt).current_prompt(),
+            Some("X0=?".to_string())
+        );
+    }
+
+    // Catches: Y0Prompt returning wrong text
+    #[test]
+    fn difeq_step_y0_prompt() {
+        assert_eq!(
+            ModalProgram::Difeq(DifeqInputStep::Y0Prompt).current_prompt(),
+            Some("Y0=?".to_string())
+        );
+    }
+
+    // Catches: Y1PrimePrompt returning wrong text (ORDER=2 path)
+    #[test]
+    fn difeq_step_y1_prime_prompt() {
         assert_eq!(
             ModalProgram::Difeq(DifeqInputStep::Y1PrimePrompt).current_prompt(),
             Some("Y'0=?".to_string())
+        );
+    }
+
+    // Catches: Ready variant missing or returning Some(...) instead of None
+    // This variant was added in Plan 28-09 (mirrors IntegInputStep::Ready pattern).
+    #[test]
+    fn difeq_step_ready_returns_none() {
+        assert_eq!(
+            ModalProgram::Difeq(DifeqInputStep::Ready).current_prompt(),
+            None,
+            "DifeqInputStep::Ready must return None (computing state, no prompt)"
         );
     }
 
