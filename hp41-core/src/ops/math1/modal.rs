@@ -123,25 +123,49 @@ impl SolveInputStep {
 
 /// Per-step state for the POLY workflow (Plan 28-05).
 ///
-/// Steps follow the HP-41C Math Pac I OM POLY program prompting sequence.
-/// Extended by Plan 28-05.
+/// Steps follow the HP-41C Math Pac I OM POLY program prompting sequence
+/// (HP 00041-90034, 1979), Chapter 7 "Polynomial Solutions".
+///
+/// Prompt sequence: DEGREE=? → A=? → B=? → ... → F=? (max degree 5) → Ready.
+/// CoefficientPrompt(degree, current_idx): degree = total degree n (2..=5),
+/// current_idx = coefficient index (0=A, 1=B, ..., 5=F).
 #[derive(Debug, Clone, PartialEq)]
 pub enum PolyInputStep {
-    /// Awaiting polynomial degree n. Prompt: "DEGREE=?"
+    /// Awaiting polynomial degree n (2..=5). Prompt: "DEGREE=?"
     DegreePrompt,
-    /// Awaiting coefficient k of term x^j. Prompt: "COEF k,j=?"
+    /// Awaiting coefficient at index current_idx. Prompt: "A=?" through "F=?".
+    /// Field 0: total degree (2..=5). Field 1: current coefficient index (0..=5).
+    /// Coefficient naming per OM Chapter 7: A=highest-order coeff, B=next, etc.
     CoefficientPrompt(u8, u8),
     /// All coefficients entered; ready to compute roots. Prompt: None.
     Ready,
 }
 
 impl PolyInputStep {
+    /// Returns the OM-cited prompt text for the current step.
+    ///
+    /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
+    /// A=? = leading coefficient (x^n term), B=? = x^(n-1), ..., F=? = constant term.
     pub fn current_prompt(&self) -> Option<&'static str> {
         match self {
             PolyInputStep::DegreePrompt => Some("DEGREE=?"),
-            PolyInputStep::CoefficientPrompt(_, _) => Some("COEFF=?"),
+            PolyInputStep::CoefficientPrompt(_degree, idx) => match idx {
+                0 => Some("A=?"),
+                1 => Some("B=?"),
+                2 => Some("C=?"),
+                3 => Some("D=?"),
+                4 => Some("E=?"),
+                5 => Some("F=?"),
+                // Defensive fallback: idx > 5 is a logic error (degree cap is 5).
+                _ => Some("?=?"),
+            },
             PolyInputStep::Ready => None,
         }
+    }
+
+    /// Ergonomic helper: wrap this step in a ModalProgram for tests.
+    pub fn into_modal(self) -> ModalProgram {
+        ModalProgram::Poly(self)
     }
 }
 
@@ -324,5 +348,70 @@ mod tests {
     fn modal_program_clone_and_eq() {
         let mp = ModalProgram::Matrix(MatrixInputStep::OrderPrompt);
         assert_eq!(mp.clone(), mp);
+    }
+
+    // ── Plan 28-05: PolyInputStep prompt tests ────────────────────────────────
+
+    // Catches: DegreePrompt returning wrong text
+    #[test]
+    fn poly_degree_prompt() {
+        let mp = PolyInputStep::DegreePrompt.into_modal();
+        assert_eq!(mp.current_prompt(), Some("DEGREE=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=0 not returning "A=?"
+    #[test]
+    fn poly_coeff_prompt_a() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 0).into_modal();
+        assert_eq!(mp.current_prompt(), Some("A=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=1 not returning "B=?"
+    #[test]
+    fn poly_coeff_prompt_b() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 1).into_modal();
+        assert_eq!(mp.current_prompt(), Some("B=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=2 not returning "C=?"
+    #[test]
+    fn poly_coeff_prompt_c() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 2).into_modal();
+        assert_eq!(mp.current_prompt(), Some("C=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=3 not returning "D=?"
+    #[test]
+    fn poly_coeff_prompt_d() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 3).into_modal();
+        assert_eq!(mp.current_prompt(), Some("D=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=4 not returning "E=?"
+    #[test]
+    fn poly_coeff_prompt_e() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 4).into_modal();
+        assert_eq!(mp.current_prompt(), Some("E=?"));
+    }
+
+    // Catches: CoefficientPrompt idx=5 not returning "F=?"
+    #[test]
+    fn poly_coeff_prompt_f() {
+        let mp = PolyInputStep::CoefficientPrompt(5, 5).into_modal();
+        assert_eq!(mp.current_prompt(), Some("F=?"));
+    }
+
+    // Catches: Ready not returning None
+    #[test]
+    fn poly_ready_returns_none() {
+        let mp = PolyInputStep::Ready.into_modal();
+        assert_eq!(mp.current_prompt(), None);
+    }
+
+    // Catches: Clone + PartialEq on PolyInputStep variants
+    #[test]
+    fn poly_input_step_clone_and_eq() {
+        let step = PolyInputStep::CoefficientPrompt(3, 2);
+        assert_eq!(step.clone(), step);
     }
 }

@@ -15,5 +15,6 @@ pub mod difeq;
 pub mod hyperbolics;
 pub mod integ;
 pub mod modal;
+pub mod poly;
 pub mod solve;
 pub mod xrom;

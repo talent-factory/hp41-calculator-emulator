@@ -261,6 +261,9 @@ fn op_display_name(op: &Op) -> String {
         Op::ApowZ => "A\u{2191}Z".to_string(),
         Op::LogZ => "LOGZ".to_string(),
         Op::ZpowW => "Z\u{2191}W".to_string(),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ────────────────────────────────────
+        Op::PolyWorkflow => "POLY".to_string(),
+        Op::Roots => "ROOTS".to_string(),
     }
 }
 

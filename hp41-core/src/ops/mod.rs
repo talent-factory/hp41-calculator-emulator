@@ -36,6 +36,7 @@ use math1::complex::{
     op_z_pow_w,
 };
 use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
+use math1::poly::{op_poly_workflow, op_roots};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
     op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
@@ -660,6 +661,15 @@ pub enum Op {
     /// Z↑W — complex power z^w = exp(w·LnZ). z=ζ, w=τ. Domain on (0,0)^w with Re(w)≤0 (CMPLX-17).
     /// Binary: T-replicate. LiftEffect: Enable. CMPLX-17 / HP 00041-90034 ~p.26.
     ZpowW,
+    // ── Phase 28: POLY / ROOTS (Plan 28-05) ────────────────────────────────────
+    /// POLY — polynomial root-finder master entry. Opens modal workflow (DegreePrompt →
+    /// CoefficientPrompt → Ready). Sets state.modal_program + state.modal_prompt.
+    /// LiftEffect: Neutral. POLY-01 / HP 00041-90034 Chapter 7.
+    PolyWorkflow,
+    /// ROOTS — polynomial root executor. Reads coefficients from R00..R(degree).
+    /// Outputs roots to state.print_buffer in U=u/V=v/U=u/-V=-v format (POLY-04).
+    /// LiftEffect: Neutral. POLY-02 / HP 00041-90034 Chapter 7.
+    Roots,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -1030,6 +1040,9 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ApowZ => op_a_pow_z(state),
         Op::LogZ => op_log_z(state),
         Op::ZpowW => op_z_pow_w(state),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
+        Op::PolyWorkflow => op_poly_workflow(state),
+        Op::Roots => op_roots(state),
     }
 }
 
