@@ -102,12 +102,13 @@ export const SEGMENT_PATHS: string[] = [
 // (not its own cell). Display14Seg.tsx lights this dot in cell i when
 // chars[i+1] === '.'; the period itself does not consume a cell slot.
 //
-// Sized 3×3 at (x=22-25, y=37-40). Horizontally centered in the inter-digit
-// gap (cell 'c' right edge at x=21, next cell digit-stem at global x=27, so
-// gap center at local x≈24). Vertically placed below the 'd' baseline (y=38)
-// with only a 1-unit overlap so it remains visually distinct from the digit's
-// segments. The prior position at x=20-23 sat inside the 'c' bottom-right
-// vertical segment and was visually hidden for almost every digit.
+// Sized 3×3 at (x=22-25, y=37-40). Horizontally near the center of the
+// inter-digit gap (cell 'c' right edge at x=21; next cell's 'e' segment at
+// local x=3 = global x=27, so the gap spans x=21-27 and centers near x=24).
+// Vertically placed below the 'd' baseline (y=38) with only a 1-unit overlap
+// so it remains visually distinct from the digit's segments. The prior 2×2
+// at x=20-22, y=35-37 sat inside the 'c' bottom-right vertical segment and
+// was visually hidden for almost every digit.
 export const DECIMAL_DOT_PATH = 'M 22 37 L 25 37 L 25 40 L 22 40 Z';
 
 // Character-to-segment-indices map (W4 pinned).
