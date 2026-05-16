@@ -35,6 +35,8 @@ pub struct XromModule {
 /// Plan 28-02: 6 hyperbolic entries added (SINH, COSH, TANH, ASINH, ACOSH, ATANH).
 /// Plan 28-03: 5 complex arithmetic entries added (C+, C-, C×, C÷, REAL).
 ///             ASCII aliases C* and C/ included for C× and C÷ respectively.
+/// Plan 28-04: 12 complex function entries (MAGZ, CINV, Z↑N, Z↑1/N, E↑Z, LNZ,
+///             SINZ, COSZ, TANZ, A↑Z, LOGZ, Z↑W) with ASCII aliases for Unicode ops.
 pub const MATH_1: XromModule = XromModule {
     id: 7,
     name: "MATH 1A",
@@ -54,6 +56,24 @@ pub const MATH_1: XromModule = XromModule {
         ("C\u{00F7}", Op::CDiv),     // Unicode alias (primary)
         ("C/", Op::CDiv),            // ASCII alias for C÷
         ("REAL", Op::Real),
+        // ── Plan 28-04: Complex Functions ─────────────────────────────────────
+        ("MAGZ", Op::Magz),
+        ("CINV", Op::Cinv),
+        ("Z\u{2191}N", Op::ZpowN),  // Unicode ↑ (primary)
+        ("Z^N", Op::ZpowN),          // ASCII alias for Z↑N
+        ("Z\u{2191}1/N", Op::Zpow1N), // Unicode ↑ (primary)
+        ("Z^1/N", Op::Zpow1N),       // ASCII alias for Z↑1/N
+        ("E\u{2191}Z", Op::ExpZ),   // Unicode ↑ (primary)
+        ("E^Z", Op::ExpZ),           // ASCII alias for E↑Z
+        ("LNZ", Op::LnZ),
+        ("SINZ", Op::SinZ),
+        ("COSZ", Op::CosZ),
+        ("TANZ", Op::TanZ),
+        ("A\u{2191}Z", Op::ApowZ),  // Unicode ↑ (primary)
+        ("A^Z", Op::ApowZ),          // ASCII alias for A↑Z
+        ("LOGZ", Op::LogZ),
+        ("Z\u{2191}W", Op::ZpowW),  // Unicode ↑ (primary)
+        ("Z^W", Op::ZpowW),          // ASCII alias for Z↑W
     ],
 };
 
@@ -111,7 +131,20 @@ fn math1_resolve(name: &str) -> Option<Op> {
         "C\u{00D7}" | "C*" => Some(Op::CTimes),  // Unicode × and ASCII * both accepted
         "C\u{00F7}" | "C/" => Some(Op::CDiv),     // Unicode ÷ and ASCII / both accepted
         "REAL" => Some(Op::Real),
-        // Plans 28-04..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-04: Complex Functions ─────────────────────────────────────
+        "MAGZ" => Some(Op::Magz),
+        "CINV" => Some(Op::Cinv),
+        "Z\u{2191}N" | "Z^N" => Some(Op::ZpowN),    // Unicode ↑ and ASCII ^ both accepted
+        "Z\u{2191}1/N" | "Z^1/N" => Some(Op::Zpow1N),
+        "E\u{2191}Z" | "E^Z" => Some(Op::ExpZ),     // Unicode ↑ and ASCII ^ both accepted
+        "LNZ" => Some(Op::LnZ),
+        "SINZ" => Some(Op::SinZ),
+        "COSZ" => Some(Op::CosZ),
+        "TANZ" => Some(Op::TanZ),
+        "A\u{2191}Z" | "A^Z" => Some(Op::ApowZ),
+        "LOGZ" => Some(Op::LogZ),
+        "Z\u{2191}W" | "Z^W" => Some(Op::ZpowW),
+        // Plans 28-05..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -191,13 +224,15 @@ mod tests {
     }
 
     // Catches: MATH_1.ops slice not populated with correct count
-    // Plan 28-02: 6 hyperbolic entries; Plan 28-03: +7 complex entries (C+, C-, C×, C*, C÷, C/, REAL)
+    // Plan 28-02: 6 hyperbolic entries; Plan 28-03: +7 complex arith entries (C+, C-, C×, C*, C÷, C/, REAL)
+    // Plan 28-04: +17 complex function entries (MAGZ, CINV, Z↑N, Z^N, Z↑1/N, Z^1/N, E↑Z, E^Z,
+    //             LNZ, SINZ, COSZ, TANZ, A↑Z, A^Z, LOGZ, Z↑W, Z^W)
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            13,
-            "MATH_1.ops must have exactly 13 entries after Plan 28-03 (6 hyperbolic + 7 complex incl. aliases)"
+            30,
+            "MATH_1.ops must have exactly 30 entries after Plan 28-04 (6 hyp + 7 complex-arith + 17 complex-fn incl. aliases)"
         );
     }
 

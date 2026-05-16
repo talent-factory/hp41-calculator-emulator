@@ -60,12 +60,29 @@ fn complex_atan2_zero_zero_returns_zero() {
 
 /// LN(0 + 0i) must return HpError::Domain (not NaN or panic).
 /// Catches: missing domain check for zero-magnitude complex argument.
-/// Source: Math Pac I OM (HP 00041-90034, 1979), complex LN behavior.
+/// Source: Math Pac I OM (HP 00041-90034, 1979), complex LN behavior (CMPLX-11 / Pitfall 6).
 /// Filled by Plan 28-04.
 #[test]
-#[ignore = "filled by Plan 28-04"]
 fn ln_z_zero_returns_domain() {
-    unimplemented!("filled by Plan 28-04");
+    // Stack: ζ = X+iY = 0+0i; LNZ must return Domain before any stack mutation.
+    let mut s = make_state("0", "0", "0", "0");
+    let x_before = s.stack.x.clone();
+    let y_before = s.stack.y.clone();
+
+    let result = dispatch(&mut s, Op::LnZ);
+
+    assert!(
+        matches!(result, Err(hp41_core::HpError::Domain)),
+        "LNZ(0+0i) must return HpError::Domain (CMPLX-11); got {result:?}"
+    );
+    // Stack must be unchanged (guard fires before any mutation — Pitfall 6)
+    assert_eq!(s.stack.x, x_before, "X must be unchanged on Domain (guard fires first)");
+    assert_eq!(s.stack.y, y_before, "Y must be unchanged on Domain");
+    // complex_mode must NOT have been set (guard fires before state.complex_mode = true)
+    assert!(
+        !s.complex_mode,
+        "complex_mode must NOT be set when Domain fires (mutation happens after guard)"
+    );
 }
 
 /// Complex C÷ with divisor (0 + 0i) must return HpError::DivideByZero.
@@ -103,9 +120,42 @@ fn c_div_zero_returns_divide_by_zero_before_division() {
 /// Z↑W with Z=(0+0i) and W negative exponent must return HpError::Domain.
 /// Catches: 0^(negative) path returning +Inf instead of Domain error.
 /// Source: Free42 cross-check for z^w edge case (Free42 returns ERR_INVALID_DATA).
+/// CMPLX-17 / Pitfall 6 — guard fires before any state mutation.
 /// Filled by Plan 28-04.
 #[test]
-#[ignore = "filled by Plan 28-04"]
 fn z_pow_w_zero_neg_exp_returns_domain() {
-    unimplemented!("filled by Plan 28-04");
+    // Stack: ζ = X+iY = 0+0i (base z), τ = Z+iT = -1+0i (exponent w with Re(w)=-1 ≤ 0)
+    let mut s = make_state("0", "0", "0", "0");
+    let parse = |v: &str| {
+        let d = rust_decimal::Decimal::from_str_exact(v).unwrap();
+        hp41_core::HpNum::rounded(d)
+    };
+    s.stack.z = parse("-1"); // Re(w) = -1 ≤ 0 → Domain
+    s.stack.t = parse("0");  // Im(w) = 0
+
+    let x_before = s.stack.x.clone();
+    let y_before = s.stack.y.clone();
+
+    let result = dispatch(&mut s, Op::ZpowW);
+
+    assert!(
+        matches!(result, Err(hp41_core::HpError::Domain)),
+        "Z↑W with z=(0+0i) and Re(w)=-1 ≤ 0 must return HpError::Domain (CMPLX-17); got {result:?}"
+    );
+    // Stack ζ must be unchanged (guard fires before any mutation — Pitfall 6)
+    assert_eq!(s.stack.x, x_before, "X must be unchanged on Domain");
+    assert_eq!(s.stack.y, y_before, "Y must be unchanged on Domain");
+    // complex_mode must NOT have been set
+    assert!(
+        !s.complex_mode,
+        "complex_mode must NOT be set when Domain fires for Z↑W (guard fires before mutation)"
+    );
+
+    // Also test Re(w)=0 case: (0+0i)^(0+0i) → Domain (Re(w)=0 ≤ 0)
+    let mut s2 = make_state("0", "0", "0", "0");
+    let result2 = dispatch(&mut s2, Op::ZpowW);
+    assert!(
+        matches!(result2, Err(hp41_core::HpError::Domain)),
+        "Z↑W with z=(0+0i) and Re(w)=0 ≤ 0 must also return HpError::Domain"
+    );
 }
