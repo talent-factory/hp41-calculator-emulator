@@ -264,6 +264,15 @@ fn op_display_name(op: &Op) -> String {
         // ── Phase 28: POLY / ROOTS (Plan 28-05) ────────────────────────────────────
         Op::PolyWorkflow => "POLY".to_string(),
         Op::Roots => "ROOTS".to_string(),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────────
+        Op::MatrixWorkflow => "MATRIX".to_string(),
+        Op::MatSize => "SIZE".to_string(),
+        Op::MatVmat => "VMAT".to_string(),
+        Op::MatEdit => "EDIT".to_string(),
+        Op::MatDet => "DET".to_string(),
+        Op::MatInv => "INV".to_string(),
+        Op::MatSimeq => "SIMEQ".to_string(),
+        Op::MatVcol => "VCOL".to_string(),
     }
 }
 

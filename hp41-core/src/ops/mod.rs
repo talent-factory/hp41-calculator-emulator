@@ -36,6 +36,10 @@ use math1::complex::{
     op_z_pow_w,
 };
 use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
+use math1::matrix::{
+    op_mat_det, op_mat_edit, op_mat_inv, op_mat_simeq, op_mat_size, op_mat_vcol, op_mat_vmat,
+    op_matrix_workflow,
+};
 use math1::poly::{op_poly_workflow, op_roots};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
@@ -670,6 +674,34 @@ pub enum Op {
     /// Outputs roots to state.print_buffer in U=u/V=v/U=u/-V=-v format (POLY-04).
     /// LiftEffect: Neutral. POLY-02 / HP 00041-90034 Chapter 7.
     Roots,
+    // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────────
+    /// MATRIX — master matrix workflow entry: opens ORDER=? modal (MatrixWorkflow).
+    /// Sets modal_program = Matrix(OrderPrompt); matrix_active_reg = 15.
+    /// LiftEffect: Neutral. MAT-01 / HP 00041-90034 Chapter 3.
+    MatrixWorkflow,
+    /// SIZE — returns matrix order N from R14 to X.
+    /// LiftEffect: Enable. MAT-02 / HP 00041-90034 Chapter 3.
+    MatSize,
+    /// VMAT — displays all matrix elements in column-major order via print_buffer.
+    /// Format: "A{r},{c}={val}" per element. LiftEffect: Neutral. MAT-03.
+    MatVmat,
+    /// EDIT — opens matrix edit mode (ROW↑COL=? prompt).
+    /// LiftEffect: Neutral. MAT-04 / HP 00041-90034 Chapter 3.
+    MatEdit,
+    /// DET — LU determinant with partial pivoting; result in X.
+    /// LiftEffect: Enable. MAT-05 / HP 00041-90034 Chapter 3, p. 14.
+    MatDet,
+    /// INV — Gauss-Jordan inversion in place; singular → "NO SOLUTION" modal_prompt.
+    /// Singularity threshold: INV_EPSILON = 1e-10 (ADR-003, Plan 28-01).
+    /// LiftEffect: Neutral. MAT-06/MAT-07 / HP 00041-90034 Chapter 3, p. 23.
+    MatInv,
+    /// SIMEQ — solves [A|b]; solution at R(N+1)..R(2N); sets flag 5 on success.
+    /// Singular → "NO SOLUTION" modal_prompt. LiftEffect: Neutral.
+    /// MAT-08/MAT-10/MAT-11 / HP 00041-90034 Chapter 3, p. 28.
+    MatSimeq,
+    /// VCOL — displays B-vector elements R(N+1)..R(2N) via print_buffer.
+    /// Format: "B{n}={val}" per element. LiftEffect: Neutral. MAT-09.
+    MatVcol,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -1043,6 +1075,15 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
         Op::PolyWorkflow => op_poly_workflow(state),
         Op::Roots => op_roots(state),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────
+        Op::MatrixWorkflow => op_matrix_workflow(state),
+        Op::MatSize => op_mat_size(state),
+        Op::MatVmat => op_mat_vmat(state),
+        Op::MatEdit => op_mat_edit(state),
+        Op::MatDet => op_mat_det(state),
+        Op::MatInv => op_mat_inv(state),
+        Op::MatSimeq => op_mat_simeq(state),
+        Op::MatVcol => op_mat_vcol(state),
     }
 }
 

@@ -45,7 +45,11 @@ impl ModalProgram {
     /// or waiting for a non-modal input). Exhaustive match — no `_ =>` arm.
     /// FN-CLI-04: adding a new `ModalProgram` variant without updating this match
     /// is a compile error.
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    ///
+    /// Returns `Option<String>` (owned) because Matrix ElementPrompt and
+    /// SimeqInputPrompt generate dynamic strings (e.g., "A1,1=?", "B3=?").
+    /// Pre-allocating a 14×14 const table was rejected per Plan 28-06 Task 1 note (b).
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
             ModalProgram::Matrix(step) => step.current_prompt(),
             ModalProgram::Solve(step) => step.current_prompt(),
@@ -81,13 +85,25 @@ pub enum MatrixInputStep {
 }
 
 impl MatrixInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    /// Returns the OM-cited prompt text for the current matrix workflow step.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 3 "Matrix Functions".
+    /// ElementPrompt uses 1-indexed row/col per OM convention ("A1,1=?" not "A0,0=?").
+    /// SimeqInputPrompt uses 1-indexed vector element ("B1=?" not "B0=?").
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            MatrixInputStep::OrderPrompt => Some("ORDER=?"),
-            MatrixInputStep::ElementPrompt(_, _) => Some("ELEMENT=?"),
+            MatrixInputStep::OrderPrompt => Some("ORDER=?".to_string()),
+            // ElementPrompt(row, col): 0-indexed → 1-indexed for OM-faithful display.
+            // Column-major iteration: col varies slowest in the OM prompt sequence.
+            MatrixInputStep::ElementPrompt(r, c) => {
+                Some(format!("A{},{}=?", r + 1, c + 1))
+            }
             MatrixInputStep::Ready => None,
-            MatrixInputStep::EditPrompt => Some("EDIT=?"),
-            MatrixInputStep::SimeqInputPrompt(_) => Some("b=?"),
+            MatrixInputStep::EditPrompt => Some("ROW\u{2191}COL=?".to_string()),
+            // SimeqInputPrompt(idx): 0-indexed → 1-indexed for OM-faithful display.
+            MatrixInputStep::SimeqInputPrompt(idx) => {
+                Some(format!("B{}=?", idx + 1))
+            }
             MatrixInputStep::SimeqDone => None,
         }
     }
@@ -110,11 +126,11 @@ pub enum SolveInputStep {
 }
 
 impl SolveInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            SolveInputStep::FunctionNamePrompt => Some("FUNCTION NAME?"),
-            SolveInputStep::Guess1Prompt => Some("GUESS 1=?"),
-            SolveInputStep::Guess2Prompt => Some("GUESS 2=?"),
+            SolveInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
+            SolveInputStep::Guess1Prompt => Some("GUESS 1=?".to_string()),
+            SolveInputStep::Guess2Prompt => Some("GUESS 2=?".to_string()),
         }
     }
 }
@@ -146,18 +162,18 @@ impl PolyInputStep {
     ///
     /// Source: HP 00041-90034 (1979), Chapter 7 prompt sequence.
     /// A=? = leading coefficient (x^n term), B=? = x^(n-1), ..., F=? = constant term.
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            PolyInputStep::DegreePrompt => Some("DEGREE=?"),
+            PolyInputStep::DegreePrompt => Some("DEGREE=?".to_string()),
             PolyInputStep::CoefficientPrompt(_degree, idx) => match idx {
-                0 => Some("A=?"),
-                1 => Some("B=?"),
-                2 => Some("C=?"),
-                3 => Some("D=?"),
-                4 => Some("E=?"),
-                5 => Some("F=?"),
+                0 => Some("A=?".to_string()),
+                1 => Some("B=?".to_string()),
+                2 => Some("C=?".to_string()),
+                3 => Some("D=?".to_string()),
+                4 => Some("E=?".to_string()),
+                5 => Some("F=?".to_string()),
                 // Defensive fallback: idx > 5 is a logic error (degree cap is 5).
-                _ => Some("?=?"),
+                _ => Some("?=?".to_string()),
             },
             PolyInputStep::Ready => None,
         }
@@ -188,12 +204,12 @@ pub enum IntegInputStep {
 }
 
 impl IntegInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            IntegInputStep::ModeChoice => Some("MODE?"),
-            IntegInputStep::FunctionNamePrompt => Some("FUNCTION NAME?"),
-            IntegInputStep::IntervalPrompt => Some("LOWER LIMIT=?"),
-            IntegInputStep::SubdivisionPrompt => Some("SUBDIVISIONS=?"),
+            IntegInputStep::ModeChoice => Some("MODE?".to_string()),
+            IntegInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
+            IntegInputStep::IntervalPrompt => Some("LOWER LIMIT=?".to_string()),
+            IntegInputStep::SubdivisionPrompt => Some("SUBDIVISIONS=?".to_string()),
         }
     }
 }
@@ -221,14 +237,14 @@ pub enum DifeqInputStep {
 }
 
 impl DifeqInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            DifeqInputStep::FunctionNamePrompt => Some("FUNCTION NAME?"),
-            DifeqInputStep::OrderPrompt => Some("ORDER=?"),
-            DifeqInputStep::StepSizePrompt => Some("STEP SIZE=?"),
-            DifeqInputStep::X0Prompt => Some("X0=?"),
-            DifeqInputStep::Y0Prompt => Some("Y0=?"),
-            DifeqInputStep::Y1PrimePrompt => Some("Y'0=?"),
+            DifeqInputStep::FunctionNamePrompt => Some("FUNCTION NAME?".to_string()),
+            DifeqInputStep::OrderPrompt => Some("ORDER=?".to_string()),
+            DifeqInputStep::StepSizePrompt => Some("STEP SIZE=?".to_string()),
+            DifeqInputStep::X0Prompt => Some("X0=?".to_string()),
+            DifeqInputStep::Y0Prompt => Some("Y0=?".to_string()),
+            DifeqInputStep::Y1PrimePrompt => Some("Y'0=?".to_string()),
         }
     }
 }
@@ -254,12 +270,12 @@ pub enum FourInputStep {
 }
 
 impl FourInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            FourInputStep::NumSamplesPrompt => Some("N SAMPLES=?"),
-            FourInputStep::NumFreqPrompt => Some("N FREQS=?"),
-            FourInputStep::FirstCoeffPrompt => Some("FIRST COEFF=?"),
-            FourInputStep::SamplePrompt(_) => Some("SAMPLE=?"),
+            FourInputStep::NumSamplesPrompt => Some("N SAMPLES=?".to_string()),
+            FourInputStep::NumFreqPrompt => Some("N FREQS=?".to_string()),
+            FourInputStep::FirstCoeffPrompt => Some("FIRST COEFF=?".to_string()),
+            FourInputStep::SamplePrompt(_) => Some("SAMPLE=?".to_string()),
             FourInputStep::Ready => None,
         }
     }
@@ -282,11 +298,11 @@ pub enum TransInputStep {
 }
 
 impl TransInputStep {
-    pub fn current_prompt(&self) -> Option<&'static str> {
+    pub fn current_prompt(&self) -> Option<String> {
         match self {
-            TransInputStep::InitPrompt => Some("INIT=?"),
-            TransInputStep::ForwardPrompt => Some("FORWARD=?"),
-            TransInputStep::InversePrompt => Some("INVERSE=?"),
+            TransInputStep::InitPrompt => Some("INIT=?".to_string()),
+            TransInputStep::ForwardPrompt => Some("FORWARD=?".to_string()),
+            TransInputStep::InversePrompt => Some("INVERSE=?".to_string()),
         }
     }
 }
@@ -300,14 +316,14 @@ mod tests {
     #[test]
     fn matrix_order_prompt() {
         let mp = ModalProgram::Matrix(MatrixInputStep::OrderPrompt);
-        assert_eq!(mp.current_prompt(), Some("ORDER=?"));
+        assert_eq!(mp.current_prompt(), Some("ORDER=?".to_string()));
     }
 
     // Catches: ModalProgram::Solve dispatch regression
     #[test]
     fn solve_function_name_prompt() {
         let mp = ModalProgram::Solve(SolveInputStep::FunctionNamePrompt);
-        assert_eq!(mp.current_prompt(), Some("FUNCTION NAME?"));
+        assert_eq!(mp.current_prompt(), Some("FUNCTION NAME?".to_string()));
     }
 
     // Catches: MatrixInputStep::Ready should return None (not prompting)
@@ -322,11 +338,11 @@ mod tests {
     fn solve_guess_prompts() {
         assert_eq!(
             ModalProgram::Solve(SolveInputStep::Guess1Prompt).current_prompt(),
-            Some("GUESS 1=?")
+            Some("GUESS 1=?".to_string())
         );
         assert_eq!(
             ModalProgram::Solve(SolveInputStep::Guess2Prompt).current_prompt(),
-            Some("GUESS 2=?")
+            Some("GUESS 2=?".to_string())
         );
     }
 
@@ -335,11 +351,11 @@ mod tests {
     fn difeq_step_prompts() {
         assert_eq!(
             ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt).current_prompt(),
-            Some("FUNCTION NAME?")
+            Some("FUNCTION NAME?".to_string())
         );
         assert_eq!(
             ModalProgram::Difeq(DifeqInputStep::Y1PrimePrompt).current_prompt(),
-            Some("Y'0=?")
+            Some("Y'0=?".to_string())
         );
     }
 
@@ -356,49 +372,49 @@ mod tests {
     #[test]
     fn poly_degree_prompt() {
         let mp = PolyInputStep::DegreePrompt.into_modal();
-        assert_eq!(mp.current_prompt(), Some("DEGREE=?"));
+        assert_eq!(mp.current_prompt(), Some("DEGREE=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=0 not returning "A=?"
     #[test]
     fn poly_coeff_prompt_a() {
         let mp = PolyInputStep::CoefficientPrompt(5, 0).into_modal();
-        assert_eq!(mp.current_prompt(), Some("A=?"));
+        assert_eq!(mp.current_prompt(), Some("A=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=1 not returning "B=?"
     #[test]
     fn poly_coeff_prompt_b() {
         let mp = PolyInputStep::CoefficientPrompt(5, 1).into_modal();
-        assert_eq!(mp.current_prompt(), Some("B=?"));
+        assert_eq!(mp.current_prompt(), Some("B=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=2 not returning "C=?"
     #[test]
     fn poly_coeff_prompt_c() {
         let mp = PolyInputStep::CoefficientPrompt(5, 2).into_modal();
-        assert_eq!(mp.current_prompt(), Some("C=?"));
+        assert_eq!(mp.current_prompt(), Some("C=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=3 not returning "D=?"
     #[test]
     fn poly_coeff_prompt_d() {
         let mp = PolyInputStep::CoefficientPrompt(5, 3).into_modal();
-        assert_eq!(mp.current_prompt(), Some("D=?"));
+        assert_eq!(mp.current_prompt(), Some("D=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=4 not returning "E=?"
     #[test]
     fn poly_coeff_prompt_e() {
         let mp = PolyInputStep::CoefficientPrompt(5, 4).into_modal();
-        assert_eq!(mp.current_prompt(), Some("E=?"));
+        assert_eq!(mp.current_prompt(), Some("E=?".to_string()));
     }
 
     // Catches: CoefficientPrompt idx=5 not returning "F=?"
     #[test]
     fn poly_coeff_prompt_f() {
         let mp = PolyInputStep::CoefficientPrompt(5, 5).into_modal();
-        assert_eq!(mp.current_prompt(), Some("F=?"));
+        assert_eq!(mp.current_prompt(), Some("F=?".to_string()));
     }
 
     // Catches: Ready not returning None
@@ -413,5 +429,56 @@ mod tests {
     fn poly_input_step_clone_and_eq() {
         let step = PolyInputStep::CoefficientPrompt(3, 2);
         assert_eq!(step.clone(), step);
+    }
+
+    // ── Plan 28-06: MatrixInputStep prompt tests ──────────────────────────────
+
+    // Catches: ElementPrompt 0-indexed offset wrong (must add 1 for OM-faithful display)
+    #[test]
+    fn matrix_element_prompt_1_1() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::ElementPrompt(0, 0));
+        assert_eq!(mp.current_prompt(), Some("A1,1=?".to_string()));
+    }
+
+    // Catches: ElementPrompt column index wrong
+    #[test]
+    fn matrix_element_prompt_2_3() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::ElementPrompt(1, 2));
+        assert_eq!(mp.current_prompt(), Some("A2,3=?".to_string()));
+    }
+
+    // Catches: ElementPrompt maximum indices (14×14)
+    #[test]
+    fn matrix_element_prompt_max() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::ElementPrompt(13, 13));
+        assert_eq!(mp.current_prompt(), Some("A14,14=?".to_string()));
+    }
+
+    // Catches: EditPrompt returning wrong text (ROW↑COL=? uses Unicode ↑)
+    #[test]
+    fn matrix_edit_prompt() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::EditPrompt);
+        assert_eq!(mp.current_prompt(), Some("ROW\u{2191}COL=?".to_string()));
+    }
+
+    // Catches: SimeqInputPrompt 0-indexed offset wrong (must add 1)
+    #[test]
+    fn matrix_simeq_input_prompt_first() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::SimeqInputPrompt(0));
+        assert_eq!(mp.current_prompt(), Some("B1=?".to_string()));
+    }
+
+    // Catches: SimeqInputPrompt mid-sequence (e.g., B3=? for idx=2)
+    #[test]
+    fn matrix_simeq_input_prompt_third() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::SimeqInputPrompt(2));
+        assert_eq!(mp.current_prompt(), Some("B3=?".to_string()));
+    }
+
+    // Catches: SimeqDone should return None (done state, no prompt)
+    #[test]
+    fn matrix_simeq_done_returns_none() {
+        let mp = ModalProgram::Matrix(MatrixInputStep::SimeqDone);
+        assert_eq!(mp.current_prompt(), None);
     }
 }

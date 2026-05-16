@@ -4231,3 +4231,114 @@ fn mod_divide_by_zero_returns_domain() {
         "MOD(7, 0) must return Domain per HP-41C OM p.234"
     );
 }
+
+// ── Phase 28 Plan 28-06: MATRIX numerical accuracy ────────────────────────────
+//
+// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 3.
+// Free42 v3.0.5 cross-check values noted where applicable.
+
+/// Local helper: set up an n×n matrix in state for accuracy tests.
+fn matrix_setup_acc(state: &mut CalcState, n: u8, elements: &[f64]) {
+    use rust_decimal::prelude::FromPrimitive;
+    assert_eq!(elements.len(), (n as usize) * (n as usize));
+    state.matrix_dim = Some((n, n));
+    state.matrix_active_reg = Some(15);
+    state.regs[14] = HpNum::from(n as i32);
+    let required = 15 + (n as usize) * (n as usize) + n as usize + 1;
+    if state.regs.len() < required {
+        state.regs.resize(required, HpNum::zero());
+    }
+    for c in 0..(n as usize) {
+        for r in 0..(n as usize) {
+            let idx = 15 + c * n as usize + r;
+            let v = elements[r * n as usize + c];
+            let d = Decimal::from_f64(v).expect("finite f64");
+            state.regs[idx] = HpNum::rounded(d);
+        }
+    }
+}
+
+#[test]
+fn matrix_det_identity_2x2() {
+    // Source: HP 00041-90034 (1979), Chapter 3 — identity matrix.
+    // det([[1,0],[0,1]]) = 1
+    // Free42 v3.0.5: 1.0
+    let mut s = CalcState::new();
+    matrix_setup_acc(&mut s, 2, &[1.0, 0.0, 0.0, 1.0]);
+    dispatch(&mut s, Op::Xeq("DET".to_string())).unwrap();
+    let det = get_x(&s);
+    assert!(
+        (det - 1.0).abs() < TOLERANCE,
+        "det(I₂) must be 1.0, got {det}"
+    );
+}
+
+#[test]
+fn matrix_det_2x2_known_value() {
+    // Source: HP 00041-90034 (1979), Chapter 3 "DET example".
+    // det([[3,8],[4,6]]) = 3*6 - 8*4 = 18 - 32 = -14
+    // Free42 v3.0.5: -14.0
+    let mut s = CalcState::new();
+    matrix_setup_acc(&mut s, 2, &[3.0, 8.0, 4.0, 6.0]);
+    dispatch(&mut s, Op::Xeq("DET".to_string())).unwrap();
+    let det = get_x(&s);
+    assert!(
+        (det - (-14.0)).abs() < TOLERANCE,
+        "det([[3,8],[4,6]]) must be -14.0, got {det}"
+    );
+}
+
+#[test]
+fn matrix_inv_round_trip_2x2() {
+    // Source: HP 00041-90034 (1979), Chapter 3, p.23 "INV function".
+    // A = [[2,1],[1,2]]; inv(A)(0,0) = 2/3 ≈ 0.6667.
+    // Free42 v3.0.5: confirmed numerical stability.
+    let mut s = CalcState::new();
+    matrix_setup_acc(&mut s, 2, &[2.0, 1.0, 1.0, 2.0]);
+    dispatch(&mut s, Op::Xeq("INV".to_string())).unwrap();
+    // inv([[2,1],[1,2]])(0,0) = 2/3
+    let a00 = s.regs[15].inner().to_f64().unwrap();
+    assert!(
+        (a00 - 2.0/3.0).abs() < WIDE_TOL,
+        "inv(A)(0,0) must be ≈ 2/3, got {a00}"
+    );
+}
+
+#[test]
+fn matrix_simeq_exact_solution() {
+    // Source: HP 00041-90034 (1979), Chapter 3, p.28 "SIMEQ example".
+    // System: [[2,1],[1,3]] · [x,y] = [5,10] → x=1, y=3
+    // Free42 v3.0.5: x=1.0, y=3.0
+    let mut s = CalcState::new();
+    matrix_setup_acc(&mut s, 2, &[2.0, 1.0, 1.0, 3.0]);
+    // b_base = 15 + 4 = 19
+    s.regs[19] = HpNum::from(5i32);  // B1=5
+    s.regs[20] = HpNum::from(10i32); // B2=10
+    dispatch(&mut s, Op::Xeq("SIMEQ".to_string())).unwrap();
+    let x_sol = s.regs[19].inner().to_f64().unwrap();
+    let y_sol = s.regs[20].inner().to_f64().unwrap();
+    assert!(
+        (x_sol - 1.0).abs() < TOLERANCE,
+        "SIMEQ solution x must be ≈1.0, got {x_sol}"
+    );
+    assert!(
+        (y_sol - 3.0).abs() < TOLERANCE,
+        "SIMEQ solution y must be ≈3.0, got {y_sol}"
+    );
+}
+
+#[test]
+fn matrix_singular_detection_at_inv_epsilon() {
+    // Source: docs/adr/v3.0-003-inv-epsilon.md (Plan 28-01 ADR-003).
+    // INV_EPSILON = 1e-10: pivot << threshold → NO SOLUTION.
+    // Free42 uses 5e-10; our stricter threshold catches more near-singular cases.
+    let mut s = CalcState::new();
+    // [[1, 1], [1, 1+1e-12]] — effective pivot ≈ 1e-12 << INV_EPSILON
+    matrix_setup_acc(&mut s, 2, &[1.0, 1.0, 1.0, 1.0 + 1e-12]);
+    dispatch(&mut s, Op::Xeq("INV".to_string())).unwrap();
+    assert_eq!(
+        s.modal_prompt,
+        Some("NO SOLUTION".to_string()),
+        "Matrix with pivot << INV_EPSILON must yield NO SOLUTION (ADR-003)"
+    );
+}
