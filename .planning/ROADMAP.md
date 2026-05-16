@@ -66,7 +66,7 @@
 
 **Plans**: 10 plans (per SUMMARY.md "Suggested phase structure" build order)
   - [x] 28-01-PLAN.md — XROM framework: `ops/math1/xrom.rs` with `XromModule` struct + `MATH_1` const + `xrom_resolve(name, modules) -> Option<Op>` + 6 new CalcState fields (`xrom_modules`, `complex_mode`, `matrix_dim`, `matrix_active_reg`, `modal_program`, `integ_state`, `solve_state`) with `#[serde(default)]` / `#[serde(skip)]` where transient; resolver chain extension in `xeq_by_name_local_resolve` + `op_xeq` + `run_program::execute_op` (xrom fires LAST per Pitfall 1); 5 irreversible decisions locked via ADR (chosen Op-strategy A, user-callback strict-reject policy, INV-EPSILON post-OM, INTG-threshold post-OM, JSON-pipeline two-file shape); XROM-01..09
-  - [ ] 28-02-PLAN.md — Hyperbolics (proof-of-pattern): `Op::{Sinh, Cosh, Tanh, Asinh, Acosh, Atanh}` + domain-error returns for `Acosh(X<1)` and `Atanh(|X|≥1)`; mirrors v2.2 one-shot stack-acting pattern; ≥ 5 tests per op per Pitfall 16; HYP-01..06
+  - [x] 28-02-PLAN.md — Hyperbolics (proof-of-pattern): `Op::{Sinh, Cosh, Tanh, Asinh, Acosh, Atanh}` + domain-error returns for `Acosh(X<1)` and `Atanh(|X|≥1)`; mirrors v2.2 one-shot stack-acting pattern; ≥ 5 tests per op per Pitfall 16; HYP-01..06
   - [ ] 28-03-PLAN.md — Complex stack scaffolding + arithmetic: `ComplexStack { zeta, tau }` location decision (overlay X/Y/Z/T vs dedicated R02–R05 vs eigener Struct — locked Plan 28-01); `Op::{CPlus, CMinus, CTimes, CDiv}` + `complex_atan2` f64-bridge handling (0,0)→0; `Op::CDiv` zero-divisor branch returns `HpError::DivideByZero`; CMPLX-01..05
   - [ ] 28-04-PLAN.md — Complex functions (13 ops): `Op::{Magz, Cinv, ZpowN, Zpow1N, ExpZ, LnZ, SinZ, CosZ, TanZ, ApowZ, LogZ, ZpowW, Zpow1W}`; branch-cut tests for `LnZ(0,0)` and `ZpowW` zero-divisor (Pitfall 6); CMPLX-06..17
   - [ ] 28-05-PLAN.md — POLY/ROOTS: `Op::{PolyWorkflow, Roots}` + modal `MatrixInputStep`-style state machine for `DEGREE=?` + `A=?`..`F=?` prompts; complex root-pair output format `U=u`/`V=v`/`U=u`/`-V=-v` (Pitfall 5 fidelity gate); multiplicity-as-cluster convention documented in `docs/hp41-math1-divergences.md`; non-convergence at `|imag| > 10⁹` returns `HpError::Domain` "DATA ERROR"; POLY-01..07
@@ -254,7 +254,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 28. XROM Framework + Math Pac I Core Ops | v3.0 | 1/10 | In Progress|  |
+| 28. XROM Framework + Math Pac I Core Ops | v3.0 | 2/10 | In Progress|  |
 | 29. CLI Integration | v3.0 | 0/3 | Planned | |
 | 30. Documentation & ADRs | v3.0 | 0/4 | Planned | |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
