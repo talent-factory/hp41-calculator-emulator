@@ -14,6 +14,7 @@ pub mod flags;
 pub mod hms;
 pub mod indirect;
 pub mod math;
+pub mod math1;
 pub mod print;
 pub mod program;
 pub mod registers;
@@ -29,6 +30,17 @@ use math::{
     op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd, op_set_deg,
     op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
+use math1::complex::{
+    op_a_pow_z, op_c_div, op_c_minus, op_c_plus, op_c_times, op_cinv, op_cos_z, op_exp_z,
+    op_ln_z, op_log_z, op_magz, op_real, op_sin_z, op_tan_z, op_z_pow_1_n, op_z_pow_n,
+    op_z_pow_w,
+};
+use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
+use math1::matrix::{
+    op_mat_det, op_mat_edit, op_mat_inv, op_mat_simeq, op_mat_size, op_mat_vcol, op_mat_vmat,
+    op_matrix_workflow,
+};
+use math1::poly::{op_poly_workflow, op_roots};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
     op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
@@ -575,6 +587,163 @@ pub enum Op {
     /// so the display shows the resolved register's contents. Phase 24
     /// (FN-IND-01).
     ViewInd(u8),
+    // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+    /// SINH — hyperbolic sine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction; Overflow for extreme magnitudes.
+    Sinh,
+    /// COSH — hyperbolic cosine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction; Overflow for extreme magnitudes.
+    Cosh,
+    /// TANH — hyperbolic tangent. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Saturates to ±1 for large |X| (not an error).
+    Tanh,
+    /// ASINH — inverse hyperbolic sine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). No domain restriction.
+    Asinh,
+    /// ACOSH — inverse hyperbolic cosine. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Domain: X >= 1.0; X < 1.0 → HpError::Domain.
+    Acosh,
+    /// ATANH — inverse hyperbolic tangent. Angle-mode-independent. LiftEffect: Enable.
+    /// XROM Math Pac I (HP 00041-90034). Domain: |X| < 1.0; |X| >= 1.0 → HpError::Domain.
+    Atanh,
+    // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ────────────────────
+    /// C+ — complex addition: ζ' = ζ + τ where ζ=X+iY, τ=Z+iT.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-02 / HP 00041-90034.
+    CPlus,
+    /// C- — complex subtraction: ζ' = ζ - τ.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-03 / HP 00041-90034.
+    CMinus,
+    /// C× — complex multiplication: ζ' = ζ · τ = (XZ-YT) + i(XT+YZ).
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-04 / HP 00041-90034.
+    CTimes,
+    /// C÷ — complex division: ζ' = ζ / τ = ((XZ+YT) + i(YZ-XT)) / (Z²+T²).
+    /// Zero-divisor guard BEFORE any mutation: Z=0 AND T=0 → HpError::DivideByZero.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-05 / HP 00041-90034.
+    CDiv,
+    /// REAL — deactivate complex mode (CMPLX-18 / D-28.3).
+    /// Sets complex_mode = false. Stack untouched. LiftEffect: Neutral.
+    /// UX extension — NOT in Math Pac I OM 1979; documented divergence per D-28.3.
+    Real,
+    // ── Phase 28: Complex Functions (Plan 28-04) ────────────────────────────
+    /// MAGZ — complex magnitude |ζ| = sqrt(X²+Y²). Writes to X; Y unchanged.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-06 / HP 00041-90034 ~p.25.
+    Magz,
+    /// CINV — complex inverse 1/(X+iY). DivideByZero on (0,0) (pre-mutation guard).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-07 / HP 00041-90034 ~p.25.
+    Cinv,
+    /// Z↑N — complex integer-exponent power: ζ^N via repeated multiply. N=X, base=Y+iZ.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-14 / HP 00041-90034 ~p.26.
+    ZpowN,
+    /// Z↑1/N — complex N-th root: r^(1/N)·cis(θ/N). N=X, base=Y+iZ. (0,0)→(0,0).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-15 / HP 00041-90034 ~p.26.
+    Zpow1N,
+    /// E↑Z — complex exponential: e^X·(cos(Y)+i·sin(Y)).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-10 / HP 00041-90034 ~p.25.
+    ExpZ,
+    /// LNZ — complex natural log: ln|ζ| + i·arg(ζ). Domain on (0,0) (CMPLX-11).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-11 / HP 00041-90034 ~p.26.
+    LnZ,
+    /// SINZ — complex sine: sin(X)·cosh(Y) + i·cos(X)·sinh(Y).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-08 / HP 00041-90034 ~p.26.
+    SinZ,
+    /// COSZ — complex cosine: cos(X)·cosh(Y) - i·sin(X)·sinh(Y).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-09 / HP 00041-90034 ~p.26.
+    CosZ,
+    /// TANZ — complex tangent: sin(z)/cos(z). Domain at cos(z)=0 singularity (CMPLX-13).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-13 / HP 00041-90034 ~p.26.
+    TanZ,
+    /// A↑Z — complex power a^z = exp(z·ln(a)). a=τ, z=ζ. Domain on a=(0,0) (CMPLX-16).
+    /// Binary: T-replicate. LiftEffect: Enable. CMPLX-16 / HP 00041-90034 ~p.26.
+    ApowZ,
+    /// LOGZ — complex log base 10: LNZ/ln(10). Domain on (0,0). CMPLX-12.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-12 / HP 00041-90034 ~p.26.
+    LogZ,
+    /// Z↑W — complex power z^w = exp(w·LnZ). z=ζ, w=τ. Domain on (0,0)^w with Re(w)≤0 (CMPLX-17).
+    /// Binary: T-replicate. LiftEffect: Enable. CMPLX-17 / HP 00041-90034 ~p.26.
+    ZpowW,
+    // ── Phase 28: POLY / ROOTS (Plan 28-05) ────────────────────────────────────
+    /// POLY — polynomial root-finder master entry. Opens modal workflow (DegreePrompt →
+    /// CoefficientPrompt → Ready). Sets state.modal_program + state.modal_prompt.
+    /// LiftEffect: Neutral. POLY-01 / HP 00041-90034 Chapter 7.
+    PolyWorkflow,
+    /// ROOTS — polynomial root executor. Reads coefficients from R00..R(degree).
+    /// Outputs roots to state.print_buffer in U=u/V=v/U=u/-V=-v format (POLY-04).
+    /// LiftEffect: Neutral. POLY-02 / HP 00041-90034 Chapter 7.
+    Roots,
+    // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────────
+    /// MATRIX — master matrix workflow entry: opens ORDER=? modal (MatrixWorkflow).
+    /// Sets modal_program = Matrix(OrderPrompt); matrix_active_reg = 15.
+    /// LiftEffect: Neutral. MAT-01 / HP 00041-90034 Chapter 3.
+    MatrixWorkflow,
+    /// SIZE — returns matrix order N from R14 to X.
+    /// LiftEffect: Enable. MAT-02 / HP 00041-90034 Chapter 3.
+    MatSize,
+    /// VMAT — displays all matrix elements in column-major order via print_buffer.
+    /// Format: "A{r},{c}={val}" per element. LiftEffect: Neutral. MAT-03.
+    MatVmat,
+    /// EDIT — opens matrix edit mode (ROW↑COL=? prompt).
+    /// LiftEffect: Neutral. MAT-04 / HP 00041-90034 Chapter 3.
+    MatEdit,
+    /// DET — LU determinant with partial pivoting; result in X.
+    /// LiftEffect: Enable. MAT-05 / HP 00041-90034 Chapter 3, p. 14.
+    MatDet,
+    /// INV — Gauss-Jordan inversion in place; singular → "NO SOLUTION" modal_prompt.
+    /// Singularity threshold: INV_EPSILON = 1e-10 (ADR-003, Plan 28-01).
+    /// LiftEffect: Neutral. MAT-06/MAT-07 / HP 00041-90034 Chapter 3, p. 23.
+    MatInv,
+    /// SIMEQ — solves [A|b]; solution at R(N+1)..R(2N); sets flag 5 on success.
+    /// Singular → "NO SOLUTION" modal_prompt. LiftEffect: Neutral.
+    /// MAT-08/MAT-10/MAT-11 / HP 00041-90034 Chapter 3, p. 28.
+    MatSimeq,
+    /// VCOL — displays B-vector elements R(N+1)..R(2N) via print_buffer.
+    /// Format: "B{n}={val}" per element. LiftEffect: Neutral. MAT-09.
+    MatVcol,
+    // ── Phase 28: INTG (Plan 28-07) ────────────────────────────────────────────
+    /// INTG — numerical integration via adaptive Simpson rule with user-supplied LBL function.
+    ///
+    /// Dispatch arm (interactive / outside run_loop): returns `HpError::InvalidOp`.
+    /// run_loop arm: calls `op_integ_run_loop(state, program)` which re-enters run_loop
+    /// for each sample point (C-28.5 / user-callback re-entrancy).
+    ///
+    /// Pre-mutation guards (XROM-08 / ADR-002 / Pitfall 4):
+    /// 1. Strict-reject nested INTG/SOLVE/DIFEQ → InvalidOp BEFORE mutation.
+    /// 2. call_stack.len() >= 4 → CallDepth BEFORE mutation.
+    /// 3. n_subdivisions > 32768 → Domain (INTG-07).
+    ///
+    /// Convergence threshold: 5e-(n+1) where n = display-mode digit count (ADR-004).
+    /// Max evaluations: 32768 per INTG call (OM p. 37).
+    /// LiftEffect: Enable (pushes result to X on completion). INTG-01..08 / HP 00041-90034 Ch.3.
+    Integ,
+    // ── Phase 28: SOLVE (Plan 28-08) ────────────────────────────────────────────
+    /// SOLVE — modified secant root-finder with user-supplied LBL function.
+    ///
+    /// Master entry: opens 3-prompt modal (FUNCTION NAME? / GUESS 1=? / GUESS 2=?),
+    /// then runs modified-secant iteration. Dispatch arm returns `HpError::InvalidOp`;
+    /// run_loop arm calls `op_solve_run_loop(state, program)`.
+    ///
+    /// Pre-mutation guards (XROM-08 / ADR-002 / SOLV-08 / Pitfall 4):
+    /// 1. Strict-reject nested INTG/SOLVE/DIFEQ → InvalidOp BEFORE mutation.
+    /// 2. call_stack.len() >= 4 → CallDepth BEFORE mutation.
+    ///
+    /// Three termination paths (SOLV-04 / PATTERNS line 537) written to print_buffer:
+    /// - "ROOT IS <v>" — convergence achieved
+    /// - "ROOT IS BETWEEN <v1> AND <v2>" — sign change but not narrowable
+    /// - "NO ROOT FOUND" — 100-iteration cap reached (SOLV-07)
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6.
+    Solve,
+    /// SOL — SOLVE sub-entry that bypasses the 3-prompt modal.
+    ///
+    /// Reads user_label from `state.alpha_reg`, x1 from R00, x2 from R01
+    /// (scratch convention per SOLV-05). If alpha_reg is empty, returns InvalidOp.
+    /// Dispatch arm returns `HpError::InvalidOp`; run_loop arm calls `op_sol_run_loop`.
+    ///
+    /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), Chapter 6, p. 38.
+    Sol,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -919,6 +1088,55 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ArclInd(reg) => indirect::op_arcl_ind(state, reg),
         Op::AstoInd(reg) => indirect::op_asto_ind(state, reg),
         Op::ViewInd(reg) => indirect::op_view_ind(state, reg),
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => op_sinh(state),
+        Op::Cosh => op_cosh(state),
+        Op::Tanh => op_tanh(state),
+        Op::Asinh => op_asinh(state),
+        Op::Acosh => op_acosh(state),
+        Op::Atanh => op_atanh(state),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ───────────────────────
+        Op::CPlus => op_c_plus(state),
+        Op::CMinus => op_c_minus(state),
+        Op::CTimes => op_c_times(state),
+        Op::CDiv => op_c_div(state),
+        Op::Real => op_real(state),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => op_magz(state),
+        Op::Cinv => op_cinv(state),
+        Op::ZpowN => op_z_pow_n(state),
+        Op::Zpow1N => op_z_pow_1_n(state),
+        Op::ExpZ => op_exp_z(state),
+        Op::LnZ => op_ln_z(state),
+        Op::SinZ => op_sin_z(state),
+        Op::CosZ => op_cos_z(state),
+        Op::TanZ => op_tan_z(state),
+        Op::ApowZ => op_a_pow_z(state),
+        Op::LogZ => op_log_z(state),
+        Op::ZpowW => op_z_pow_w(state),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
+        Op::PolyWorkflow => op_poly_workflow(state),
+        Op::Roots => op_roots(state),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────
+        Op::MatrixWorkflow => op_matrix_workflow(state),
+        Op::MatSize => op_mat_size(state),
+        Op::MatVmat => op_mat_vmat(state),
+        Op::MatEdit => op_mat_edit(state),
+        Op::MatDet => op_mat_det(state),
+        Op::MatInv => op_mat_inv(state),
+        Op::MatSimeq => op_mat_simeq(state),
+        Op::MatVcol => op_mat_vcol(state),
+        // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────────
+        // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
+        // Real implementation runs only inside run_loop's Op::Integ arm.
+        // Mirrors Op::XeqInd pattern: dispatch arm rejects; run_loop arm does work.
+        Op::Integ => math1::integ::op_integ(state),
+        // ── Phase 28: SOLVE / SOL (Plan 28-08) ───────────────────────────────
+        // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
+        // Real implementation runs only inside run_loop's Op::Solve / Op::Sol arm.
+        // Mirrors Op::Integ precedent from Plan 28-07.
+        Op::Solve => math1::solve::op_solve(state),
+        Op::Sol => math1::solve::op_sol(state),
     }
 }
 

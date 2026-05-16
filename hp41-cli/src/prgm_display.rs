@@ -235,6 +235,49 @@ fn op_display_name(op: &Op) -> String {
             };
             format!("{mnemonic} IND {ind_reg:02}")
         }
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => "SINH".to_string(),
+        Op::Cosh => "COSH".to_string(),
+        Op::Tanh => "TANH".to_string(),
+        Op::Asinh => "ASINH".to_string(),
+        Op::Acosh => "ACOSH".to_string(),
+        Op::Atanh => "ATANH".to_string(),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ───────────────────────
+        Op::CPlus => "C+".to_string(),
+        Op::CMinus => "C-".to_string(),
+        Op::CTimes => "C\u{00D7}".to_string(),
+        Op::CDiv => "C\u{00F7}".to_string(),
+        Op::Real => "REAL".to_string(),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => "MAGZ".to_string(),
+        Op::Cinv => "CINV".to_string(),
+        Op::ZpowN => "Z\u{2191}N".to_string(),
+        Op::Zpow1N => "Z\u{2191}1/N".to_string(),
+        Op::ExpZ => "E\u{2191}Z".to_string(),
+        Op::LnZ => "LNZ".to_string(),
+        Op::SinZ => "SINZ".to_string(),
+        Op::CosZ => "COSZ".to_string(),
+        Op::TanZ => "TANZ".to_string(),
+        Op::ApowZ => "A\u{2191}Z".to_string(),
+        Op::LogZ => "LOGZ".to_string(),
+        Op::ZpowW => "Z\u{2191}W".to_string(),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ────────────────────────────────────
+        Op::PolyWorkflow => "POLY".to_string(),
+        Op::Roots => "ROOTS".to_string(),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────────
+        Op::MatrixWorkflow => "MATRIX".to_string(),
+        Op::MatSize => "SIZE".to_string(),
+        Op::MatVmat => "VMAT".to_string(),
+        Op::MatEdit => "EDIT".to_string(),
+        Op::MatDet => "DET".to_string(),
+        Op::MatInv => "INV".to_string(),
+        Op::MatSimeq => "SIMEQ".to_string(),
+        Op::MatVcol => "VCOL".to_string(),
+        // ── Phase 28: INTG (Plan 28-07) ────────────────────────────────────────
+        Op::Integ => "INTG".to_string(),
+        // ── Phase 28: SOLVE / SOL (Plan 28-08) ────────────────────────────────
+        Op::Solve => "SOLVE".to_string(),
+        Op::Sol => "SOL".to_string(),
     }
 }
 
