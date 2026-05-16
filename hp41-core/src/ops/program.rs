@@ -870,6 +870,12 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asinh => crate::ops::math1::hyperbolics::op_asinh(state),
         Op::Acosh => crate::ops::math1::hyperbolics::op_acosh(state),
         Op::Atanh => crate::ops::math1::hyperbolics::op_atanh(state),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ──────────────────────
+        Op::CPlus => crate::ops::math1::complex::op_c_plus(state),
+        Op::CMinus => crate::ops::math1::complex::op_c_minus(state),
+        Op::CTimes => crate::ops::math1::complex::op_c_times(state),
+        Op::CDiv => crate::ops::math1::complex::op_c_div(state),
+        Op::Real => crate::ops::math1::complex::op_real(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

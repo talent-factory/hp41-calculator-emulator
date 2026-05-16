@@ -30,6 +30,7 @@ use math::{
     op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd, op_set_deg,
     op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
+use math1::complex::{op_c_div, op_c_minus, op_c_plus, op_c_times, op_real};
 use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
@@ -596,6 +597,28 @@ pub enum Op {
     /// ATANH — inverse hyperbolic tangent. Angle-mode-independent. LiftEffect: Enable.
     /// XROM Math Pac I (HP 00041-90034). Domain: |X| < 1.0; |X| >= 1.0 → HpError::Domain.
     Atanh,
+    // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ────────────────────
+    /// C+ — complex addition: ζ' = ζ + τ where ζ=X+iY, τ=Z+iT.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-02 / HP 00041-90034.
+    CPlus,
+    /// C- — complex subtraction: ζ' = ζ - τ.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-03 / HP 00041-90034.
+    CMinus,
+    /// C× — complex multiplication: ζ' = ζ · τ = (XZ-YT) + i(XT+YZ).
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-04 / HP 00041-90034.
+    CTimes,
+    /// C÷ — complex division: ζ' = ζ / τ = ((XZ+YT) + i(YZ-XT)) / (Z²+T²).
+    /// Zero-divisor guard BEFORE any mutation: Z=0 AND T=0 → HpError::DivideByZero.
+    /// T-replicate: new Z and T get old T. LiftEffect: Enable.
+    /// Sets complex_mode = true (D-28.2 auto-on). CMPLX-05 / HP 00041-90034.
+    CDiv,
+    /// REAL — deactivate complex mode (CMPLX-18 / D-28.3).
+    /// Sets complex_mode = false. Stack untouched. LiftEffect: Neutral.
+    /// UX extension — NOT in Math Pac I OM 1979; documented divergence per D-28.3.
+    Real,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -947,6 +970,12 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asinh => op_asinh(state),
         Op::Acosh => op_acosh(state),
         Op::Atanh => op_atanh(state),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ───────────────────────
+        Op::CPlus => op_c_plus(state),
+        Op::CMinus => op_c_minus(state),
+        Op::CTimes => op_c_times(state),
+        Op::CDiv => op_c_div(state),
+        Op::Real => op_real(state),
     }
 }
 

@@ -33,6 +33,8 @@ pub struct XromModule {
 /// - `ops` — mnemonic → Op mapping; grows with each Plan 28-02..28-10.
 ///
 /// Plan 28-02: 6 hyperbolic entries added (SINH, COSH, TANH, ASINH, ACOSH, ATANH).
+/// Plan 28-03: 5 complex arithmetic entries added (C+, C-, C×, C÷, REAL).
+///             ASCII aliases C* and C/ included for C× and C÷ respectively.
 pub const MATH_1: XromModule = XromModule {
     id: 7,
     name: "MATH 1A",
@@ -44,6 +46,14 @@ pub const MATH_1: XromModule = XromModule {
         ("ASINH", Op::Asinh),
         ("ACOSH", Op::Acosh),
         ("ATANH", Op::Atanh),
+        // ── Plan 28-03: Complex Stack Arithmetic ──────────────────────────────
+        ("C+", Op::CPlus),
+        ("C-", Op::CMinus),
+        ("C\u{00D7}", Op::CTimes),  // Unicode alias (primary)
+        ("C*", Op::CTimes),          // ASCII alias for C×
+        ("C\u{00F7}", Op::CDiv),     // Unicode alias (primary)
+        ("C/", Op::CDiv),            // ASCII alias for C÷
+        ("REAL", Op::Real),
     ],
 };
 
@@ -95,7 +105,13 @@ fn math1_resolve(name: &str) -> Option<Op> {
         "ASINH" => Some(Op::Asinh),
         "ACOSH" => Some(Op::Acosh),
         "ATANH" => Some(Op::Atanh),
-        // Plans 28-03..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-03: Complex Stack Arithmetic ──────────────────────────────
+        "C+" => Some(Op::CPlus),
+        "C-" => Some(Op::CMinus),
+        "C\u{00D7}" | "C*" => Some(Op::CTimes),  // Unicode × and ASCII * both accepted
+        "C\u{00F7}" | "C/" => Some(Op::CDiv),     // Unicode ÷ and ASCII / both accepted
+        "REAL" => Some(Op::Real),
+        // Plans 28-04..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -174,13 +190,14 @@ mod tests {
         assert_eq!(result, Some(Op::Asinh), "xrom_resolve('ASINH', bit0=1) must return Some(Op::Asinh)");
     }
 
-    // Catches: MATH_1.ops slice not populated with 6 entries
+    // Catches: MATH_1.ops slice not populated with correct count
+    // Plan 28-02: 6 hyperbolic entries; Plan 28-03: +7 complex entries (C+, C-, C×, C*, C÷, C/, REAL)
     #[test]
-    fn math1_ops_has_six_hyperbolic_entries() {
+    fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            6,
-            "MATH_1.ops must have exactly 6 entries after Plan 28-02 (SINH/COSH/TANH/ASINH/ACOSH/ATANH)"
+            13,
+            "MATH_1.ops must have exactly 13 entries after Plan 28-03 (6 hyperbolic + 7 complex incl. aliases)"
         );
     }
 

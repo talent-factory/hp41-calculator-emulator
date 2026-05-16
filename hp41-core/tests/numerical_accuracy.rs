@@ -3500,6 +3500,68 @@ fn test_numerical_accuracy_suite() {
         );
     }
 
+    // ── v3.0 Extension: Complex Arithmetic (Plan 28-03) ──────────────────────
+    // Source: HP Math Pac I Owner's Manual (HP 00041-90034, 1979), pp.24-26.
+    // Free42 v3.0.5 cross-check for numerical ground truth.
+    // Catches: wrong complex arithmetic formula, sign errors, cross-term mixing.
+
+    {
+        // C+: (1+2i) + (3+4i) = 4+6i
+        // Source: HP 00041-90034 p.24, complex addition example.
+        // Free42 v3.0.5: re=4, im=6 — agrees with OM.
+        let mut s = CalcState::new();
+        push(&mut s, "1"); // X = re(ζ)
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32)); // Y = im(ζ)
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)); // Z = re(τ)
+        s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(4i32)); // T = im(τ)
+        dispatch(&mut s, Op::CPlus).unwrap();
+        case!("c_plus_re", "C+: re(1+2i + 3+4i) = 4.0 (HP 00041-90034 p.24)", 4.0, get_x(&s));
+        case!("c_plus_im", "C+: im(1+2i + 3+4i) = 6.0 (HP 00041-90034 p.24)", 6.0, get_y(&s));
+    }
+
+    {
+        // C-: (5+3i) - (2+1i) = 3+2i
+        // Source: HP 00041-90034 p.24, complex subtraction.
+        // Free42 v3.0.5: re=3, im=2.
+        let mut s = CalcState::new();
+        push(&mut s, "5");
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::CMinus).unwrap();
+        case!("c_minus_re", "C-: re(5+3i - 2+1i) = 3.0 (HP 00041-90034 p.24)", 3.0, get_x(&s));
+        case!("c_minus_im", "C-: im(5+3i - 2+1i) = 2.0 (HP 00041-90034 p.24)", 2.0, get_y(&s));
+    }
+
+    {
+        // C×: (2+3i) * (1-1i) = (2+3) + i(3·1 - 2·1) = 5+1i
+        // Wait: (2+3i)(1-1i) = 2·1 - 3·(-1) + i(3·1 + 2·(-1)) = 2+3 + i(3-2) = 5+1i
+        // Source: HP 00041-90034 p.25, complex multiplication.
+        // Free42 v3.0.5: re=5, im=1.
+        let mut s = CalcState::new();
+        push(&mut s, "2");  // X = re(ζ)
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));   // Y = im(ζ)
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));   // Z = re(τ)
+        s.stack.t = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32)); // T = im(τ) = -1
+        dispatch(&mut s, Op::CTimes).unwrap();
+        case!("c_times_re", "C×: re(2+3i × 1-1i) = 5.0 (HP 00041-90034 p.25)", 5.0, get_x(&s));
+        case!("c_times_im", "C×: im(2+3i × 1-1i) = 1.0 (HP 00041-90034 p.25)", 1.0, get_y(&s));
+    }
+
+    {
+        // C÷: (4+2i) / (1+1i) = ((4·1 + 2·1) + i(2·1 - 4·1)) / (1+1) = (6-2i)/2 = 3-1i
+        // Source: HP 00041-90034 p.25, complex division.
+        // Free42 v3.0.5: re=3, im=-1.
+        let mut s = CalcState::new();
+        push(&mut s, "4");  // X = re(ζ) = 4
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));  // Y = im(ζ) = 2
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));  // Z = re(τ) = 1
+        s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));  // T = im(τ) = 1
+        dispatch(&mut s, Op::CDiv).unwrap();
+        case!("c_div_re", "C÷: re(4+2i ÷ 1+1i) = 3.0 (HP 00041-90034 p.25)", 3.0, get_x(&s));
+        case!("c_div_im", "C÷: im(4+2i ÷ 1+1i) = -1.0 (HP 00041-90034 p.25)", -1.0, get_y(&s));
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();
