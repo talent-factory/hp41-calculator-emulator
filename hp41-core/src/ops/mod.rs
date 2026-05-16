@@ -30,7 +30,11 @@ use math::{
     op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd, op_set_deg,
     op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
-use math1::complex::{op_c_div, op_c_minus, op_c_plus, op_c_times, op_real};
+use math1::complex::{
+    op_a_pow_z, op_c_div, op_c_minus, op_c_plus, op_c_times, op_cinv, op_cos_z, op_exp_z,
+    op_ln_z, op_log_z, op_magz, op_real, op_sin_z, op_tan_z, op_z_pow_1_n, op_z_pow_n,
+    op_z_pow_w,
+};
 use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
@@ -619,6 +623,43 @@ pub enum Op {
     /// Sets complex_mode = false. Stack untouched. LiftEffect: Neutral.
     /// UX extension — NOT in Math Pac I OM 1979; documented divergence per D-28.3.
     Real,
+    // ── Phase 28: Complex Functions (Plan 28-04) ────────────────────────────
+    /// MAGZ — complex magnitude |ζ| = sqrt(X²+Y²). Writes to X; Y unchanged.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-06 / HP 00041-90034 ~p.25.
+    Magz,
+    /// CINV — complex inverse 1/(X+iY). DivideByZero on (0,0) (pre-mutation guard).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-07 / HP 00041-90034 ~p.25.
+    Cinv,
+    /// Z↑N — complex integer-exponent power: ζ^N via repeated multiply. N=X, base=Y+iZ.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-14 / HP 00041-90034 ~p.26.
+    ZpowN,
+    /// Z↑1/N — complex N-th root: r^(1/N)·cis(θ/N). N=X, base=Y+iZ. (0,0)→(0,0).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-15 / HP 00041-90034 ~p.26.
+    Zpow1N,
+    /// E↑Z — complex exponential: e^X·(cos(Y)+i·sin(Y)).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-10 / HP 00041-90034 ~p.25.
+    ExpZ,
+    /// LNZ — complex natural log: ln|ζ| + i·arg(ζ). Domain on (0,0) (CMPLX-11).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-11 / HP 00041-90034 ~p.26.
+    LnZ,
+    /// SINZ — complex sine: sin(X)·cosh(Y) + i·cos(X)·sinh(Y).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-08 / HP 00041-90034 ~p.26.
+    SinZ,
+    /// COSZ — complex cosine: cos(X)·cosh(Y) - i·sin(X)·sinh(Y).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-09 / HP 00041-90034 ~p.26.
+    CosZ,
+    /// TANZ — complex tangent: sin(z)/cos(z). Domain at cos(z)=0 singularity (CMPLX-13).
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-13 / HP 00041-90034 ~p.26.
+    TanZ,
+    /// A↑Z — complex power a^z = exp(z·ln(a)). a=τ, z=ζ. Domain on a=(0,0) (CMPLX-16).
+    /// Binary: T-replicate. LiftEffect: Enable. CMPLX-16 / HP 00041-90034 ~p.26.
+    ApowZ,
+    /// LOGZ — complex log base 10: LNZ/ln(10). Domain on (0,0). CMPLX-12.
+    /// LiftEffect: Disable. Sets complex_mode = true. CMPLX-12 / HP 00041-90034 ~p.26.
+    LogZ,
+    /// Z↑W — complex power z^w = exp(w·LnZ). z=ζ, w=τ. Domain on (0,0)^w with Re(w)≤0 (CMPLX-17).
+    /// Binary: T-replicate. LiftEffect: Enable. CMPLX-17 / HP 00041-90034 ~p.26.
+    ZpowW,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -976,6 +1017,19 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::CTimes => op_c_times(state),
         Op::CDiv => op_c_div(state),
         Op::Real => op_real(state),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => op_magz(state),
+        Op::Cinv => op_cinv(state),
+        Op::ZpowN => op_z_pow_n(state),
+        Op::Zpow1N => op_z_pow_1_n(state),
+        Op::ExpZ => op_exp_z(state),
+        Op::LnZ => op_ln_z(state),
+        Op::SinZ => op_sin_z(state),
+        Op::CosZ => op_cos_z(state),
+        Op::TanZ => op_tan_z(state),
+        Op::ApowZ => op_a_pow_z(state),
+        Op::LogZ => op_log_z(state),
+        Op::ZpowW => op_z_pow_w(state),
     }
 }
 

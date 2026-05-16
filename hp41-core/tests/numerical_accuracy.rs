@@ -20,7 +20,7 @@ use hp41_core::ops::program::op_dse;
 use hp41_core::ops::program::op_isg;
 use hp41_core::ops::{dispatch, Op};
 use hp41_core::{CalcState, HpNum};
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -3560,6 +3560,334 @@ fn test_numerical_accuracy_suite() {
         dispatch(&mut s, Op::CDiv).unwrap();
         case!("c_div_re", "C÷: re(4+2i ÷ 1+1i) = 3.0 (HP 00041-90034 p.25)", 3.0, get_x(&s));
         case!("c_div_im", "C÷: im(4+2i ÷ 1+1i) = -1.0 (HP 00041-90034 p.25)", -1.0, get_y(&s));
+    }
+
+    // ── v3.0 Extension: Complex Functions (Plan 28-04) ───────────────────────
+    // Source: HP Math Pac I Owner's Manual (HP 00041-90034, 1979), pp.24-26.
+    // Free42 v3.0.5 cross-check for numerical ground truth.
+    // Catches: wrong complex transcendental formula, branch-cut errors, sign errors.
+
+    let get_x = |s: &CalcState| s.stack.x.inner().to_f64().unwrap();
+    let get_y = |s: &CalcState| s.stack.y.inner().to_f64().unwrap();
+
+    {
+        // MAGZ: |(3+4i)| = 5 (Pythagorean triple)
+        // Source: HP 00041-90034 ~p.25, MAGZ example. Free42 v3.0.5: 5.0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(4i32));
+        dispatch(&mut s, Op::Magz).unwrap();
+        case!("magz_3_4", "MAGZ(3+4i) = 5.0 (HP 00041-90034 ~p.25)", 5.0, get_x(&s));
+    }
+    {
+        // MAGZ: |1+1i| = sqrt(2)
+        // Free42 v3.0.5: 1.4142135624.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::Magz).unwrap();
+        case!("magz_1_1", "MAGZ(1+1i) = sqrt(2) (Free42 v3.0.5: 1.4142135624)", std::f64::consts::SQRT_2, get_x(&s));
+    }
+    {
+        // MAGZ: |0+0i| = 0
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::Magz).unwrap();
+        case!("magz_0_0", "MAGZ(0+0i) = 0", 0.0, get_x(&s));
+    }
+
+    {
+        // CINV: 1/(1+1i) = 0.5 - 0.5i
+        // Source: HP 00041-90034 ~p.25. Free42 v3.0.5: re=0.5, im=-0.5.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::Cinv).unwrap();
+        case!("cinv_re", "CINV(1+1i) re = 0.5 (HP 00041-90034 ~p.25)", 0.5, get_x(&s));
+        case!("cinv_im", "CINV(1+1i) im = -0.5 (HP 00041-90034 ~p.25)", -0.5, get_y(&s));
+    }
+    {
+        // CINV: 1/(0+1i) = 0 - 1i
+        // Free42 v3.0.5: re=0, im=-1.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::Cinv).unwrap();
+        case!("cinv_i_im", "CINV(0+1i) im = -1.0 (Free42 v3.0.5)", -1.0, get_y(&s));
+    }
+
+    {
+        // ExpZ: e^(0+0i) = 1+0i
+        // Source: HP 00041-90034 ~p.25. Free42 v3.0.5: re=1, im=0.
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::ExpZ).unwrap();
+        case!("expz_zero", "E↑Z(0+0i) re = 1.0 (HP 00041-90034 ~p.25)", 1.0, get_x(&s));
+    }
+    {
+        // ExpZ: e^(1+0i) = e
+        // Free42 v3.0.5: re=2.7182818285, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ExpZ).unwrap();
+        case!("expz_one", "E↑Z(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", std::f64::consts::E, get_x(&s));
+    }
+    {
+        // ExpZ: e^(1+1i) re part = e*cos(1)
+        // Free42 v3.0.5 (RAD): re≈1.4686939399.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ExpZ).unwrap();
+        let expected = std::f64::consts::E * 1.0_f64.cos();
+        case!("expz_1_1_re", "E↑Z(1+1i) re = e·cos(1) (Free42 v3.0.5: 1.4686939399)", expected, get_x(&s));
+    }
+
+    {
+        // LnZ: ln(1+0i) = 0+0i
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5: re=0, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LnZ).unwrap();
+        case!("lnz_one", "LNZ(1+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+    }
+    {
+        // LnZ: ln(-1+0i) im = pi (principal branch, RAD mode)
+        // Free42 v3.0.5 (RAD): re=0, im=3.1415926536.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LnZ).unwrap();
+        case!("lnz_neg_one_im", "LNZ(-1+0i) im = pi (Free42 v3.0.5: 3.1415926536)", std::f64::consts::PI, get_y(&s));
+    }
+    {
+        // LnZ: ln(0+1i) im = pi/2 (RAD mode)
+        // Free42 v3.0.5 (RAD): re=0, im=1.5707963268.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LnZ).unwrap();
+        case!("lnz_i_im", "LNZ(0+1i) im = pi/2 (Free42 v3.0.5 RAD: 1.5707963268)", std::f64::consts::FRAC_PI_2, get_y(&s));
+    }
+
+    {
+        // LogZ: log10(10+0i) = 1+0i
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5: re=1.0, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(10i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LogZ).unwrap();
+        case!("logz_10", "LOGZ(10+0i) re = 1.0 (HP 00041-90034 ~p.26)", 1.0, get_x(&s));
+    }
+    {
+        // LogZ: log10(100+0i) = 2+0i
+        // Free42 v3.0.5: re=2.0, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(100i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LogZ).unwrap();
+        case!("logz_100", "LOGZ(100+0i) re = 2.0 (Free42 v3.0.5)", 2.0, get_x(&s));
+    }
+    {
+        // LogZ: log10(-1+0i) im = pi/ln(10) (principal branch, RAD)
+        // Free42 v3.0.5 (RAD): re=0, im≈1.3643763538.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32));
+        s.angle_mode = hp41_core::AngleMode::Rad;
+        dispatch(&mut s, Op::LogZ).unwrap();
+        let expected_im = std::f64::consts::PI / std::f64::consts::LN_10;
+        case!("logz_neg1_im", "LOGZ(-1+0i) im = pi/ln10 (Free42 v3.0.5 RAD: ~1.3644)", expected_im, get_y(&s));
+    }
+
+    {
+        // SinZ: sin(0+0i) = 0+0i
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=0, im=0.
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::SinZ).unwrap();
+        case!("sinz_zero", "SINZ(0+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+    }
+    {
+        // SinZ: sin(0+1i) im = sinh(1) ≈ 1.1752011936
+        // Free42 v3.0.5 (RAD): re=0, im=1.1752011936.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::SinZ).unwrap();
+        case!("sinz_i_im", "SINZ(0+1i) im = sinh(1) (Free42 v3.0.5: 1.1752011936)", 1.0_f64.sinh(), get_y(&s));
+    }
+    {
+        // SinZ: sin(1+1i) re = sin(1)*cosh(1)
+        // Free42 v3.0.5 (RAD): re≈1.2984575814.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::SinZ).unwrap();
+        let expected = 1.0_f64.sin() * 1.0_f64.cosh();
+        case!("sinz_1_1_re", "SINZ(1+1i) re = sin(1)*cosh(1) (Free42 v3.0.5: ~1.2985)", expected, get_x(&s));
+    }
+
+    {
+        // CosZ: cos(0+0i) = 1+0i
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=1, im=0.
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::CosZ).unwrap();
+        case!("cosz_zero", "COSZ(0+0i) re = 1.0 (HP 00041-90034 ~p.26)", 1.0, get_x(&s));
+    }
+    {
+        // CosZ: cos(0+1i) re = cosh(1) ≈ 1.5430806348
+        // Free42 v3.0.5 (RAD): re=1.5430806348, im=0.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::CosZ).unwrap();
+        case!("cosz_i_re", "COSZ(0+1i) re = cosh(1) (Free42 v3.0.5: 1.5430806348)", 1.0_f64.cosh(), get_x(&s));
+    }
+    {
+        // CosZ: cos(1+1i) re = cos(1)*cosh(1)
+        // Free42 v3.0.5 (RAD): re≈0.8337300252.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::CosZ).unwrap();
+        let expected = 1.0_f64.cos() * 1.0_f64.cosh();
+        case!("cosz_1_1_re", "COSZ(1+1i) re = cos(1)*cosh(1) (Free42 v3.0.5: ~0.8337)", expected, get_x(&s));
+    }
+
+    {
+        // TanZ: tan(0+0i) = 0+0i
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=0, im=0.
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::TanZ).unwrap();
+        case!("tanz_zero", "TANZ(0+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+    }
+    {
+        // TanZ: tan(pi/4+0i) = 1+0i
+        // Free42 v3.0.5 (RAD): re=1.0, im=0.
+        let mut s = CalcState::new();
+        let pi4_val = std::f64::consts::FRAC_PI_4;
+        s.stack.x = hp41_core::HpNum::rounded(
+            rust_decimal::Decimal::from_f64(pi4_val).unwrap()
+        );
+        dispatch(&mut s, Op::TanZ).unwrap();
+        case!("tanz_pi4", "TANZ(pi/4+0i) re = 1.0 (Free42 v3.0.5 RAD)", 1.0, get_x(&s));
+    }
+    {
+        // TanZ: tan(0+1i) im = tanh(1) ≈ 0.7615941559
+        // Source: tan(iy) = i*tanh(y). Free42 v3.0.5 (RAD): re=0, im=0.7615941559.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::TanZ).unwrap();
+        case!("tanz_i_im", "TANZ(0+1i) im = tanh(1) (Free42 v3.0.5: 0.7615941559)", 1.0_f64.tanh(), get_y(&s));
+    }
+
+    {
+        // ZpowN: (2+0i)^3 = 8+0i (N=X=3, base=Y+iZ=(2,0))
+        // Free42 v3.0.5: re=8, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)); // N
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32)); // re(base)
+        dispatch(&mut s, Op::ZpowN).unwrap();
+        case!("zpown_2_3", "Z↑N: (2+0i)^3 = 8.0 (Free42 v3.0.5)", 8.0, get_x(&s));
+    }
+    {
+        // ZpowN: (1+1i)^2 = 0+2i (N=X=2, base=Y+iZ=(1,1))
+        // Free42 v3.0.5: re=0, im=2.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ZpowN).unwrap();
+        case!("zpown_1i_2_im", "Z↑N: (1+1i)^2 im = 2 (Free42 v3.0.5)", 2.0, get_y(&s));
+    }
+    {
+        // ZpowN: z^0 = 1 always (N=X=0, base=Y+iZ=(5,3))
+        // Free42 v3.0.5: re=1, im=0.
+        let mut s = CalcState::new();
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(5i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        dispatch(&mut s, Op::ZpowN).unwrap();
+        case!("zpown_zero_exp", "Z↑N: z^0 = 1 always (Free42 v3.0.5)", 1.0, get_x(&s));
+    }
+
+    {
+        // Zpow1N: sqrt(1+0i) = 1+0i (N=X=2, base=Y+iZ=(1,0))
+        // Free42 v3.0.5: re=1, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::Zpow1N).unwrap();
+        case!("zpow1n_sqrt1", "Z↑1/N: sqrt(1+0i) re = 1 (Free42 v3.0.5)", 1.0, get_x(&s));
+    }
+    {
+        // Zpow1N: sqrt(-1+0i) im = 1 (principal branch: i). N=X=2, base=Y+iZ=(-1,0)
+        // Free42 v3.0.5: re~0, im=1.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        s.stack.y = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::Zpow1N).unwrap();
+        case!("zpow1n_sqrt_neg1_im", "Z↑1/N: sqrt(-1+0i) im = 1 (principal sqrt, Free42)", 1.0, get_y(&s));
+    }
+    {
+        // Zpow1N: (0+0i)^(1/5) = 0+0i (zero-first-arm per RESEARCH)
+        // N=X=5, base=Y+iZ=(0,0).
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(5i32));
+        dispatch(&mut s, Op::Zpow1N).unwrap();
+        case!("zpow1n_zero", "Z↑1/N: (0+0i)^(1/5) = 0 (zero-first-arm)", 0.0, get_x(&s));
+    }
+
+    {
+        // ApowZ: (2+0i)^(3+0i) = 8+0i. a=Z+iT=(2,0), z=X+iY=(3,0).
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5: re=8, im=~0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        dispatch(&mut s, Op::ApowZ).unwrap();
+        case!("apowz_2_3", "A↑Z: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)", 8.0, get_x(&s));
+    }
+    {
+        // ApowZ: (1+0i)^(z) = 1 for any z. a=Z+iT=(1,0), z=X+iY=(5,3).
+        // Free42 v3.0.5: re=1, im=0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(5i32));
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ApowZ).unwrap();
+        case!("apowz_1_any", "A↑Z: (1+0i)^(5+3i) re = 1 (Free42 v3.0.5)", 1.0, get_x(&s));
+    }
+    {
+        // ApowZ: (e+0i)^(1+0i) = e. a=Z+iT=(e,0), z=X+iY=(1,0).
+        // Free42 v3.0.5: re=e≈2.7182818285, im=0.
+        let e_val = std::f64::consts::E;
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(e_val).unwrap());
+        dispatch(&mut s, Op::ApowZ).unwrap();
+        case!("apowz_e_1", "A↑Z: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", e_val, get_x(&s));
+    }
+
+    {
+        // ZpowW: (2+0i)^(3+0i) = 8+0i. z=X+iY=(2,0), w=Z+iT=(3,0).
+        // Source: HP 00041-90034 ~p.26. Free42 v3.0.5: re=8, im=~0.
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
+        dispatch(&mut s, Op::ZpowW).unwrap();
+        case!("zpoww_2_3", "Z↑W: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)", 8.0, get_x(&s));
+    }
+    {
+        // ZpowW: (e+0i)^(1+0i) = e. z=X+iY=(e,0), w=Z+iT=(1,0).
+        // Free42 v3.0.5: re=e, im=~0.
+        let e_val = std::f64::consts::E;
+        let mut s = CalcState::new();
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(e_val).unwrap());
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ZpowW).unwrap();
+        case!("zpoww_e_1", "Z↑W: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", e_val, get_x(&s));
+    }
+    {
+        // ZpowW: (0+0i)^(1+0i) = 0. z=(0,0), w=(1,0): Re(w)=1 > 0 → 0 (not Domain).
+        // Free42 v3.0.5: re=0, im=0.
+        let mut s = CalcState::new();
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
+        dispatch(&mut s, Op::ZpowW).unwrap();
+        case!("zpoww_zero_pos", "Z↑W: (0+0i)^(1+0i) = 0 (Re(w)>0 case)", 0.0, get_x(&s));
     }
 
     // ── Gate: count passes, print failures, assert ────────────────────────────

@@ -876,6 +876,19 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::CTimes => crate::ops::math1::complex::op_c_times(state),
         Op::CDiv => crate::ops::math1::complex::op_c_div(state),
         Op::Real => crate::ops::math1::complex::op_real(state),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => crate::ops::math1::complex::op_magz(state),
+        Op::Cinv => crate::ops::math1::complex::op_cinv(state),
+        Op::ZpowN => crate::ops::math1::complex::op_z_pow_n(state),
+        Op::Zpow1N => crate::ops::math1::complex::op_z_pow_1_n(state),
+        Op::ExpZ => crate::ops::math1::complex::op_exp_z(state),
+        Op::LnZ => crate::ops::math1::complex::op_ln_z(state),
+        Op::SinZ => crate::ops::math1::complex::op_sin_z(state),
+        Op::CosZ => crate::ops::math1::complex::op_cos_z(state),
+        Op::TanZ => crate::ops::math1::complex::op_tan_z(state),
+        Op::ApowZ => crate::ops::math1::complex::op_a_pow_z(state),
+        Op::LogZ => crate::ops::math1::complex::op_log_z(state),
+        Op::ZpowW => crate::ops::math1::complex::op_z_pow_w(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
