@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Math 1 Pac Emulation
-status: planning
-last_updated: "2026-05-16T00:00:00.000Z"
-last_activity: 2026-05-16 -- ROADMAP.md created (5 phases 28-32, 25 plans, 110 requirements mapped 1:1); Phase 28 has 5 irreversible decisions; awaiting /gsd:plan-phase 28
+status: "Roadmap drafted by `/gsd:roadmapper` 2026-05-16; 5 phases (28–32), 25 plans, 110 requirements mapped 1:1 in REQUIREMENTS.md Traceability table."
+last_updated: "2026-05-16T17:40:02.247Z"
+last_activity: 2026-05-16 — Phase 28 CONTEXT.md gathered (9 new decisions D-28.1..D-28.9); awaiting /gsd-plan-phase 28
 progress:
   total_phases: 5
   completed_phases: 0
@@ -35,10 +35,10 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 
 ## Current Position
 
-Phase: Not started (roadmap complete, awaiting `/gsd:plan-phase 28`)
+Phase: 28 — XROM Framework + Math Pac I Core Ops (CONTEXT.md gathered, awaiting `/gsd-plan-phase 28`)
 Plan: —
-Status: Roadmap drafted by `/gsd:roadmapper` 2026-05-16; 5 phases (28–32), 25 plans, 110 requirements mapped 1:1 in REQUIREMENTS.md Traceability table.
-Last activity: 2026-05-16 — ROADMAP.md created
+Status: Discuss-phase complete 2026-05-16. 4 gray areas explored, 9 new decisions captured (D-28.1..D-28.9) in `.planning/phases/28-xrom-framework-math-pac-i-core-ops/28-CONTEXT.md`. 5 prior v3.0 ADRs (C-28.1..C-28.5) carried forward unchanged. One new derived requirement surfaced (`CMPLX-18: Op::Real` for `XEQ "REAL"` to deactivate complex_mode) to be added to REQUIREMENTS.md before Plan 28-04.
+Last activity: 2026-05-16 — 28-CONTEXT.md + 28-DISCUSSION-LOG.md written
 
 ---
 
@@ -68,6 +68,7 @@ Roadmap shipped 2026-05-16 (`.planning/ROADMAP.md`). 5 phases, 25 plans, 110 req
 | 32 | Test Hardening | `tests` | 3 | QUAL-01..08 |
 
 **Phase 28 carries 5 irreversible decisions** (Plan 28-01 research-prep):
+
 1. Op-strategy A vs B — LOCKED A (ADR-001)
 2. User-callback re-entrancy policy — LOCKED strict-reject nested (ADR-002)
 3. INV-EPSILON value — TBD post-OM-transcription (ADR-003)
@@ -75,6 +76,7 @@ Roadmap shipped 2026-05-16 (`.planning/ROADMAP.md`). 5 phases, 25 plans, 110 req
 5. JSON-pipeline shape — LOCKED separate file (ADR-005)
 
 **Critical pitfalls flagged**:
+
 - Pitfall 1 (function-name collision): mitigated by xrom_resolve firing LAST in resolver chain + `tests/xrom_shadowing.rs` CI gate
 - Pitfall 2 (INTG threshold): tied to `DisplayMode`, OM-cited
 - Pitfall 4 (user-callback re-entrancy): `run_loop` (NOT `run_program`) re-entry; nested INTG/SOLVE rejected per XROM-08
@@ -147,9 +149,9 @@ None.
 ## Session Continuity
 
 **Last active:** 2026-05-16
-**Last action:** ROADMAP.md created by `/gsd:roadmapper` — 5 phases (28–32), 25 plans, 110 requirements mapped 1:1 in REQUIREMENTS.md Traceability table. Phase 28 carries 5 irreversible decisions (Op-strategy A locked, user-callback strict-reject locked, INV-EPSILON / INTG-threshold TBD post-OM-transcription, JSON-pipeline two-file shape locked). All 110 v3.0 requirements covered; no orphans.
-**Next action:** `/gsd:plan-phase 28` to decompose Phase 28 into 10 plan files (28-01 framework + ADRs, 28-02 hyperbolics, 28-03 complex stack arith, 28-04 complex functions, 28-05 POLY, 28-06 MATRIX, 28-07 INTG, 28-08 SOLVE, 28-09 DIFEQ, 28-10 FOUR+triangles+TRANS). Plan 28-01 MUST include research-prep step to transcribe OM page-references for ADR-003 (INV-EPSILON) and ADR-004 (INTG-threshold) BEFORE implementation lands.
+**Last action:** Phase 28 discuss-phase complete — `28-CONTEXT.md` + `28-DISCUSSION-LOG.md` written. 4 gray areas explored (ComplexStack location, Modal-prompt channel, Hyperbolics UX, Cancellation timing). 9 new decisions D-28.1..D-28.9 captured: overlay X/Y/Z/T complex-stack with `complex_mode: bool` (D-28.1, D-28.2); new derived `XEQ "REAL"` requirement (D-28.3); dedicated `modal_prompt: Option<String>` field overrides REQUIREMENTS XROM-09 (D-28.4); R/S key submits modal numeric input (D-28.5); hyperbolics XEQ-only — no dedicated keys (D-28.6); cancellation plumbing in Phase 28, wiring in Phase 31 (D-28.7, D-28.8); new `HpError::Canceled` variant (D-28.9).
+**Next action:** `/gsd-plan-phase 28` to decompose Phase 28 into 10 plan files (28-01 framework + ADRs + research-prep for OM transcription of INV-EPSILON / INTG-threshold, 28-02 hyperbolics, 28-03 complex stack arith, 28-04 complex functions, 28-05 POLY, 28-06 MATRIX, 28-07 INTG, 28-08 SOLVE, 28-09 DIFEQ, 28-10 FOUR+triangles+TRANS).
 
 ---
 *State initialized: 2026-05-06*
-*Last updated: 2026-05-16 — v3.0 Math Pac I Emulation roadmap drafted; awaiting `/gsd:plan-phase 28`*
+*Last updated: 2026-05-16 — Phase 28 context gathered (9 new decisions); awaiting `/gsd-plan-phase 28`*
