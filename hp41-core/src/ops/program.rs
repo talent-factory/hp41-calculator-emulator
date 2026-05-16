@@ -889,6 +889,9 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ApowZ => crate::ops::math1::complex::op_a_pow_z(state),
         Op::LogZ => crate::ops::math1::complex::op_log_z(state),
         Op::ZpowW => crate::ops::math1::complex::op_z_pow_w(state),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
+        Op::PolyWorkflow => crate::ops::math1::poly::op_poly_workflow(state),
+        Op::Roots => crate::ops::math1::poly::op_roots(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)

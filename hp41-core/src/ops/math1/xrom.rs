@@ -37,6 +37,7 @@ pub struct XromModule {
 ///             ASCII aliases C* and C/ included for C× and C÷ respectively.
 /// Plan 28-04: 12 complex function entries (MAGZ, CINV, Z↑N, Z↑1/N, E↑Z, LNZ,
 ///             SINZ, COSZ, TANZ, A↑Z, LOGZ, Z↑W) with ASCII aliases for Unicode ops.
+/// Plan 28-05: 2 POLY/ROOTS entries (POLY modal opener, ROOTS executor).
 pub const MATH_1: XromModule = XromModule {
     id: 7,
     name: "MATH 1A",
@@ -74,6 +75,9 @@ pub const MATH_1: XromModule = XromModule {
         ("LOGZ", Op::LogZ),
         ("Z\u{2191}W", Op::ZpowW),  // Unicode ↑ (primary)
         ("Z^W", Op::ZpowW),          // ASCII alias for Z↑W
+        // ── Plan 28-05: POLY / ROOTS ──────────────────────────────────────────
+        ("POLY", Op::PolyWorkflow),
+        ("ROOTS", Op::Roots),
     ],
 };
 
@@ -144,7 +148,10 @@ fn math1_resolve(name: &str) -> Option<Op> {
         "A\u{2191}Z" | "A^Z" => Some(Op::ApowZ),
         "LOGZ" => Some(Op::LogZ),
         "Z\u{2191}W" | "Z^W" => Some(Op::ZpowW),
-        // Plans 28-05..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-05: POLY / ROOTS ──────────────────────────────────────────
+        "POLY" => Some(Op::PolyWorkflow),
+        "ROOTS" => Some(Op::Roots),
+        // Plans 28-06..28-10 extend this match block as new Op variants are added.
         _ => None,
     }
 }
@@ -227,12 +234,13 @@ mod tests {
     // Plan 28-02: 6 hyperbolic entries; Plan 28-03: +7 complex arith entries (C+, C-, C×, C*, C÷, C/, REAL)
     // Plan 28-04: +17 complex function entries (MAGZ, CINV, Z↑N, Z^N, Z↑1/N, Z^1/N, E↑Z, E^Z,
     //             LNZ, SINZ, COSZ, TANZ, A↑Z, A^Z, LOGZ, Z↑W, Z^W)
+    // Plan 28-05: +2 POLY/ROOTS entries
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            30,
-            "MATH_1.ops must have exactly 30 entries after Plan 28-04 (6 hyp + 7 complex-arith + 17 complex-fn incl. aliases)"
+            32,
+            "MATH_1.ops must have exactly 32 entries after Plan 28-05 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly)"
         );
     }
 

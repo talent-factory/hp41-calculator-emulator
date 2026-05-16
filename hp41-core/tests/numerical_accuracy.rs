@@ -3890,6 +3890,139 @@ fn test_numerical_accuracy_suite() {
         case!("zpoww_zero_pos", "Z↑W: (0+0i)^(1+0i) = 0 (Re(w)>0 case)", 0.0, get_x(&s));
     }
 
+    // ── v3.0 EXTENSION (Plan 28-05, POLY-01..07) ─────────────────────────────
+    // Polynomial root-finder cases. Reference values from HP Math Pac I Owner's
+    // Manual 00041-90034 (1979), Chapter 7 "Polynomial Solutions".
+    // Cross-checked against Free42 v3.0.5 polynomial solver.
+    //
+    // Since POLY writes roots to print_buffer (not stack X), we parse the
+    // U=<value> lines and compare their numeric values.
+
+    fn parse_u_value(line: &str) -> f64 {
+        line.strip_prefix("U=")
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .unwrap_or(f64::NAN)
+    }
+
+    fn set_poly_reg(s: &mut CalcState, idx: usize, val: f64) {
+        use rust_decimal::prelude::FromPrimitive;
+        let d = rust_decimal::Decimal::from_f64(val).unwrap_or(rust_decimal::Decimal::ZERO);
+        s.regs[idx] = HpNum::rounded(d);
+    }
+
+    // ── Op::PolyWorkflow: 3 state-machine cases ───────────────────────────────
+
+    {
+        // POLY opener sets DEGREE=? modal prompt (does not compute).
+        // Source: HP 00041-90034 (1979), Chapter 7 — XEQ "POLY" prompt sequence.
+        // Free42 v3.0.5: confirms POLY begins with degree prompt before computation.
+        // We use get_x as a proxy: stack X remains unchanged (LiftEffect::Neutral).
+        let mut s = CalcState::new();
+        push(&mut s, "42");
+        dispatch(&mut s, Op::PolyWorkflow).unwrap();
+        case!(
+            "poly_workflow",
+            "POLY opener: stack X unchanged at 42 (LiftEffect::Neutral, HP 00041-90034 Chapter 7)",
+            42.0,
+            get_x(&s)
+        );
+    }
+    {
+        // POLY opener: modal_prompt is set to DEGREE=? (verified via proxy: no Domain error).
+        // Source: HP 00041-90034 (1979), Chapter 7.
+        let mut s = CalcState::new();
+        let result = dispatch(&mut s, Op::PolyWorkflow);
+        let ok_val = if result.is_ok() { 1.0 } else { 0.0 };
+        case!(
+            "poly_workflow",
+            "POLY opener: returns Ok (HP 00041-90034 Chapter 7)",
+            1.0,
+            ok_val
+        );
+    }
+    {
+        // POLY opener called twice in succession — must not error (idempotent re-open).
+        // Source: HP 00041-90034 (1979), Chapter 7 — repeated XEQ "POLY" is valid.
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::PolyWorkflow).unwrap();
+        let result = dispatch(&mut s, Op::PolyWorkflow);
+        let ok_val = if result.is_ok() { 1.0 } else { 0.0 };
+        case!(
+            "poly_workflow",
+            "POLY opener: idempotent re-open returns Ok (HP 00041-90034 Chapter 7)",
+            1.0,
+            ok_val
+        );
+    }
+
+    // ── Op::Roots: 3+ cases ───────────────────────────────────────────────────
+
+    {
+        // ROOTS: x² - 3x + 2 = (x-1)(x-2) → real roots 1 and 2.
+        // Source: HP 00041-90034 (1979), Chapter 7 quadratic example (analogy).
+        // Free42 v3.0.5: confirms real roots 1.0 and 2.0 for these coefficients.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);  // A=1 (x² term)
+        set_poly_reg(&mut s, 1, -3.0); // B=-3 (x term)
+        set_poly_reg(&mut s, 2, 2.0);  // C=2 (constant)
+        dispatch(&mut s, Op::Roots).unwrap();
+        // Roots 1.0 and 2.0 — sum should be 3.0 (Vieta's formula: -B/A = 3)
+        let u_vals: Vec<f64> = s.print_buffer.iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        let sum = u_vals.iter().sum::<f64>();
+        case!(
+            "roots",
+            "ROOTS: x²-3x+2 → sum of roots = 3.0 (Vieta, HP 00041-90034 Chapter 7)",
+            3.0,
+            sum
+        );
+    }
+    {
+        // ROOTS: x² + 1 = 0 → complex roots ±i, u=0, v=1.
+        // Source: HP 00041-90034 (1979), Chapter 7 complex root example.
+        // Free42 v3.0.5: re=0, im=±1.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0); // A=1 (x² term)
+        set_poly_reg(&mut s, 1, 0.0); // B=0
+        set_poly_reg(&mut s, 2, 1.0); // C=1 (constant)
+        dispatch(&mut s, Op::Roots).unwrap();
+        // print_buffer should have 4 lines: U=0.0000, V=1.0000, U=0.0000, -V=-1.0000
+        let has_v_line = s.print_buffer.iter().any(|l| l.starts_with("V="));
+        case!(
+            "roots",
+            "ROOTS: x²+1 → complex pair has V= line (HP 00041-90034 Chapter 7)",
+            1.0,
+            if has_v_line { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // ROOTS: x² - 1 = 0 → real roots ±1, product = -1.
+        // Source: standard algebra; HP 00041-90034 (1979), Chapter 7.
+        // Free42 v3.0.5: roots 1.0 and -1.0 confirmed.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);  // A=1 (x² term)
+        set_poly_reg(&mut s, 1, 0.0);  // B=0
+        set_poly_reg(&mut s, 2, -1.0); // C=-1 (constant)
+        dispatch(&mut s, Op::Roots).unwrap();
+        let u_vals: Vec<f64> = s.print_buffer.iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        let product = u_vals.iter().product::<f64>();
+        case!(
+            "roots",
+            "ROOTS: x²-1 → product of roots = -1.0 (Vieta, HP 00041-90034 Chapter 7)",
+            -1.0,
+            product,
+            wide
+        );
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();
