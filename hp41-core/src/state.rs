@@ -356,7 +356,7 @@ mod tests {
         let mut state = CalcState::new();
         // Set some transient fields to non-default values
         state.modal_prompt = Some("ORDER=?".to_string());
-        state.integ_state = Some(crate::ops::math1::integ::IntegState);
+        state.integ_state = Some(crate::ops::math1::integ::IntegState::default());
         // Set persistent fields
         state.xrom_modules = 0b0000_0011; // Math 1 + hypothetical module 2
         state.complex_mode = true;

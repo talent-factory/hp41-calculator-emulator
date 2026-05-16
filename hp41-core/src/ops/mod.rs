@@ -702,6 +702,22 @@ pub enum Op {
     /// VCOL — displays B-vector elements R(N+1)..R(2N) via print_buffer.
     /// Format: "B{n}={val}" per element. LiftEffect: Neutral. MAT-09.
     MatVcol,
+    // ── Phase 28: INTG (Plan 28-07) ────────────────────────────────────────────
+    /// INTG — numerical integration via adaptive Simpson rule with user-supplied LBL function.
+    ///
+    /// Dispatch arm (interactive / outside run_loop): returns `HpError::InvalidOp`.
+    /// run_loop arm: calls `op_integ_run_loop(state, program)` which re-enters run_loop
+    /// for each sample point (C-28.5 / user-callback re-entrancy).
+    ///
+    /// Pre-mutation guards (XROM-08 / ADR-002 / Pitfall 4):
+    /// 1. Strict-reject nested INTG/SOLVE/DIFEQ → InvalidOp BEFORE mutation.
+    /// 2. call_stack.len() >= 4 → CallDepth BEFORE mutation.
+    /// 3. n_subdivisions > 32768 → Domain (INTG-07).
+    ///
+    /// Convergence threshold: 5e-(n+1) where n = display-mode digit count (ADR-004).
+    /// Max evaluations: 32768 per INTG call (OM p. 37).
+    /// LiftEffect: Enable (pushes result to X on completion). INTG-01..08 / HP 00041-90034 Ch.3.
+    Integ,
 }
 
 /// Flush the number entry buffer to the stack.
@@ -1084,6 +1100,11 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::MatInv => op_mat_inv(state),
         Op::MatSimeq => op_mat_simeq(state),
         Op::MatVcol => op_mat_vcol(state),
+        // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────────
+        // Dispatch arm (interactive / outside run_loop): returns InvalidOp.
+        // Real implementation runs only inside run_loop's Op::Integ arm.
+        // Mirrors Op::XeqInd pattern: dispatch arm rejects; run_loop arm does work.
+        Op::Integ => math1::integ::op_integ(state),
     }
 }
 
