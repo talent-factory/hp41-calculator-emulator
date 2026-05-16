@@ -294,6 +294,8 @@ fn op_display_name(op: &Op) -> String {
         Op::MatInv => "INV".to_string(),
         Op::MatSimeq => "SIMEQ".to_string(),
         Op::MatVcol => "VCOL".to_string(),
+        // ── Phase 28: INTG (Plan 28-07) ────────────────────────────────────────
+        Op::Integ => "INTG".to_string(),
     }
 }
 
