@@ -949,6 +949,17 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Integ                             // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
         | Op::Solve                             // Phase 28: SOLVE has run_loop arm; dispatch returns InvalidOp
         | Op::Sol => Err(HpError::InvalidOp),   // Phase 28: SOL has run_loop arm; dispatch returns InvalidOp
+        // ── Phase 28: FOUR / Triangle Solvers / TRANS (Plan 28-10) ──────────
+        // Pure-data ops: execute fully from dispatch context (no run_loop re-entry needed).
+        // Mirrors hyperbolics Plan 28-02 pattern (NOT the user-callback Plan 28-07/08 pattern).
+        Op::Four => crate::ops::dispatch(state, Op::Four),
+        Op::TriSss => crate::ops::dispatch(state, Op::TriSss),
+        Op::TriAsa => crate::ops::dispatch(state, Op::TriAsa),
+        Op::TriSaa => crate::ops::dispatch(state, Op::TriSaa),
+        Op::TriSas => crate::ops::dispatch(state, Op::TriSas),
+        Op::TriSsa => crate::ops::dispatch(state, Op::TriSsa),
+        Op::Trans2d => crate::ops::dispatch(state, Op::Trans2d),
+        Op::Trans3d => crate::ops::dispatch(state, Op::Trans3d),
     }
 }
 

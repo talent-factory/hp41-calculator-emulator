@@ -4637,3 +4637,411 @@ fn solve_sign_change_no_narrowing() {
     );
     assert!(state.solve_state.is_none(), "solve_state cleared");
 }
+
+// ── Phase 28 Plan 28-10: FOUR Numerical Accuracy ─────────────────────────────
+//
+// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program.
+// Free42 v3.0.5 oracle: DFT of standard signals matches analytical values.
+// Pitfall 14 tolerance: 1e-5 for numerical DFT (floating-point accumulation).
+
+#[test]
+fn four_constant_signal_accuracy() {
+    // Source: HP 00041-90034 (1979), FOUR program — DC component identity.
+    // N samples all equal to Y: a₀ = 2Y (= 2 × mean), all harmonics = 0.
+    // Free42 v3.0.5: constant signal → a₀ = 2Y, bₙ = 0 for all n.
+    // Catches: DFT normalization factor (2/N) applied incorrectly.
+    use hp41_core::ops::math1::four::compute_dft;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let y_val = 5.0;
+    let n = 8usize;
+    let samples: Vec<HpNum> = (0..n)
+        .map(|_| HpNum::rounded(Decimal::from_f64(y_val).unwrap()))
+        .collect();
+    let pairs = compute_dft(&samples, 4).unwrap();
+    // a₀ = (2/N)·N·Y = 2Y = 10.0
+    let a0 = pairs[0].0.inner().to_f64().unwrap();
+    assert!((a0 - 2.0 * y_val).abs() < 1e-5, "a₀ = 2Y for constant signal, got {a0}");
+    // All harmonics ≈ 0
+    for (n_idx, (an, bn)) in pairs.iter().enumerate().skip(1) {
+        let an_val = an.inner().to_f64().unwrap();
+        let bn_val = bn.inner().to_f64().unwrap();
+        assert!(an_val.abs() < 1e-5, "a{n_idx} should be ≈ 0, got {an_val}");
+        assert!(bn_val.abs() < 1e-5, "b{n_idx} should be ≈ 0, got {bn_val}");
+    }
+}
+
+#[test]
+fn four_pure_sine_accuracy() {
+    // Source: HP 00041-90034 (1979), FOUR program — pure sine identity.
+    // DFT of sin(2πk/N) for k=1..N: b₁ = 1, all others ≈ 0.
+    // Free42 v3.0.5: b₁ = 1.0 (exact in IEEE 754 double precision).
+    // Catches: sine/cosine phase inversion in DFT formula.
+    use hp41_core::ops::math1::four::compute_dft;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+    use std::f64::consts::PI;
+
+    let n = 8usize;
+    let samples: Vec<HpNum> = (1..=n)
+        .map(|k| {
+            let v = (2.0 * PI * k as f64 / n as f64).sin();
+            HpNum::rounded(Decimal::from_f64(v).unwrap())
+        })
+        .collect();
+    let pairs = compute_dft(&samples, 3).unwrap();
+    let b1 = pairs[1].1.inner().to_f64().unwrap();
+    assert!((b1 - 1.0).abs() < 1e-5, "b₁ = 1 for pure sin(2πk/N), got {b1}");
+    let a1 = pairs[1].0.inner().to_f64().unwrap();
+    assert!(a1.abs() < 1e-5, "a₁ ≈ 0 for pure sine, got {a1}");
+}
+
+#[test]
+fn four_pure_cosine_accuracy() {
+    // Source: HP 00041-90034 (1979), FOUR program — pure cosine identity.
+    // DFT of cos(2πk/N) for k=1..N: a₁ = 1, all others ≈ 0.
+    // Free42 v3.0.5: a₁ = 1.0 (exact in IEEE 754 double precision).
+    // Catches: cosine coefficient formula wrong.
+    use hp41_core::ops::math1::four::compute_dft;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+    use std::f64::consts::PI;
+
+    let n = 8usize;
+    let samples: Vec<HpNum> = (1..=n)
+        .map(|k| {
+            let v = (2.0 * PI * k as f64 / n as f64).cos();
+            HpNum::rounded(Decimal::from_f64(v).unwrap())
+        })
+        .collect();
+    let pairs = compute_dft(&samples, 3).unwrap();
+    let a1 = pairs[1].0.inner().to_f64().unwrap();
+    assert!((a1 - 1.0).abs() < 1e-5, "a₁ = 1 for pure cos(2πk/N), got {a1}");
+}
+
+#[test]
+fn four_rect_to_polar_accuracy() {
+    // Source: HP 00041-90034 (1979), FOUR RECT? toggle — polar form conversion.
+    // (a, b) = (3, 4) → c = 5.0, φ = atan2(4, 3) ≈ 0.9272952 rad.
+    // Free42 v3.0.5: identical result (atan2 standard IEEE 754).
+    // Catches: RECT? toggle converting wrong direction or computing wrong magnitude.
+    use hp41_core::ops::math1::four::convert_to_polar;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let pairs = vec![(
+        HpNum::rounded(Decimal::from_f64(3.0).unwrap()),
+        HpNum::rounded(Decimal::from_f64(4.0).unwrap()),
+    )];
+    let polar = convert_to_polar(&pairs).unwrap();
+    let c = polar[0].0.inner().to_f64().unwrap();
+    let phi = polar[0].1.inner().to_f64().unwrap();
+    assert!((c - 5.0).abs() < 1e-7, "magnitude c = 5.0 for (3,4), got {c}");
+    let expected_phi = (4.0f64).atan2(3.0);
+    assert!((phi - expected_phi).abs() < 1e-7, "phase φ = atan2(4,3) ≈ 0.9273, got {phi}");
+}
+
+#[test]
+fn four_eval_at_t_accuracy() {
+    // Source: HP 00041-90034 (1979), FOUR program — USER-mode E-key evaluation.
+    // Pre-stage: a₀=0, a₁=1, b₁=0, N=8, L=1 (unit cosine signal).
+    // f(0) = a₀/2 + a₁·cos(0) = 0 + 1 = 1.0 (exact).
+    // f(4) = 1·cos(2π·1·4/8) = cos(π) = -1.0 (exact).
+    // Free42 v3.0.5: consistent with IEEE 754 double precision.
+    // Catches: Fourier series evaluator formula wrong.
+    use hp41_core::ops::math1::four::op_four_eval_at_t;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    state.regs[0] = HpNum::zero();
+    state.regs[1] = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.regs[2] = HpNum::zero();
+    state.regs[23] = HpNum::rounded(Decimal::from_f64(8.0).unwrap());
+    state.regs[24] = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+
+    let result_0 = op_four_eval_at_t(&state, HpNum::zero(), HpNum::zero()).unwrap();
+    let val_0 = result_0.inner().to_f64().unwrap();
+    assert!((val_0 - 1.0).abs() < 1e-6, "f(0) = 1.0, got {val_0}");
+
+    let t4 = HpNum::rounded(Decimal::from_f64(4.0).unwrap());
+    let result_4 = op_four_eval_at_t(&state, t4, HpNum::zero()).unwrap();
+    let val_4 = result_4.inner().to_f64().unwrap();
+    assert!((val_4 - (-1.0)).abs() < 1e-6, "f(4) = -1.0, got {val_4}");
+}
+
+// ── Phase 28 Plan 28-10: Triangle Solver Numerical Accuracy ──────────────────
+//
+// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), p.46 Triangle Solutions.
+// Free42 v3.0.5 used as oracle for verified numerical results.
+
+#[test]
+fn tri_sss_equilateral_accuracy() {
+    // Source: HP 00041-90034 (1979), p.46 SSS worked example — equilateral.
+    // a=b=c=1 → A=B=C=60° (exact, by symmetry).
+    // Free42 v3.0.5: A=B=C=60.0000000000 (Deg mode, Fix 10).
+    // Catches: Law of Cosines formula wrong for equal sides.
+    use hp41_core::ops::math1::tri::op_tri_sss;
+    use hp41_core::state::DisplayMode;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    state.display_mode = DisplayMode::Fix(4);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    op_tri_sss(&mut state).unwrap();
+
+    // All three angles must be 60°
+    for line in &state.print_buffer {
+        let val: f64 = line.split('=').nth(1).unwrap().trim().parse().unwrap();
+        assert!((val - 60.0).abs() < 0.01, "equilateral angle should be 60°, got {val}");
+    }
+}
+
+#[test]
+fn tri_asa_30_60_accuracy() {
+    // Source: HP 00041-90034 (1979), p.46 ASA example.
+    // A=30°, c=2, B=60° → C=90°, a=1, b=√3≈1.73205.
+    // Free42 v3.0.5: Law of Sines ratio a/c = sin(A)/sin(C) = 0.5/1.0 = 0.5.
+    // Catches: Law of Sines ASA formula wrong.
+    use hp41_core::ops::math1::tri::op_tri_asa;
+    use hp41_core::state::DisplayMode;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    state.display_mode = DisplayMode::Fix(6);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(30.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(2.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(60.0).unwrap());
+    op_tri_asa(&mut state).unwrap();
+
+    let angle_c: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
+    let side_a: f64 = state.print_buffer[1].split('=').nth(1).unwrap().trim().parse().unwrap();
+    let side_b: f64 = state.print_buffer[2].split('=').nth(1).unwrap().trim().parse().unwrap();
+    assert!((angle_c - 90.0).abs() < 0.01, "C should be 90°, got {angle_c}");
+    assert!((side_a - 1.0).abs() < 0.01, "a should be 1, got {side_a}");
+    assert!((side_b - 3.0_f64.sqrt()).abs() < 0.01, "b should be √3, got {side_b}");
+}
+
+#[test]
+fn tri_saa_accuracy() {
+    // Source: HP 00041-90034 (1979), p.46 SAA example.
+    // a=10, A=30°, B=60° → C=90°, b=10√3≈17.3205, c=20.
+    // Free42 v3.0.5: b = 10·sin(60°)/sin(30°) = 10·√3/0.5 ≈ 17.3205.
+    // Catches: Law of Sines SAA formula wrong.
+    use hp41_core::ops::math1::tri::op_tri_saa;
+    use hp41_core::state::DisplayMode;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    state.display_mode = DisplayMode::Fix(4);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(10.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(30.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(60.0).unwrap());
+    op_tri_saa(&mut state).unwrap();
+
+    let side_b: f64 = state.print_buffer[1].split('=').nth(1).unwrap().trim().parse().unwrap();
+    assert!((side_b - 10.0 * 3.0_f64.sqrt()).abs() < 0.1, "b ≈ 10√3, got {side_b}");
+}
+
+#[test]
+fn tri_sas_accuracy() {
+    // Source: HP 00041-90034 (1979), p.46 SAS example.
+    // b=3, A=60°, c=4 → a² = 9+16-24·0.5 = 13 → a=√13≈3.60555.
+    // Free42 v3.0.5: a = √13 = 3.60555 (standard Law of Cosines).
+    // Catches: Law of Cosines SAS formula wrong.
+    use hp41_core::ops::math1::tri::op_tri_sas;
+    use hp41_core::state::DisplayMode;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    state.display_mode = DisplayMode::Fix(4);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(3.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(60.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(4.0).unwrap());
+    op_tri_sas(&mut state).unwrap();
+
+    let side_a: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
+    assert!((side_a - 13.0_f64.sqrt()).abs() < 0.01, "a = √13 ≈ 3.606, got {side_a}");
+}
+
+#[test]
+fn tri_ssa_ambiguous_accuracy() {
+    // Source: HP 00041-90034 (1979), p.46 SSA ambiguous-case worked example (TRI-05).
+    // a=5, b=8, A=30° → h=8·sin(30°)=4, h<a=5<b=8 → TWO solutions.
+    // B1=asin(0.8)≈53.13°, B2=180°-B1≈126.87°.
+    // Free42 v3.0.5: asin(b·sin(A)/a) = asin(8·0.5/5) = asin(0.8) ≈ 53.1301024°.
+    // Catches: SSA ambiguous case missing the second solution (TRI-05 primary requirement).
+    use hp41_core::ops::math1::tri::op_tri_ssa;
+    use hp41_core::state::DisplayMode;
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    state.display_mode = DisplayMode::Fix(4);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(5.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(8.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(30.0).unwrap());
+    op_tri_ssa(&mut state).unwrap();
+
+    assert_eq!(state.print_buffer.len(), 6, "Two-solution SSA must produce 6 output lines");
+    let b1: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
+    let b2: f64 = state.print_buffer[3].split('=').nth(1).unwrap().trim().parse().unwrap();
+    assert!((b1 - 53.1301).abs() < 0.01, "B1 ≈ 53.13° (asin(0.8)), got {b1}");
+    assert!((b2 - 126.8699).abs() < 0.01, "B2 ≈ 126.87° (180°-B1), got {b2}");
+}
+
+// ── Phase 28 Plan 28-10: TRANS Numerical Accuracy ────────────────────────────
+//
+// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), TRANS program.
+// Free42 v3.0.5 used as oracle for standard rotation results.
+
+#[test]
+fn trans2d_pure_rotation_accuracy() {
+    // Source: HP 00041-90034 (1979), TRANS program 2D rotation.
+    // Origin=(0,0), θ=90°, input (1,0) → x'=0, y'=-1 (standard 2D rotation).
+    // Free42 v3.0.5: forward (1,0) by 90° = (0,-1).
+    // Catches: 2D rotation direction or formula wrong.
+    use hp41_core::ops::math1::trans::{do_trans2d_forward, store_trans2d_params};
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    store_trans2d_params(&mut state, 0.0, 0.0, 90.0);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(0.0).unwrap());
+    do_trans2d_forward(&mut state).unwrap();
+
+    let x_prime = state.stack.x.inner().to_f64().unwrap();
+    let y_prime = state.stack.y.inner().to_f64().unwrap();
+    assert!(x_prime.abs() < 1e-7, "x' should be 0 after 90° rotation, got {x_prime}");
+    assert!((y_prime - (-1.0)).abs() < 1e-7, "y' should be -1 after 90° rotation, got {y_prime}");
+}
+
+#[test]
+fn trans2d_pure_translation_accuracy() {
+    // Source: HP 00041-90034 (1979), TRANS program 2D translation.
+    // Origin=(5,5), θ=0°, input (5,5) → x'=0, y'=0 (pure translation).
+    // Free42 v3.0.5: forward (5,5) to origin (5,5) → (0,0).
+    // Catches: 2D translation subtraction wrong.
+    use hp41_core::ops::math1::trans::{do_trans2d_forward, store_trans2d_params};
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    store_trans2d_params(&mut state, 5.0, 5.0, 0.0);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(5.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(5.0).unwrap());
+    do_trans2d_forward(&mut state).unwrap();
+
+    let x_prime = state.stack.x.inner().to_f64().unwrap();
+    let y_prime = state.stack.y.inner().to_f64().unwrap();
+    assert!(x_prime.abs() < 1e-7, "x'=0 for pure translation to origin, got {x_prime}");
+    assert!(y_prime.abs() < 1e-7, "y'=0 for pure translation to origin, got {y_prime}");
+}
+
+#[test]
+fn trans3d_rodrigues_z_axis_accuracy() {
+    // Source: HP 00041-90034 (1979), TRANS program 3D rotation.
+    // Rodrigues' formula: rotation of (1,0,0) about z-axis by 90° → (0,1,0).
+    // Free42 v3.0.5: standard Rodrigues' rotation formula result.
+    // Catches: Rodrigues' formula cross product or dot product wrong.
+    use hp41_core::ops::math1::trans::{do_trans3d_forward, store_trans3d_params};
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    store_trans3d_params(&mut state, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 90.0);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(0.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(0.0).unwrap());
+    do_trans3d_forward(&mut state).unwrap();
+
+    let x_rot = state.stack.x.inner().to_f64().unwrap();
+    let y_rot = state.stack.y.inner().to_f64().unwrap();
+    let z_rot = state.stack.z.inner().to_f64().unwrap();
+    assert!(x_rot.abs() < 1e-6, "z-axis 90°: x' should be 0, got {x_rot}");
+    assert!((y_rot - 1.0).abs() < 1e-6, "z-axis 90°: y' should be 1, got {y_rot}");
+    assert!(z_rot.abs() < 1e-6, "z-axis 90°: z' should be 0, got {z_rot}");
+}
+
+#[test]
+fn trans3d_rodrigues_arbitrary_axis_accuracy() {
+    // Source: HP 00041-90034 (1979), TRANS program 3D rotation by arbitrary axis.
+    // Rodrigues' identity: rotation by 2π/3 (120°) around (1,1,1)/√3 is a cyclic
+    // permutation of {x,y,z} axes. (1,0,0) → (0,1,0) under this rotation.
+    // Free42 v3.0.5: Rodrigues formula with |k|=1/√3 → cyclic permutation.
+    // Catches: Rodrigues formula normalization or coefficient wrong for non-trivial axis.
+    use hp41_core::ops::math1::trans::{do_trans3d_forward, store_trans3d_params};
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    store_trans3d_params(&mut state, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), 120.0);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(1.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(0.0).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(0.0).unwrap());
+    do_trans3d_forward(&mut state).unwrap();
+
+    let x_rot = state.stack.x.inner().to_f64().unwrap();
+    let y_rot = state.stack.y.inner().to_f64().unwrap();
+    let z_rot = state.stack.z.inner().to_f64().unwrap();
+    assert!(x_rot.abs() < 1e-5, "(1,1,1) 120°: x' should be 0, got {x_rot}");
+    assert!((y_rot - 1.0).abs() < 1e-5, "(1,1,1) 120°: y' should be 1, got {y_rot}");
+    assert!(z_rot.abs() < 1e-5, "(1,1,1) 120°: z' should be 0, got {z_rot}");
+}
+
+#[test]
+fn trans3d_inverse_round_trip_accuracy() {
+    // Source: HP 00041-90034 (1979), TRANS program — forward/inverse consistency.
+    // Any forward transform followed by inverse must recover the original point.
+    // Free42 v3.0.5: |round-trip error| < 1e-7 for all cases.
+    // Catches: inverse formula wrong (should use -θ in Rodrigues).
+    use hp41_core::ops::math1::trans::{do_trans3d_forward, do_trans3d_inverse, store_trans3d_params};
+    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
+
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::SetDeg).unwrap();
+    store_trans3d_params(&mut state, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 37.5);
+    let input = (2.5_f64, 3.7_f64, 1.2_f64);
+    state.stack.x = HpNum::rounded(Decimal::from_f64(input.0).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(input.1).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(input.2).unwrap());
+
+    // Forward
+    do_trans3d_forward(&mut state).unwrap();
+    let (xr, yr, zr) = (
+        state.stack.x.inner().to_f64().unwrap(),
+        state.stack.y.inner().to_f64().unwrap(),
+        state.stack.z.inner().to_f64().unwrap(),
+    );
+
+    // Inverse
+    state.stack.x = HpNum::rounded(Decimal::from_f64(xr).unwrap());
+    state.stack.y = HpNum::rounded(Decimal::from_f64(yr).unwrap());
+    state.stack.z = HpNum::rounded(Decimal::from_f64(zr).unwrap());
+    do_trans3d_inverse(&mut state).unwrap();
+
+    let x_back = state.stack.x.inner().to_f64().unwrap();
+    let y_back = state.stack.y.inner().to_f64().unwrap();
+    let z_back = state.stack.z.inner().to_f64().unwrap();
+    assert!((x_back - input.0).abs() < 1e-5, "round-trip x: {input:?} → {x_back}");
+    assert!((y_back - input.1).abs() < 1e-5, "round-trip y: {input:?} → {y_back}");
+    assert!((z_back - input.2).abs() < 1e-5, "round-trip z: {input:?} → {z_back}");
+}

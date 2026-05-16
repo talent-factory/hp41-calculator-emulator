@@ -97,6 +97,18 @@ pub const MATH_1: XromModule = XromModule {
         // ── Plan 28-08: SOLVE / SOL ───────────────────────────────────────────
         ("SOLVE", Op::Solve),
         ("SOL", Op::Sol),
+        // ── Plan 28-10: FOUR / Triangle Solvers / TRANS ───────────────────────
+        // All 8 mnemonics confirmed non-shadowing per RESEARCH §"Resolver-Chain
+        // Conflict Map" lines 619-633 (no v2.2 builtin uses SSS/ASA/SAA/SAS/SSA/FOUR/TRANS/T3D).
+        // "T3D" chosen for Op::Trans3d to disambiguate from 2D TRANS (Plan 28-10 decision).
+        ("FOUR", Op::Four),
+        ("SSS", Op::TriSss),
+        ("ASA", Op::TriAsa),
+        ("SAA", Op::TriSaa),
+        ("SAS", Op::TriSas),
+        ("SSA", Op::TriSsa),
+        ("TRANS", Op::Trans2d),
+        ("T3D", Op::Trans3d),
     ],
 };
 
@@ -190,7 +202,17 @@ fn math1_resolve(name: &str) -> Option<Op> {
         // or builtin_card_op. Safe to claim both for Math Pac I.
         "SOLVE" => Some(Op::Solve),
         "SOL" => Some(Op::Sol),
-        // Plans 28-09..28-10 extend this match block as new Op variants are added.
+        // ── Plan 28-10: FOUR / Triangle Solvers / TRANS ───────────────────────
+        // All 8 mnemonics confirmed non-shadowing per RESEARCH §"Resolver-Chain
+        // Conflict Map" lines 619-633. "T3D" disambiguates from 2D "TRANS" (Plan 28-10).
+        "FOUR" => Some(Op::Four),
+        "SSS" => Some(Op::TriSss),
+        "ASA" => Some(Op::TriAsa),
+        "SAA" => Some(Op::TriSaa),
+        "SAS" => Some(Op::TriSas),
+        "SSA" => Some(Op::TriSsa),
+        "TRANS" => Some(Op::Trans2d),
+        "T3D" => Some(Op::Trans3d),
         _ => None,
     }
 }
@@ -277,12 +299,14 @@ mod tests {
     // Plan 28-06: +8 MATRIX entries (MATRIX, SIZE, VMAT, EDIT, DET, INV, SIMEQ, VCOL)
     // Plan 28-07: +1 INTG entry
     // Plan 28-08: +2 SOLVE/SOL entries
+    // Plan 28-10: +8 FOUR/SSS/ASA/SAA/SAS/SSA/TRANS/T3D entries
+    // Total: 6+7+17+2+8+1+2+8 = 51 entries
     #[test]
     fn math1_ops_has_correct_entry_count() {
         assert_eq!(
             MATH_1.ops.len(),
-            43,
-            "MATH_1.ops must have exactly 43 entries after Plan 28-08 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg + 2 solve)"
+            51,
+            "MATH_1.ops must have exactly 51 entries after Plan 28-10 (6 hyp + 7 complex-arith + 17 complex-fn + 2 poly + 8 matrix + 1 intg + 2 solve + 8 four/tri/trans)"
         );
     }
 
