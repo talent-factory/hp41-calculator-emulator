@@ -86,14 +86,28 @@ pub struct CalcState {
     /// User key assignments: maps key char → program label name.
     /// BTreeMap for deterministic JSON serialization order (D-25, D-29).
     pub key_assignments: BTreeMap<char, String>,
-    // ── Phase 11: Print emulation ─────────────────────────────────────────────
+    /// HP-41 ASN key assignments: maps hardware key code (row×10+col, 1-indexed)
+    /// → assigned target name. Phase 22 (FN-KEY-01). Coexists with key_assignments
+    /// (Phase 5, char-keyed) — Phase 25/26 reconciles the two maps.
+    /// `#[serde(default)]` keeps v1.0–v2.1 save files loadable (default → empty map).
+    #[serde(default)]
+    pub assignments: BTreeMap<u8, String>,
+    /// HP-41 packed-text register shadows: ASTO writes a 6-char string here,
+    /// ARCL reads from here in preference to formatting the numeric `regs[reg]`.
+    /// Numeric STO / op_sto_arith / op_clreg CLEAR the matching entry to keep
+    /// the two representations from drifting (D-23.4). `op_sto_arith_stack`
+    /// targets the Y/Z/T/LastX stack registers (not numbered regs) so it does
+    /// not touch this map.
+    /// `#[serde(default)]` keeps v1.x–v2.1 save files loadable (default → empty map).
+    /// Phase 23 (FN-ALPHA-01, FN-ALPHA-02).
+    #[serde(default)]
+    pub text_regs: BTreeMap<u8, String>,
     /// Buffer of formatted print lines from PRX/PRA/PRSTK.
     /// Drained by hp41-cli after each dispatch. Never persisted across sessions.
-    /// #[serde(default, skip)] — default enables backward-compat deserialization of v1.0
+    /// #[serde(default, skip)] — default enables backward-compat deserialization of older
     /// save files that lack this field; skip prevents serialization of transient state.
     #[serde(default, skip)]
     pub print_buffer: Vec<String>,
-    // ── Phase 12: Synthetic Programming ──────────────────────────────────────
     /// Last HP-41 row-column key code pressed (row×10+col, 1-indexed). 0 = none since startup.
     /// Updated by hp41-cli `handle_key()` on every Press event. Read by `Op::GetKey`.
     /// Default: 0. Persistent across save/load (#[serde(default)]).
@@ -112,6 +126,35 @@ pub struct CalcState {
     /// Hidden register O — accessible via STO O / RCL O in programs.
     #[serde(default)]
     pub reg_o: HpNum,
+
+    // ── Phase 21: Flags ──────────────────────────────────────────────────────
+    /// HP-41 flags (user flags 0-29 + system flags 30-55) packed into a single u64.
+    /// Bit n = flag n. Default: 0 (all clear). Use `ops::flags` helpers for safe access.
+    /// `#[serde(default)]` — a v2.0 autosave.json without this field loads cleanly with flags == 0.
+    /// Phase 21 (FN-FLAG-01).
+    #[serde(default)]
+    pub flags: u64,
+
+    // ── Phase 21: Display Control ────────────────────────────────────────────
+    /// HP-41 display override channel: VIEW/AVIEW/PROMPT/CLD write to this.
+    /// None = render normal display. Transient — cleared at the top of dispatch
+    /// and never persisted (`#[serde(default, skip)]`). Phase 21 (FN-DISP-01..05).
+    #[serde(default, skip)]
+    pub display_override: Option<String>,
+
+    // ── Phase 21: Sound ──────────────────────────────────────────────────────
+    /// HP-41 sound event buffer: BEEP and TONE n push structured event lines here.
+    /// Drained by hp41-cli / hp41-gui after each dispatch — frontend plays audio.
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    /// Phase 21 (FN-SOUND-01 / FN-SOUND-02).
+    #[serde(default, skip)]
+    pub event_buffer: Vec<String>,
+    /// Pending card I/O request set by `Op::Wdta`/`Op::Rdta`/`Op::Wprgm`/`Op::Rdprgm`.
+    /// The frontend (hp41-cli / hp41-gui) drains this after each `dispatch()` and
+    /// performs the actual disk I/O — keeps hp41-core UI-agnostic. Mirrors the
+    /// `print_buffer` drain pattern.
+    #[serde(default, skip)]
+    pub pending_card_op: Option<crate::cardreader::CardOpRequest>,
 }
 
 impl CalcState {
@@ -131,11 +174,17 @@ impl CalcState {
             is_running: false,
             user_mode: false,
             key_assignments: BTreeMap::new(),
+            assignments: BTreeMap::new(),
+            text_regs: BTreeMap::new(),
             print_buffer: Vec::new(),
             last_key_code: 0,
             reg_m: HpNum::zero(),
             reg_n: HpNum::zero(),
             reg_o: HpNum::zero(),
+            flags: 0,
+            display_override: None,
+            event_buffer: Vec::new(),
+            pending_card_op: None,
         }
     }
 }

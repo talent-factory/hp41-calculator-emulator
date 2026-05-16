@@ -2713,6 +2713,571 @@ fn test_numerical_accuracy_suite() {
         case!("arithmetic", "%CH(Y=50,X=100)=100", 100.0, get_x(&s));
     }
 
+    // ── Capture v1.x baseline count for D-27.6 atomic baseline assertion ───
+    // The 500-case (now 503-case) baseline must stay at its pre-existing
+    // pass rate when the v2.2 extension lands. D-27.6: combined ≥ 98%
+    // pass rate maintained AND the v1.x baseline must not regress.
+    let baseline_total = cases.len();
+    let baseline_passes: usize = cases
+        .iter()
+        .filter(|c| passes_with_tol(c.actual, c.expected, c.tol))
+        .count();
+
+    // ── v2.2 EXTENSION (D-27.5, FN-QUAL-02) ─────────────────────────────────
+    // Hand-curated cases for v2.2 math/conversion ops: PI, P→R, R→P, RND,
+    // FRC, MOD, FACT (~70 cases). Quirky cases cite Free42 source or
+    // HP-41C Owner's Manual page per D-27.7.
+
+    // ── v2.2 Op::Pi (cases 504–506) ─────────────────────────────────────────
+    // Cross-checked against HP-41C Owner's Manual p.65 — π displays as
+    // 3.141592654 (10-digit rounded hardware value).
+    {
+        let mut s = CalcState::new();
+        dispatch(&mut s, Op::Pi).unwrap();
+        case!(
+            "pi",
+            "PI = 3.141592654 (HP-41 hardware value)",
+            3.141_592_654,
+            get_x(&s)
+        );
+    }
+    {
+        // PI in DEG mode is value-preserving — angle mode does not affect the
+        // constant push (HP-41C Owner's Manual p.65).
+        let mut s = new_deg_state();
+        dispatch(&mut s, Op::Pi).unwrap();
+        case!("pi", "PI in DEG mode unchanged", 3.141_592_654, get_x(&s));
+    }
+    {
+        // PI followed by SIN in RAD mode → 0 (sin(π) = 0 within tolerance).
+        // Cross-checked against Free42 source core_math2.cc::do_sin.
+        let mut s = new_rad_state();
+        dispatch(&mut s, Op::Pi).unwrap();
+        dispatch(&mut s, Op::Sin).unwrap();
+        case!("pi", "SIN(PI) in RAD ≈ 0", 0.0, get_x(&s));
+    }
+
+    // ── v2.2 Op::Fact (cases 507–516) ───────────────────────────────────────
+    // Cross-checked against Free42 source core_math1.cc::do_fact and
+    // HP-41C Owner's Manual p.234. FACT(0) = 1 is the headline quirk case.
+    {
+        // HP-41C Owner's Manual p.234: FACT(0) = 1 (mathematical convention).
+        // Cross-checked against Free42 source core_math1.cc::do_fact.
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!(
+            "fact",
+            "FACT(0) = 1 (HP-41C OM p.234, Free42 do_fact)",
+            1.0,
+            get_x(&s)
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(1) = 1", 1.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "5");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(5) = 120", 120.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "10");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(10) = 3628800", 3_628_800.0, get_x(&s));
+    }
+    {
+        // Cross-checked against Free42 core_math1.cc::do_fact — wide-tol because
+        // the f64 product accumulates rounding past the HP-41 10-digit display.
+        let mut s = CalcState::new();
+        push(&mut s, "20");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!(
+            "fact",
+            "FACT(20) = 2.432902008e18",
+            2.432_902_008e18,
+            get_x(&s),
+            wide
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "2");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(2) = 2", 2.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "3");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(3) = 6", 6.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "4");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(4) = 24", 24.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "6");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(6) = 720", 720.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "7");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(7) = 5040", 5040.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "13");
+        dispatch(&mut s, Op::Fact).unwrap();
+        case!("fact", "FACT(13) = 6227020800", 6_227_020_800.0, get_x(&s));
+    }
+
+    // ── v2.2 Op::Mod (cases 517–528) ────────────────────────────────────────
+    // Cross-checked against Free42 source core_math1.cc::do_mod —
+    // HP-41 sign follows Y, per HP-41C Owner's Manual p.234.
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "7");
+        push(&mut s, "3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(7, 3) = 1 (control)", 1.0, get_x(&s));
+    }
+    {
+        // Cross-checked against Free42 source core_math1.cc::do_mod — Free42
+        // returns 1 for MOD(7, -3), matching HP-41C Owner's Manual p.234.
+        // Sign follows Y (HP-41 hardware convention; NOT Rust % semantics).
+        let mut s = CalcState::new();
+        push(&mut s, "7");
+        push(&mut s, "-3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!(
+            "mod",
+            "MOD(7,-3) = 1 (sign-follows-Y, Free42 do_mod)",
+            1.0,
+            get_x(&s)
+        );
+    }
+    {
+        // Cross-checked against Free42 source core_math1.cc::do_mod — sign
+        // follows Y, so MOD(-7, 3) = -1.
+        let mut s = CalcState::new();
+        push(&mut s, "-7");
+        push(&mut s, "3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(-7, 3) = -1 (sign-follows-Y)", -1.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "-7");
+        push(&mut s, "-3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(-7,-3) = -1", -1.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        push(&mut s, "5");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(0, 5) = 0", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "5");
+        push(&mut s, "5");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(5, 5) = 0 (exact divisible)", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "7.5");
+        push(&mut s, "2");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!(
+            "mod",
+            "MOD(7.5, 2) = 1.5 (non-integer dividend)",
+            1.5,
+            get_x(&s)
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "10");
+        push(&mut s, "3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(10, 3) = 1", 1.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "100");
+        push(&mut s, "7");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(100, 7) = 2", 2.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "3.5");
+        push(&mut s, "-1");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(3.5, -1) = 0.5 (sign-follows-Y)", 0.5, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "1");
+        push(&mut s, "1");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(1, 1) = 0", 0.0, get_x(&s));
+    }
+    {
+        // Cross-checked against Free42 source core_math1.cc::do_mod — small
+        // positive remainder.
+        let mut s = CalcState::new();
+        push(&mut s, "0.7");
+        push(&mut s, "0.3");
+        dispatch(&mut s, Op::Mod).unwrap();
+        case!("mod", "MOD(0.7, 0.3) = 0.1", 0.1, get_x(&s));
+    }
+
+    // ── v2.2 Op::Rnd (cases 529–537) ────────────────────────────────────────
+    // Cross-checked against HP-41C Owner's Manual p.59 (FIX/SCI/ENG display
+    // mode rounding semantics — RND mirrors display rounding per D-01/D-02).
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(2);
+        push(&mut s, "3.14159");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!("rnd", "RND(3.14159, FIX 2) = 3.14", 3.14, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        push(&mut s, "3.14159265");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!("rnd", "RND(3.14159265, FIX 4) = 3.1416", 3.1416, get_x(&s));
+    }
+    {
+        // HP-41C Owner's Manual p.59: RND idempotent — round-half-away-from-zero.
+        // Verifies BCD doesn't carry f64 imprecision (0.1 + 0.2 ≠ 0.30000... in IEEE).
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(5);
+        push(&mut s, "0.1");
+        push(&mut s, "0.2");
+        dispatch(&mut s, Op::Add).unwrap();
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!(
+            "rnd",
+            "RND(0.1+0.2, FIX 5) = 0.3 (BCD purity)",
+            0.3,
+            get_x(&s)
+        );
+    }
+    {
+        // HP-41C Owner's Manual p.59: SCI mode keeps n+1 significant digits.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Sci(2);
+        push(&mut s, "1234.5678");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!(
+            "rnd",
+            "RND(1234.5678, SCI 2) = 1230 (3 sig figs)",
+            1230.0,
+            get_x(&s)
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(0);
+        push(&mut s, "3.7");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!(
+            "rnd",
+            "RND(3.7, FIX 0) = 4 (round-half-away)",
+            4.0,
+            get_x(&s)
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(0);
+        push(&mut s, "-3.7");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!(
+            "rnd",
+            "RND(-3.7, FIX 0) = -4 (round-half-away)",
+            -4.0,
+            get_x(&s)
+        );
+    }
+    {
+        // RND idempotency: RND(RND(x)) = RND(x) for any mode (D-01/D-02).
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(3);
+        push(&mut s, "2.71828");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!("rnd", "RND ∘ RND idempotent (FIX 3)", 2.718, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(2);
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!("rnd", "RND(0, FIX 2) = 0", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(1);
+        push(&mut s, "0.05");
+        dispatch(&mut s, Op::Rnd).unwrap();
+        case!(
+            "rnd",
+            "RND(0.05, FIX 1) = 0.1 (half-away-from-zero)",
+            0.1,
+            get_x(&s)
+        );
+    }
+
+    // ── v2.2 Op::Frc (cases 538–545) ────────────────────────────────────────
+    // Cross-checked against HP-41C Owner's Manual p.61 — FRC + INT round-trip
+    // (FRC + INT = x; sign matches input).
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "3.14");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(3.14) = 0.14", 0.14, get_x(&s));
+    }
+    {
+        // HP-41C Owner's Manual p.61: FRC is sign-preserving complement of INT.
+        let mut s = CalcState::new();
+        push(&mut s, "-3.14");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!(
+            "frc",
+            "FRC(-3.14) = -0.14 (sign follows input)",
+            -0.14,
+            get_x(&s)
+        );
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "0");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(0) = 0", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "5");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(5) = 0 (integer input)", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "-7");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(-7) = 0 (negative integer)", 0.0, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "0.0001");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(0.0001) = 0.0001", 0.0001, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "2.71828");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(2.71828) = 0.71828", 0.71828, get_x(&s));
+    }
+    {
+        let mut s = CalcState::new();
+        push(&mut s, "1234.5");
+        dispatch(&mut s, Op::Frc).unwrap();
+        case!("frc", "FRC(1234.5) = 0.5", 0.5, get_x(&s));
+    }
+
+    // ── v2.2 Op::PolarToRect (cases 546–555) ────────────────────────────────
+    // Cross-checked against HP-41C Owner's Manual Chapter 3 (polar/rectangular
+    // conversions). Result layout: X holds y-coord, Y holds x-coord per
+    // FN-MATH-03. Tolerance widened for trig boundary cases — sin(90°) BCD
+    // path produces 1.0000000000 ± LSB.
+    {
+        // HP-41C OM Ch. 3: PR(R=5, θ=0°) → (x=5, y=0) → X=0, Y=5.
+        let mut s = new_deg_state();
+        push(&mut s, "5"); // r
+        push(&mut s, "0"); // theta
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=0°) X=0", 0.0, get_x(&s));
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5"); // r
+        push(&mut s, "0"); // theta
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=0°) Y=5", 5.0, get_y(&s));
+    }
+    {
+        // HP-41C OM Ch. 3: PR(R=5, θ=90°) → (x=0, y=5) → X=5, Y=0.
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "90");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=90°) X=5", 5.0, get_x(&s), wide);
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "90");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=90°) Y=0", 0.0, get_y(&s), wide);
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "180");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=180°) Y=-5", -5.0, get_y(&s), wide);
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "270");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=270°) X=-5", -5.0, get_x(&s), wide);
+    }
+    {
+        // HP-41C OM Ch. 3: PR(R=10, θ=45°) → (x=y=7.071067812 ≈ √50).
+        let mut s = new_deg_state();
+        push(&mut s, "10");
+        push(&mut s, "45");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!(
+            "pr",
+            "PR(R=10, θ=45°) X=7.071...",
+            7.071_067_812,
+            get_x(&s),
+            wide
+        );
+    }
+    {
+        // PR with negative R: sign carries through.
+        let mut s = new_deg_state();
+        push(&mut s, "-5");
+        push(&mut s, "0");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=-5, θ=0°) Y=-5", -5.0, get_y(&s));
+    }
+    {
+        // RAD mode: PR(R=5, θ=π/2) → (x=0, y=5).
+        let mut s = new_rad_state();
+        push(&mut s, "5");
+        push(&mut s, "1.570796327"); // π/2 = 1.570796327 (10-digit)
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=π/2 RAD) X=5", 5.0, get_x(&s), wide);
+    }
+    {
+        let mut s = new_rad_state();
+        push(&mut s, "5");
+        push(&mut s, "1.570796327");
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("pr", "PR(R=5, θ=π/2 RAD) Y=0", 0.0, get_y(&s), wide);
+    }
+
+    // ── v2.2 Op::RectToPolar (cases 556–565) ────────────────────────────────
+    // Cross-checked against HP-41C Owner's Manual Chapter 3. Input: Y=x-coord,
+    // X=y-coord. Output: Y=R (magnitude), X=θ (angle).
+    {
+        // 3-4-5 triangle (HP-41C OM Ch. 3 reference): RP(x=3, y=4) → R=5,
+        // θ=atan2(4,3) ≈ 53.13010235°.
+        let mut s = new_deg_state();
+        push(&mut s, "3");
+        push(&mut s, "4");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=3, y=4) R=5 (3-4-5 triangle)", 5.0, get_y(&s));
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "3");
+        push(&mut s, "4");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!(
+            "rp",
+            "RP(x=3, y=4) θ≈53.13°",
+            53.130_102_35,
+            get_x(&s),
+            wide
+        );
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "0");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=5, y=0) R=5", 5.0, get_y(&s));
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "5");
+        push(&mut s, "0");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=5, y=0) θ=0", 0.0, get_x(&s));
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "0");
+        push(&mut s, "5");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=0, y=5) R=5", 5.0, get_y(&s));
+    }
+    {
+        let mut s = new_deg_state();
+        push(&mut s, "0");
+        push(&mut s, "5");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=0, y=5) θ=90°", 90.0, get_x(&s), wide);
+    }
+    {
+        // Second quadrant: RP(x=-3, y=4) → R=5, θ≈126.87°.
+        let mut s = new_deg_state();
+        push(&mut s, "-3");
+        push(&mut s, "4");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=-3, y=4) R=5 (Q2)", 5.0, get_y(&s));
+    }
+    {
+        // Degenerate case: RP(0, 0) → R=0, θ=0.
+        let mut s = new_deg_state();
+        push(&mut s, "0");
+        push(&mut s, "0");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(0, 0) R=0 (degenerate)", 0.0, get_y(&s));
+    }
+    {
+        // Round-trip: PR(RP(3,4)) ≈ (3,4). Pin by example here; proptest in
+        // Plan 27-02 covers the general invariant.
+        let mut s = new_deg_state();
+        push(&mut s, "3");
+        push(&mut s, "4");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        dispatch(&mut s, Op::PolarToRect).unwrap();
+        case!("rp", "PR(RP(3,4)) X≈4 round-trip", 4.0, get_x(&s), wide);
+    }
+    {
+        let mut s = new_rad_state();
+        push(&mut s, "1");
+        push(&mut s, "0");
+        dispatch(&mut s, Op::RectToPolar).unwrap();
+        case!("rp", "RP(x=1, y=0) R=1 (RAD)", 1.0, get_y(&s));
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();
@@ -2753,8 +3318,171 @@ fn test_numerical_accuracy_suite() {
 
     println!("Numerical accuracy: {passes}/{total} cases passed");
 
+    // D-27.6: v1.x baseline (first 503 cases) must NOT regress, and the
+    // SET of failing cases must not drift either direction. The historical
+    // floor was a one-sided `baseline_passes >= 498`, but that admits a
+    // silent compensating-drift failure mode: a new regression masked by
+    // a coincidental new fix would leave the count unchanged while the
+    // SET of failing IDs differs. Pin the exact 5 expected-failing IDs
+    // so both kinds of drift surface.
+    //
+    // The 5 known HP-41 hardware-rounding divergences (within the
+    // historical failure budget):
+    //   #124 sin(45.5deg) — trig BCD rounding at 8th sig digit (~3.7e-8)
+    //   #279 ln(0.99)     — small-arg log precision (~4.5e-7)
+    //   #344 10^1.301..   — exp10 round-trip from log10(20)  (~1.0e-9)
+    //   #438 ln(1.001)    — transcendental near 1            (~3.3e-8)
+    //   #480 HMS(0.0030)  — HMS<->decimal round-trip wide-tol (~3.3e-2)
+    const EXPECTED_BASELINE_FAILURES: &[usize] = &[124, 279, 344, 438, 480];
+    let baseline_failures: Vec<usize> = cases
+        .iter()
+        .filter(|c| c.id < 504) // v1.x baseline cases have id < 504; v2.2 extension ids start at 504
+        .filter(|c| !passes_with_tol(c.actual, c.expected, c.tol))
+        .map(|c| c.id)
+        .collect();
+    assert_eq!(
+        baseline_failures, EXPECTED_BASELINE_FAILURES,
+        "D-27.6 BASELINE DRIFT: v1.x failing-case SET changed.\n  expected: {EXPECTED_BASELINE_FAILURES:?}\n  actual:   {baseline_failures:?}\nA regression that masks one failure while introducing another would slip the one-sided pass-count gate; this set check catches both directions. If a fix retires a known divergence (e.g. #480 HMS round-trip now passes), update EXPECTED_BASELINE_FAILURES."
+    );
+    // Belt-and-suspenders: keep the pass-count floor too in case the
+    // failing-set diverged in a way the eq check didn't catch (e.g. an
+    // id renumber elsewhere). Should never fire if the set check passed.
     assert!(
-        passes >= 493,
-        "Numerical accuracy suite: {passes}/{total} cases passed (need >= 493 for 98%). Failures above."
+        baseline_passes >= 498,
+        "D-27.6 BASELINE REGRESSION: pass count {baseline_passes}/{baseline_total} below floor 498."
+    );
+
+    // D-27.6: combined gate ≥ 98% pass rate on the full ~570+ case suite.
+    let threshold = (total * 98).div_ceil(100); // ceiling(total * 0.98)
+    assert!(
+        passes >= threshold,
+        "Numerical accuracy suite: {passes}/{total} cases passed (need >= {threshold} for 98%). Failures above."
+    );
+}
+
+// ── v2.2 Op::Fact / Op::Mod error-path tests (D-27.5 headline quirks) ──────
+// Cross-checked against Free42 source core_math1.cc and HP-41C Owner's
+// Manual p.234. These are separate #[test]s because they assert errors,
+// not numeric values (case! infrastructure expects f64 expected).
+
+#[test]
+fn fact_70_returns_out_of_range() {
+    // Cross-checked against Free42 source core_math1.cc::do_fact:
+    //   Free42 returns ERR_OUT_OF_RANGE for n > 69, matching the HP-41C
+    //   ROM behavior documented in the Owner's Manual p.234.
+    let mut s = CalcState::new();
+    push(&mut s, "70");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::OutOfRange)),
+        "FACT(70) must return OutOfRange per HP-41C OM p.234"
+    );
+}
+
+#[test]
+fn fact_27_is_last_representable() {
+    // I-5 boundary: FACT(27) is the LAST n for which `Decimal::from_f64(n!)`
+    // succeeds. FACT(28) hits the Decimal magnitude wall and returns Overflow
+    // (math.rs::op_fact step 5; D-05). This test pins the upper Ok boundary
+    // so a future tightening of `op_fact` (e.g. early-rejecting n > 12 or
+    // n > 20) is caught immediately. Mathematically 27! ≈ 1.089e28.
+    // Catches: silent shrinking of the FACT representable range.
+    let mut s = CalcState::new();
+    push(&mut s, "27");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        r.is_ok(),
+        "FACT(27) must succeed (last n before Decimal::from_f64 wall per D-05); got {r:?}"
+    );
+    // Order-of-magnitude check — 27! is ≈ 1.0888869e28. Use HpNum's f64
+    // accessor to compare without nailing every digit (HP-41 hardware
+    // would emit `1.088869450 28` in SCI 9 mode; the exact mantissa
+    // depends on Decimal rounding at the 10-sig-digit boundary).
+    let x_f64 = s.stack.x.inner().to_string();
+    assert!(
+        x_f64.starts_with("1088"),
+        "FACT(27) ≈ 1.088869e28; got X = {x_f64}"
+    );
+}
+
+#[test]
+fn fact_28_returns_overflow() {
+    // I-5 boundary: FACT(28) is the FIRST n at which `Decimal::from_f64`
+    // fails. Per math.rs::op_fact (D-05), this surfaces as `Overflow`
+    // (NOT `OutOfRange` — that variant is reserved for the hardware-spec
+    // `X > 69` pre-flight check). The 27→28 transition is the contract:
+    // 27 returns Ok, 28 returns Err(Overflow). If a future refactor
+    // unified the two error variants, the existing `fact_70_returns_out_of_range`
+    // test would silently change semantics — this test pins the variant.
+    // Catches: error-type drift between Decimal-wall (Overflow) and
+    // hardware-spec (OutOfRange) FACT failure modes.
+    let mut s = CalcState::new();
+    push(&mut s, "28");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Overflow)),
+        "FACT(28) must return Overflow (Decimal::from_f64 wall per D-05); got {r:?}"
+    );
+}
+
+#[test]
+fn fact_69_returns_overflow_not_out_of_range() {
+    // I-5 boundary: FACT(69) is the LAST n in the Decimal-wall corridor —
+    // the next valid input (n=70) flips to OutOfRange because the hardware
+    // pre-flight (`v > 69.0` at math.rs::op_fact step 2) runs BEFORE the
+    // Decimal conversion. So 28..=69 returns Overflow; 70..=∞ returns
+    // OutOfRange. This 69→70 boundary is order-of-checks-dependent and
+    // would silently invert if a refactor moved the Decimal check before
+    // the hardware-spec check. Pinning it as an explicit test makes the
+    // order-of-checks contract a regression sentinel.
+    // Catches: order-of-checks inversion between hardware-spec pre-flight
+    // (OutOfRange) and Decimal magnitude wall (Overflow) in op_fact.
+    let mut s = CalcState::new();
+    push(&mut s, "69");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Overflow)),
+        "FACT(69) must return Overflow (Decimal wall fires before hardware OutOfRange); got {r:?}"
+    );
+}
+
+#[test]
+fn fact_non_integer_returns_domain() {
+    // Cross-checked against HP-41C Owner's Manual p.234 — non-integer
+    // factorial rejected by hardware. Implementation returns Domain.
+    let mut s = CalcState::new();
+    push(&mut s, "3.5");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "FACT(3.5) must return Domain"
+    );
+}
+
+#[test]
+fn fact_negative_returns_domain() {
+    // HP-41C Owner's Manual p.234: factorial undefined for negative
+    // integers — hardware rejects with error.
+    let mut s = CalcState::new();
+    push(&mut s, "-3");
+    let r = dispatch(&mut s, Op::Fact);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "FACT(-3) must return Domain"
+    );
+}
+
+#[test]
+fn mod_divide_by_zero_returns_domain() {
+    // Cross-checked against Free42 source core_math1.cc::do_mod — Free42
+    // returns ERR_DIVIDE_BY_0 for MOD(y, 0). Our implementation returns
+    // Domain (HP-41 hardware-faithful: indistinguishable error class).
+    let mut s = CalcState::new();
+    push(&mut s, "7");
+    push(&mut s, "0");
+    let r = dispatch(&mut s, Op::Mod);
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "MOD(7, 0) must return Domain per HP-41C OM p.234"
     );
 }

@@ -20,6 +20,11 @@ use crate::state::CalcState;
 /// Y, Z, T are NOT dropped (unlike binary ops). LASTX is NOT saved. LiftEffect: Enable.
 /// D-03: R01=Σx², R02=Σx, R03=n, R04=Σy², R05=Σy, R06=Σxy.
 pub fn op_sigma_plus(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let x = state.stack.x.clone();
     let y = state.stack.y.clone();
 
@@ -51,6 +56,11 @@ pub fn op_sigma_plus(state: &mut CalcState) -> Result<(), HpError> {
 /// Reverses the effect of the most recently added (X,Y) data point.
 /// LiftEffect: Enable.
 pub fn op_sigma_minus(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let x = state.stack.x.clone();
     let y = state.stack.y.clone();
 
@@ -77,6 +87,11 @@ pub fn op_sigma_minus(state: &mut CalcState) -> Result<(), HpError> {
 /// MEAN: push x̄ into X and ȳ into Y from Σ registers.
 /// n=0: returns HpError::InvalidOp. LiftEffect: Enable.
 pub fn op_mean(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let n = state.regs[3].clone();
     if n.is_zero() {
         return Err(HpError::InvalidOp);
@@ -99,6 +114,11 @@ pub fn op_mean(state: &mut CalcState) -> Result<(), HpError> {
 /// HpError::Domain (from checked_sqrt on negative) or HpError::DivideByZero.
 /// LiftEffect: Enable.
 pub fn op_sdev(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let n = state.regs[3].clone();
     let n_minus_1 = n.checked_sub(&HpNum::from(1i32))?;
     if n_minus_1.is_zero() || n.is_zero() {
@@ -132,6 +152,11 @@ pub fn op_sdev(state: &mut CalcState) -> Result<(), HpError> {
 /// n < 2 or all x-values identical (denominator = 0): returns HpError::InvalidOp.
 /// LiftEffect: Enable.
 pub fn op_lr(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let n = state.regs[3].clone();
     if n.is_zero() {
         return Err(HpError::InvalidOp);
@@ -175,6 +200,11 @@ pub fn op_lr(state: &mut CalcState) -> Result<(), HpError> {
 /// Returns ŷ in X via unary_result (saves LASTX). LiftEffect: Enable (implicit via unary_result).
 /// n=0 or singular denominator: returns HpError::InvalidOp.
 pub fn op_yhat(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let n = state.regs[3].clone();
     if n.is_zero() {
         return Err(HpError::InvalidOp);
@@ -209,6 +239,11 @@ pub fn op_yhat(state: &mut CalcState) -> Result<(), HpError> {
 /// Zero or negative product under sqrt: HpError::Domain. n=0: HpError::InvalidOp.
 /// Returns r via unary_result (saves LASTX). LiftEffect: Enable.
 pub fn op_corr(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     let n = state.regs[3].clone();
     if n.is_zero() {
         return Err(HpError::InvalidOp);
@@ -238,6 +273,11 @@ pub fn op_corr(state: &mut CalcState) -> Result<(), HpError> {
 
 /// CLΣSTAT: zero Σ registers R01–R06. LiftEffect: Neutral.
 pub fn op_cl_sigma_stat(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 22 D-22.11.1 / Pitfall 5: fail-closed when Σ block R01..R06
+    // unaddressable under SIZE shrink.
+    if state.regs.len() < 7 {
+        return Err(HpError::InvalidOp);
+    }
     for i in 1..=6 {
         state.regs[i] = HpNum::zero();
     }

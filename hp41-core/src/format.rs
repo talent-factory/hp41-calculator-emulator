@@ -24,6 +24,82 @@ pub fn format_hpnum(n: &HpNum, mode: &DisplayMode) -> String {
     }
 }
 
+/// Round an `HpNum` to the precision of the current `DisplayMode` (D-01/D-02/D-03).
+///
+/// This is the **single source of truth** for "round-to-display-precision" semantics,
+/// shared between the display path (`format_hpnum`) and the value-mutation path
+/// (`op_rnd` in `ops/math.rs`). Both consumers route through this helper so RND always
+/// matches what FIX/SCI/ENG would have displayed.
+///
+/// Semantics per D-01/D-02/D-03:
+/// - **Fix(n):** round inner Decimal to `n` decimal places (round-half-away-from-zero).
+/// - **Sci(n):** round to `n + 1` significant digits (the SCI mantissa carries 1 leading
+///   digit + `n` fractional digits).
+/// - **Eng(n):** round to `n + 1` significant digits with the engineering exponent
+///   constraint (multiples of 3); mantissa keeps 1–3 digits before the decimal point.
+/// - Zero: returns `HpNum::zero()` regardless of mode.
+///
+/// The final value is wrapped via `HpNum::rounded`, which re-applies the 10-sig-digit
+/// gate as an idempotent safety pass.
+///
+/// **Phase 20 (D-01/D-02):** consumed by `op_rnd` in `hp41-core/src/ops/math.rs` so
+/// the value-mutation RND keystroke produces the same number that FIX/SCI/ENG would
+/// have displayed.
+pub fn round_to_display_precision(n: &HpNum, mode: &DisplayMode) -> HpNum {
+    if n.is_zero() {
+        return HpNum::zero();
+    }
+    let d = n.inner();
+    let rounded = match mode {
+        DisplayMode::Fix(digits) => {
+            d.round_dp_with_strategy(*digits as u32, RoundingStrategy::MidpointAwayFromZero)
+        }
+        DisplayMode::Sci(digits) => d
+            .round_sf_with_strategy((*digits as u32) + 1, RoundingStrategy::MidpointAwayFromZero)
+            .expect("round_sf_with_strategy(<= 10) cannot fail for finite Decimal"),
+        DisplayMode::Eng(digits) => round_eng(d, *digits as usize),
+    };
+    HpNum::rounded(rounded)
+}
+
+/// Engineering-mode rounding: mantissa keeps `digits` decimal places after the
+/// engineering normalization (exponent constrained to multiples of 3).
+///
+/// Mirrors the internal rounding sequence in `format_eng` so RND in ENG mode produces
+/// the same value the display would show. Carry handling matches `format_eng` (a
+/// mantissa that grows past the boundary after rounding bumps the engineering exponent
+/// to the next multiple of 3).
+fn round_eng(d: Decimal, digits: usize) -> Decimal {
+    let is_negative = d.is_sign_negative();
+    let abs_d = d.abs();
+
+    let sci_exp = compute_sci_exp(abs_d);
+    let eng_exp = floor_to_multiple_of_3(sci_exp);
+
+    // Bring mantissa into engineering form: mantissa = abs_d * 10^(-eng_exp).
+    let mantissa = scale_decimal(abs_d, -eng_exp);
+
+    let mut mantissa_rounded =
+        mantissa.round_dp_with_strategy(digits as u32, RoundingStrategy::MidpointAwayFromZero);
+
+    // Carry: mantissa may cross the next power-of-10 boundary after rounding.
+    let mut eng_exp = eng_exp;
+    let carry_threshold = decimal_pow10(sci_exp - eng_exp + 1);
+    if mantissa_rounded >= carry_threshold {
+        let new_eng_exp = floor_to_multiple_of_3(sci_exp + 1);
+        mantissa_rounded = scale_decimal(mantissa_rounded, eng_exp - new_eng_exp);
+        eng_exp = new_eng_exp;
+    }
+
+    // Re-scale mantissa back to absolute magnitude.
+    let abs_rounded = scale_decimal(mantissa_rounded, eng_exp);
+    if is_negative {
+        -abs_rounded
+    } else {
+        abs_rounded
+    }
+}
+
 /// Format the ALPHA register for display.
 /// HP-41 display is 12 characters; truncate if longer.
 pub fn format_alpha(reg: &str) -> String {
@@ -214,4 +290,50 @@ fn assemble_sci(mantissa: &str, exp: i32) -> String {
 /// Examples: 4 → 3, 3 → 3, 1 → 0, -1 → -3, -3 → -3, -4 → -6
 fn floor_to_multiple_of_3(exp: i32) -> i32 {
     exp.div_euclid(3) * 3
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    //! Inline smoke tests for `round_to_display_precision` (D-01/D-02/D-03).
+    //! Integration coverage lives in `hp41-core/tests/phase20_math.rs`.
+    use super::*;
+
+    fn hp(s: &str) -> HpNum {
+        HpNum::from(Decimal::from_str(s).expect("test literal must parse"))
+    }
+
+    #[test]
+    fn round_fix1_negative_5_65_is_minus_5_7() {
+        // Round-half-away-from-zero: -5.65 → -5.7 at FIX(1).
+        let out = round_to_display_precision(&hp("-5.65"), &DisplayMode::Fix(1));
+        assert_eq!(out.inner(), Decimal::from_str("-5.7").unwrap());
+    }
+
+    #[test]
+    fn round_fix0_negative_5_7_is_minus_6() {
+        let out = round_to_display_precision(&hp("-5.7"), &DisplayMode::Fix(0));
+        assert_eq!(out.inner(), Decimal::from(-6));
+    }
+
+    #[test]
+    fn round_sci3_carry_9_9995_is_10() {
+        // SCI(3): keep 4 sig digits — 9.9995 → 10 (mantissa carry at the digit-4 boundary).
+        let out = round_to_display_precision(&hp("9.9995"), &DisplayMode::Sci(3));
+        assert_eq!(out.inner(), Decimal::from(10));
+    }
+
+    #[test]
+    fn round_zero_returns_zero() {
+        for mode in [
+            DisplayMode::Fix(4),
+            DisplayMode::Sci(4),
+            DisplayMode::Eng(3),
+        ] {
+            assert_eq!(
+                round_to_display_precision(&HpNum::zero(), &mode).inner(),
+                Decimal::ZERO,
+            );
+        }
+    }
 }

@@ -54,17 +54,29 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 }
 
 /// XEQ: subroutine call. Enforces 4-level call stack limit (D-14).
-/// Interactive XEQ (not running) → InvalidOp; XEQ inside a running program is
-/// handled by run_loop directly (not this function). Phase 4 TUI can add
-/// interactive subroutine-run support via run_program().
+///
+/// Interactive XEQ (not running): tries the four-entry Card Reader
+/// XEQ-by-name fallback before erroring. This is the
+/// path the GUI uses — `dispatch(Op::Xeq("WPRGM"))` with `is_running=false`.
+///
+/// Programmatic XEQ inside `run_loop` is handled there directly (with
+/// call-depth check + user-label scan + same builtin fallback) — this
+/// function is never reached during program execution.
+///
 /// LiftEffect: Neutral.
-pub fn op_xeq(state: &mut CalcState, _label: &str) -> Result<(), HpError> {
+pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
+        // Built-in XEQ-by-name fallback for the four Card Reader ops.
+        // No user-label scan here: user-program XEQ goes through run_loop,
+        // not op_xeq. If a user wants to call their own LBL interactively
+        // they use run_program(state, label) directly, not dispatch.
+        if let Some(card_op) = builtin_card_op(label) {
+            return crate::ops::dispatch(state, card_op);
+        }
         return Err(HpError::InvalidOp);
     }
-    // run_loop handles Op::Xeq directly (with call-depth check and label search).
-    // This arm is only reached if someone calls op_xeq() outside run_loop,
-    // which should not happen — return InvalidOp as a safe guard.
+    // run_loop handles Op::Xeq directly. Reaching here while running is a
+    // logic bug elsewhere — return InvalidOp as a safe guard.
     Err(HpError::InvalidOp)
 }
 
@@ -115,6 +127,243 @@ pub fn op_dse(state: &mut CalcState, reg: u8) -> Result<bool, HpError> {
     Ok(new_current <= final_val) // true = skip next (loop exits, D-11)
 }
 
+// ── Phase 22: Program editing primitives (D-22.7, D-22.8, D-22.9, D-22.10) ──
+// CLP / DEL / INS are PRGM-mode editing primitives — they mutate state.program
+// directly and NEVER get recorded into the program buffer. The dispatch gate
+// in mod.rs special-cases them so they execute immediately while prgm_mode == true.
+//
+// Stubs land here in task 22-02-01 so the workspace compiles after the variants
+// are added. Real bodies fill in over the next two tasks (22-02-02 / 22-02-03).
+
+/// Phase 22 D-22.7 (FN-PROG-03). Clear program from `Op::Lbl("label")` to the
+/// next `Op::Lbl(_)` (or end-of-Vec if no further LBL).
+///
+/// Cursor reposition (Pitfall 6): after the drain, `state.pc` is set to `start`
+/// (clamped to the post-drain `state.program.len()`) so the cursor lands at the
+/// start of whatever block was deleted. Missing label → `HpError::InvalidOp`.
+/// PRGM-mode only (D-22.10) — interactive dispatch with `prgm_mode == false`
+/// returns InvalidOp via the defense-in-depth guard.
+///
+/// Documented divergence: HP-41 hardware uses END/.END. markers; we use
+/// next-LBL boundaries because the flat-Vec program model has no explicit
+/// END marker. (RESEARCH §1 D-22.7 row, OQ resolved as Option B.)
+pub fn op_clp(state: &mut CalcState, label: &str) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    let start = state
+        .program
+        .iter()
+        .position(|op| matches!(op, Op::Lbl(n) if n == label))
+        .ok_or(HpError::InvalidOp)?;
+    let end = state
+        .program
+        .iter()
+        .skip(start + 1)
+        .position(|op| matches!(op, Op::Lbl(_)))
+        .map(|i| start + 1 + i)
+        .unwrap_or(state.program.len());
+    state.program.drain(start..end);
+    // Pitfall 6: cursor lands at start of deleted block, clamped to new len
+    // (protects against the rare case where start == post-drain program.len()).
+    state.pc = start.min(state.program.len());
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.9 (FN-PROG-04). Delete `nnn` program steps starting at
+/// `state.pc`. `nnn` silently clamps to `min(nnn, program.len() - pc)`;
+/// `nnn == 0` OR `pc == program.len()` → no-op. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — drain shifts the trailing tail down to fill the
+/// gap, so the cursor naturally points at the next surviving step.
+pub fn op_del(state: &mut CalcState, nnn: u8) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    // D-22.9 clamping: saturating_sub guards against the pathological pc > len
+    // (shouldn't happen, but keeps the helper bounds-safe under any state).
+    let n = (nnn as usize).min(state.program.len().saturating_sub(state.pc));
+    if n == 0 {
+        // No-op for nnn == 0 OR pc == program.len()
+        apply_lift_effect(state, LiftEffect::Neutral);
+        return Ok(());
+    }
+    state.program.drain(state.pc..state.pc + n);
+    // state.pc deliberately unchanged: drain shifts the tail down so pc
+    // naturally falls at the same index (which is the post-drain position).
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.8 (FN-PROG-05). Insert `Op::Null` (no-op placeholder from
+/// Phase 12) at `state.pc`. PRGM-mode only (D-22.10).
+///
+/// `state.pc` is UNCHANGED — the cursor still points at the freshly inserted
+/// Null. This matches HP-41 hardware "INS lands a blank step at cursor" behavior.
+pub fn op_ins(state: &mut CalcState) -> Result<(), HpError> {
+    if !state.prgm_mode {
+        return Err(HpError::InvalidOp);
+    }
+    // Defense-in-depth (D-22.23 zero-panic): clamp `state.pc` to
+    // `state.program.len()` before `Vec::insert`, which would otherwise
+    // panic when `index > len()`. Under normal control flow `state.pc <=
+    // state.program.len()` always holds (CLP/DEL/run_loop maintain it),
+    // but a corrupted `~/.hp41/autosave.json` could deserialize a
+    // `CalcState` with `pc > program.len()`. Silent clamp mirrors the
+    // existing `op_del` `saturating_sub` / `.min(...)` neutralization.
+    let idx = state.pc.min(state.program.len());
+    state.program.insert(idx, Op::Null);
+    // state.pc deliberately unchanged — cursor still on the new Null.
+    apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+// ── Phase 22: Memory management (D-22.11) ────────────────────────────────────
+
+/// Phase 22 D-22.14 / FN-MEM-03. Zero stack X/Y/Z/T.
+///
+/// PRESERVES `state.stack.lastx` AND `state.stack.lift_enabled` — verified by
+/// the absence of any assignment to these fields in this helper body.
+/// `Neutral` `apply_lift_effect` is a no-op for `lift_enabled` (see
+/// `stack.rs::apply_lift_effect`), so the trailing apply_lift_effect call
+/// also preserves the flag.
+///
+/// Sentinel test `test_clst_preserves_lastx_and_lift_enabled` in
+/// `hp41-core/tests/phase22_memory_ops.rs` enforces both invariants.
+///
+/// LiftEffect: Neutral.
+pub fn op_clst(state: &mut CalcState) -> Result<(), HpError> {
+    state.stack.x = crate::num::HpNum::zero();
+    state.stack.y = crate::num::HpNum::zero();
+    state.stack.z = crate::num::HpNum::zero();
+    state.stack.t = crate::num::HpNum::zero();
+    // lastx UNTOUCHED (D-22.14)
+    // lift_enabled UNTOUCHED (Neutral lift does not modify it — stack.rs)
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.11 / FN-MEM-01. Resize `state.regs` to `nnn` slots.
+///
+/// OQ-2 (AMENDED 2026-05-14): `nnn == 0` silently clamps to 1 (documented
+/// divergence from real HP-41 which accepts `SIZE 000`). `nnn > 319`
+/// returns `HpError::InvalidOp`. Otherwise `state.regs.resize(target,
+/// HpNum::zero())`: shrinking truncates the tail (hardware-faithful
+/// "MEM LOST"); growing zero-fills the new slots. Preserves values where
+/// the old and new ranges overlap.
+///
+/// SAFETY: every legacy register access (op_sto/op_rcl/op_sto_arith/op_view/
+/// op_clreg/Σ-family) was audited in 22-03-01..03 to honor `state.regs.len()`
+/// dynamically, so shrinking via SIZE will NOT panic. The Σ-family
+/// additionally fails closed when `state.regs.len() < 7` (Pitfall 5).
+///
+/// LiftEffect: Neutral.
+pub fn op_size(state: &mut CalcState, nnn: u16) -> Result<(), HpError> {
+    if nnn > 319 {
+        return Err(HpError::InvalidOp);
+    }
+    let target = nnn.max(1) as usize; // OQ-2: SIZE 0 → silently clamp to 1
+    state.regs.resize(target, crate::num::HpNum::zero());
+    // Phase 23 D-23.4 (WR-01): drop text_regs entries that now point past
+    // end-of-regs so a shrink-then-grow cycle cannot resurrect a stale text
+    // shadow. CONTEXT.md D-23.4's audit inventory listed STO/STO-arith/CLREG
+    // but missed op_size; this retain step closes the gap and keeps the
+    // sidecar from leaking across SIZE cycles or autosave round-trips.
+    state.text_regs.retain(|&k, _| (k as usize) < target);
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.16 (AMENDED OQ-1 Option B, FN-MEM-05). Hardware-faithful CATALOG.
+///
+/// `n == 0` OR `n >= 5` → `HpError::InvalidOp`. Output writes to
+/// `state.print_buffer` (Phase 11 drain channel) with 24-char width:
+///   - Header: `-- CATALOG n --` (left-padded to 24).
+///   - Payload:
+///     * CAT 1 (programs): one `LBL <name>  <steps>` line per `Op::Lbl(_)` in
+///       `state.program`. Step count = distance to next LBL or program.len()
+///       for the last labelled block. Long names truncated to 9 chars so the
+///       full line stays within 24 chars (4 + 9 + 2 + 5 = 20, padded to 24).
+///       Empty program → zero payload lines (header + footer only).
+///     * CAT 2 (XROM modules), CAT 3 (HP-IL), CAT 4 (peripherals) — none in
+///       this emulator → single 24-char "NOT AVAILABLE" line.
+///   - Footer: `-- END --` (left-padded to 24).
+///
+/// LiftEffect: Neutral.
+pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
+    if n == 0 || n >= 5 {
+        return Err(HpError::InvalidOp);
+    }
+    state
+        .print_buffer
+        .push(format!("{:<24}", format!("-- CATALOG {n} --")));
+    match n {
+        1 => {
+            // CATALOG 1: programs (hardware-faithful, OQ-1 Option B).
+            // Collect (position, name) per Op::Lbl entry.
+            let labels: Vec<(usize, String)> = state
+                .program
+                .iter()
+                .enumerate()
+                .filter_map(|(i, op)| match op {
+                    Op::Lbl(nm) => Some((i, nm.clone())),
+                    _ => None,
+                })
+                .collect();
+            for (idx, (pos, name)) in labels.iter().enumerate() {
+                let end = labels
+                    .get(idx + 1)
+                    .map(|(p, _)| *p)
+                    .unwrap_or(state.program.len());
+                let steps = end - pos;
+                // Truncate long names to 9 chars so the full LBL line stays
+                // within 24 chars: "LBL " (4) + name :9 + "  " (2) + steps :5 = 20.
+                let display_name: String = name.chars().take(9).collect();
+                state.print_buffer.push(format!(
+                    "{:<24}",
+                    format!("LBL {display_name:9}  {steps:5}")
+                ));
+            }
+        }
+        2..=4 => {
+            // CATALOG 2 (XROM modules) / 3 (HP-IL) / 4 (peripherals) — none
+            // in this emulator → single payload line.
+            state.print_buffer.push(format!("{:<24}", "NOT AVAILABLE"));
+        }
+        _ => return Err(HpError::InvalidOp), // defensive; guarded above
+    }
+    state.print_buffer.push(format!("{:<24}", "-- END --"));
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
+/// Phase 22 D-22.18 (AMENDED OQ-3 Option A, FN-KEY-01). ASN key assignment.
+///
+/// If `name` is empty: removes assignment for `key_code` via
+/// `state.assignments.remove(&key_code)` — silent no-op if absent.
+/// Otherwise: `state.assignments.insert(key_code, name)`.
+///
+/// `key_code` uses HP-41 row×10+col encoding (1-indexed; same as
+/// `last_key_code` and `keycode_to_hp41_code`).
+///
+/// Late-binding resolution (parse-as-Op vs LBL search) happens at USER-mode
+/// dispatch in Phase 25/26 — hp41-core just stores the assignment String.
+///
+/// LiftEffect: Neutral.
+pub fn op_asn(state: &mut CalcState, name: String, key_code: u8) -> Result<(), HpError> {
+    if name.is_empty() {
+        // OQ-3 Option A: empty name removes the assignment (silent no-op if
+        // key_code not present in the map).
+        state.assignments.remove(&key_code);
+    } else {
+        // Insert or overwrite.
+        state.assignments.insert(key_code, name);
+    }
+    crate::stack::apply_lift_effect(state, crate::stack::LiftEffect::Neutral);
+    Ok(())
+}
+
 // ── Public interpreter entry point ───────────────────────────────────────────
 
 /// Execute a recorded program starting at the given label.
@@ -128,11 +377,23 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     // Clone program — borrow conflict guard (D-06, RESEARCH Pitfall 1)
     let program = state.program.clone();
 
-    // Linear scan for entry label (D-02)
-    let start = program
+    // Linear scan for entry label (D-02). On miss, try the XEQ-by-name
+    // fallback for the four Card Reader ops. User labels always take
+    // precedence — fallback only fires on a true miss.
+    let start = match program
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == entry_label))
-        .ok_or(HpError::InvalidOp)?;
+    {
+        Some(idx) => idx,
+        None => {
+            if let Some(op) = builtin_card_op(entry_label) {
+                // Dispatch the built-in once and return — no program to run.
+                // is_running stays false; we never enter run_loop.
+                return crate::ops::dispatch(state, op);
+            }
+            return Err(HpError::InvalidOp);
+        }
+    };
 
     state.pc = start + 1; // execute step AFTER the Lbl marker (Pitfall 4)
     state.call_stack.clear();
@@ -141,6 +402,31 @@ pub fn run_program(state: &mut CalcState, entry_label: &str) -> Result<(), HpErr
     let result = run_loop(state, &program);
 
     state.is_running = false; // always reset, even on error (is_running safety reset pattern)
+    result
+}
+
+/// Resume a halted program from `state.pc`.
+///
+/// Mirror of [`run_program`] but skips the entry-label search — `state.pc` is
+/// the resume point. Used after `Op::Stop` (D-22.1) breaks `run_loop`, when the
+/// user hits R/S to continue. Does NOT clear `state.call_stack`: pending XEQ
+/// frames must survive a STOP/resume cycle so `RTN` behaves correctly
+/// (D-22.2; planner PATTERNS.md §"resume_program()").
+///
+/// CRITICAL — Pitfall 2: do NOT use `?` to propagate the `run_loop` error.
+/// Capture into `let result`, reset `is_running = false`, then return `result`.
+/// The naive `run_loop(...)?` short-circuits before the cleanup and leaves
+/// `state.is_running == true`. (RESEARCH §2 Pitfall 2.)
+///
+/// Phase 22 (FN-PROG-01).
+pub fn resume_program(state: &mut CalcState) -> Result<(), HpError> {
+    if state.pc >= state.program.len() {
+        return Err(HpError::InvalidOp); // nothing to resume
+    }
+    let program = state.program.clone();
+    state.is_running = true;
+    let result = run_loop(state, &program);
+    state.is_running = false; // ALWAYS reset, even on Err (Pitfall 2)
     result
 }
 
@@ -178,14 +464,56 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 let target = find_in_program(program, &label)?;
                 state.pc = target + 1;
             }
+            Op::GtoInd(reg) => {
+                // Phase 24 (D-24.5): pointer-validation logic now lives in the shared
+                // `resolve_indirect_decimal` helper — single source of truth across all
+                // ~14 indirect-resolving callers (this + Op::XeqInd + 12 Op::*Ind variants).
+                let i = crate::ops::indirect::resolve_indirect_decimal(state, reg)?;
+                let label_str = i.to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.pc = target + 1; // mirrors Op::Gto: pc → step AFTER LBL marker
+            }
+            Op::XeqInd(reg) => {
+                // Pre-mutation atomicity guard (D-22.15) — UNCHANGED, must run before
+                // any pointer read.
+                if state.call_stack.len() >= 4 {
+                    return Err(HpError::CallDepth);
+                }
+                // Phase 24 (D-24.5): shared pointer-validation helper. The label-lookup
+                // path (find_in_program + call_stack.push + pc advance) is NOT modified —
+                // GTO/XEQ-IND resolve to LABELS, not register addresses, so the inner
+                // Decimal-returning helper (not the u8 wrapper) is the right consumer.
+                let i = crate::ops::indirect::resolve_indirect_decimal(state, reg)?;
+                let label_str = i.to_string();
+                let target = find_in_program(program, &label_str)?;
+                state.call_stack.push(state.pc);
+                state.pc = target + 1;
+            }
             Op::Xeq(label) => {
                 if state.call_stack.len() >= 4 {
                     return Err(HpError::CallDepth); // D-13/D-14: error before mutation
                 }
-                // find target before pushing to call_stack (error-before-mutation)
-                let target = find_in_program(program, &label)?;
-                state.call_stack.push(state.pc);
-                state.pc = target + 1;
+                // User-label lookup first; on miss fall back to the four
+                // Card Reader built-ins. Built-in dispatch does NOT push
+                // the call stack — it's a single op, not a subroutine
+                // call, so pc just advances.
+                match find_in_program(program, &label) {
+                    Ok(target) => {
+                        state.call_stack.push(state.pc);
+                        state.pc = target + 1;
+                    }
+                    Err(_) => {
+                        if let Some(card_op) = builtin_card_op(&label) {
+                            // No pc adjustment — the main run_loop advance at the top of
+                            // this iteration already moved pc past the XEQ. A card op is a
+                            // single instruction (not a control-flow change), so pc resumes
+                            // at the step that follows the XEQ.
+                            crate::ops::dispatch(state, card_op)?;
+                        } else {
+                            return Err(HpError::InvalidOp);
+                        }
+                    }
+                }
             }
             Op::Test(kind) => {
                 if !evaluate_test(state, &kind) {
@@ -201,6 +529,80 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 if op_dse(state, reg)? {
                     state.pc += 1; // loop exit: skip next
                 }
+            }
+            // -- Phase 24: Indirect ISG/DSE arms (FN-IND-01, Pitfall 1) ----
+            // Skip-next-step semantic preserved exactly as in Op::Isg/Op::Dse.
+            // The shim returns Result<bool, _>; the bool signals counter exit.
+            Op::IsgInd(reg) => {
+                if crate::ops::indirect::op_isg_ind(state, reg)? {
+                    state.pc += 1; // loop exit: skip next (mirrors Op::Isg)
+                }
+            }
+            Op::DseInd(reg) => {
+                if crate::ops::indirect::op_dse_ind(state, reg)? {
+                    state.pc += 1; // loop exit: skip next (mirrors Op::Dse)
+                }
+            }
+            // ── Phase 21: Flag tests (skip next step pattern, mirrors Op::Test) ──
+            // FS?/FC? skip the next step when the flag is in the "false" state.
+            // FS?C/FC?C ALWAYS clear the flag as a side effect (RESEARCH A4), THEN
+            // decide the skip based on the PRE-clear state.
+            Op::FlagTest { kind, flag } => {
+                use crate::ops::flags::{flag_clear, flag_get};
+                use crate::ops::FlagTestKind;
+                let is_set = flag_get(state.flags, flag);
+                let should_skip = match kind {
+                    FlagTestKind::IsSet => !is_set,
+                    FlagTestKind::IsClear => is_set,
+                    FlagTestKind::IsSetThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        !is_set
+                    }
+                    FlagTestKind::IsClearThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        is_set
+                    }
+                };
+                if should_skip {
+                    state.pc += 1;
+                }
+            }
+            // -- Phase 24: Indirect FlagTest arm (FN-IND-01, D-24.6) -------
+            // Resolves the flag number via resolve_indirect, then reuses the
+            // exact kind-match block from Op::FlagTest verbatim (always-clear
+            // semantics for FS?C/FC?C, skip-if-false for FS?/FC?). Pitfall 1
+            // mitigation: skip semantics live HERE in run_loop, NOT dispatch.
+            Op::FlagTestInd { kind, ind_reg } => {
+                use crate::ops::flags::{flag_clear, flag_get};
+                use crate::ops::FlagTestKind;
+                let flag = crate::ops::indirect::resolve_indirect(state, ind_reg)?;
+                let is_set = flag_get(state.flags, flag);
+                let should_skip = match kind {
+                    FlagTestKind::IsSet => !is_set,
+                    FlagTestKind::IsClear => is_set,
+                    FlagTestKind::IsSetThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        !is_set
+                    }
+                    FlagTestKind::IsClearThenClear => {
+                        state.flags = flag_clear(state.flags, flag);
+                        is_set
+                    }
+                };
+                if should_skip {
+                    state.pc += 1;
+                }
+            }
+            // ── Phase 22 D-22.1 / Pitfall 1: STOP breaks run_loop only — NO display_override write
+            // (unlike Op::Prompt below). The previous step's display persists.
+            // state.pc is already advanced past the STOP step by the top-of-iteration
+            // `state.pc += 1` (line 189). FN-PROG-01.
+            Op::Stop => break,
+            // ── Phase 21: PROMPT — write ALPHA to display_override + break run_loop.
+            // Full STOP/resume semantics deferred to Phase 22 (RESEARCH A5).
+            Op::Prompt => {
+                state.display_override = Some(state.alpha_reg.chars().take(24).collect::<String>());
+                break;
             }
             other => {
                 // All other ops execute without flush_entry_buf (no digit entry mid-program)
@@ -222,11 +624,13 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     use crate::ops::alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
     use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
     use crate::ops::math::{
-        op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
-        op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
+        op_abs, op_acos, op_asin, op_atan, op_cos, op_exp, op_fact, op_frc, op_int, op_ln, op_log,
+        op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd,
+        op_set_deg, op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow,
+        op_ypow,
     };
     use crate::ops::registers::{op_clreg, op_rcl, op_sto, op_sto_arith, op_sto_arith_stack};
-    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
+    use crate::ops::stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_r_up, op_rdn, op_xy_swap};
     use crate::state::DisplayMode;
 
     match op {
@@ -240,8 +644,10 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clx => op_clx(state),
         Op::Chs => op_chs(state),
         Op::Rdn => op_rdn(state),
+        Op::Rup => op_r_up(state),
         Op::XySwap => op_xy_swap(state),
         Op::Lastx => op_lastx(state),
+        Op::Pi => op_pi(state),
         Op::PushNum(v) => {
             enter_number(state, v);
             // PushNum inside a program enables lift so subsequent PushNums lift the stack
@@ -251,10 +657,17 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         }
         // Phase 2 math/trig/angle
         Op::Int => op_int(state),
+        // ── Phase 20 additions ──────────────────────────────────────────────
+        Op::Rnd => op_rnd(state),
+        Op::Frc => op_frc(state),
+        Op::Abs => op_abs(state),
+        Op::Sign => op_sign(state),
+        Op::Fact => op_fact(state),
         Op::Recip => op_recip(state),
         Op::Sqrt => op_sqrt(state),
         Op::Sq => op_sq(state),
         Op::YPow => op_ypow(state),
+        Op::Mod => op_mod(state),
         Op::PctChange => op_pct_change(state),
         Op::Ln => op_ln(state),
         Op::Log => op_log(state),
@@ -266,6 +679,8 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asin => op_asin(state),
         Op::Acos => op_acos(state),
         Op::Atan => op_atan(state),
+        Op::PolarToRect => op_polar_to_rect(state),
+        Op::RectToPolar => op_rect_to_polar(state),
         Op::SetDeg => op_set_deg(state),
         Op::SetRad => op_set_rad(state),
         Op::SetGrad => op_set_grad(state),
@@ -344,6 +759,96 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
+        // Inside a running program, card ops stage a request just like in
+        // interactive dispatch. Back-to-back card ops without a frontend
+        // drain in between surface as `HpError::CardData` rather than
+        // silently dropping the prior request.
+        Op::Wdta => super::cardreader_ops::op_wdta(state),
+        Op::Rdta => super::cardreader_ops::op_rdta(state),
+        Op::Wprgm => super::cardreader_ops::op_wprgm(state),
+        Op::Rdprgm => super::cardreader_ops::op_rdprgm(state),
+        // ── Phase 21: Flag operations ──────────────────────────────────────────
+        Op::SfFlag(n) => super::flags::op_sf(state, n),
+        Op::CfFlag(n) => super::flags::op_cf(state, n),
+        // ── Phase 21: Display Control ─────────────────────────────────────────
+        // Op::Prompt is intentionally omitted — it is handled by run_loop directly
+        // (with the `break` side effect) and listed in the catch-all below so any
+        // accidental reach into execute_op returns InvalidOp.
+        Op::View(r) => super::display_ops::op_view(state, r),
+        Op::AView => super::display_ops::op_aview(state),
+        Op::Aon => super::display_ops::op_aon(state),
+        Op::Aoff => super::display_ops::op_aoff(state),
+        Op::Cld => super::display_ops::op_cld(state),
+        // ── Phase 21: Sound ───────────────────────────────────────────────────
+        Op::Beep => super::sound::op_beep(state),
+        Op::Tone(n) => super::sound::op_tone(state, n),
+        // ── Phase 22: PSE — pause display (D-22.4, FN-PROG-02, Pitfall 3) ────
+        // Writes both channels: display_override (visible value) + event_buffer
+        // ("PAUSE 1000" marker for frontend timing). run_loop does NOT break;
+        // execution continues to the next step. display_override survives
+        // subsequent run_loop iterations because run_loop calls execute_op
+        // directly (NOT dispatch), so the dispatch-top clear at mod.rs:410
+        // does not fire between iterations. The NEXT interactive dispatch
+        // clears it — matches HP-41 "value visible until next key" semantic.
+        // Pitfall 10: do NOT add flush_entry_buf here — dispatch already
+        // called it; execute_op inside run_loop never sees stale entry_buf.
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // ── Phase 22: Memory management (D-22.11..13, FN-MEM-01..02) ──────────
+        // SIZE executes fine inside run_loop — it is a regular dispatch op,
+        // not a control-flow primitive. Does NOT join the programming-ops
+        // catch-all below.
+        Op::Size(n) => op_size(state, n),
+        // D-22.13: Op::Cla delegates to op_alpha_clear (hardware-faithful
+        // "CLA" listing). Op::AlphaClear (legacy v1.0) stays separate.
+        Op::Cla => super::alpha::op_alpha_clear(state),
+        // D-22.14: CLST zeros X/Y/Z/T while PRESERVING lastx + lift_enabled.
+        Op::Clst => op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift.
+        Op::Pack => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // D-22.16 (AMENDED OQ-1 Option B): CATALOG n — hardware-faithful.
+        // Executes fine inside run_loop AND interactively; output drained
+        // from state.print_buffer by the frontend.
+        Op::Catalog(n) => op_catalog(state, n),
+        // D-22.18 (AMENDED OQ-3 Option A): ASN — empty `name` removes;
+        // non-empty inserts. Executes fine inside run_loop AND interactively.
+        Op::Asn { name, key_code } => op_asn(state, name, key_code),
+        // ── Phase 23: ALPHA-register operations (D-23.12) ─────────────────
+        // ARCL/ASTO are regular ops — they execute fine inside run_loop AND
+        // interactively; no control-flow concerns. Neutral lift both.
+        Op::Arcl(reg) => super::alpha::op_arcl(state, reg),
+        Op::Asto(reg) => super::alpha::op_asto(state, reg),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): ATOX Enable, XTOA Neutral,
+        // AROT Neutral, POSA Disable. None are control-flow primitives —
+        // they execute fine in both run_loop and interactive contexts.
+        Op::Atox => super::alpha::op_atox(state),
+        Op::Xtoa => super::alpha::op_xtoa(state),
+        Op::Arot => super::alpha::op_arot(state),
+        Op::Posa => super::alpha::op_posa(state),
+        // -- Phase 24: Indirect Addressing execute_op arms (FN-IND-01) -----
+        // Mirrors the dispatch() arms; each delegates to the corresponding
+        // op_*_ind shim. IsgInd/DseInd discard the bool (defense-in-depth;
+        // primary skip-semantic path is run_loop). FlagTestInd is NOT here
+        // -- it joins the catch-all `|`-pattern below (mirrors Op::FlagTest).
+        Op::StoInd(reg) => crate::ops::indirect::op_sto_ind(state, reg),
+        Op::RclInd(reg) => crate::ops::indirect::op_rcl_ind(state, reg),
+        Op::StoArithInd(reg, kind) => crate::ops::indirect::op_sto_arith_ind(state, reg, kind),
+        Op::SfFlagInd(reg) => crate::ops::indirect::op_sf_flag_ind(state, reg),
+        Op::CfFlagInd(reg) => crate::ops::indirect::op_cf_flag_ind(state, reg),
+        Op::ArclInd(reg) => crate::ops::indirect::op_arcl_ind(state, reg),
+        Op::AstoInd(reg) => crate::ops::indirect::op_asto_ind(state, reg),
+        Op::ViewInd(reg) => crate::ops::indirect::op_view_ind(state, reg),
+        Op::IsgInd(reg) => crate::ops::indirect::op_isg_ind(state, reg).map(|_| ()),
+        Op::DseInd(reg) => crate::ops::indirect::op_dse_ind(state, reg).map(|_| ()),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -352,7 +857,16 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::PrgmMode
         | Op::Test(_)
         | Op::Isg(_)
-        | Op::Dse(_) => Err(HpError::InvalidOp),
+        | Op::Dse(_)
+        | Op::FlagTest { .. }
+        | Op::Prompt
+        | Op::Stop                              // Phase 22: STOP handled by run_loop break
+        | Op::GtoInd(_)                         // Phase 22: GTO IND has run_loop arm
+        | Op::XeqInd(_)                         // Phase 22: XEQ IND has run_loop arm
+        | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
+        | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
+        | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
+        | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
     }
 }
 
@@ -438,6 +952,58 @@ fn find_label_in_state(state: &CalcState, label: &str) -> Result<usize, HpError>
         .iter()
         .position(|op| matches!(op, Op::Lbl(l) if l == label))
         .ok_or(HpError::InvalidOp)
+}
+
+/// XEQ-by-name fallback: resolves 12 hardware ROM names to their `Op`
+/// variants — the four v2.1 Card Reader op names plus the eight non-keyboard
+/// HP-41CV conditional-test mnemonics (Phase 25 / Plan 03 / D-25.8).
+///
+/// Resolved names:
+/// - v2.1 card-reader: `WPRGM`, `RDPRGM`, `WDTA`, `RDTA`
+/// - Phase 25 conditional tests (both ASCII-pure and Unicode-symbol spellings
+///   accepted — RESEARCH §"Conditional tests"):
+///   - `X<>Y? | X≠Y? | X#Y?`   → `Op::Test(TestKind::XNeY)`
+///   - `X<Y?`                   → `Op::Test(TestKind::XLtY)`
+///   - `X>=Y? | X≥Y?`           → `Op::Test(TestKind::XGeY)`
+///   - `X#0? | X≠0?`            → `Op::Test(TestKind::XNeZero)`
+///   - `X<0?`                   → `Op::Test(TestKind::XLtZero)`
+///   - `X>0?`                   → `Op::Test(TestKind::XGtZero)`
+///   - `X<=0? | X≤0?`           → `Op::Test(TestKind::XLeZero)`
+///   - `X>=0? | X≥0?`           → `Op::Test(TestKind::XGeZero)`
+///
+/// Returns `None` for anything else — including unknown names, lowercase
+/// variants, and any built-in not in this 12-name table. Case-sensitive.
+///
+/// The 4 keyboard-reachable conditional tests (X=Y, X≤Y, X>Y, X=0) are
+/// intentionally NOT registered here (W4 asymmetry per D-25.9) — they are
+/// reachable only via the f-shifted arithmetic keys per Plan 01 / D-25.7.
+/// A user who types `XEQ "X=Y?"` gets `HpError::InvalidOp` by design.
+///
+/// Used as the label-miss fallback in `op_xeq`, `run_program`, and the
+/// `Op::Xeq` arm of `run_loop`. User `LBL "name"` matches take precedence,
+/// matching real HP-41 `XEQ "name"` resolution order.
+///
+/// Deliberately *not* a general built-in dispatcher — Spec §"Out of Scope".
+pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
+    match name {
+        // v2.1 Card Reader op names (regression preserved unchanged).
+        "WPRGM" => Some(Op::Wprgm),
+        "RDPRGM" => Some(Op::Rdprgm),
+        "WDTA" => Some(Op::Wdta),
+        "RDTA" => Some(Op::Rdta),
+        // Phase 25 / D-25.8: 8 non-keyboard conditional-test mnemonics.
+        // Accept BOTH ASCII-pure (X<>Y?, X#Y?, X#0?, X<=0?, X>=0?) and
+        // Unicode-symbol (X≠Y?, X≠0?, X≤0?, X≥0?) spellings.
+        "X<>Y?" | "X\u{2260}Y?" | "X#Y?" => Some(Op::Test(TestKind::XNeY)),
+        "X<Y?" => Some(Op::Test(TestKind::XLtY)),
+        "X>=Y?" | "X\u{2265}Y?" => Some(Op::Test(TestKind::XGeY)),
+        "X#0?" | "X\u{2260}0?" => Some(Op::Test(TestKind::XNeZero)),
+        "X<0?" => Some(Op::Test(TestKind::XLtZero)),
+        "X>0?" => Some(Op::Test(TestKind::XGtZero)),
+        "X<=0?" | "X\u{2264}0?" => Some(Op::Test(TestKind::XLeZero)),
+        "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -957,5 +1523,169 @@ mod program_tests {
         let mut state = state_with_program(program);
         crate::ops::program::run_program(&mut state, "A").unwrap();
         assert_eq!(state.stack.x, HpNum(Decimal::from_str("15").unwrap()));
+    }
+
+    #[test]
+    fn builtin_card_op_resolves_four_names() {
+        use crate::ops::program::builtin_card_op;
+        use crate::ops::Op;
+        assert_eq!(builtin_card_op("WPRGM"), Some(Op::Wprgm));
+        assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
+        assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
+        assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
+        assert_eq!(
+            builtin_card_op("wprgm"),
+            None,
+            "case-sensitive — HP-41 names are uppercase"
+        );
+        assert_eq!(builtin_card_op("UNKNOWN"), None);
+        assert_eq!(builtin_card_op(""), None);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 25 / Plan 03 — builtin_card_op 4 → 12 extension tests.
+//
+// These tests live INSIDE program.rs (next to the existing `program_tests`
+// module) so `builtin_card_op` is reachable via `super::*` without widening
+// its `pub(super)` visibility (W1 fix from the 2026-05-14 plan revision).
+// Coverage:
+//   - 8 mnemonic resolutions, each in BOTH ASCII and Unicode spellings.
+//   - 4 v2.1 card-reader names regression (independent of the original
+//     `builtin_card_op_resolves_four_names` test above).
+//   - Unknown-name returns None.
+//   - Case-sensitivity (lowercase rejected).
+//   - Programmatic XEQ symmetry: run_program with `Op::Xeq("X<>Y?")` resolves
+//     through builtin_card_op → Op::Test dispatch end-to-end without error.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod phase25_builtin_card_op_tests {
+    use super::builtin_card_op;
+    use crate::num::HpNum;
+    use crate::ops::{Op, TestKind};
+    use crate::state::CalcState;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    fn state_with_program(ops: Vec<Op>) -> CalcState {
+        CalcState {
+            program: ops,
+            ..Default::default()
+        }
+    }
+
+    /// 8 conditional-test mnemonics × 2 spellings (ASCII + Unicode) = 16
+    /// assertions. Every spelling listed in the mnemonic table (RESEARCH §
+    /// "Conditional tests") MUST resolve to the documented `TestKind` variant.
+    #[test]
+    fn resolves_8_conditional_test_mnemonics() {
+        // X ≠ Y — three accepted spellings.
+        assert_eq!(builtin_card_op("X<>Y?"), Some(Op::Test(TestKind::XNeY)));
+        assert_eq!(
+            builtin_card_op("X\u{2260}Y?"),
+            Some(Op::Test(TestKind::XNeY))
+        );
+        assert_eq!(builtin_card_op("X#Y?"), Some(Op::Test(TestKind::XNeY)));
+
+        // X < Y — single spelling.
+        assert_eq!(builtin_card_op("X<Y?"), Some(Op::Test(TestKind::XLtY)));
+
+        // X ≥ Y — two spellings.
+        assert_eq!(builtin_card_op("X>=Y?"), Some(Op::Test(TestKind::XGeY)));
+        assert_eq!(
+            builtin_card_op("X\u{2265}Y?"),
+            Some(Op::Test(TestKind::XGeY))
+        );
+
+        // X ≠ 0 — two spellings.
+        assert_eq!(builtin_card_op("X#0?"), Some(Op::Test(TestKind::XNeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2260}0?"),
+            Some(Op::Test(TestKind::XNeZero))
+        );
+
+        // X < 0 — single spelling.
+        assert_eq!(builtin_card_op("X<0?"), Some(Op::Test(TestKind::XLtZero)));
+
+        // X > 0 — single spelling.
+        assert_eq!(builtin_card_op("X>0?"), Some(Op::Test(TestKind::XGtZero)));
+
+        // X ≤ 0 — two spellings.
+        assert_eq!(builtin_card_op("X<=0?"), Some(Op::Test(TestKind::XLeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2264}0?"),
+            Some(Op::Test(TestKind::XLeZero))
+        );
+
+        // X ≥ 0 — two spellings.
+        assert_eq!(builtin_card_op("X>=0?"), Some(Op::Test(TestKind::XGeZero)));
+        assert_eq!(
+            builtin_card_op("X\u{2265}0?"),
+            Some(Op::Test(TestKind::XGeZero))
+        );
+    }
+
+    /// Independent regression: the four v2.1 card-reader names still resolve.
+    /// Mirrors `builtin_card_op_resolves_four_names` from the sibling
+    /// `program_tests` module but is bound to this new module so a Plan-04
+    /// (or later) refactor that splits the modules cannot orphan the check.
+    #[test]
+    fn preserves_4_card_reader_names() {
+        assert_eq!(builtin_card_op("WPRGM"), Some(Op::Wprgm));
+        assert_eq!(builtin_card_op("RDPRGM"), Some(Op::Rdprgm));
+        assert_eq!(builtin_card_op("WDTA"), Some(Op::Wdta));
+        assert_eq!(builtin_card_op("RDTA"), Some(Op::Rdta));
+    }
+
+    /// Unknown / empty names return None — Pitfall 9 (the caller surfaces
+    /// `HpError::InvalidOp`; no "did you mean…?" hint until Phase 26).
+    #[test]
+    fn unknown_name_returns_none() {
+        assert_eq!(builtin_card_op("foobar"), None);
+        assert_eq!(builtin_card_op(""), None);
+        assert_eq!(builtin_card_op("FOOBAR"), None);
+        // Spelling-typo guards — these are NOT in the 12-name table.
+        assert_eq!(builtin_card_op("X=Y?"), None, "X=Y? is keyboard-only (W4)");
+        assert_eq!(builtin_card_op("X<>Y"), None, "missing trailing '?'");
+        assert_eq!(builtin_card_op(" X<>Y? "), None, "whitespace not stripped");
+    }
+
+    /// HP-41 ROM names are uppercase — case-sensitive match enforced.
+    #[test]
+    fn case_sensitive_lowercase_rejected() {
+        assert_eq!(builtin_card_op("wprgm"), None);
+        assert_eq!(builtin_card_op("x<>y?"), None);
+        assert_eq!(builtin_card_op("X<>y?"), None, "mixed case rejected");
+    }
+
+    /// Programmatic XEQ symmetry (one of the success criteria from <objective>):
+    /// `Op::Xeq("X<>Y?")` inside a running program resolves through
+    /// `builtin_card_op` → `dispatch(state, Op::Test(TestKind::XNeY))` without
+    /// error. The XNeY test for 5 ≠ 7 is TRUE → no skip in `run_loop`;
+    /// `run_program` returns Ok(()).
+    #[test]
+    fn programmatic_xeq_dispatches_x_ne_y() {
+        let program = vec![
+            Op::Lbl("TEST".to_string()),
+            Op::Xeq("X<>Y?".to_string()),
+            Op::Rtn,
+        ];
+        let mut state = state_with_program(program);
+        state.stack.y = HpNum(Decimal::from_str("5").unwrap());
+        state.stack.x = HpNum(Decimal::from_str("7").unwrap());
+
+        let result = super::run_program(&mut state, "TEST");
+        assert!(
+            result.is_ok(),
+            "Op::Xeq(\"X<>Y?\") inside a program must resolve via builtin_card_op → Op::Test dispatch without error; got {result:?}"
+        );
+        // is_running is reset on the success path (D-06).
+        assert!(!state.is_running);
+        // Stack is read-only for Op::Test (LiftEffect::Neutral) — values
+        // preserved.
+        assert_eq!(state.stack.x, HpNum(Decimal::from_str("7").unwrap()));
+        assert_eq!(state.stack.y, HpNum(Decimal::from_str("5").unwrap()));
     }
 }

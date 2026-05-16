@@ -1,10 +1,35 @@
 # HP-41 Calculator Emulator
 
-## Current State: v2.0 Tauri GUI Shipped
+## Current Milestone: v2.2 HP-41CV Feature Completeness
 
-**Shipped:** 2026-05-10 — Pixel-perfect HP-41C desktop app using Tauri v2 + React + TypeScript, reusing `hp41-core` unchanged alongside the existing CLI. Both `hp41-cli` (TUI) and `hp41-gui` (desktop app) ship from the same Cargo workspace.
+**Status:** planning (started 2026-05-13)
 
-**Next milestone:** v2.1 Polish (14-segment LCD font, keyboard shortcut overlay, USER mode keyboard display)
+**Goal:** Schliesse die Lücke zum vollständigen HP-41CV ROM-Built-in-Funktionsumfang (≈ 130 named ops), integriere alle neuen Funktionen in CLI und GUI, vervollständige die Dokumentation und führe die Test-Coverage zurück auf das v1.0-Niveau.
+
+**Target feature areas:**
+- Core math / conversions: `PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, stack `R↑`
+- Flags & display: 56 User-Flags + System-Flags, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW`, `AVIEW`, `PROMPT`, `AON/AOFF`, `CLD`
+- Program control: `STOP`, `PSE`, `CLP`, `DEL`, `INS`, `GTO/XEQ IND`, `BEEP`, `TONE`
+- ALPHA & indirect addressing: `ARCL`, `ASTO`, `ATOX`, `XTOA`, `AROT`, `POSA`, plus `*_IND`-Varianten von STO/RCL/ISG/DSE/SF/CF/FS?/FC?
+- CLI integration: Modale für Prompt-IDs, restliche bedingte Tests am Skin, `?`-Hilfe-Update
+- Documentation: HP-41CV ROM vs. Emulator Function Matrix
+- GUI integration: alle neuen Key-IDs in `key_map.rs` + `KEY_DEFS`, Modal-Routing für ehemals stub-error-Prompts
+- GUI Polish (aus original v2.1 übernommen): 14-Segment LCD-Font, `?`-Tastatur-Overlay, USER-Mode-Keyboard-Display
+- Test hardening: `hp41-core` Coverage ≥ 95 %, erweitertes 500-Case-Accuracy-Suite, GUI-E2E via Playwright
+
+**Scope boundary (locked 2026-05-13):** v2.x ist strikt auf den ROM-Built-in-Satz der HP-41CV beschränkt. Module-Emulation (Math 1 / Stat 1 / Time / Advantage Pacs, FR-21) ist Scope von v3.x — keine Module-Funktionen in v2.x-Phasen.
+
+**Build sequence:** core → cli → docs → gui → tests (jede `Op`-Variante muss in `hp41-core` landen, bevor sie in `hp41-cli` und `hp41-gui` gewired werden kann; Documentation läuft synchron mit der CLI-Integration).
+
+---
+
+## Project History
+
+**Shipped milestones:**
+- v1.0 CLI (2026-05-08) — Phases 1–8, foundational RPN engine + TUI
+- v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12, EEX/STO-Arith/Print/Synthetic
+- v2.0 Tauri GUI (2026-05-10) — Phases 13–18, pixel-perfect HP-41C desktop app
+- v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks (no Phase 19 GSD directory); 50 commits since `v2.0` tag
 
 ## What This Is
 
@@ -67,17 +92,72 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - ✓ PERS-01/02: Shared `~/.hp41/autosave.json`; 30s auto-save; scrollable print panel — v2.0 Phase 17
 - ✓ PROG-01: PRGM-mode program listing with SST/BST navigation; cross-platform GUI CI — v2.0 Phase 18
 
-### Active (v2.1)
+### Validated (v2.1)
 
+- ✓ CARD-01: HP 82104A Card Reader behavioral emulation — `Op::Wdta` / `Op::Rdta` / `Op::Wprgm` / `Op::Rdprgm` + `CardOpRequest` drain — v2.1 (PR #9)
+- ✓ CARD-02: XEQ-by-name fallback resolves to `builtin_card_op` — works in `op_xeq`, `run_program`, `run_loop` — v2.1 (PR #9)
+- ✓ CARD-03: `cards` modules mirrored in hp41-cli and hp41-gui/src-tauri (dir resolution, sanitize, drain); CLI comfort shortcuts `Ctrl+W/R/D/F`; SHA-256 round-trip tests — v2.1 (PR #9)
+- ✓ SKIN-06: Authentic 5×8 keyboard layout in `hp41-gui/src/Keyboard.tsx` — 4 top-row mode buttons + 35-key main grid, ENTER 2-wide, three-label `KeyDef` (primary / shifted / alphaChar) — v2.1 (PR #10)
+- ✓ INPUT-02: One-shot SHIFT prefix — frontend-only `shiftActive` state, never crosses IPC; consumes itself after dispatch; ALPHA overrides SHIFT (D-divergence) — v2.1 (PR #10)
+- ✓ INPUT-03: `run_stop` Tauri command (symmetric with sst_step/bst_step); R/S key click-reachable for the first time — v2.1 (PR #10)
+- ✓ UX-04: Stub-error pattern (D-5) — `pi`, `polar_to_rect`, `rect_to_polar`, `beep`, `asn`, `catalog`, `view`, `xeq_prompt`, `gto_prompt`, `lbl_prompt` return `GuiError` surfaced as 2 s toast; never silently discarded — v2.1 (PR #10)
+
+### Active (v2.2 — HP-41CV Feature Completeness, ROM built-ins only)
+
+**Core math / conversions (Phase 20):**
+- [ ] FN-MATH-01: `PI` (constant push), `P→R`, `R→P` (polar/rect conversion respecting angle mode)
+- [ ] FN-MATH-02: `RND` (round X to current display setting), `FRC` (fractional part — complement of `INT`)
+- [ ] FN-MATH-03: `MOD` (Y mod X), `ABS`, `FACT` (factorial 0–69), `SIGN` (sign function)
+- [ ] FN-STACK-01: `R↑` (roll up — mirror of `Rdn`)
+
+**Core flags & display (Phase 21):**
+- [ ] FN-FLAG-01: 56 user flags + system flags 00–55 — `flags: u64` on `CalcState`
+- [ ] FN-FLAG-02: `SF n`, `CF n`, `FS? n`, `FC? n`, `FS?C n`, `FC?C n`
+- [ ] FN-DISP-01: `VIEW nn` (display register N until next key), `AVIEW` (display ALPHA until next key)
+- [ ] FN-DISP-02: `PROMPT` (display ALPHA, suspend running program until R/S), `AON` / `AOFF` (auto-on/off in ALPHA), `CLD` (clear display)
+
+**Core program control (Phase 22):**
+- [ ] FN-PROG-01: `STOP` (R/S in program — pause execution), `PSE` (pause ≈1 s mid-program)
+- [ ] FN-PROG-02: `CLP` (clear program by global label), `DEL nnn` (delete N steps), `INS` (insert blank step)
+- [ ] FN-PROG-03: `GTO IND nn`, `XEQ IND nn` (indirect branch / subroutine call)
+- [ ] FN-SOUND-01: `BEEP` (default beep), `TONE n` (0–9 indexed tone)
+
+**Core ALPHA & indirection (Phase 23):**
+- [ ] FN-ALPHA-01: `ARCL nn` (append register-N to ALPHA), `ASTO nn` (store first 6 ALPHA chars to register)
+- [ ] FN-ALPHA-02: `ATOX` (first ALPHA char → ASCII in X), `XTOA` (X as ASCII → append to ALPHA)
+- [ ] FN-ALPHA-03: `AROT n` (rotate ALPHA by N chars), `POSA` (substring search position)
+- [ ] FN-IND-01: `STO IND`, `RCL IND`, `ISG IND`, `DSE IND`, `SF IND`, `CF IND`, `FS? IND`, `FC? IND`, `STO+/-/×/÷ IND`
+
+**CLI integration (Phase 24):**
+- [ ] FN-CLI-01: Keyboard modals for the new modal-prompt IDs (`sf_prompt`, `fs_prompt`, `cf_prompt`, etc.)
+- [ ] FN-CLI-02: Remaining conditional tests at the keyboard (`X=Y`, `X≠Y`, `X<Y`, `X>Y`, `X≤Y`, `X=0`, `X≠0`, `X<0`, `X>0`, `X≤0`, `X≥0`)
+- [ ] FN-CLI-03: `?` help overlay updated with all v2.2 ops
+
+**Documentation (Phase 25):**
+- [ ] FN-DOC-01: Function-matrix HP-41CV ROM vs. emulator coverage table (≥ 130 entries) in `docs/`
+- [ ] FN-DOC-02: PROJECT.md / CLAUDE.md / README.md synchronized via `/gsd-docs-update`
+
+**GUI integration (Phase 26):**
+- [ ] FN-GUI-01: All new key IDs registered in `key_map.rs` and `KEY_DEFS` with correct three-label shift/alpha bindings
+- [ ] FN-GUI-02: Modal routing for previously-stubbed prompt IDs — replace `unknown key` toast with actual modal flows
+- [ ] FN-GUI-03: Stub-error arm shrinks to *only* truly v3.x items (module-pac functions)
+
+**GUI Polish (Phase 27 — carried over from original v2.1 scope):**
 - [ ] SKIN-04: 14-segment SVG font for authentic LCD rendering
-- [ ] SKIN-05: Keyboard shortcut overlay (port `?` help panel from CLI)
+- [ ] SKIN-05: Keyboard shortcut overlay (port `?` help panel from CLI `help_data.rs`)
 - [ ] PROG-02: Full keyboard assignment display in USER mode
+- [ ] PROG-03: `prgm_mode` binding for 'p' key (currently mapped to `prx`)
+
+**Test hardening (Phase 28):**
+- [ ] QUAL-07: `hp41-core` coverage back to ≥ 95 % (recover from 92.5 % slip in v1.1/v2.1)
+- [ ] QUAL-08: 500-case numerical accuracy suite extended with new ops; ≥ 98 % gate maintained
+- [ ] QUAL-09: GUI E2E smoke test via Playwright in `ci-gui.yml`
 
 ### Out of Scope
 
 - v2.0 GUI advanced features (module emulation, skin themes) — deferred until core GUI is stable
-- FR-18 Multiple skin themes — GUI-only, v2.0
-- FR-21 Module emulation (Math/Stat/Time/Advantage) — could-have, v1.2+
+- FR-18 Multiple skin themes — GUI-only, post-v2.x
+- **FR-21 Module emulation (Math 1 / Stat 1 / Time / Advantage Pacs) — entire scope of v3.x (locked 2026-05-13)**
 - FR-22 `.raw` HP-41 program file import/export — could-have, v1.2+
 - FR-23 Mobile (iOS/Android) — defer until desktop stable
 - Cycle-accurate Nut CPU simulation — high effort, low user value vs. behavioral emulation

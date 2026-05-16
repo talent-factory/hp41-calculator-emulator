@@ -13,15 +13,43 @@ use ratatui::widgets::TableState;
 use ratatui::DefaultTerminal;
 
 use hp41_core::ops::{synthetic_byte_to_op, Op, StackReg, StoArithKind};
-use hp41_core::{AngleMode, CalcState, DisplayMode};
+use hp41_core::{AngleMode, CalcState};
 
+use crate::keys::{FlagPromptKind, RegisterOpKind};
 use crate::{keys, persistence, ui};
+
+/// Result of the shared IND-toggle detection (D-25.12 / RESEARCH Pitfall 10)
+/// for FlagPrompt / RegisterPrompt arms. See `App::check_ind_toggle`.
+enum IndToggleAction {
+    /// `f` pressed inside a modal with `shift_armed == false` — arm the
+    /// shift bit (already done by the helper) and re-store the modal
+    /// unchanged. The next-key cycle is the actual toggle.
+    ArmShift,
+    /// `0` pressed with `shift_armed == true` — flip the modal's `ind`
+    /// field. The helper already cleared `shift_armed` to false.
+    ToggleInd,
+    /// Standard key — fall through to digit / Esc / Backspace handling.
+    Continue,
+}
 
 /// Transient UI state for multi-key input (D-08). NOT serialized to disk.
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
+//
+// Plan 02 grew this enum from 12 to 18 variants by adding the 6 Hybrid
+// variants (FlagPrompt, RegisterPrompt, ClpLabel, DelCount, TonePrompt,
+// XeqByName) per D-25.11. Task 1 landed the variants + exhaustive
+// `pending_prompt()`; Task 2 wired the modal openers and dispatch.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
+    /// Legacy v1.1 STO-register modal. Plan 02 routes `S` to
+    /// `RegisterPrompt { Sto }` instead, so this variant is no longer
+    /// constructed by the live keyboard handler — preserved for the
+    /// already-shipped Plan 04 deprecation path and for tests that still
+    /// exercise the v1.1 dispatch arm.
+    #[allow(dead_code)]
     StoRegister(String), // accumulating 2-digit register number for STO [nn]
+    /// Legacy v1.1 RCL-register modal. See `StoRegister` note above.
+    #[allow(dead_code)]
     RclRegister(String), // accumulating 2-digit register number for RCL [nn]
     // STO arithmetic step-3 variants (active in v1.1 modal flow — S → op-key → register).
     StoAdd(String),                    // STO+ [nn or stack-reg]
@@ -38,6 +66,51 @@ pub enum PendingInput {
     /// against synthetic_byte_to_op() and either inserts Op::SyntheticByte at
     /// state.pc or sets app.message = "INVALID" (D-13).
     HexModal(String),
+    // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────────
+    /// SF/CF/FS?/FC?/FS?C/FC?C × {direct, IND} — 12 logical flag ops collapsed
+    /// into one group variant per D-25.11. The `kind` discriminator reuses
+    /// `hp41_core::ops::FlagTestKind` via `FlagPromptKind::Test(_)` per D-25.13.
+    /// `acc` is a 2-digit numeric accumulator. `ind` is toggled via the
+    /// hardware-faithful shift-0 keystroke (RESEARCH Pitfall 10 / D-25.12),
+    /// reusing `App.shift_armed` from Plan 01 — no separate `shift_pending`
+    /// field (W2 fix). End-of-accumulation dispatch picks `Op::SfFlag(n)` vs
+    /// `Op::SfFlagInd(n)` (and similarly for CF / FlagTest) at a single
+    /// decision point per D-25.12.
+    FlagPrompt {
+        kind: FlagPromptKind,
+        ind: bool,
+        acc: String,
+    },
+    /// STO/RCL/STO+-×÷/VIEW/ARCL/ASTO/ISG/DSE × {direct, IND} — 22 logical
+    /// register ops collapsed into one group variant per D-25.11. The `op`
+    /// discriminator reuses `hp41_core::ops::StoArithKind` via
+    /// `RegisterOpKind::StoArith(_)` per D-25.13. Same 2-digit + shift-0
+    /// IND-toggle scaffold as `FlagPrompt`.
+    RegisterPrompt {
+        op: RegisterOpKind,
+        ind: bool,
+        acc: String,
+    },
+    /// CLP "name" — text-input modal for clearing a labelled program block.
+    /// Accumulator capped at 7 chars (HP-41 LBL hardware limit per RESEARCH
+    /// §Security V5). Enter dispatches `Op::Clp(acc)`; Esc cancels; Backspace
+    /// pops the last char.
+    ClpLabel(String),
+    /// DEL nnn — 3-digit numeric accumulator for the program-step delete op.
+    /// Final parse uses `.parse::<u8>().unwrap_or(u8::MAX)` so user input
+    /// `999` silently clamps to 255 (T-25-06 mitigation).
+    DelCount(String),
+    /// TONE n — single-digit accumulator (0–9). First digit auto-dispatches
+    /// `Op::Tone(n)`; non-digit cancels. Even simpler than the 2-digit
+    /// scaffold.
+    TonePrompt,
+    /// XEQ "NAME" — text-input modal scaffold for the XEQ-by-Name flow.
+    /// Plan 02 ships the scaffold; Plan 03 wires the resolver (`Op::Xeq`
+    /// already falls back to `builtin_card_op` for the 4 card-reader names —
+    /// the 8 conditional-test mnemonics land via Plan 03's
+    /// `builtin_card_op` extension). Accumulator capped at 24 chars
+    /// (HP-41 ALPHA register width per RESEARCH §Security V5).
+    XeqByName(String),
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -52,6 +125,14 @@ pub struct App {
     pub state_path: PathBuf,
     // ── Phase 5: modal input (D-08) ──────────────────────────────────────────
     pub pending_input: Option<PendingInput>,
+    // ── Phase 25: one-shot HP-41CV f-prefix arm state (D-25.1 / D-25.4) ──────
+    /// True for exactly one key-press cycle after `f` is pressed; consumed
+    /// by the next op key (which is then resolved via `keys::shifted_key_to_op`)
+    /// OR cleared by Esc. Cleared UNCONDITIONALLY at the end of the consumed
+    /// branch — see Pitfall 5 in RESEARCH.md. Frontend-only, never persisted
+    /// in `CalcState`, never crosses IPC — mirrors hp41-gui v2.1's `shiftActive`
+    /// per D-25.6 (CLI ↔ GUI parity invariant).
+    pub shift_armed: bool,
     // ── Phase 5: overlays (D-16, D-22) ───────────────────────────────────────
     pub show_help: bool,
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
@@ -61,6 +142,16 @@ pub struct App {
     pub programs_table_state: RefCell<TableState>,
     /// BufWriter for --print-log, if specified. None = no file logging.
     pub print_log_writer: Option<std::io::BufWriter<std::fs::File>>,
+    /// `~/.hp41/cards/`. `None` when `dirs::home_dir()` is unavailable (rare;
+    /// CI / containers with no $HOME) — in that case `drain_pending_card_op`
+    /// surfaces a "cannot resolve" diagnostic to `self.message` and clears
+    /// `pending_card_op` so the modal does not get stuck. We deliberately
+    /// do NOT fall back to a relative `.hp41/cards` path: a relative path
+    /// would scatter cards across whatever directory the user happened to
+    /// launch the binary from, and would NOT be readable by the GUI that
+    /// expects `~/.hp41/cards/` — breaking the documented "shared dir"
+    /// invariant in CLAUDE.md.
+    cards_dir: Option<std::path::PathBuf>,
 }
 
 impl App {
@@ -69,7 +160,7 @@ impl App {
         state_path: PathBuf,
         print_log: Option<std::path::PathBuf>,
     ) -> Self {
-        let (print_log_writer, initial_message) = match print_log {
+        let (print_log_writer, mut initial_message) = match print_log {
             None => (None, None),
             Some(path) => {
                 match std::fs::OpenOptions::new()
@@ -94,6 +185,19 @@ impl App {
                 }
             }
         };
+        let cards_dir = crate::cards::cards_dir();
+        if cards_dir.is_none() {
+            // Non-fatal: card ops will report the same diagnostic when invoked,
+            // but a startup warning saves the user a confused round-trip.
+            // Combine with any pre-existing warning (e.g. failed --print-log
+            // open) instead of suppressing either — both are independently
+            // actionable and `initial_message` has only one slot.
+            let card_warn = "Warning: cannot resolve ~/.hp41/cards (no $HOME) — card ops disabled";
+            initial_message = Some(match initial_message {
+                Some(existing) => format!("{existing}; {card_warn}"),
+                None => card_warn.to_string(),
+            });
+        }
         App {
             state,
             message: initial_message,
@@ -101,11 +205,13 @@ impl App {
             last_save: Instant::now(),
             state_path,
             pending_input: None,
+            shift_armed: false,
             show_help: false,
             help_table_state: RefCell::new(TableState::default()),
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
             print_log_writer,
+            cards_dir,
         }
     }
 
@@ -153,7 +259,11 @@ impl App {
     }
 
     /// Handle a single key event. All mutation of CalcState happens here (not in draw).
-    fn handle_key(&mut self, key: KeyEvent) {
+    ///
+    /// `pub` (Phase 25) so integration tests under `tests/` can drive the full
+    /// f-prefix state machine end-to-end without resorting to `#[cfg(test)]`
+    /// in-crate hacks. The CLI binary calls it from the `run()` event loop.
+    pub fn handle_key(&mut self, key: KeyEvent) {
         // D-06: filter Release immediately — Windows crossterm fires both Press and Release.
         // This MUST be the first check — no other logic before it.
         if key.kind != KeyEventKind::Press {
@@ -184,8 +294,21 @@ impl App {
             return;
         }
 
-        // D-16: '?' toggles the help overlay
-        if key.code == KeyCode::Char('?') {
+        // D-16: '?' toggles the help overlay.
+        //
+        // Phase 25 / Plan 03 (Rule 1 — fixes blocker for FN-TEST-01): when a
+        // text-input modal (`XeqByName` or `ClpLabel`) is active, the user
+        // needs to type `?` as the trailing character of HP-41CV mnemonics
+        // like `X<>Y?`. Let the `?` flow through to the modal handler in
+        // that case. For non-text-input modals (Sto/Rcl reg modals, Flag
+        // prompts, etc.) `?` retains its help-toggle behavior because those
+        // modals reject non-digit characters anyway.
+        if key.code == KeyCode::Char('?')
+            && !matches!(
+                self.pending_input,
+                Some(PendingInput::XeqByName(_)) | Some(PendingInput::ClpLabel(_))
+            )
+        {
             self.show_help = !self.show_help;
             self.show_programs = false; // close programs overlay if open
             return;
@@ -207,14 +330,27 @@ impl App {
         }
 
         // Only open new modals when no modal is currently active (D-08, Pitfall 5).
-        // S key triggers StoRegister modal; R key triggers RclRegister modal.
+        // Plan 02 (D-25.11): S/R open the new `RegisterPrompt` hybrid variants
+        // (op=Sto/Rcl, ind:false). The new arm preserves the legacy v1.1
+        // STO-arithmetic chain (`S → +/-/×/÷ → register`) by intercepting the
+        // arithmetic keys when `op == Sto/Rcl && acc.is_empty()`, falling
+        // back to the existing `PendingInput::StoAdd/Sub/Mul/Div` modals.
+        // M/N/O hidden-register dispatch is preserved the same way.
         if key.code == KeyCode::Char('S') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.pending_input = Some(PendingInput::StoRegister(String::new()));
+            self.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Sto,
+                ind: false,
+                acc: String::new(),
+            });
             self.message = None;
             return;
         }
         if key.code == KeyCode::Char('R') && !key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.pending_input = Some(PendingInput::RclRegister(String::new()));
+            self.pending_input = Some(PendingInput::RegisterPrompt {
+                op: RegisterOpKind::Rcl,
+                ind: false,
+                acc: String::new(),
+            });
             self.message = None;
             return;
         }
@@ -251,10 +387,66 @@ impl App {
             return;
         }
 
+        // Card Reader comfort shortcuts — Ctrl+W/R/D/F dispatch the four card ops
+        // directly without typing ALPHA + XEQ. Hardware-faithful path still works in parallel.
+        if key.code == KeyCode::Char('w') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Wprgm);
+            return;
+        }
+        if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Rdprgm);
+            return;
+        }
+        if key.code == KeyCode::Char('d') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Wdta);
+            return;
+        }
+        if key.code == KeyCode::Char('f') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.call_dispatch_and_drain(Op::Rdta);
+            return;
+        }
+
         // Phase 5: ALPHA mode routing (D-12) — must be BEFORE digit-entry block (RESEARCH Pitfall 5).
         // In ALPHA mode, 'a' must append 'a', not dispatch Asin.
         if self.state.alpha_mode {
             self.handle_alpha_mode_key(key);
+            return;
+        }
+
+        // ── Phase 25: HP-41CV one-shot f-prefix state machine (D-25.1 / D-25.4) ──
+        // Ordering rules (non-negotiable):
+        //   • AFTER the pending_input route — an active modal MUST swallow `f`
+        //     (Pitfall 4 — INTENDED). The route at line ~228 already returned.
+        //   • AFTER the ALPHA-mode block — `f` in ALPHA mode types the letter F
+        //     (D-25.5 / Pitfall 2). The block above already returned.
+        //   • BEFORE the v1.x `f` FmtDigits cycle which is REMOVED in this commit
+        //     (D-25.3 / Pitfall 3) — no other `f` handler may stand between this
+        //     point and the end of handle_key.
+        //
+        // Arm on plain `f` (no Ctrl modifier; Ctrl+F is RDTA, handled above):
+        if !self.shift_armed
+            && key.code == KeyCode::Char('f')
+            && !key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            self.shift_armed = true;
+            self.message = None;
+            return;
+        }
+        // Consume on the next key cycle (one-shot lifetime, D-25.4):
+        if self.shift_armed {
+            // Esc cancels without dispatching.
+            if key.code == KeyCode::Esc {
+                self.shift_armed = false;
+                return;
+            }
+            // Try the shifted resolver; on miss the prefix is consumed silently.
+            if let Some(op) = keys::shifted_key_to_op(key, self) {
+                self.call_dispatch(op);
+            }
+            // ALWAYS clear after consumption — Pitfall 5: the one-shot lifetime
+            // is "next key cycle", NOT "next CONSUMED key". Bleed across handle_key
+            // invocations is what `test_shift_armed_pitfall5_bleed` guards against.
+            self.shift_armed = false;
             return;
         }
 
@@ -279,8 +471,12 @@ impl App {
                 if let Some(label) = self.state.key_assignments.get(&c).cloned() {
                     match hp41_core::run_program(&mut self.state, &label) {
                         Ok(()) => {
+                            // Clear stale message, drain card op (capturing any error
+                            // so the print drain cannot overwrite it), then drain
+                            // print output with the card error threaded in.
                             self.message = None;
-                            self.drain_and_show_print_output();
+                            let card_err = self.drain_pending_card_op();
+                            self.drain_and_show_print_output(card_err);
                         }
                         Err(e) => self.message = Some(format!("{e}")),
                     }
@@ -416,16 +612,12 @@ impl App {
             return;
         }
 
-        // D-10: 'f' cycles display format FIX 4 → SCI 4 → ENG 4 (digit count stays 4)
-        if key.code == KeyCode::Char('f') {
-            let next_op = match self.state.display_mode {
-                DisplayMode::Fix(_) => Op::FmtSci(4),
-                DisplayMode::Sci(_) => Op::FmtEng(4),
-                DisplayMode::Eng(_) => Op::FmtFix(4),
-            };
-            self.call_dispatch(next_op);
-            return;
-        }
+        // Phase 25 (D-25.3 / Pitfall 3): the v1.x `f` direct-cycle binding
+        // (FIX/SCI/ENG cycle) was REMOVED here. The HP-41CV `f` key is now the
+        // ONE yellow prefix shift (D-25.2), armed above. The FIX/SCI/ENG modal
+        // remains reachable via `F` (uppercase) which opens `PendingInput::FmtDigits`;
+        // Plan 02 / Plan 04 reposition that modal to its real HP-41CV f-shifted
+        // keyboard position once the JSON-derived key table lands (D-25.18).
 
         // D-15: SST (single-step forward) — F7, increments pc without executing
         if key.code == KeyCode::F(7) {
@@ -447,7 +639,8 @@ impl App {
             match hp41_core::run_program(&mut self.state, "A") {
                 Ok(()) => {
                     self.message = None;
-                    self.drain_and_show_print_output();
+                    let card_err = self.drain_pending_card_op();
+                    self.drain_and_show_print_output(card_err);
                 }
                 Err(e) => self.message = Some(format!("{e}")),
             }
@@ -855,7 +1048,401 @@ impl App {
                     }
                 }
             }
+            // ── Phase 25 Plan 02 — Hybrid PendingInput arms ──────────────
+            // Task 1 lands the variants and the exhaustive pending_prompt()
+            // arm. Task 2 wires the real accumulator + IND-toggle + dispatch
+            // logic. To keep this compiling between commits, the 6 stubs
+            // below close the modal on any key — Task 2 replaces them
+            // wholesale with the correct scaffold.
+            Some(PendingInput::FlagPrompt { kind, ind, acc }) => {
+                self.handle_flag_prompt(key, kind, ind, acc);
+            }
+            Some(PendingInput::RegisterPrompt { op, ind, acc }) => {
+                self.handle_register_prompt(key, op, ind, acc);
+            }
+            Some(PendingInput::ClpLabel(acc)) => {
+                self.handle_clp_label(key, acc);
+            }
+            Some(PendingInput::DelCount(acc)) => {
+                self.handle_del_count(key, acc);
+            }
+            Some(PendingInput::TonePrompt) => {
+                self.handle_tone_prompt(key);
+            }
+            Some(PendingInput::XeqByName(acc)) => {
+                self.handle_xeq_by_name(key, acc);
+            }
             None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
+        }
+    }
+
+    // ── Phase 25 Plan 02 — Hybrid PendingInput arm bodies (D-25.11/12) ───
+    //
+    // Each handler implements one of the 6 new PendingInput variants:
+    //   • FlagPrompt / RegisterPrompt: 2-digit numeric accumulator with the
+    //     hardware-faithful shift-0 IND-toggle per D-25.12 + Pitfall 10.
+    //     The IND-toggle REUSES App.shift_armed (W2 fix — no parallel
+    //     `shift_pending` field). Final dispatch picks Op::*Ind(n) vs
+    //     Op::*(n) at a single decision point per D-25.12.
+    //   • ClpLabel: text-input modal, cap at 7 chars (HP-41 LBL hardware
+    //     limit, T-25-05 mitigation), Enter → Op::Clp.
+    //   • DelCount: 3-digit accumulator, silent-clamp to u8::MAX
+    //     (T-25-06 mitigation), Enter or 3rd digit → Op::Del.
+    //   • TonePrompt: single-digit (0–9) auto-dispatch → Op::Tone.
+    //   • XeqByName: text-input modal, cap at 24 chars (T-25-05 mitigation),
+    //     Enter → Op::Xeq(acc). Plan 03 extends the resolver chain to handle
+    //     the 8 conditional-test mnemonics via builtin_card_op 4→12.
+
+    /// Shared IND-toggle detection for FlagPrompt / RegisterPrompt.
+    ///
+    /// Returns:
+    ///   • `IndToggleAction::ArmShift` when the key is plain `f` (no Ctrl)
+    ///     AND `self.shift_armed` is currently false → caller stores the
+    ///     pending state unchanged and the caller MUST set `self.shift_armed
+    ///     = true` (we do it inline to centralise the rule).
+    ///   • `IndToggleAction::ToggleInd` when `self.shift_armed` is true AND
+    ///     the key is `0` → caller flips `ind` and the helper clears
+    ///     `self.shift_armed`.
+    ///   • `IndToggleAction::Continue` otherwise; caller falls through to
+    ///     the standard accumulator/Esc/Backspace logic.
+    ///
+    /// This is the SINGLE place that mutates `self.shift_armed` from inside
+    /// a modal — same one-shot bit Plan 01 introduced, no parallel field.
+    fn check_ind_toggle(&mut self, key: KeyEvent) -> IndToggleAction {
+        if !self.shift_armed
+            && key.code == KeyCode::Char('f')
+            && !key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            self.shift_armed = true;
+            return IndToggleAction::ArmShift;
+        }
+        if self.shift_armed && key.code == KeyCode::Char('0') {
+            self.shift_armed = false;
+            return IndToggleAction::ToggleInd;
+        }
+        IndToggleAction::Continue
+    }
+
+    fn handle_flag_prompt(&mut self, key: KeyEvent, kind: FlagPromptKind, ind: bool, acc: String) {
+        match self.check_ind_toggle(key) {
+            IndToggleAction::ArmShift => {
+                // Re-store the modal unchanged; the next-key cycle is the toggle.
+                self.pending_input = Some(PendingInput::FlagPrompt { kind, ind, acc });
+                return;
+            }
+            IndToggleAction::ToggleInd => {
+                self.pending_input = Some(PendingInput::FlagPrompt {
+                    kind,
+                    ind: !ind,
+                    acc,
+                });
+                return;
+            }
+            IndToggleAction::Continue => {}
+        }
+
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 2 {
+                    // "two ASCII digits always parse as u8 ≤ 99" — same invariant
+                    // as the legacy handle_reg_modal helper.
+                    let n: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    let op = match (kind, ind) {
+                        (FlagPromptKind::SetFlag, false) => Op::SfFlag(n),
+                        (FlagPromptKind::SetFlag, true) => Op::SfFlagInd(n),
+                        (FlagPromptKind::ClearFlag, false) => Op::CfFlag(n),
+                        (FlagPromptKind::ClearFlag, true) => Op::CfFlagInd(n),
+                        (FlagPromptKind::Test(k), false) => Op::FlagTest { kind: k, flag: n },
+                        (FlagPromptKind::Test(k), true) => Op::FlagTestInd {
+                            kind: k,
+                            ind_reg: n,
+                        },
+                    };
+                    self.call_dispatch(op);
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::FlagPrompt {
+                        kind,
+                        ind,
+                        acc: new_acc,
+                    });
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::FlagPrompt {
+                    kind,
+                    ind,
+                    acc: String::new(),
+                });
+            }
+            KeyCode::Esc => {
+                // T-25-07 mitigation: also clear shift_armed on Esc so a
+                // half-armed prefix does not leak past the cancelled modal.
+                self.shift_armed = false;
+                self.pending_input = None;
+            }
+            _ => {
+                // Silently restore the modal for unrecognised keys.
+                self.pending_input = Some(PendingInput::FlagPrompt { kind, ind, acc });
+            }
+        }
+    }
+
+    fn handle_register_prompt(
+        &mut self,
+        key: KeyEvent,
+        op: RegisterOpKind,
+        ind: bool,
+        acc: String,
+    ) {
+        match self.check_ind_toggle(key) {
+            IndToggleAction::ArmShift => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind, acc });
+                return;
+            }
+            IndToggleAction::ToggleInd => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind: !ind, acc });
+                return;
+            }
+            IndToggleAction::Continue => {}
+        }
+
+        // v1.1 STO-arithmetic chain and M/N/O dispatch — preserved per Plan 02
+        // must_have truth #8 ("STO-arith stays on legacy S→op→reg chain"). Only
+        // fires for direct STO/RCL with an empty accumulator; once digits have
+        // landed or IND is armed, the user is in the numeric phase and the
+        // chain shortcuts do not apply.
+        if matches!(op, RegisterOpKind::Sto | RegisterOpKind::Rcl) && !ind && acc.is_empty() {
+            match key.code {
+                // STO+/-/×/÷ chain transition (only valid in op == Sto case).
+                KeyCode::Char('+') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoAdd(String::new()));
+                    return;
+                }
+                KeyCode::Char('-') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoSub(String::new()));
+                    return;
+                }
+                KeyCode::Char('*') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoMul(String::new()));
+                    return;
+                }
+                KeyCode::Char('/') if matches!(op, RegisterOpKind::Sto) => {
+                    self.pending_input = Some(PendingInput::StoDiv(String::new()));
+                    return;
+                }
+                // M/N/O hidden registers — dispatch immediately (Phase 12 D-08).
+                KeyCode::Char('M') | KeyCode::Char('m') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoM,
+                        RegisterOpKind::Rcl => Op::RclM,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                KeyCode::Char('N') | KeyCode::Char('n') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoN,
+                        RegisterOpKind::Rcl => Op::RclN,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                KeyCode::Char('O') | KeyCode::Char('o') => {
+                    let mno_op = match op {
+                        RegisterOpKind::Sto => Op::StoO,
+                        RegisterOpKind::Rcl => Op::RclO,
+                        _ => unreachable!("guarded by Sto|Rcl match above"),
+                    };
+                    self.call_dispatch(mno_op);
+                    self.pending_input = None;
+                    return;
+                }
+                _ => {}
+            }
+        }
+
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 2 {
+                    let n: u8 = new_acc
+                        .parse()
+                        .expect("two ASCII digit chars always parse as u8 ≤ 99");
+                    let final_op = match (op, ind) {
+                        (RegisterOpKind::Sto, false) => Op::StoReg(n),
+                        (RegisterOpKind::Sto, true) => Op::StoInd(n),
+                        (RegisterOpKind::Rcl, false) => Op::RclReg(n),
+                        (RegisterOpKind::Rcl, true) => Op::RclInd(n),
+                        (RegisterOpKind::StoArith(k), false) => Op::StoArith { reg: n, kind: k },
+                        (RegisterOpKind::StoArith(k), true) => Op::StoArithInd(n, k),
+                        (RegisterOpKind::View, false) => Op::View(n),
+                        (RegisterOpKind::View, true) => Op::ViewInd(n),
+                        (RegisterOpKind::Arcl, false) => Op::Arcl(n),
+                        (RegisterOpKind::Arcl, true) => Op::ArclInd(n),
+                        (RegisterOpKind::Asto, false) => Op::Asto(n),
+                        (RegisterOpKind::Asto, true) => Op::AstoInd(n),
+                        (RegisterOpKind::Isg, false) => Op::Isg(n),
+                        (RegisterOpKind::Isg, true) => Op::IsgInd(n),
+                        (RegisterOpKind::Dse, false) => Op::Dse(n),
+                        (RegisterOpKind::Dse, true) => Op::DseInd(n),
+                    };
+                    self.call_dispatch(final_op);
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::RegisterPrompt {
+                        op,
+                        ind,
+                        acc: new_acc,
+                    });
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::RegisterPrompt {
+                    op,
+                    ind,
+                    acc: String::new(),
+                });
+            }
+            KeyCode::Esc => {
+                self.shift_armed = false;
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::RegisterPrompt { op, ind, acc });
+            }
+        }
+    }
+
+    /// HP-41 LBL hardware limit — labels are at most 7 characters
+    /// (single ALPHA register row holds 6 packed chars + 1 sentinel).
+    const CLP_LABEL_CAP: usize = 7;
+
+    fn handle_clp_label(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            KeyCode::Enter => {
+                if !acc.is_empty() {
+                    self.call_dispatch(Op::Clp(acc));
+                }
+                self.pending_input = None;
+            }
+            KeyCode::Backspace => {
+                let mut new_acc = acc;
+                new_acc.pop();
+                self.pending_input = Some(PendingInput::ClpLabel(new_acc));
+            }
+            KeyCode::Char(ch) => {
+                let mut new_acc = acc;
+                if new_acc.len() < Self::CLP_LABEL_CAP {
+                    new_acc.push(ch);
+                }
+                self.pending_input = Some(PendingInput::ClpLabel(new_acc));
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::ClpLabel(acc));
+            }
+        }
+    }
+
+    fn handle_del_count(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let mut new_acc = acc;
+                new_acc.push(c);
+                if new_acc.len() == 3 {
+                    // T-25-06 mitigation: silent-clamp on overflow. 999 > u8::MAX
+                    // (255) — `.parse::<u8>().unwrap_or(u8::MAX)` is the documented
+                    // pattern.
+                    let n: u8 = new_acc.parse::<u8>().unwrap_or(u8::MAX);
+                    self.call_dispatch(Op::Del(n));
+                    self.pending_input = None;
+                } else {
+                    self.pending_input = Some(PendingInput::DelCount(new_acc));
+                }
+            }
+            KeyCode::Backspace => {
+                self.pending_input = Some(PendingInput::DelCount(String::new()));
+            }
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::DelCount(acc));
+            }
+        }
+    }
+
+    fn handle_tone_prompt(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                let n: u8 = c as u8 - b'0';
+                self.call_dispatch(Op::Tone(n));
+                self.pending_input = None;
+            }
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::TonePrompt);
+            }
+        }
+    }
+
+    /// HP-41 ALPHA register width — XEQ-by-Name names cap at 24 chars
+    /// (T-25-05 mitigation; matches the ALPHA register size).
+    const XEQ_NAME_CAP: usize = 24;
+
+    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String) {
+        match key.code {
+            KeyCode::Esc => {
+                self.pending_input = None;
+            }
+            KeyCode::Enter => {
+                if !acc.is_empty() {
+                    // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
+                    // resolves the 8 non-keyboard conditional-test mnemonics
+                    // directly to Op::Test(TestKind::*) without round-tripping
+                    // through Op::Xeq + run_program. Falls through to
+                    // Op::Xeq(acc) for the 4 v2.1 card-reader names
+                    // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
+                    // builtin_card_op) and for user LBLs. Unknown names
+                    // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
+                    // no "did you mean…?" hint until Phase 26).
+                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc) {
+                        self.call_dispatch(op);
+                    } else {
+                        self.call_dispatch(Op::Xeq(acc));
+                    }
+                }
+                self.pending_input = None;
+            }
+            KeyCode::Backspace => {
+                let mut new_acc = acc;
+                new_acc.pop();
+                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+            }
+            KeyCode::Char(ch) => {
+                let mut new_acc = acc;
+                if new_acc.len() < Self::XEQ_NAME_CAP {
+                    new_acc.push(ch);
+                }
+                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+            }
+            _ => {
+                self.pending_input = Some(PendingInput::XeqByName(acc));
+            }
         }
     }
 
@@ -944,7 +1531,8 @@ impl App {
                 match hp41_core::run_program(&mut self.state, &label) {
                     Ok(()) => {
                         self.message = None;
-                        self.drain_and_show_print_output();
+                        let card_err = self.drain_pending_card_op();
+                        self.drain_and_show_print_output(card_err);
                     }
                     Err(e) => self.message = Some(format!("{e}")),
                 }
@@ -954,10 +1542,39 @@ impl App {
         false // not consumed — fall through to normal routing
     }
 
+    /// Drain the staged Card Reader request (if any), performing the disk I/O.
+    ///
+    /// Returns `Some(msg)` on failure (caller is responsible for routing it
+    /// into `self.message` while preserving any subsequent print-output
+    /// summary). `None` on success or no-op. Also returns `Some(msg)` —
+    /// without touching state — when `cards_dir` is unresolved.
+    ///
+    /// Returning rather than writing `self.message` directly is what fixes
+    /// the message-clobber bug: a CARD DATA error inside a program that
+    /// also prints (PRX) would otherwise be replaced by the print summary.
+    fn drain_pending_card_op(&mut self) -> Option<String> {
+        self.state.pending_card_op.as_ref()?;
+        let Some(dir) = self.cards_dir.as_ref() else {
+            // Clear the staged request — leaving it pending would lock the
+            // user out of every subsequent card op via `ensure_no_pending`.
+            self.state.pending_card_op = None;
+            return Some("card op failed: cannot resolve ~/.hp41/cards (no $HOME)".to_string());
+        };
+        match crate::cards::drain_pending_card_op(&mut self.state, dir) {
+            Ok(()) => None,
+            Err(e) => Some(format!("{e}")),
+        }
+    }
+
     /// Drain print_buffer after a run_program() Ok(()) return and surface output in the TUI.
     ///
     /// Mirrors the drain branch inside call_dispatch_and_drain but decoupled from dispatch —
     /// called after run_program() has already returned successfully.
+    ///
+    /// `card_error` is the result of `drain_pending_card_op` for the same
+    /// call site, threaded in so the card diagnostic is not clobbered by the
+    /// print summary. When both are present they are combined into a single
+    /// status line so the user sees both signals at once.
     ///
     /// For 1 line (PRX/PRA): sets app.message to the formatted line.
     /// For N > 1 lines (PRSTK or multiple print ops in one program): sets app.message to
@@ -965,7 +1582,7 @@ impl App {
     /// If print_log_writer is Some, writes each line to the file via
     /// `write_lines_to_print_log()` which disables the writer on first I/O error.
     /// Clears print_buffer via drain(..).
-    fn drain_and_show_print_output(&mut self) {
+    fn drain_and_show_print_output(&mut self, card_error: Option<String>) {
         let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
         if !lines.is_empty() {
             let log_failure = self.write_lines_to_print_log(&lines);
@@ -974,13 +1591,19 @@ impl App {
             } else {
                 lines.into_iter().next().unwrap_or_default()
             };
-            self.message = Some(match log_failure {
+            let print_msg = match log_failure {
                 Some(err) => format!("{summary} ({err})"),
                 None => summary,
+            };
+            self.message = Some(match card_error {
+                Some(err) => format!("{err}; {print_msg}"),
+                None => print_msg,
             });
+        } else if let Some(err) = card_error {
+            // No print output to summarise — surface the card error directly.
+            self.message = Some(err);
         }
-        // If lines is empty, leave self.message as None (caller already set it to None
-        // on the Ok(()) branch before calling this helper).
+        // Empty lines AND no card error: leave self.message as the caller set it.
     }
 
     /// Write a batch of print lines to `print_log_writer`. On the first I/O error
@@ -1021,13 +1644,14 @@ impl App {
         }
     }
 
-    /// Call hp41_core::ops::dispatch, then drain print_buffer.
+    /// Call hp41_core::ops::dispatch, then drain card op and print_buffer.
     /// For PRX/PRA (1 line): sets app.message to the formatted line (per D-01).
     /// For PRSTK (6 lines): sets app.message to "PRSTK → N lines" summary (per D-01).
     /// If print_log_writer is Some, writes each line to the file (best-effort, never panics).
     pub(crate) fn call_dispatch_and_drain(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => {
+                let card_err = self.drain_pending_card_op();
                 let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
                 if !lines.is_empty() {
                     let log_failure = self.write_lines_to_print_log(&lines);
@@ -1037,13 +1661,21 @@ impl App {
                         // lines.len() == 1; into_iter().next() is safe here
                         lines.into_iter().next().unwrap_or_default()
                     };
-                    self.message = Some(match log_failure {
+                    let print_msg = match log_failure {
                         Some(err) => format!("{summary} ({err})"),
                         None => summary,
+                    };
+                    self.message = Some(match card_err {
+                        Some(err) => format!("{err}; {print_msg}"),
+                        None => print_msg,
                     });
-                } else {
-                    self.message = None;
+                } else if let Some(err) = card_err {
+                    // Pure card op (no print output) — surface the diagnostic.
+                    self.message = Some(err);
                 }
+                // No card error and no print output: leave self.message alone;
+                // call_dispatch (used by non-print ops) is the canonical place
+                // that clears stale messages on Ok.
             }
             Err(e) => self.message = Some(format!("{e}")),
         }
@@ -1802,16 +2434,25 @@ mod synthetic_modal_tests {
 
     #[test]
     fn test_sto_m_via_modal() {
+        // Phase 25 Plan 02: `S` now opens `RegisterPrompt { Sto }` instead
+        // of the legacy `StoRegister` modal. The M/N/O hidden-register
+        // dispatch is preserved by `handle_register_prompt` (the new arm
+        // intercepts M/N/O when `op == Sto/Rcl && acc.is_empty()`).
+        use crate::keys::RegisterOpKind;
         let mut app = make_app();
-        // Press 'S' to open StoRegister modal
         app.handle_key(press(KeyCode::Char('S')));
         assert!(
-            matches!(app.pending_input, Some(PendingInput::StoRegister(_))),
-            "Pressing 'S' must open StoRegister modal"
+            matches!(
+                app.pending_input,
+                Some(PendingInput::RegisterPrompt {
+                    op: RegisterOpKind::Sto,
+                    ind: false,
+                    ..
+                })
+            ),
+            "Pressing 'S' must open RegisterPrompt {{ Sto }} (Plan 02 truth #7)"
         );
-        // Set X to 42 before pressing 'M'
         app.state.stack.x = hp41_core::HpNum::from(42i32);
-        // Press 'M' to dispatch StoM
         app.handle_key(press(KeyCode::Char('M')));
         assert!(
             app.pending_input.is_none(),
@@ -1826,16 +2467,23 @@ mod synthetic_modal_tests {
 
     #[test]
     fn test_rcl_m_via_modal() {
+        // Phase 25 Plan 02: `R` now opens `RegisterPrompt { Rcl }` — M/N/O
+        // shortcut preserved by the new arm.
+        use crate::keys::RegisterOpKind;
         let mut app = make_app();
-        // Pre-load reg_m with 99
         app.state.reg_m = hp41_core::HpNum::from(99i32);
-        // Press 'R' to open RclRegister modal
         app.handle_key(press(KeyCode::Char('R')));
         assert!(
-            matches!(app.pending_input, Some(PendingInput::RclRegister(_))),
-            "Pressing 'R' must open RclRegister modal"
+            matches!(
+                app.pending_input,
+                Some(PendingInput::RegisterPrompt {
+                    op: RegisterOpKind::Rcl,
+                    ind: false,
+                    ..
+                })
+            ),
+            "Pressing 'R' must open RegisterPrompt {{ Rcl }} (Plan 02 truth #7)"
         );
-        // Press 'm' (lowercase) to dispatch RclM
         app.handle_key(press(KeyCode::Char('m')));
         assert!(
             app.pending_input.is_none(),
@@ -1929,6 +2577,167 @@ mod synthetic_modal_tests {
             app.state.stack.x,
             hp41_core::HpNum::from(51i32),
             "SyntheticByte(0xCE) in program must execute as GETKEY and push 51"
+        );
+    }
+
+    // Helper — create a Ctrl-modified Press key event.
+    fn make_ctrl_key(c: char) -> KeyEvent {
+        KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::CONTROL,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    /// Ctrl+W dispatches WPRGM (write program to card).
+    /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
+    /// Proves the correct op was dispatched: WPRGM writes TESTCARD.raw; a W↔R or
+    /// W↔D mapping swap would produce a different file extension (or an error message).
+    #[test]
+    fn test_ctrl_w_dispatches_wprgm() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        app.state.alpha_reg = "TESTCARD".to_string();
+        // Give the program something to encode (avoid empty-program edge cases).
+        app.state.program = vec![Op::Lbl("X".to_string()), Op::Rtn];
+
+        app.handle_key(make_ctrl_key('w'));
+
+        assert!(!app.exit, "Ctrl+W must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+W must not activate ALPHA mode");
+        let raw_path = tmp.path().join("TESTCARD.raw");
+        assert!(
+            raw_path.exists(),
+            "Ctrl+W must write TESTCARD.raw via WPRGM"
+        );
+    }
+
+    /// Ctrl+R dispatches RDPRGM (read program from card).
+    /// Sandboxed: injects a tempdir as cards_dir (no MISSING.raw present).
+    /// Proves the correct op was dispatched: RDPRGM on a missing file surfaces
+    /// "card data" in app.message; a R↔W swap would write a file instead of erroring.
+    #[test]
+    fn test_ctrl_r_dispatches_rdprgm() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        app.state.alpha_reg = "MISSING".to_string();
+
+        app.handle_key(make_ctrl_key('r'));
+
+        assert!(!app.exit, "Ctrl+R must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+R must not activate ALPHA mode");
+        // RDPRGM on a missing file → HpError::CardData → app.message contains "card data".
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("card data") || msg.contains("CARD DATA"),
+            "Ctrl+R on missing file must surface CARD DATA via app.message; got {msg:?}",
+        );
+    }
+
+    /// Ctrl+D dispatches WDTA (write data registers to card).
+    /// Sandboxed: injects a tempdir as cards_dir so no real ~/.hp41/cards/ is touched.
+    /// Proves the correct op was dispatched: WDTA writes TESTCARD.card.json; a D↔F or
+    /// D↔W mapping swap would produce a different file extension (or an error message).
+    #[test]
+    fn test_ctrl_d_dispatches_wdta() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        app.state.alpha_reg = "TESTCARD".to_string();
+
+        app.handle_key(make_ctrl_key('d'));
+
+        assert!(!app.exit, "Ctrl+D must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+D must not activate ALPHA mode");
+        let json_path = tmp.path().join("TESTCARD.card.json");
+        assert!(
+            json_path.exists(),
+            "Ctrl+D must write TESTCARD.card.json via WDTA"
+        );
+    }
+
+    /// Ctrl+F dispatches RDTA (read data registers from card).
+    /// Sandboxed: injects a tempdir as cards_dir (no MISSING.card.json present).
+    /// Proves the correct op was dispatched: RDTA on a missing file surfaces
+    /// "card data" in app.message; an F↔D swap would write a file instead of erroring.
+    #[test]
+    fn test_ctrl_f_dispatches_rdta() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        app.state.alpha_reg = "MISSING".to_string();
+
+        app.handle_key(make_ctrl_key('f'));
+
+        assert!(!app.exit, "Ctrl+F must not quit the app");
+        assert!(!app.state.alpha_mode, "Ctrl+F must not activate ALPHA mode");
+        // RDTA on a missing file → HpError::CardData → app.message contains "card data".
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("card data") || msg.contains("CARD DATA"),
+            "Ctrl+F on missing file must surface CARD DATA via app.message; got {msg:?}",
+        );
+    }
+
+    /// Card error must NOT be clobbered by a print-output summary fired in
+    /// the same dispatch tick. Before the I3 fix, the print drain wrote
+    /// straight into `self.message` and overwrote whatever the card drain
+    /// had recorded — so a user running a program that mixed `PRX` with a
+    /// failed card op only saw the print line and never knew the card op
+    /// failed.
+    #[test]
+    fn card_error_combined_with_print_output() {
+        use hp41_core::cardreader::CardOpRequest;
+        let tmp = tempfile::tempdir().unwrap();
+        let mut app = make_app();
+        app.cards_dir = Some(tmp.path().to_path_buf());
+        // Stage a card op whose name will fail sanitize so the drain returns
+        // a CardData diagnostic without needing a real fs failure.
+        app.state.pending_card_op = Some(CardOpRequest::WriteProgram {
+            name: "BAD/SEP".to_string(),
+        });
+        // Stage a print line so the print drain's summary path also fires.
+        app.state.print_buffer.push("PRX line".to_string());
+
+        let card_err = app.drain_pending_card_op();
+        assert!(card_err.is_some(), "bad name must yield a card error");
+        app.drain_and_show_print_output(card_err);
+
+        let msg = app.message.as_deref().unwrap_or("");
+        assert!(
+            msg.contains("path separator"),
+            "card diagnostic must survive print drain; got {msg:?}",
+        );
+        assert!(
+            msg.contains("PRX line"),
+            "print line must still appear; got {msg:?}",
+        );
+    }
+
+    /// $HOME unavailable: card op must surface a clear diagnostic AND clear
+    /// `pending_card_op` so the user is not locked out of subsequent ops
+    /// via `ensure_no_pending`.
+    #[test]
+    fn card_op_with_no_cards_dir_surfaces_diagnostic() {
+        use hp41_core::cardreader::CardOpRequest;
+        let mut app = make_app();
+        app.cards_dir = None; // simulate no $HOME
+        app.state.pending_card_op = Some(CardOpRequest::WriteProgram {
+            name: "OK".to_string(),
+        });
+
+        let err = app.drain_pending_card_op();
+        let msg = err.expect("missing cards_dir must produce an error");
+        assert!(
+            msg.contains("no $HOME") || msg.contains("cannot resolve"),
+            "diagnostic must name the real cause; got {msg:?}",
+        );
+        assert!(
+            app.state.pending_card_op.is_none(),
+            "request must be cleared so user is not locked out of next card op",
         );
     }
 }

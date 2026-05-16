@@ -12,8 +12,12 @@ hp41-calculator-emulator/
 │   │   ├── num.rs                 ← HpNum (wraps rust_decimal::Decimal)
 │   │   ├── state.rs               ← CalcState — single source of truth
 │   │   ├── stack.rs               ← 4-register stack + LASTX, lift_enabled flag
-│   │   ├── error.rs               ← HpError
+│   │   ├── error.rs               ← HpError (incl. AlphaData, CardData(String))
 │   │   ├── format.rs              ← format_hpnum, format_alpha (display formatting)
+│   │   ├── cardreader/            ← Card Reader codecs + state helpers (no disk I/O)
+│   │   │   ├── mod.rs             ← CardOpRequest, insert_program_ops, capture/load_data_card
+│   │   │   ├── raw.rs             ← bare .raw byte codec (V41/Free42 family)
+│   │   │   └── data.rs            ← .card.json codec (hp41-data-v1 magic tag)
 │   │   └── ops/                   ← one module per operation category
 │   │       ├── mod.rs             ← Op enum, dispatch(), flush_entry_buf(), LiftEffect,
 │   │       │                        synthetic_byte_to_op() — 24-entry safe subset
@@ -25,9 +29,10 @@ hp41-calculator-emulator/
 │   │       ├── program.rs         ← run_program(), run_loop(), parse_counter(), execute_op()
 │   │       ├── print.rs           ← op_prx, op_pra, op_prstk (buffer-only, NO println!)
 │   │       ├── stats.rs           ← Σ+/Σ−, Mean, Sdev, L.R., Yhat, Corr, ClSigmaStat
-│   │       └── hms.rs             ← HmsToH, HToHms, HmsAdd, HmsSub
+│   │       ├── hms.rs             ← HmsToH, HToHms, HmsAdd, HmsSub
+│   │       └── cardreader_ops.rs  ← op_wdta / op_rdta / op_wprgm / op_rdprgm (stage requests)
 │   └── tests/                     ← stack_tests, ops_tests, print_tests, synthetic_tests,
-│                                    entry_buf_tests, numerical_accuracy
+│                                    cardreader_tests, entry_buf_tests, numerical_accuracy
 │
 ├── hp41-cli/                      ← TUI binary (ratatui 0.30 + crossterm 0.29)
 │   └── src/
@@ -79,6 +84,7 @@ Rather than duplicating the struct here (and rotting), read the source. The fiel
    - `print_buffer: Vec<String>` with `#[serde(default, skip)]` (transient PRX/PRA/PRSTK output, never persisted).
    - `last_key_code: u8` with `#[serde(default)]` (consumed by `Op::GetKey`).
    - `reg_m`, `reg_n`, `reg_o: HpNum` with `#[serde(default)]` (hidden synthetic registers).
+6. **Card Reader staging slot** — `pending_card_op: Option<CardOpRequest>` with `#[serde(default, skip)]` (transient I/O request, drained by the frontend; see [Card Reader I/O](#card-reader-io)).
 
 **HP-41 flags (0–55) are not implemented** in v1.0/v1.1/v2.0 — there is no `flags` field on `CalcState` and no `Op::Sf` / `Op::Cf` / `Op::FsTest` variants. This is a documented v2.x+ gap; programs that rely on flags do not run.
 
@@ -144,6 +150,7 @@ Operations are represented as a plain Rust enum [`hp41_core::ops::Op`](../hp41-c
 - **HMS conversions (Phase 6)** — `HmsToH`, `HToHms`, `HmsAdd`, `HmsSub`.
 - **Print emulation (Phase 11)** — `PRX`, `PRA`, `PRSTK` (push lines to `state.print_buffer`; never `println!`).
 - **Synthetic programming (Phase 12)** — `GetKey` (pushes `last_key_code` to X), `Null` (Neutral no-op), `StoM/N/O`, `RclM/N/O` (hidden registers), `SyntheticByte(u8)` (deferred — resolved at execute-time via `synthetic_byte_to_op()`).
+- **Card Reader** — `Wdta`, `Rdta`, `Wprgm`, `Rdprgm` (each stages a `CardOpRequest` on `state.pending_card_op`; no disk I/O in core).
 
 Supporting enums (also in `ops/mod.rs`):
 
@@ -163,6 +170,89 @@ Each `Op` variant also declares its `LiftEffect` (Enable / Disable / Neutral) in
 - **Display rounding:** 10 significant decimal digits (matches hardware)
 - **Trig results:** computed via f64 (`sin`, `cos`, etc.), then converted back to `Decimal` and rounded to 10 sig-figs
 - **ISG/DSE counters:** fields extracted by splitting the decimal string representation — never with `floor()` / `fmod()` on f64
+
+---
+
+## Card Reader I/O
+
+The HP 82104A card reader is emulated with a **staging-drain** pattern that
+mirrors `print_buffer`: `hp41-core` performs no disk I/O at all. The four ops
+`Op::Wdta` / `Op::Rdta` / `Op::Wprgm` / `Op::Rdprgm` read the file name from
+the ALPHA register (empty → `HpError::AlphaData`) and write a request into
+`state.pending_card_op: Option<CardOpRequest>`. The frontend reads (and
+clears) that field on the next round-trip, performs the read or write itself,
+and — for read ops — calls back into the core helpers
+`cardreader::insert_program_ops()` and `cardreader::load_data_card()` to
+install the decoded content.
+
+```rust
+pub enum CardOpRequest {
+    WriteProgram { name: String },
+    WriteData    { name: String },
+    ReadProgram  { name: String },
+    ReadData     { name: String },
+}
+```
+
+`pending_card_op` carries `#[serde(default, skip)]` so an in-flight request is
+never persisted across autosave/load. The four op handlers refuse to stage a
+new request when `pending_card_op.is_some()` — back-to-back card ops inside a
+running program surface as `HpError::CardData(...)` rather than silently
+dropping the first request.
+
+### Codecs
+
+`hp41-core::cardreader` provides two codecs, both UI-agnostic and side-effect-free:
+
+| Module | Format | Magic / shape | Decode error |
+|--------|--------|---------------|--------------|
+| `cardreader::raw` | bare `.raw` byte stream — single-byte FOCAL codes plus two-byte forms for `STO nn` / `RCL nn` and `LBL/GTO/XEQ "name"`; END marker `C0 00 0D` is always appended on encode and required on decode | no header; END-terminated | truncation, oversize register, bad UTF-8 alpha payload, missing END marker |
+| `cardreader::data` | `.card.json` — JSON envelope `{ format: "hp41-data-v1", version: 1, registers: [...] }` | `format` magic tag + numeric `version` | wrong tag, unsupported version, malformed JSON |
+
+Both codec error paths surface as `HpError::CardData(String)`, where the
+payload carries a short diagnostic (serde line/column, the offending byte,
+which register was out of range) so the frontend can show something more
+useful than a bare "CARD DATA".
+
+### Hardware-fidelity notes
+
+- **`Op::Null` encodes to `0xCD`** — `0xCF` is reserved for the LBL alpha
+  prefix (`CF Fx ...`). Sharing the byte would corrupt round-trips when a
+  `NULL` is followed by a synthetic byte in the `F0..=FF` range. `0xCD` is
+  unused by our subset and unambiguous.
+- **`STO nn` / `RCL nn` use prefixes `0xE0` / `0xE1`** to avoid colliding with
+  the hidden-register synthetic bytes `0x90-0x92` / `0xB0-0xB2` used by
+  `RclM/N/O` and `StoM/N/O`. This is deliberately not byte-identical with V41 —
+  byte-for-byte V41 compatibility is a future deliverable.
+- **`load_data_card` zero-pads `state.regs` to ≥100.** The op_sto/op_rcl gate
+  is `reg < 100`, not `reg < state.regs.len()`. Shrinking `regs` below 100
+  after loading a small card would turn a subsequent `STO 50` into a raw
+  index panic.
+- **`Op::SyntheticByte(b)` encoding** is resolved through
+  `synthetic_byte_to_op(b)` when a canonical `Op` exists (`0xCF → Op::Null →
+  0xCD`). Naked two-byte prefixes (`0x1D`, `0x1E`, `0xE0`, `0xE1`) are
+  refused; other unknown bytes pass through verbatim and round-trip via
+  `Op::SyntheticByte` on decode.
+
+### Frontend contract
+
+The frontend is responsible for:
+
+1. **Drain.** After every `dispatch_op()` (GUI) or `call_dispatch_and_drain()`
+   (CLI), take `pending_card_op` and act on it before the next op runs.
+2. **Resolve the path.** Card names are application-defined — there is no
+   hardware-prescribed directory. Typical resolution is
+   `<cards-dir>/<name>.{raw,card.json}` with sanitisation against path
+   separators in `name`.
+3. **Encode/decode.** Call `cardreader::encode_program` /
+   `cardreader::encode_data` for writes; `cardreader::decode_program` /
+   `cardreader::decode_data` for reads.
+4. **Install reads.** For `ReadProgram`, call
+   `cardreader::insert_program_ops(state, ops)` (replace-or-insert-after-pc
+   semantics). For `ReadData`, call `cardreader::load_data_card(state, card)`.
+5. **Surface errors.** Any `HpError::CardData(msg)` returned by the codecs
+   should be surfaced to the user — the `msg` payload already carries
+   actionable detail.
 
 ---
 
@@ -251,14 +341,17 @@ The frontend never references Rust enums. Every key sends a string ID (`"enter"`
 
 | Layer | Tool | Target | Current |
 |-------|------|--------|---------|
-| Unit & property | `cargo test` + `proptest` | `hp41-core` | 150+ tests |
+| Unit & property | `cargo test` + `proptest` (19 properties) | `hp41-core` | 1202/1202 workspace-wide |
 | Print emulation | integration | `hp41-core/tests/print_tests.rs` | passing |
 | Synthetic ops | integration | `hp41-core/tests/synthetic_tests.rs` | 21 tests |
+| Indirect addressing | integration | `hp41-core/tests/indirect_addressing.rs` | 42 tests |
 | Snapshot | `insta` | display formatting, state serialization | passing |
-| Coverage gate | `cargo-llvm-cov` | ≥80% line coverage on `hp41-core` | 92.5% lines / 89.9% regions |
-| Numerical accuracy | hand-crafted 500-case suite | ≥98% agreement vs HP-41 hardware | 99% (495/500) |
+| Coverage gate | `cargo-llvm-cov` | ≥95% line coverage on `hp41-core` (Phase 27 atomic raise from 80%) | 95.25% lines / 93.75% regions |
+| Numerical accuracy | hand-crafted 566-case suite | ≥98% agreement vs HP-41 hardware | 99.1% (561/566) |
 | TUI integration | `cargo test --bin hp41-cli` | `hp41-cli` | ~99 tests |
 | GUI Rust | `cargo test` (gui workspace) | `hp41-gui/src-tauri` | 13+ tests |
+| GUI frontend | Vitest | `hp41-gui/src` | 142/142 |
+| GUI E2E | WebdriverIO + tauri-driver (Ubuntu-only) | `hp41-gui/e2e/smoke.spec.ts` | smoke green on CI |
 | TypeScript build | `tsc --noEmit` + Vite build | `hp41-gui/src` | gated by `gui-ci` |
 
 Run the full gates:

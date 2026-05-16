@@ -18,7 +18,7 @@ use crate::programs;
 use hp41_core::{format_alpha, format_hpnum, AngleMode};
 
 use crate::app::App;
-use crate::keys::KEY_REF_TABLE;
+use crate::keys::key_ref_entries;
 use crate::prgm_display;
 
 /// Render the full HP-41 TUI into `frame`. Called from App::draw() every frame.
@@ -201,7 +201,9 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
     };
 
     // D-02 annunciator bar: USER PRGM ALPHA SHIFT RAD DEG GRAD
-    // USER and SHIFT are always dim in Phase 4 (USER mode is Phase 5).
+    // Phase 25 (D-25.4 / Plan 01): SHIFT reflects `app.shift_armed` so users
+    // see the one-shot f-prefix state in the same place GUI v2.1 surfaces
+    // `shiftActive` (parity invariant D-25.6).
     let line = Line::from(vec![
         ann("USER", st.user_mode),
         Span::raw(" "),
@@ -209,7 +211,7 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
         Span::raw(" "),
         ann("ALPHA", st.alpha_mode),
         Span::raw(" "),
-        ann("SHIFT", false),
+        ann("SHIFT", app.shift_armed),
         Span::raw(" "),
         ann("RAD", st.angle_mode == AngleMode::Rad),
         Span::raw(" "),
@@ -223,20 +225,42 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
 fn render_status(app: &App, frame: &mut Frame, area: Rect) {
     // D-11: pending_input prompts override normal status message
     // D-14: ALPHA mode has a standard status message
-    let text: String = if let Some(ref pending) = app.pending_input {
+    let base: String = if let Some(ref pending) = app.pending_input {
         pending_prompt(pending)
     } else if app.state.alpha_mode {
         "ALPHA mode — Enter or A to exit".to_string()
     } else {
         app.message.as_deref().unwrap_or("Ready").to_string()
     };
+    // Phase 25 (D-25.4 / Plan 01 / RESEARCH Open Q 5): prepend an "f→"
+    // indicator when the prefix is armed AND no modal/ALPHA is active —
+    // doubles the SHIFT annunciator with an inline cue right next to the
+    // status text so users see the armed-prefix state without scanning
+    // the whole UI.
+    let text = if app.shift_armed && app.pending_input.is_none() && !app.state.alpha_mode {
+        format!("f\u{2192} {base}")
+    } else {
+        base
+    };
     frame.render_widget(Paragraph::new(text), area);
 }
 
 /// Format the status bar text for each PendingInput variant (D-11).
 /// Uses {:_<2} to show placeholder underscores for accumulator length.
-fn pending_prompt(pending: &crate::app::PendingInput) -> String {
+///
+/// **FN-CLI-04 hard rule (D-25.14):** this match is **exhaustive** — no
+/// `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput`
+/// variant forces the compiler to flag this match at build time. That is
+/// the runtime guarantee that no `PendingInput` slips through silently.
+///
+/// `pub` so integration tests under `hp41-cli/tests/` can verify status-
+/// bar formatting per Phase 25 Plan 02.
+pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
     use crate::app::PendingInput;
+    use hp41_core::ops::{FlagTestKind, StoArithKind};
+
+    use crate::keys::{FlagPromptKind, RegisterOpKind};
+
     match pending {
         PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
         PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
@@ -269,6 +293,40 @@ fn pending_prompt(pending: &crate::app::PendingInput) -> String {
                 format!("HEX: {acc}_")
             }
         }
+        // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
+        PendingInput::FlagPrompt { kind, ind, acc } => {
+            let mnemonic = match kind {
+                FlagPromptKind::SetFlag => "SF",
+                FlagPromptKind::ClearFlag => "CF",
+                FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
+                FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
+                FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
+                FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
+            };
+            let ind_str = if *ind { " IND" } else { "" };
+            format!("{mnemonic}{ind_str} [{acc:_<2}]")
+        }
+        PendingInput::RegisterPrompt { op, ind, acc } => {
+            let mnemonic = match op {
+                RegisterOpKind::Sto => "STO",
+                RegisterOpKind::Rcl => "RCL",
+                RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
+                RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
+                RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
+                RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
+                RegisterOpKind::View => "VIEW",
+                RegisterOpKind::Arcl => "ARCL",
+                RegisterOpKind::Asto => "ASTO",
+                RegisterOpKind::Isg => "ISG",
+                RegisterOpKind::Dse => "DSE",
+            };
+            let ind_str = if *ind { " IND" } else { "" };
+            format!("{mnemonic}{ind_str} [{acc:_<2}]")
+        }
+        PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
+        PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
+        PendingInput::TonePrompt => "TONE [_]".to_string(),
+        PendingInput::XeqByName(acc) => format!("XEQ \"{acc}\"_"),
     }
 }
 
@@ -282,15 +340,26 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
         .area()
         .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
-    let rows: Vec<Row> = help_data::HELP_DATA
+    // D-25.16 / D-25.18: rows derive from docs/hp41cv-functions.json via
+    // help_data::help_overlay_rows. Category headers are synthesised by the
+    // helper as "=== <category> ===" with empty key/op fields.
+    let overlay_rows = help_data::help_overlay_rows();
+    let rows: Vec<Row> = overlay_rows
         .iter()
-        .map(|(key, op, desc)| {
-            if desc.starts_with("===") {
-                // Category header row: full-width, bold style
-                Row::new(vec![Cell::from(""), Cell::from(""), Cell::from(*desc)])
-                    .style(ratatui::style::Style::new().bold())
+        .map(|row| {
+            if row.desc.starts_with("===") {
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(row.desc.clone()),
+                ])
+                .style(ratatui::style::Style::new().bold())
             } else {
-                Row::new(vec![Cell::from(*key), Cell::from(*op), Cell::from(*desc)])
+                Row::new(vec![
+                    Cell::from(row.key.clone()),
+                    Cell::from(row.op.clone()),
+                    Cell::from(row.desc.clone()),
+                ])
             }
         })
         .collect();
@@ -336,16 +405,18 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
 // ── Right panel ───────────────────────────────────────────────────────────────
 
 fn render_right_panel(_app: &App, frame: &mut Frame, area: Rect) {
-    // INPUT-01 / D-03: key-reference panel — discoverable key labels.
-    // Built from the same KEY_REF_TABLE constant in keys.rs that drives key_to_op().
+    // INPUT-01 / D-03 / D-25.18 (Plan 25-04): key-reference panel —
+    // discoverable key labels derived from docs/hp41cv-functions.json via
+    // help_data::help_entries() (no hand-curated KEY_REF_TABLE const).
     let block = Block::bordered().title_top(" Keys ");
 
-    let lines: Vec<Line> = KEY_REF_TABLE
+    let entries = key_ref_entries();
+    let lines: Vec<Line> = entries
         .iter()
         .map(|(k, desc)| {
             Line::from(vec![
                 Span::styled(format!("{k:<8}"), Style::new().bold()),
-                Span::raw(*desc),
+                Span::raw(desc.clone()),
             ])
         })
         .collect();

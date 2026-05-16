@@ -8,25 +8,32 @@ use std::str::FromStr;
 
 pub mod alpha;
 pub mod arithmetic;
+pub mod cardreader_ops;
+pub mod display_ops;
+pub mod flags;
 pub mod hms;
+pub mod indirect;
 pub mod math;
 pub mod print;
 pub mod program;
 pub mod registers;
+pub mod sound;
 pub mod stack_ops;
 pub mod stats;
 
 use alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
 use arithmetic::{op_add, op_div, op_mul, op_sub};
+use cardreader_ops::{op_rdprgm, op_rdta, op_wdta, op_wprgm};
 use math::{
-    op_acos, op_asin, op_atan, op_cos, op_exp, op_int, op_ln, op_log, op_pct_change, op_recip,
-    op_set_deg, op_set_grad, op_set_rad, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
+    op_abs, op_acos, op_asin, op_atan, op_cos, op_exp, op_fact, op_frc, op_int, op_ln, op_log,
+    op_mod, op_pct_change, op_pi, op_polar_to_rect, op_recip, op_rect_to_polar, op_rnd, op_set_deg,
+    op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
 use registers::{
     op_clreg, op_getkey, op_rcl, op_rcl_m, op_rcl_n, op_rcl_o, op_sto, op_sto_arith,
     op_sto_arith_stack, op_sto_m, op_sto_n, op_sto_o,
 };
-use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_rdn, op_xy_swap};
+use stack_ops::{op_chs, op_clx, op_enter, op_lastx, op_r_up, op_rdn, op_xy_swap};
 
 /// STO arithmetic operation kind.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -44,6 +51,24 @@ pub enum StackReg {
     Z,
     T,
     LastX,
+}
+
+/// HP-41 flag-test kind — 4 total. Used in `Op::FlagTest { kind, flag }`.
+///
+/// Mirrors the `TestKind` / `StoArithKind` sub-enum precedent. The `?C` variants
+/// (IsSetThenClear / IsClearThenClear) ALWAYS clear the flag as a side effect,
+/// regardless of the test outcome (RESEARCH A4 — strict reading of FS?C / FC?C).
+/// Phase 21 (FN-FLAG-02).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FlagTestKind {
+    /// FS? — skip next step when flag is NOT set (condition: "is set"; skip-if-false).
+    IsSet,
+    /// FC? — skip next step when flag is NOT clear.
+    IsClear,
+    /// FS?C — skip if NOT set; ALWAYS clear the flag afterward (RESEARCH A4).
+    IsSetThenClear,
+    /// FC?C — skip if NOT clear; ALWAYS clear the flag afterward.
+    IsClearThenClear,
 }
 
 /// HP-41 conditional test kind — 12 total. Used in Op::Test(TestKind).
@@ -87,13 +112,35 @@ pub enum Op {
     Clx,
     Chs,
     Rdn,
+    /// R↑ — roll stack up (mirror of Rdn): X←T, T←Z, Z←Y, Y←X.
+    /// LiftEffect: Neutral. Does NOT update LASTX (Phase 20, D-19/D-20).
+    Rup,
     XySwap,
     Lastx,
+    /// PI — push the constant π (3.141592654, 10-digit rounded HP-41 hardware value).
+    /// LiftEffect: Enable (Phase 20, D-08/D-10).
+    Pi,
     /// Push a numeric literal onto the stack (e.g., from keyboard digit entry).
     PushNum(HpNum),
     // ── Unary math (Phase 2) ─────────────────────────────────────────
     /// INT — truncate X toward zero (integer part). LiftEffect: Enable.
     Int,
+    /// RND — round X to the precision of the current display mode (FIX/SCI/ENG n).
+    /// LiftEffect: Enable (via unary_result). (Phase 20, D-01/D-02/D-03)
+    Rnd,
+    /// FRC — fractional part of X (sign-preserving, complement of INT).
+    /// LiftEffect: Enable. (Phase 20, D-15)
+    Frc,
+    /// ABS — absolute value of X. LiftEffect: Enable. (Phase 20, D-16)
+    Abs,
+    /// SIGN — sign of X: -1 / 0 / +1. LiftEffect: Enable.
+    /// (Phase 20 always returns numeric; SIGN-on-ALPHA divergence is documented
+    /// in Phase 25 docs per D-18.)
+    Sign,
+    /// FACT — factorial of integer X. Domain error for non-integer or negative X.
+    /// OutOfRange for X > 69 (hardware spec, D-06).
+    /// Overflow for X ≥ 28 (Decimal range cap, D-05). LiftEffect: Enable.
+    Fact,
     /// 1/x — reciprocal. LiftEffect: Enable.
     Recip,
     /// √x — square root. LiftEffect: Enable.
@@ -102,6 +149,12 @@ pub enum Op {
     Sq,
     /// Y^X — Y raised to power X (binary). LiftEffect: Enable.
     YPow,
+    /// MOD — Y mod X with HP-41 trunc-toward-zero convention (D-14):
+    /// result = Y − X · trunc(Y/X). Sign follows Y (matches HP-41C Owner's
+    /// Manual + Free42 source). Examples: `7 MOD -3 = 1`, `-7 MOD 3 = -1`.
+    /// Domain error if X = 0. LiftEffect: Enable (via binary_result).
+    /// (Phase 20, D-14, FN-MATH-06)
+    Mod,
     /// %CH — percent change ((X−Y)/Y)×100. Stack effect: unary (Y preserved, LASTX←X). LiftEffect: Enable.
     PctChange,
     /// LN — natural logarithm. LiftEffect: Enable.
@@ -125,6 +178,14 @@ pub enum Op {
     Acos,
     /// ATAN — arctangent, result in current angle_mode. LiftEffect: Enable.
     Atan,
+    /// P→R — convert polar (Y = magnitude, X = angle in current angle_mode)
+    /// to rectangular (Y = x-coord, X = y-coord). LiftEffect: Enable.
+    /// Direct stack assignment; LASTX ← consumed X. (Phase 20, D-11/D-12/D-13)
+    PolarToRect,
+    /// R→P — convert rectangular (Y = x-coord, X = y-coord) to polar
+    /// (Y = magnitude, X = angle in current angle_mode). LiftEffect: Enable.
+    /// Direct stack assignment; LASTX ← consumed X. (Phase 20, D-11/D-12/D-13)
+    RectToPolar,
     // ── Angle mode (Phase 2) ─────────────────────────────────────────
     /// Set angle mode to DEG. LiftEffect: Neutral.
     SetDeg,
@@ -240,6 +301,280 @@ pub enum Op {
     /// dispatches to the corresponding Op via `synthetic_byte_to_op()` lookup.
     /// LiftEffect: varies (delegates to the mapped op).
     SyntheticByte(u8),
+    // ── Card Reader ─────────────────────────────────────────────────────────
+    /// WDTA — write data registers R00..R(SIZE-1) to the card named in the
+    /// ALPHA register. Stages a `CardOpRequest::WriteData` for the frontend
+    /// to drain. Empty ALPHA → `HpError::AlphaData`. LiftEffect: Neutral.
+    Wdta,
+    /// RDTA — read a data card named in ALPHA and replace data registers.
+    /// Stages a `CardOpRequest::ReadData`. LiftEffect: Neutral.
+    Rdta,
+    /// WPRGM — write current program to the `.raw` card named in ALPHA.
+    /// Stages a `CardOpRequest::WriteProgram`. LiftEffect: Neutral.
+    Wprgm,
+    /// RDPRGM — read a `.raw` card named in ALPHA and insert its ops
+    /// (replace if program empty, else insert after PC). LiftEffect: Neutral.
+    Rdprgm,
+    // ── Phase 21: Flags ──────────────────────────────────────────────────────
+    /// SF n — set flag n (0..=55). LiftEffect: Neutral.
+    SfFlag(u8),
+    /// CF n — clear flag n (0..=55). LiftEffect: Neutral.
+    CfFlag(u8),
+    /// FS? / FC? / FS?C / FC?C n — conditional flag test (run_loop skips next
+    /// step on false; `?C` variants also always-clear). LiftEffect: Neutral.
+    /// Interactive dispatch is a no-op (mirrors `Op::Test` precedent — no next
+    /// program step at the keyboard). Phase 21 (FN-FLAG-02).
+    FlagTest {
+        kind: FlagTestKind,
+        flag: u8,
+    },
+    // ── Phase 21: Display Control ────────────────────────────────────────────
+    /// VIEW n — show formatted value of register n (0..=99). LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-01).
+    View(u8),
+    /// AVIEW — show ALPHA register on display (24-char truncate). LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-02).
+    AView,
+    /// PROMPT — show ALPHA on display; inside `run_loop`, also `break` execution.
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-03). Full STOP/resume deferred to Phase 22.
+    Prompt,
+    /// AON — enable ALPHA auto-display (set system flag 48, HP-42S compat).
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-04).
+    Aon,
+    /// AOFF — disable ALPHA auto-display (clear system flag 48).
+    /// LiftEffect: Neutral. Phase 21 (FN-DISP-04).
+    Aoff,
+    /// CLD — explicit clear of `display_override`. LiftEffect: Neutral.
+    /// Phase 21 (FN-DISP-05).
+    Cld,
+    // ── Phase 21: Sound ──────────────────────────────────────────────────────
+    /// BEEP — push `BEEP` event to event_buffer. LiftEffect: Neutral.
+    /// Phase 21 (FN-SOUND-01).
+    Beep,
+    /// TONE n — push `TONE n` event to event_buffer (n=0..=9).
+    /// LiftEffect: Neutral. Phase 21 (FN-SOUND-02).
+    Tone(u8),
+    // ── Phase 22: Program control (D-22.1, D-22.4, D-22.15, D-22.22) ────────
+    /// STOP — halt program execution. Inside `run_loop`, breaks the loop without
+    /// writing to `display_override` (unlike `Op::Prompt`). Interactive dispatch
+    /// is a Neutral no-op (D-22.5). LiftEffect: Neutral. Phase 22 (FN-PROG-01).
+    Stop,
+    /// PSE — pause: write formatted X to `display_override` AND push "PAUSE 1000"
+    /// into `state.event_buffer`. Does NOT break run_loop — execution continues.
+    /// Frontend reads the event marker and inserts a ~1s delay before refresh.
+    /// LiftEffect: Neutral. Phase 22 (FN-PROG-02, D-22.4).
+    Pse,
+    /// GTO IND nn — indirect branch through register nn. The pointer is the
+    /// truncated integer part of `state.regs[nn]`; non-integer values reject
+    /// with `HpError::InvalidOp`. Phase 22 ships an inline resolver — Phase 24
+    /// will extract the shared `resolve_indirect()` helper. Programming-only:
+    /// interactive dispatch returns `InvalidOp`. LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-06, D-22.15).
+    GtoInd(u8),
+    /// XEQ IND nn — indirect subroutine call through register nn. Pre-mutation
+    /// 4-deep call_stack guard (returns `HpError::CallDepth` before any state
+    /// change). Pointer extracted by the same integer-truncate-then-equality-
+    /// check pattern as `Op::GtoInd`. No card-reader builtin fallback (the
+    /// label is a numeric string only). Programming-only: interactive dispatch
+    /// returns `InvalidOp`. LiftEffect: Neutral. Phase 22 (FN-PROG-07, D-22.15).
+    XeqInd(u8),
+    // ── Phase 22: Program editing (D-22.7, D-22.8, D-22.9, D-22.10) ─────────
+    /// CLP "name" — clear program from `Op::Lbl(name)` to the next `Op::Lbl(_)`
+    /// (or end-of-Vec if no further LBL). After deletion, `state.pc` repositions
+    /// to the start of the deleted block (clamped to `state.program.len()` —
+    /// Pitfall 6). Missing label → `HpError::InvalidOp`. Documented divergence
+    /// from HP-41 hardware: real device uses END/.END. markers; we use next-LBL
+    /// because the flat-Vec model has no explicit END marker. Gated on
+    /// `state.prgm_mode == true` (D-22.10). LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-03, D-22.7).
+    Clp(String),
+    /// DEL nnn — delete `nnn` program steps starting at `state.pc`. `nnn` is
+    /// silently clamped to `min(nnn, program.len() - state.pc)`; `nnn == 0` OR
+    /// `state.pc == program.len()` → no-op. `state.pc` is UNCHANGED (the drain
+    /// shifts the tail down so pc naturally points at the next step). Gated
+    /// on `state.prgm_mode == true` (D-22.10). LiftEffect: Neutral.
+    /// Phase 22 (FN-PROG-04, D-22.9).
+    Del(u8),
+    /// INS — insert `Op::Null` (no-op placeholder, Phase 12) at `state.pc`.
+    /// `state.pc` is UNCHANGED — the cursor still points at the freshly
+    /// inserted Null. Gated on `state.prgm_mode == true` (D-22.10).
+    /// LiftEffect: Neutral. Phase 22 (FN-PROG-05, D-22.8).
+    Ins,
+    // ── Phase 22: Memory & stack management (D-22.11..13) ────────────────────
+    /// SIZE nnn — resize `state.regs` to nnn ∈ [1, 319]. AMENDED D-22.11 /
+    /// OQ-2: `nnn == 0` silently clamps to 1 (documented divergence from real
+    /// HP-41 which accepts `SIZE 000`); `nnn > 319` returns `HpError::InvalidOp`.
+    /// Shrinking truncates the tail (hardware-faithful "MEM LOST"); growing
+    /// zero-fills new slots; overlapping range preserves values.
+    /// `u16` because 319 > u8::MAX. LiftEffect: Neutral. Phase 22 (FN-MEM-01).
+    Size(u16),
+    /// CLA — clear ALPHA register. Hardware-faithful HP-41 display name
+    /// (program listings show "CLA", not "CLRALPHA"). Delegates to
+    /// `op_alpha_clear` — same body as legacy `Op::AlphaClear`. The two
+    /// variants COEXIST: `Op::Cla` is the hardware-faithful display alias
+    /// and `Op::AlphaClear` (display "CLRALPHA") stays in the enum for
+    /// v1.0 save-file backward compat (Pitfall 8 — do NOT consolidate).
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-02, D-22.13).
+    Cla,
+    /// CLST — clear stack: zero X, Y, Z, T. PRESERVES `state.stack.lastx`
+    /// AND `state.stack.lift_enabled` (D-22.14 invariant). The preservation
+    /// of LASTX is the critical divergence from `Op::Clreg` (which only
+    /// clears regs, not the stack). The preservation of `lift_enabled`
+    /// follows from `LiftEffect::Neutral` — `apply_lift_effect(Neutral)`
+    /// is a no-op for `lift_enabled`. Verified by sentinel test
+    /// `test_clst_preserves_lastx_and_lift_enabled` in
+    /// `hp41-core/tests/phase22_memory_ops.rs`.
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-03, D-22.14).
+    Clst,
+    /// PACK — documented no-op + Neutral lift. Real HP-41 PACK compacts
+    /// program memory by removing gaps from in-place edits; our flat-Vec
+    /// program model has no gaps to compact, so PACK is a no-op. This is
+    /// a deliberate divergence flagged in D-22.12 — implementing it
+    /// meaningfully would require introducing gaps into `state.program`
+    /// (deferred backlog candidate).
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-04, D-22.12).
+    Pack,
+    /// CATALOG n — hardware-faithful HP-41 CATALOG (AMENDED D-22.16 / OQ-1
+    /// Option B). `n == 0` OR `n >= 5` → `HpError::InvalidOp`. Output is
+    /// written to `state.print_buffer` (Phase 11 drain channel) with 24-char
+    /// width: header `-- CATALOG n --`, payload, footer `-- END --`.
+    ///
+    /// CAT 1: programs — iterate `state.program`, emit `LBL <name>  <steps>`
+    ///   line per `Op::Lbl`. Step count = distance to next LBL or
+    ///   `program.len()` for the last labelled block.
+    /// CAT 2 (XROM modules), CAT 3 (HP-IL), CAT 4 (peripherals) — none
+    ///   in this emulator → single "NOT AVAILABLE" payload line.
+    ///
+    /// LiftEffect: Neutral. Phase 22 (FN-MEM-05, D-22.16 AMENDED).
+    Catalog(u8),
+    /// ASN "name" key_code — record a key assignment (AMENDED D-22.18 /
+    /// OQ-3 Option A, FN-KEY-01).
+    ///
+    /// If `name` is empty: removes the assignment for `key_code`
+    /// (`state.assignments.remove(&key_code)` — silent no-op if absent).
+    /// Otherwise: inserts/overwrites (`state.assignments.insert(key_code, name)`).
+    ///
+    /// `key_code` uses HP-41 row×10+col encoding (1-indexed; same as
+    /// `last_key_code` and `keycode_to_hp41_code`). Any u8 is accepted —
+    /// frontend (CLI / GUI keyboard layer in Phase 25/26) restricts to the
+    /// hardware key-code domain.
+    ///
+    /// Hardware-faithful semantics: `ASN "" 11` undoes `ASN "SIN" 11`.
+    ///
+    /// Late-binding (D-22.19): hp41-core stores the assignment as a String;
+    /// resolution (parse-as-Op vs LBL search) happens at USER-mode dispatch
+    /// in Phase 25/26.
+    ///
+    /// LiftEffect: Neutral. Phase 22 (FN-KEY-01, D-22.18 AMENDED).
+    Asn {
+        name: String,
+        key_code: u8,
+    },
+    // ── Phase 23: ALPHA-register operations (D-23.12) ────────────────────────
+    /// ARCL nn — append register-N's formatted value to the ALPHA register.
+    /// Reads from `state.text_regs[reg]` if present (packed-text shadow from
+    /// a prior ASTO), else formats `state.regs[reg]` via `format_hpnum`
+    /// (respects the current FIX/SCI/ENG display mode — SC#1). 24-char
+    /// silent-discard cap. Out-of-range `reg` → `HpError::InvalidOp` BEFORE
+    /// any text_regs lookup (W-2 strengthening of D-23.3; T-23-01).
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-01, D-23.3).
+    Arcl(u8),
+    /// ASTO nn — pack the first 6 chars of the ALPHA register into
+    /// `state.text_regs[reg]` and zero the numeric slot `regs[reg]` (no-drift
+    /// invariant, paired with D-23.4 sidecar-clearing in op_sto / op_sto_arith
+    /// / op_clreg). The ALPHA register itself is NOT modified. Out-of-range
+    /// `reg` → `HpError::InvalidOp` BEFORE the sidecar write (atomicity).
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-02, D-23.2).
+    Asto(u8),
+    /// ATOX — pop the first ALPHA char and push its Unicode codepoint into X
+    /// (capped at 255 via `.min(255)` — D-23.10 8-bit cap). Empty ALPHA pushes
+    /// 0. The lift is Enable (mirrors `op_pi`'s lift-then-push idiom): X→Y,
+    /// Y→Z, Z→T BEFORE the new code is written into X. ALPHA mutation uses
+    /// `chars()` (multibyte-safe per Phase 2 invariant). HP-41 hardware glyphs
+    /// 128..=255 are NOT preserved by the round-trip — documented divergence.
+    /// LiftEffect: Enable. Phase 23 (FN-ALPHA-03, D-23.10).
+    Atox,
+    /// XTOA — convert X mod 256 to a character and append it to ALPHA. Codes
+    /// 0..=127 append as ASCII; 128..=255 append as `'?'` (HP-41 upper-ASCII
+    /// glyphs are not in our String/UTF-8 model — D-23.11 documented divergence).
+    /// 24-char ALPHA cap silently discards the append on overflow (Phase 2
+    /// invariant, mirrors `op_alpha_append`). X is NOT consumed.
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-04, D-23.11).
+    Xtoa,
+    /// AROT — rotate ALPHA by X chars (positive = left rotation, negative =
+    /// right rotation via `rem_euclid` — D-23.8). Empty ALPHA is a no-op
+    /// preserving X. |N| > len is normalised by `rem_euclid(len)`. Non-integer
+    /// X is silently truncated toward zero (faithful HP-41CV per D-23.9 —
+    /// stricter than POSA which rejects). X is NOT consumed.
+    /// LiftEffect: Neutral. Phase 23 (FN-ALPHA-05, D-23.8 / D-23.9).
+    Arot,
+    /// POSA — single-char POSA (D-23.7). X must be an integer ASCII codepoint
+    /// in 0..=127 — non-integer X or out-of-range X returns `HpError::InvalidOp`
+    /// (stricter than AROT's silent-truncate per D-23.7 vs D-23.9). The result
+    /// REPLACES X: position of the first matching char in ALPHA (0-indexed),
+    /// or `-1` if not found (SC#5 explicit wording — other HP-41 sources
+    /// return haystack length; we pick -1). Multi-char POSA is deferred to
+    /// v3.x per D-23.6 (requires typed-stack `x_text` shadow channel).
+    /// LiftEffect: Disable. Phase 23 (FN-ALPHA-06, D-23.7).
+    Posa,
+    // -- Phase 24: Indirect Addressing (FN-IND-01, FN-IND-02) -------------
+    // Every variant delegates to its direct-form counterpart via
+    // `crate::ops::indirect::resolve_indirect`. Family naming pattern: `<Name>Ind(u8)`.
+    // Inherits sidecar (D-23.4), atomicity (D-22.x), and lift-effect from
+    // the delegated direct op (D-24.4 -- no replication).
+    /// STO IND nn -- store X into the register pointed to by `state.regs[nn]`'s
+    /// integer part. LiftEffect: Neutral (inherited from `op_sto`). Inherits
+    /// the D-23.4 text_regs sidecar clear and D-22.11.1 bounds via delegation.
+    /// Phase 24 (FN-IND-01).
+    StoInd(u8),
+    /// RCL IND nn -- recall `regs[regs[nn].int_part]` into X.
+    /// LiftEffect: Enable (inherited from `op_rcl`). Phase 24 (FN-IND-01).
+    RclInd(u8),
+    /// STO+/-/x// IND nn -- arithmetic via the indirect register address.
+    /// LiftEffect: Neutral (inherited from `op_sto_arith`). Kind reuse mirrors
+    /// the `Op::StoArith` shape exactly (tuple-variant family pattern, D-24.7).
+    /// Phase 24 (FN-IND-01).
+    StoArithInd(u8, StoArithKind),
+    /// ISG IND nn -- increment register at the resolved indirect address and
+    /// skip next step on counter exit. LiftEffect: Neutral (inherited from
+    /// `op_isg`). Skip semantics live in `run_loop`, not `dispatch`. Phase 24
+    /// (FN-IND-01).
+    IsgInd(u8),
+    /// DSE IND nn -- decrement register at the resolved indirect address and
+    /// skip next step on counter exit. LiftEffect: Neutral (inherited from
+    /// `op_dse`). Skip semantics live in `run_loop`. Phase 24 (FN-IND-01).
+    DseInd(u8),
+    /// SF IND nn -- set the flag whose number is `regs[nn]`'s integer part.
+    /// LiftEffect: Neutral (inherited from `op_sf`). Inherits the `< 56`
+    /// flag-bounds check via delegation. Phase 24 (FN-IND-01).
+    SfFlagInd(u8),
+    /// CF IND nn -- clear the flag whose number is `regs[nn]`'s integer part.
+    /// LiftEffect: Neutral (inherited from `op_cf`). Phase 24 (FN-IND-01).
+    CfFlagInd(u8),
+    /// FS? / FC? / FS?C / FC?C IND nn -- conditional flag test on the flag
+    /// whose number is `regs[ind_reg]`'s integer part. Interactive dispatch
+    /// is a Neutral no-op (mirrors `Op::FlagTest` precedent -- no next program
+    /// step at the keyboard). Skip / always-clear semantics live in `run_loop`.
+    /// STRUCT variant per D-24.6, mirroring `Op::FlagTest { kind, flag }`.
+    /// LiftEffect: Neutral. Phase 24 (FN-IND-01).
+    FlagTestInd {
+        kind: FlagTestKind,
+        ind_reg: u8,
+    },
+    /// ARCL IND nn -- append the formatted value of `regs[regs[nn]]` to the
+    /// ALPHA register. LiftEffect: Neutral (inherited from `op_arcl`).
+    /// Inherits the text_regs sidecar read path. Phase 24 (FN-IND-01).
+    ArclInd(u8),
+    /// ASTO IND nn -- pack the first 6 ALPHA chars into `regs[regs[nn]]`'s
+    /// packed-text shadow and zero the numeric slot. LiftEffect: Neutral
+    /// (inherited from `op_asto`). Phase 24 (FN-IND-01).
+    AstoInd(u8),
+    /// VIEW IND nn -- display the VALUE of `regs[regs[nn]]` (NOT the pointer
+    /// register). LiftEffect: Neutral (inherited from `op_view`). R9
+    /// mitigation: `op_view_ind` delegates to `op_view(state, resolved_addr)`,
+    /// so the display shows the resolved register's contents. Phase 24
+    /// (FN-IND-01).
+    ViewInd(u8),
 }
 
 /// Flush the number entry buffer to the stack.
@@ -290,7 +625,12 @@ pub fn flush_entry_buf(state: &mut CalcState) -> Result<(), HpError> {
 /// Callers (hp41-cli, tests) call dispatch(state, op) and handle the Result.
 pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     flush_entry_buf(state)?; // commit any pending digit entry before executing op
-                             // ── Phase 3: PRGM mode recording gate (D-03) ────────────────────────────
+                             // ── Phase 21 Pitfall-5: clear stale display override before op runs.
+                             // VIEW/AVIEW/PROMPT write AFTER this line and so survive their own
+                             // dispatch; the NEXT op's dispatch clears the override again — matches
+                             // HP-41 hardware "VIEW shows until next key" behavior.
+    state.display_override = None;
+    // ── Phase 3: PRGM mode recording gate (D-03) ────────────────────────────
     if state.prgm_mode {
         // PrgmMode op while recording = exit recording immediately (toggle, Pitfall 6).
         // This op is NOT recorded — it executes immediately to restore normal dispatch.
@@ -299,9 +639,15 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
             apply_lift_effect(state, LiftEffect::Neutral);
             return Ok(());
         }
-        // All other ops: append to program Vec; do NOT execute. Stack unmodified.
-        state.program.push(op);
-        return Ok(());
+        // Phase 22 (D-22.10): CLP / DEL / INS are PRGM-mode editing primitives
+        // that mutate state.program directly. They MUST execute immediately
+        // even while prgm_mode == true — recording them would self-corrupt
+        // the program buffer. Fall through to the dispatch match below.
+        if !matches!(op, Op::Clp(_) | Op::Del(_) | Op::Ins) {
+            // All other ops: append to program Vec; do NOT execute. Stack unmodified.
+            state.program.push(op);
+            return Ok(());
+        }
     }
     match op {
         // ── Phase 1 ops ──────────────────────────────────────────────────
@@ -313,18 +659,27 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Clx => op_clx(state),
         Op::Chs => op_chs(state),
         Op::Rdn => op_rdn(state),
+        Op::Rup => op_r_up(state),
         Op::XySwap => op_xy_swap(state),
         Op::Lastx => op_lastx(state),
+        Op::Pi => op_pi(state),
         Op::PushNum(v) => {
             crate::stack::enter_number(state, v);
             Ok(())
         }
         // ── Phase 2 math/trig/angle ops (Plan 04) ───────────────────────
         Op::Int => op_int(state),
+        // ── Phase 20 unary math additions (D-15/D-16/D-17/D-04..D-07) ───
+        Op::Rnd => op_rnd(state),
+        Op::Frc => op_frc(state),
+        Op::Abs => op_abs(state),
+        Op::Sign => op_sign(state),
+        Op::Fact => op_fact(state),
         Op::Recip => op_recip(state),
         Op::Sqrt => op_sqrt(state),
         Op::Sq => op_sq(state),
         Op::YPow => op_ypow(state),
+        Op::Mod => op_mod(state),
         Op::PctChange => op_pct_change(state),
         Op::Ln => op_ln(state),
         Op::Log => op_log(state),
@@ -336,6 +691,8 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::Asin => op_asin(state),
         Op::Acos => op_acos(state),
         Op::Atan => op_atan(state),
+        Op::PolarToRect => op_polar_to_rect(state),
+        Op::RectToPolar => op_rect_to_polar(state),
         Op::SetDeg => op_set_deg(state),
         Op::SetRad => op_set_rad(state),
         Op::SetGrad => op_set_grad(state),
@@ -433,6 +790,135 @@ pub fn dispatch(state: &mut CalcState, op: Op) -> Result<(), HpError> {
                 Err(HpError::InvalidOp)
             }
         }
+        // ── Card Reader ───────────────────────────────────────────────────
+        Op::Wdta => op_wdta(state),
+        Op::Rdta => op_rdta(state),
+        Op::Wprgm => op_wprgm(state),
+        Op::Rdprgm => op_rdprgm(state),
+        // ── Phase 21: Flags ───────────────────────────────────────────────
+        Op::SfFlag(n) => flags::op_sf(state, n),
+        Op::CfFlag(n) => flags::op_cf(state, n),
+        // Interactive FlagTest is a no-op (mirrors Op::Test). The skip-next-step
+        // and always-clear semantics live in run_loop. At the keyboard there is
+        // no "next program step" to skip; pc and flags are untouched.
+        Op::FlagTest { .. } => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // ── Phase 21: Display Control ─────────────────────────────────────
+        Op::View(r) => display_ops::op_view(state, r),
+        Op::AView => display_ops::op_aview(state),
+        Op::Prompt => display_ops::op_prompt(state),
+        Op::Aon => display_ops::op_aon(state),
+        Op::Aoff => display_ops::op_aoff(state),
+        Op::Cld => display_ops::op_cld(state),
+        // ── Phase 21: Sound ───────────────────────────────────────────────
+        Op::Beep => sound::op_beep(state),
+        Op::Tone(n) => sound::op_tone(state, n),
+        // ── Phase 22: Program control ─────────────────────────────────────
+        // Interactive Op::Stop (is_running == false) is a Neutral no-op per D-22.5.
+        // The break-run_loop semantic only fires inside run_loop's match.
+        Op::Stop => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // PSE writes display_override + event_buffer "PAUSE 1000" then continues.
+        // dispatch() has already called flush_entry_buf at the top, so any
+        // in-progress digit entry was lifted to X before we format it
+        // (Pitfall 10 — do NOT add a second flush_entry_buf here).
+        Op::Pse => {
+            let formatted = crate::format::format_hpnum(&state.stack.x, &state.display_mode);
+            state.display_override = Some(formatted);
+            state.event_buffer.push("PAUSE 1000".to_string());
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // GTO IND / XEQ IND require the run_loop state machine to manipulate
+        // pc and call_stack — interactive dispatch outside a running program
+        // is undefined. Return InvalidOp; run_loop handles them directly.
+        Op::GtoInd(_) | Op::XeqInd(_) => Err(HpError::InvalidOp),
+        // ── Phase 22: Program editing (D-22.7, D-22.8, D-22.9, D-22.10) ──
+        // CLP/DEL/INS are PRGM-mode editing primitives that mutate
+        // state.program directly. They are NEVER recorded into the program
+        // even when state.prgm_mode == true — the prgm_mode gate above
+        // would otherwise append them to state.program. The helpers
+        // themselves re-check prgm_mode (defense-in-depth, D-22.10).
+        //
+        // Important: the prgm_mode gate ABOVE this match block (line ~436)
+        // only fires when state.prgm_mode == true. We reach this arm in two
+        // cases:
+        //   (a) prgm_mode == false (interactive, edit-primitives disallowed)
+        //       → helper guard returns InvalidOp.
+        //   (b) prgm_mode == true AND the gate's recording branch was
+        //       bypassed by the special-case above for Clp/Del/Ins
+        //       (added below). See the gate modification.
+        Op::Clp(name) => program::op_clp(state, &name),
+        Op::Del(n) => program::op_del(state, n),
+        Op::Ins => program::op_ins(state),
+        // ── Phase 22: Memory & stack management (D-22.11..13) ────────────
+        // SIZE executes fine inside run_loop and interactively — it is a
+        // regular dispatch op, not a control-flow primitive.
+        Op::Size(n) => program::op_size(state, n),
+        // D-22.13: Op::Cla delegates to op_alpha_clear (same body as
+        // Op::AlphaClear). Two variants intentionally coexist: hardware-
+        // faithful "CLA" display name (this variant) vs the v1.0-save
+        // "CLRALPHA" legacy display (Op::AlphaClear). Pitfall 8: do NOT
+        // remove Op::AlphaClear — v1.0 save files contain it.
+        Op::Cla => op_alpha_clear(state),
+        // D-22.14: CLST zeros X/Y/Z/T while preserving LASTX and
+        // lift_enabled. Critical divergence from Clreg (which only
+        // clears regs).
+        Op::Clst => program::op_clst(state),
+        // D-22.12: PACK is a documented no-op on the flat-Vec program
+        // model (no gaps to compact). Neutral lift. Inline body matches
+        // Op::Null / Op::AlphaToggle pattern.
+        Op::Pack => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        // D-22.16 (AMENDED OQ-1 Option B): CATALOG n — hardware-faithful.
+        // CAT 1 = programs (LBL listing); CAT 2/3/4 = "NOT AVAILABLE".
+        // Output goes to state.print_buffer (Phase 11 drain pattern).
+        Op::Catalog(n) => program::op_catalog(state, n),
+        // D-22.18 (AMENDED OQ-3 Option A): ASN — empty `name` removes the
+        // assignment for `key_code`; non-empty inserts/overwrites. hp41-core
+        // stores as String; resolution at USER-mode dispatch (Phase 25/26)
+        // per D-22.19. The owned String moves into op_asn (Op is consumed
+        // by value here).
+        Op::Asn { name, key_code } => program::op_asn(state, name, key_code),
+        // ── Phase 23: ALPHA-register operations (D-23.12) ─────────────────
+        // ARCL/ASTO both Neutral lift; both reuse format_hpnum / HpNum::zero
+        // rather than re-deriving display or zero-value logic. ASTO writes
+        // the packed-text shadow AND zeroes the numeric slot (no-drift).
+        Op::Arcl(reg) => alpha::op_arcl(state, reg),
+        Op::Asto(reg) => alpha::op_asto(state, reg),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): ATOX Enable, XTOA Neutral,
+        // AROT Neutral, POSA Disable (D-23.16). All four touch only
+        // `alpha_reg` and `stack.x` (POSA writes X; others read/preserve).
+        Op::Atox => alpha::op_atox(state),
+        Op::Xtoa => alpha::op_xtoa(state),
+        Op::Arot => alpha::op_arot(state),
+        Op::Posa => alpha::op_posa(state),
+        // -- Phase 24: Indirect Addressing dispatch (FN-IND-01, FN-IND-02) -
+        // Each arm resolves the indirect pointer via `resolve_indirect` and
+        // delegates to its direct-form op. IsgInd/DseInd discard the bool
+        // skip signal (mirrors `Op::Isg` / `Op::Dse` pattern above) -- skip
+        // semantics live in run_loop only. FlagTestInd is a Neutral no-op
+        // (mirrors `Op::FlagTest { .. }` above).
+        Op::StoInd(reg) => indirect::op_sto_ind(state, reg),
+        Op::RclInd(reg) => indirect::op_rcl_ind(state, reg),
+        Op::StoArithInd(reg, kind) => indirect::op_sto_arith_ind(state, reg, kind),
+        Op::IsgInd(reg) => indirect::op_isg_ind(state, reg).map(|_| ()),
+        Op::DseInd(reg) => indirect::op_dse_ind(state, reg).map(|_| ()),
+        Op::SfFlagInd(reg) => indirect::op_sf_flag_ind(state, reg),
+        Op::CfFlagInd(reg) => indirect::op_cf_flag_ind(state, reg),
+        Op::FlagTestInd { .. } => {
+            apply_lift_effect(state, LiftEffect::Neutral);
+            Ok(())
+        }
+        Op::ArclInd(reg) => indirect::op_arcl_ind(state, reg),
+        Op::AstoInd(reg) => indirect::op_asto_ind(state, reg),
+        Op::ViewInd(reg) => indirect::op_view_ind(state, reg),
     }
 }
 

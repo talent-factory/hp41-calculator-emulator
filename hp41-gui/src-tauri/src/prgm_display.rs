@@ -7,7 +7,7 @@
 //! format_all_steps() pre-formats the entire program listing for the React frontend.
 //! Copied from hp41-cli/src/prgm_display.rs per Phase 18 D-03.
 
-use hp41_core::ops::{Op, StackReg, StoArithKind};
+use hp41_core::ops::{FlagTestKind, Op, StackReg, StoArithKind};
 use hp41_core::CalcState;
 
 /// Format the current program step.
@@ -56,15 +56,24 @@ fn op_display_name(op: &Op) -> String {
         Op::Clx => "CLX".to_string(),
         Op::Chs => "CHS".to_string(),
         Op::Rdn => "R\u{2193}".to_string(),
+        Op::Rup => "R\u{2191}".to_string(),
         Op::XySwap => "X\u{27F7}Y".to_string(),
         Op::Lastx => "LASTX".to_string(),
+        Op::Pi => "PI".to_string(),
         Op::PushNum(n) => format!("{}", n.inner()),
         // Phase 2: unary math
         Op::Int => "INT".to_string(),
+        // Phase 20: additional unary math
+        Op::Rnd => "RND".to_string(),
+        Op::Frc => "FRC".to_string(),
+        Op::Abs => "ABS".to_string(),
+        Op::Sign => "SIGN".to_string(),
+        Op::Fact => "FACT".to_string(),
         Op::Recip => "1/x".to_string(),
         Op::Sqrt => "\u{221a}x".to_string(),
         Op::Sq => "x\u{00B2}".to_string(),
         Op::YPow => "Y^X".to_string(),
+        Op::Mod => "MOD".to_string(),
         Op::PctChange => "%CH".to_string(),
         Op::Ln => "LN".to_string(),
         Op::Log => "LOG".to_string(),
@@ -77,6 +86,8 @@ fn op_display_name(op: &Op) -> String {
         Op::Asin => "ASIN".to_string(),
         Op::Acos => "ACOS".to_string(),
         Op::Atan => "ATAN".to_string(),
+        Op::PolarToRect => "P\u{2192}R".to_string(),
+        Op::RectToPolar => "R\u{2192}P".to_string(),
         // Phase 2: angle mode
         Op::SetDeg => "DEG".to_string(),
         Op::SetRad => "RAD".to_string(),
@@ -156,6 +167,95 @@ fn op_display_name(op: &Op) -> String {
         Op::RclN => "RCL N".to_string(),
         Op::RclO => "RCL O".to_string(),
         Op::SyntheticByte(b) => format!("SYN {:02X}", b),
+        // Card Reader
+        Op::Wdta => "WDTA".to_string(),
+        Op::Rdta => "RDTA".to_string(),
+        Op::Wprgm => "WPRGM".to_string(),
+        Op::Rdprgm => "RDPRGM".to_string(),
+        // Phase 21: Flags
+        Op::SfFlag(n) => format!("SF {n:02}"),
+        Op::CfFlag(n) => format!("CF {n:02}"),
+        Op::FlagTest { kind, flag } => {
+            let mnemonic = match kind {
+                FlagTestKind::IsSet => "FS?",
+                FlagTestKind::IsClear => "FC?",
+                FlagTestKind::IsSetThenClear => "FS?C",
+                FlagTestKind::IsClearThenClear => "FC?C",
+            };
+            format!("{mnemonic} {flag:02}")
+        }
+        // Phase 21: Display Control
+        Op::View(r) => format!("VIEW {r:02}"),
+        Op::AView => "AVIEW".to_string(),
+        Op::Prompt => "PROMPT".to_string(),
+        Op::Aon => "AON".to_string(),
+        Op::Aoff => "AOFF".to_string(),
+        Op::Cld => "CLD".to_string(),
+        // Phase 21: Sound
+        Op::Beep => "BEEP".to_string(),
+        Op::Tone(n) => format!("TONE {n}"),
+        // Phase 22: Program control
+        Op::Stop => "STOP".to_string(),
+        Op::Pse => "PSE".to_string(),
+        Op::GtoInd(r) => format!("GTO IND {r:02}"),
+        Op::XeqInd(r) => format!("XEQ IND {r:02}"),
+        // Phase 22: Program editing
+        Op::Clp(name) => format!("CLP {name}"),
+        Op::Del(n) => format!("DEL {n:03}"),
+        Op::Ins => "INS".to_string(),
+        // Phase 22: Memory management (D-22.11, D-22.13)
+        Op::Size(n) => format!("SIZE {n:03}"),
+        // D-22.13: NOT "CLRALPHA" — that is Op::AlphaClear's display name.
+        // Both variants coexist for hardware-faithful listing (CLA) vs v1.0
+        // save-file compat (CLRALPHA). Pitfall 8: do NOT consolidate.
+        Op::Cla => "CLA".to_string(),
+        // D-22.14: CLST clears X/Y/Z/T (LASTX + lift_enabled preserved).
+        Op::Clst => "CLST".to_string(),
+        // D-22.12: PACK is a documented no-op (flat-Vec has no gaps).
+        Op::Pack => "PACK".to_string(),
+        // Phase 22: Catalog (D-22.16 AMENDED OQ-1 Option B)
+        Op::Catalog(n) => format!("CATALOG {n}"),
+        // Phase 22: ASN (D-22.18 AMENDED OQ-3 Option A)
+        Op::Asn { name, key_code } => format!("ASN \"{name}\" {key_code:02}"),
+        // Phase 23: ALPHA-register operations (D-23.12)
+        Op::Arcl(reg) => format!("ARCL {reg:02}"),
+        Op::Asto(reg) => format!("ASTO {reg:02}"),
+        // Phase 23 plan 02 (FN-ALPHA-03..06): bare-string variants (mirror
+        // of the hp41-cli copy — SC-4 invariant requires identical display
+        // listing on both frontends).
+        Op::Atox => "ATOX".to_string(),
+        Op::Xtoa => "XTOA".to_string(),
+        Op::Arot => "AROT".to_string(),
+        Op::Posa => "POSA".to_string(),
+        // Phase 24: Indirect Addressing (FN-IND-01) -- mirror across CLI + GUI
+        // per SC-4 invariant. Space-separated MNEMONIC IND nn (Phase-22 form).
+        Op::StoInd(r) => format!("STO IND {r:02}"),
+        Op::RclInd(r) => format!("RCL IND {r:02}"),
+        Op::IsgInd(r) => format!("ISG IND {r:02}"),
+        Op::DseInd(r) => format!("DSE IND {r:02}"),
+        Op::SfFlagInd(r) => format!("SF IND {r:02}"),
+        Op::CfFlagInd(r) => format!("CF IND {r:02}"),
+        Op::ArclInd(r) => format!("ARCL IND {r:02}"),
+        Op::AstoInd(r) => format!("ASTO IND {r:02}"),
+        Op::ViewInd(r) => format!("VIEW IND {r:02}"),
+        Op::StoArithInd(reg, kind) => {
+            let op_sym = match kind {
+                StoArithKind::Add => "+",
+                StoArithKind::Sub => "-",
+                StoArithKind::Mul => "\u{00D7}",
+                StoArithKind::Div => "\u{00F7}",
+            };
+            format!("STO{op_sym} IND {reg:02}")
+        }
+        Op::FlagTestInd { kind, ind_reg } => {
+            let mnemonic = match kind {
+                FlagTestKind::IsSet => "FS?",
+                FlagTestKind::IsClear => "FC?",
+                FlagTestKind::IsSetThenClear => "FS?C",
+                FlagTestKind::IsClearThenClear => "FC?C",
+            };
+            format!("{mnemonic} IND {ind_reg:02}")
+        }
     }
 }
 
@@ -177,8 +277,14 @@ mod tests {
         let mut state = hp41_core::CalcState::new();
         state.program = vec![Op::Add, Op::Enter];
         let steps = format_all_steps(&state);
-        assert_eq!(steps[0], "000 + ", "step 0 must match op_display_name(Op::Add)");
-        assert_eq!(steps[1], "001 ENTER", "step 1 must match op_display_name(Op::Enter)");
+        assert_eq!(
+            steps[0], "000 + ",
+            "step 0 must match op_display_name(Op::Add)"
+        );
+        assert_eq!(
+            steps[1], "001 ENTER",
+            "step 1 must match op_display_name(Op::Enter)"
+        );
     }
 
     /// PR #5 review (pr-test-analyzer) — the whole point of commit 3372ec3
@@ -200,6 +306,73 @@ mod tests {
             steps[steps.len() - 1],
             "002 END",
             "trailing row must be the END marker at index program.len()"
+        );
+    }
+
+    #[test]
+    fn test_display_phase20_op_labels() {
+        // Phase 20: byte-identical mnemonics with the hp41-cli copy (D-22, D-24).
+        // The intentional duplication of `op_display_name` across hp41-cli and
+        // hp41-gui/src-tauri is the documented SC-4 exception in CLAUDE.md.
+        assert_eq!(op_display_name(&Op::Pi), "PI");
+        assert_eq!(op_display_name(&Op::Rup), "R\u{2191}");
+        assert_eq!(op_display_name(&Op::PolarToRect), "P\u{2192}R");
+        assert_eq!(op_display_name(&Op::RectToPolar), "R\u{2192}P");
+        assert_eq!(op_display_name(&Op::Rnd), "RND");
+        assert_eq!(op_display_name(&Op::Frc), "FRC");
+        assert_eq!(op_display_name(&Op::Mod), "MOD");
+        assert_eq!(op_display_name(&Op::Abs), "ABS");
+        assert_eq!(op_display_name(&Op::Fact), "FACT");
+        assert_eq!(op_display_name(&Op::Sign), "SIGN");
+    }
+
+    #[test]
+    fn test_display_phase24_ind_op_labels() {
+        // Phase 24: byte-identical mnemonics across hp41-cli and hp41-gui copies
+        // (SC-4 mirror invariant). The 11 new Op::*Ind variants surface as
+        // space-separated MNEMONIC IND nn (Phase-22 GTO IND precedent).
+        assert_eq!(op_display_name(&Op::StoInd(5)), "STO IND 05");
+        assert_eq!(op_display_name(&Op::RclInd(7)), "RCL IND 07");
+        assert_eq!(op_display_name(&Op::IsgInd(5)), "ISG IND 05");
+        assert_eq!(op_display_name(&Op::DseInd(5)), "DSE IND 05");
+        assert_eq!(op_display_name(&Op::SfFlagInd(12)), "SF IND 12");
+        assert_eq!(op_display_name(&Op::CfFlagInd(12)), "CF IND 12");
+        assert_eq!(op_display_name(&Op::ArclInd(12)), "ARCL IND 12");
+        assert_eq!(op_display_name(&Op::AstoInd(12)), "ASTO IND 12");
+        assert_eq!(op_display_name(&Op::ViewInd(5)), "VIEW IND 05");
+        // StoArithInd: all 4 StoArithKind sub-kinds
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Add)),
+            "STO+ IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Sub)),
+            "STO- IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Mul)),
+            "STO\u{00D7} IND 12"
+        );
+        assert_eq!(
+            op_display_name(&Op::StoArithInd(12, StoArithKind::Div)),
+            "STO\u{00F7} IND 12"
+        );
+        // FlagTestInd: all 4 FlagTestKind sub-kinds
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 }),
+            "FS? IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClear, ind_reg: 5 }),
+            "FC? IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 }),
+            "FS?C IND 05"
+        );
+        assert_eq!(
+            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClearThenClear, ind_reg: 5 }),
+            "FC?C IND 05"
         );
     }
 }

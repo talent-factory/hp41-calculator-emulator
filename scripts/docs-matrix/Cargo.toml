@@ -1,0 +1,17 @@
+[workspace]
+# Empty stanza — excludes this crate from the root workspace per CLAUDE.md
+# "Root Cargo.toml members stays ["hp41-core", "hp41-cli"]" invariant.
+
+[package]
+name = "docs-matrix"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "docs-matrix"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

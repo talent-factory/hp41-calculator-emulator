@@ -120,4 +120,67 @@ A pixel-perfect HP-41C desktop application built with Tauri v2 + React + TypeScr
 - `prgm_mode` binding for 'p' key (currently mapped to `prx`)
 
 ---
-*For current project status, see .planning/ROADMAP.md*
+
+## v2.1 — Card Reader + Keyboard Authenticity
+
+**Status:** ✅ SHIPPED 2026-05-13
+**Recorded as:** two quick-task entries in STATE.md (no Phase 19 GSD directory; scope evolved out-of-band from the original "v2.1 Polish" plan)
+**Commits:** 50 commits since `v2.0` tag (range `72530dc…ff56b97`)
+**Pull requests:** #9 (Card Reader), #10 (Keyboard Authenticity)
+
+### Delivered
+
+Two coherent feature areas shipped under the v2.1 banner without the formal GSD discuss/plan/execute pipeline. Both areas landed via PRs against `develop` with code-review feedback rounds.
+
+**1. Card Reader (PR #9)**
+- New `Op` variants `Wdta`, `Rdta`, `Wprgm`, `Rdprgm` in `hp41-core/src/ops/mod.rs`; each stages a `CardOpRequest` for the frontend to drain
+- `builtin_card_op()` XEQ-by-name resolver wired into `op_xeq`, `run_program`, and `run_loop`
+- `cards` modules mirrored in `hp41-cli` and `hp41-gui/src-tauri`: directory resolution, name sanitization (dot-prefix rejection), SHA-256 round-trip integration tests
+- `pending_card_op` drain wired into all dispatch sites (cli `app.rs`, gui `handle_op` + `handle_get_state`)
+- Comfort shortcuts in CLI: `Ctrl+W` / `Ctrl+R` / `Ctrl+D` / `Ctrl+F` with sandboxed smoke tests
+- User-facing manual verification procedure documented
+
+**2. Keyboard Authenticity (PR #10)**
+- 5-column × 8-row main grid + 4 top-row mode buttons (replacing the prior 8-col landscape layout); ENTER 2-wide; 39 key entries total
+- Three-label `KeyDef` model: primary `id`/`label`, optional `shifted: { id, label }` (orange), optional `alphaChar` (blue)
+- One-shot SHIFT prefix lives entirely frontend-side (`shiftActive: boolean` in `App.tsx`); never crosses IPC
+- `run_stop` Tauri command (symmetric with `sst_step`/`bst_step`); reaches the R/S key for the first time
+- Stub-error pattern (D-5): `pi`, `polar_to_rect`, `rect_to_polar`, `beep`, `asn`, `catalog`, `view`, `xeq_prompt`, `gto_prompt`, `lbl_prompt` return `GuiError { message: "'<id>' is planned for a future phase" }` — surfaced as 2 s toast overlay; never silently discarded
+- `invokeForKey` + `extractErrMessage` helpers centralize Tauri command routing and error-message extraction
+- New ops mapped (`sq`, `ypow`, `tenpow`, `xge_y`); ALPHA mode routes physical-keyboard letters correctly
+- Toast overlay with `@keyframes toast-fade`; SHIFT armed-glow; annunciator colors
+
+### Quality at Ship
+
+- `hp41-core` coverage: 92.5 % lines / 89.9 % regions (down slightly from v1.0's 94.87 % high-water mark; new synthetic dispatch arms account for the slip)
+- All CI gates green (`ci.yml` + `ci-gui.yml`, 3-OS matrix)
+- Zero panics policy preserved; SC-4 invariant verified (no calculator logic in `hp41-gui`)
+
+### Why Two Tasks, Not a Milestone
+
+The work was scoped, planned and executed by Claude Code session-by-session against `develop` without the GSD discuss → plan → execute → verify cycle. The original "v2.1 Polish" milestone scope (14-segment LCD font, `?` shortcut overlay, USER mode keyboard display) was *not* delivered — those three items have been carried forward to v2.2 as a final GUI Polish phase per scope decision 2026-05-13.
+
+### Known Deferred Items (→ v2.2)
+
+- **130-function HP-41CV ROM built-in set** (the bulk of v2.2 scope):
+  - Math/conversions: `PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, stack `R↑`
+  - 56 user flags + system flags: `SF`, `CF`, `FS?`, `FC?`, `FS?C`, `FC?C`
+  - Display/prompt: `VIEW`, `AVIEW`, `PROMPT`, `AON`, `AOFF`, `CLD`
+  - Program control: `STOP`, `PSE`, `CLP`, `DEL`, `INS`, `GTO IND`, `XEQ IND`, `BEEP`, `TONE n`
+  - ALPHA ops: `ARCL`, `ASTO`, `ATOX`, `XTOA`, `AROT`, `POSA`
+  - Indirect addressing for STO/RCL/ISG/DSE/SF/CF/FS?/FC?
+  - Remaining conditional tests at the skin (only `X≥Y` keyboard-reachable today)
+  - Modal routing for the prompt-IDs that currently surface as `unknown key` toast (`sto_prompt`, `rcl_prompt`, `fix_prompt`, `sci_prompt`, `eng_prompt`, `isg_prompt`, `sf_prompt`, `cf_prompt`, `fs_prompt`, `x_eq_y_prompt`, …)
+  - Catalog: `CATALOG 1/2/3/4`, `ASN`, `CLA`, `CLST`, `SIZE`, `PACK`, `MEM LOST`
+- **GUI Polish (carried over from original v2.1 scope):**
+  - SKIN-04 14-segment SVG font for authentic LCD rendering
+  - SKIN-05 `?` keyboard shortcut overlay (port from CLI `help_data.rs`)
+  - PROG-02 Full keyboard assignment display in USER mode
+  - `prgm_mode` binding for 'p' key (currently mapped to `prx`)
+
+### Deferred Permanently to v3.x
+
+- FR-21 Module emulation (Math 1 / Stat 1 / Time / Advantage Pacs) — separate milestone family; scope decision 2026-05-13
+
+---
+*For current project status, see .planning/STATE.md*

@@ -4,7 +4,15 @@
 [![CI (GUI)](https://github.com/talent-factory/hp41-calculator-emulator/actions/workflows/ci-gui.yml/badge.svg)](https://github.com/talent-factory/hp41-calculator-emulator/actions/workflows/ci-gui.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+<p align="center">
+  <img src="docs/screenshots/hp41-gui-v2.2.png" alt="HP-41CV GUI on macOS — v2.2" width="320">
+  <br>
+  <em>HP-41CV desktop GUI on macOS — v2.2 with feature-complete ROM built-ins</em>
+</p>
+
 A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmable RPN calculator, written in Rust. Ships both a terminal UI (`hp41-cli`) and a pixel-perfect desktop app (`hp41-gui`, Tauri v2 + React).
+
+Implements the full **feature-complete HP-41CV ROM built-in function set** (~130 ops) with documented divergences. See the [HP-41CV function matrix](docs/hp41cv-function-matrix.md) for status per op, keyboard reachability, and known hardware divergences.
 
 ```
 ┌─────────────────────────────────────┐
@@ -20,6 +28,8 @@ A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmabl
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [v2.2](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/v2.2) | 2026-05-16 | **Feature-complete HP-41CV ROM built-ins**: ~90 new ops across math/flags/program-control/ALPHA/indirect (Phases 20–24); f-prefix one-shot CLI + GUI parity; 14-segment SVG LCD; JSON-canonical function pipeline; `?` help overlay; USER-mode key relabel; test hardening to 95.25 % coverage + 99.1 % numerical accuracy; WebdriverIO E2E smoke on Linux CI |
+| [v2.1](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/v2.1) | 2026-05-13 | Authentic HP-41C 5×8 keyboard layout, one-shot SHIFT, three-label keys (primary + orange shifted + blue ALPHA), R/S command wiring, stub-error toast pattern |
 | [v2.0](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/v2.0) | 2026-05-10 | Tauri desktop GUI: pixel-perfect SVG skin, IPC layer, shared autosave, PRGM-mode program listing, 3-OS GUI CI |
 | [v1.1](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/v1.1) | 2026-05-09 | CLI feature completeness: hardware-faithful EEX, STO arithmetic modals, PRX/PRA/PRSTK print emulation, synthetic programming (GETKEY, NULL, M/N/O, HexModal) |
 | [v1.0](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/v1.0) | 2026-05-08 | First public release: full RPN engine, keystroke programming, ratatui TUI, JSON persistence, cross-platform CI |
@@ -49,8 +59,11 @@ A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmabl
 **Desktop GUI (`hp41-gui`)**
 
 - Tauri v2 + React + TypeScript — single static window, native packaging on macOS, Windows, Linux
-- 44-key SVG skin matching HP-41C proportions and colour scheme; CSS scale-down press animation
-- 12-char display, 5 annunciators, X/Y/Z/T/LASTX stack panel — all keyboard bindings from the CLI work in the GUI too
+- Authentic HP-41C layout: 4 top-row mode keys + 5×8 main grid + orange SHIFT cap (39 keys total); three-label model (primary white + orange shifted + blue ALPHA letter)
+- 14-segment SVG LCD with 49-glyph character map (digits, A–Z, punctuation), dim-off "ghost" segments for authentic LCD aesthetic
+- 12-char display, 6 annunciators (incl. SHIFT one-shot), X/Y/Z/T/LASTX stack panel — all keyboard bindings from the CLI work in the GUI too
+- `?` help overlay driven by the canonical `docs/hp41cv-functions.json` source — every op searchable in-app
+- USER-mode per-key relabel: ASN'd custom labels render on the affected key when USER annunciator is active
 - Scrollable PRX/PRA/PRSTK print panel
 - PRGM-mode program listing with SST / BST navigation and auto-scroll
 - Shared autosave with the CLI: state saved in one binary appears in the other on next launch
@@ -77,7 +90,7 @@ cargo install just
 ```bash
 just run                # build + launch the TUI
 just test               # run all tests
-just ci                 # full CLI gate: lint → test → coverage (≥80% on hp41-core)
+just ci                 # full CLI gate: lint → test → coverage (≥95 % on hp41-core)
 just run -- --print-log /tmp/hp41.log   # append PRX/PRA/PRSTK output to a file
 ```
 
@@ -100,9 +113,23 @@ The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every
 |----------|-------------|
 | [HP-41 Overview](docs/hp41-overview.md) | History, variants, RPN introduction |
 | [Operations Reference](docs/operations-reference.md) | All ~130 operations by category |
+| [Function Matrix](docs/hp41cv-function-matrix.md) | Per-op status, keyboard path, divergences |
 | [Keyboard Layout](docs/keyboard-layout.md) | Key layout and shifted functions |
 | [Programming Guide](docs/programming-guide.md) | Stack model, programs, flags, loops |
 | [Architecture](docs/architecture.md) | Emulator internals for contributors |
+
+## Documented Divergences from HP-41 Hardware
+
+A small set of deliberate behavioral divergences from the real HP-41C/CV/CX; each is recorded as a per-row `divergences` entry in the [function matrix](docs/hp41cv-function-matrix.md):
+
+- **PI** — 10-digit rounded value (`3.141592654`); hardware uses the same internal 10-digit precision.
+- **FACT** — effective cap at X ≤ 26 (Decimal-range overflow at n=27 via the `Decimal::from_f64` wall, calibrated by Phase 27 proptest); HP-41 caps at X ≤ 69. X in 27..=69 returns `Overflow`.
+- **CLP** — boundary is the next `LBL` marker; HP-41 uses `END` / `.END.` markers (not present in our flat-Vec program model).
+- **PACK** — no-op; HP-41 compacts program memory (we have no gaps to compact in the flat-Vec model).
+- **POSA** — single-char only; multi-char POSA is deferred to v3.x (requires typed-stack shadow channel).
+- **AROT** — silently truncates non-integer N toward zero; HP-41 rejects non-integer N.
+- **HP-41 upper-ASCII (codes 128–255)** in ATOX / XTOA — round-trip not preserved (HP-41 ROM glyphs are not in the UTF-8 model).
+- **ALPHA mode overrides f-prefix** — by design (D-25.5 / D-26 in CLAUDE.md); pressing `f` in ALPHA mode types the literal `F` instead of arming the prefix. Hardware-faithful ALPHA-with-prefix (Σ, π, μ, …) is deferred to v3.x alongside the ALPHA-special-charset table.
 
 ### Official HP Manuals
 
