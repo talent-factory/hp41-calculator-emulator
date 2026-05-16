@@ -32,10 +32,12 @@
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 
+use std::f64::consts::PI;
+
 use crate::error::HpError;
 use crate::num::HpNum;
 use crate::stack::{apply_lift_effect, LiftEffect};
-use crate::state::CalcState;
+use crate::state::{AngleMode, CalcState};
 
 // ── Helper: complex_atan2 (Pitfall 6 gate) ───────────────────────────────────
 
@@ -233,6 +235,197 @@ pub fn op_c_div(state: &mut CalcState) -> Result<(), HpError> {
 pub fn op_real(state: &mut CalcState) -> Result<(), HpError> {
     state.complex_mode = false;
     apply_lift_effect(state, LiftEffect::Neutral);
+    Ok(())
+}
+
+// ── Angle-mode conversion helper (module-local) ──────────────────────────────
+
+/// Convert a radian value (f64) to the current angle_mode unit.
+/// Mirrors `f64_from_radians` from `ops/math.rs` but scoped to math1.
+fn f64_from_radians(rad: f64, mode: AngleMode) -> f64 {
+    match mode {
+        AngleMode::Rad => rad,
+        AngleMode::Deg => rad * (180.0 / PI),
+        AngleMode::Grad => rad * (200.0 / PI),
+    }
+}
+
+// ── Plan 28-04: Unary complex transcendental functions ────────────────────────
+
+/// MAGZ — complex magnitude: |ζ| = sqrt(X² + Y²).
+///
+/// Writes magnitude to X; Y is left unchanged (per OM convention: magnitude to X,
+/// imaginary part stays in Y for visualization).
+/// LiftEffect: Disable. Sets complex_mode = true (D-28.2 auto-on). OM p.~25.
+///
+/// // rust_decimal has no sqrt on the complex magnitude directly; use f64 bridge
+/// CMPLX-06 / HP 00041-90034 ~p.25.
+pub fn op_magz(state: &mut CalcState) -> Result<(), HpError> {
+    state.complex_mode = true;
+
+    let x_f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let y_f = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
+
+    // rust_decimal has no direct sqrt for complex magnitude; use f64 bridge
+    let mag_f = (x_f * x_f + y_f * y_f).sqrt();
+
+    let mag = Decimal::from_f64(mag_f)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+
+    // Magnitude goes to X; Y stays unchanged (OM convention)
+    state.stack.x = mag;
+    // Y (imaginary part) is left as-is
+
+    apply_lift_effect(state, LiftEffect::Disable);
+    Ok(())
+}
+
+/// CINV — complex inverse: 1/(X+iY) = (X-iY)/(X²+Y²).
+///
+/// Guard: (X=0 AND Y=0) → HpError::DivideByZero (symmetric with op_c_div's guard).
+/// Guard fires BEFORE any state mutation (Pitfall 6).
+/// LiftEffect: Disable. Sets complex_mode = true (D-28.2 auto-on). OM p.~25.
+///
+/// CMPLX-07 / HP 00041-90034 ~p.25.
+pub fn op_cinv(state: &mut CalcState) -> Result<(), HpError> {
+    // Pitfall 6: zero-divisor guard BEFORE any mutation
+    if state.stack.x.is_zero() && state.stack.y.is_zero() {
+        return Err(HpError::DivideByZero);
+    }
+
+    state.complex_mode = true;
+
+    let x = state.stack.x.clone();
+    let y = state.stack.y.clone();
+
+    // Denominator: X² + Y²
+    let x_sq = x.checked_mul(&x)?;
+    let y_sq = y.checked_mul(&y)?;
+    let denom = x_sq.checked_add(&y_sq)?;
+    // denom is guaranteed non-zero (guard above confirmed X≠0 or Y≠0)
+
+    // Result: (X - iY) / denom
+    let new_x = x.checked_div(&denom)?;
+    let neg_y = y.negate();
+    let new_y = neg_y.checked_div(&denom)?;
+
+    state.stack.x = new_x;
+    state.stack.y = new_y;
+
+    apply_lift_effect(state, LiftEffect::Disable);
+    Ok(())
+}
+
+/// E↑Z — complex exponential: e^(X+iY) = e^X · (cos(Y) + i·sin(Y)).
+///
+/// Uses f64 bridge for exp, cos, sin (rust_decimal has no complex exponential).
+/// No domain restriction. LiftEffect: Disable. Sets complex_mode = true. OM p.~25.
+///
+/// CMPLX-10 / HP 00041-90034 ~p.25.
+pub fn op_exp_z(state: &mut CalcState) -> Result<(), HpError> {
+    state.complex_mode = true;
+
+    let x_f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let y_f = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
+
+    // e^(x+iy) = e^x · (cos(y) + i·sin(y))
+    let exp_x = x_f.exp();
+    let new_re = exp_x * y_f.cos();
+    let new_im = exp_x * y_f.sin();
+
+    let new_x = Decimal::from_f64(new_re)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    let new_y = Decimal::from_f64(new_im)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+
+    state.stack.x = new_x;
+    state.stack.y = new_y;
+
+    apply_lift_effect(state, LiftEffect::Disable);
+    Ok(())
+}
+
+/// LNZ — complex natural logarithm: ln(X+iY) = ln|ζ| + i·arg(ζ).
+///
+/// arg(ζ) = complex_atan2(Y, X) — converted from radians to current angle_mode.
+/// **Guard (X=0 AND Y=0) → HpError::Domain** (CMPLX-11 / Pitfall 6).
+/// LiftEffect: Disable. Sets complex_mode = true. OM p.~26.
+///
+/// CMPLX-11 / HP 00041-90034 ~p.26.
+pub fn op_ln_z(state: &mut CalcState) -> Result<(), HpError> {
+    // Pitfall 6 / CMPLX-11: Domain guard BEFORE any mutation
+    if state.stack.x.is_zero() && state.stack.y.is_zero() {
+        return Err(HpError::Domain);
+    }
+
+    state.complex_mode = true;
+
+    let x_f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let y_f = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
+
+    // Magnitude: sqrt(X² + Y²) — guaranteed > 0 (zero check above)
+    let mag_f = (x_f * x_f + y_f * y_f).sqrt();
+    let ln_mag = mag_f.ln(); // ln of a positive real — always finite
+
+    // Argument: atan2(Y, X) in radians, then convert to current angle_mode
+    let theta_rad = y_f.atan2(x_f);
+    let theta = f64_from_radians(theta_rad, state.angle_mode);
+
+    let new_x = Decimal::from_f64(ln_mag)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    let new_y = Decimal::from_f64(theta)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+
+    state.stack.x = HpNum::rounded(new_x.inner());
+    state.stack.y = HpNum::rounded(new_y.inner());
+
+    apply_lift_effect(state, LiftEffect::Disable);
+    Ok(())
+}
+
+/// LOGZ — complex base-10 logarithm: LNZ(ζ) / ln(10).
+///
+/// Inherits LNZ's Domain guard: (0+0i) → HpError::Domain.
+/// LiftEffect: Disable. Sets complex_mode = true. OM p.~26.
+///
+/// CMPLX-12 / HP 00041-90034 ~p.26.
+pub fn op_log_z(state: &mut CalcState) -> Result<(), HpError> {
+    // Pitfall 6: Domain guard BEFORE any mutation (same as LNZ)
+    if state.stack.x.is_zero() && state.stack.y.is_zero() {
+        return Err(HpError::Domain);
+    }
+
+    state.complex_mode = true;
+
+    let x_f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+    let y_f = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
+
+    let mag_f = (x_f * x_f + y_f * y_f).sqrt();
+    let ln_mag = mag_f.ln();
+    let theta_rad = y_f.atan2(x_f);
+    let theta = f64_from_radians(theta_rad, state.angle_mode);
+
+    // Divide both real and imaginary parts by ln(10) ≈ 2.302585093
+    let ln_10 = std::f64::consts::LN_10;
+    let new_re = ln_mag / ln_10;
+    let new_im = theta / ln_10;
+
+    let new_x = Decimal::from_f64(new_re)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+    let new_y = Decimal::from_f64(new_im)
+        .map(HpNum::rounded)
+        .ok_or(HpError::Overflow)?;
+
+    state.stack.x = HpNum::rounded(new_x.inner());
+    state.stack.y = HpNum::rounded(new_y.inner());
+
+    apply_lift_effect(state, LiftEffect::Disable);
     Ok(())
 }
 
@@ -637,6 +830,354 @@ mod tests {
         s.stack.lift_enabled = false;
         op_real(&mut s).unwrap();
         assert!(!s.stack.lift_enabled, "Op::Real must leave lift_enabled false when it was false");
+    }
+
+    // ── Op::Magz tests (≥ 5) ─────────────────────────────────────────────────
+
+    /// Catches: wrong magnitude formula (missing cross-term or wrong root).
+    /// Pythagorean triple: (3, 4) → 5.
+    /// Source: HP 00041-90034 ~p.25, MAGZ example.
+    #[test]
+    fn magz_pythagorean_triple() {
+        let mut s = make_state("3", "4", "0", "0");
+        op_magz(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 5.0, max_relative = 1e-7);
+    }
+
+    /// Catches: magnitude of (0, 0) not returning 0.
+    #[test]
+    fn magz_zero_zero_returns_zero() {
+        let mut s = make_state("0", "0", "0", "0");
+        op_magz(&mut s).unwrap();
+        assert!(s.stack.x.is_zero(), "MAGZ(0,0) must be 0");
+    }
+
+    /// Catches: unit complex number not having magnitude 1.
+    /// |(1+1i)| = √2 ≈ 1.41421356.
+    /// Free42 v3.0.5: 1.4142135624.
+    #[test]
+    fn magz_unit_complex() {
+        let mut s = make_state("1", "1", "0", "0");
+        op_magz(&mut s).unwrap();
+        assert_relative_eq!(
+            get_x_f64(&s),
+            std::f64::consts::SQRT_2,
+            max_relative = 1e-7
+        );
+    }
+
+    /// Catches: magnitude of negative components not producing positive result.
+    /// |(-3)+(-4)i| = 5.
+    #[test]
+    fn magz_negative_components() {
+        let mut s = make_state("-3", "-4", "0", "0");
+        op_magz(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 5.0, max_relative = 1e-7);
+    }
+
+    /// Catches: complex_mode not set by MAGZ.
+    #[test]
+    fn magz_sets_complex_mode() {
+        let mut s = make_state("3", "4", "0", "0");
+        assert!(!s.complex_mode);
+        op_magz(&mut s).unwrap();
+        assert!(s.complex_mode, "MAGZ must set complex_mode = true");
+    }
+
+    /// Catches: lift_enabled not set to Disable by MAGZ.
+    #[test]
+    fn magz_disables_lift() {
+        let mut s = make_state("3", "4", "0", "0");
+        s.stack.lift_enabled = true;
+        op_magz(&mut s).unwrap();
+        assert!(!s.stack.lift_enabled, "MAGZ must disable stack lift (LiftEffect::Disable)");
+    }
+
+    /// Catches: Y register being modified by MAGZ (must stay unchanged).
+    #[test]
+    fn magz_leaves_y_unchanged() {
+        let mut s = make_state("3", "4", "5", "6");
+        op_magz(&mut s).unwrap();
+        // Y must still be 4 (the imaginary part)
+        assert_relative_eq!(get_y_f64(&s), 4.0, max_relative = 1e-7);
+    }
+
+    // ── Op::Cinv tests (≥ 5 including zero-divisor guard) ────────────────────
+
+    /// Catches: 1/1 = 1 not computed correctly.
+    /// CINV(1+0i) = 1+0i.
+    #[test]
+    fn cinv_one_over_one() {
+        let mut s = make_state("1", "0", "0", "0");
+        op_cinv(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 1.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-7);
+    }
+
+    /// Catches: 1/i = -i not computed correctly.
+    /// CINV(0+1i) = 0 - 1i.
+    /// Source: HP 00041-90034 ~p.25, complex inverse example.
+    /// Free42 v3.0.5: re=0, im=-1.
+    #[test]
+    fn cinv_one_over_i() {
+        let mut s = make_state("0", "1", "0", "0");
+        op_cinv(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), -1.0, max_relative = 1e-7);
+    }
+
+    /// Catches: formula wrong for mixed complex.
+    /// CINV(1+1i) = 1/(1+i) = (1-i)/2 = 0.5 - 0.5i.
+    /// Free42 v3.0.5: re=0.5, im=-0.5.
+    #[test]
+    fn cinv_unit_complex() {
+        let mut s = make_state("1", "1", "0", "0");
+        op_cinv(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.5, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), -0.5, max_relative = 1e-7);
+    }
+
+    /// Catches: zero divisor not caught BEFORE mutation (Pitfall 6 / CMPLX-07).
+    /// CINV(0+0i) must return DivideByZero WITHOUT stack mutation.
+    #[test]
+    fn cinv_zero_returns_divide_by_zero() {
+        let mut s = make_state("0", "0", "0", "0");
+        let result = op_cinv(&mut s);
+        assert!(
+            matches!(result, Err(HpError::DivideByZero)),
+            "CINV(0,0) must return DivideByZero"
+        );
+        // complex_mode must NOT have been set (guard fires before mutation)
+        assert!(!s.complex_mode, "complex_mode must not be set on DivideByZero");
+    }
+
+    /// Catches: complex_mode not set by CINV.
+    #[test]
+    fn cinv_sets_complex_mode() {
+        let mut s = make_state("1", "1", "0", "0");
+        op_cinv(&mut s).unwrap();
+        assert!(s.complex_mode, "CINV must set complex_mode = true");
+    }
+
+    /// Catches: lift disabled (LiftEffect::Disable) not applied by CINV.
+    #[test]
+    fn cinv_disables_lift() {
+        let mut s = make_state("1", "1", "0", "0");
+        s.stack.lift_enabled = true;
+        op_cinv(&mut s).unwrap();
+        assert!(!s.stack.lift_enabled, "CINV must disable stack lift");
+    }
+
+    // ── Op::ExpZ tests (≥ 5) ─────────────────────────────────────────────────
+
+    /// Catches: e^(0+0i) not returning 1+0i.
+    #[test]
+    fn exp_z_zero_is_one() {
+        let mut s = make_state("0", "0", "0", "0");
+        op_exp_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 1.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-6);
+    }
+
+    /// Catches: Euler's formula e^(iπ) = -1 not computed correctly.
+    /// e^(0 + iπ) → real ≈ -1, imaginary ≈ 0.
+    /// Source: HP 00041-90034 ~p.25, complex exponential.
+    /// Free42 v3.0.5: re=-1.0, im=~0 (small floating-point rounding artifact ~1e-9).
+    #[test]
+    fn exp_z_euler_formula() {
+        let pi_str = "3.141592653589793";
+        let mut s = make_state("0", pi_str, "0", "0");
+        op_exp_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), -1.0, max_relative = 1e-6);
+        // Imaginary part is a floating-point rounding artifact (should be 0 mathematically)
+        // The HP-41 10-digit BCD would round this to 0; we allow up to 1e-6 absolute tolerance
+        assert!(
+            get_y_f64(&s).abs() < 1e-6,
+            "imaginary part of e^(i*pi) must be ~0 (within 1e-6), got {}",
+            get_y_f64(&s)
+        );
+    }
+
+    /// Catches: e^(1+0i) not returning (e, 0).
+    /// Free42 v3.0.5: re=2.7182818285, im=0.
+    #[test]
+    fn exp_z_pure_real() {
+        let mut s = make_state("1", "0", "0", "0");
+        op_exp_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), std::f64::consts::E, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-10);
+    }
+
+    /// Catches: complex_mode not set by ExpZ.
+    #[test]
+    fn exp_z_sets_complex_mode() {
+        let mut s = make_state("0", "0", "0", "0");
+        op_exp_z(&mut s).unwrap();
+        assert!(s.complex_mode, "E↑Z must set complex_mode = true");
+    }
+
+    /// Catches: lift_enabled not disabled by ExpZ (LiftEffect::Disable).
+    #[test]
+    fn exp_z_disables_lift() {
+        let mut s = make_state("0", "0", "0", "0");
+        s.stack.lift_enabled = true;
+        op_exp_z(&mut s).unwrap();
+        assert!(!s.stack.lift_enabled, "E↑Z must disable stack lift");
+    }
+
+    /// Catches: e^(1+1i) wrong formula (cross-component error).
+    /// e^(1+i) = e·cos(1) + i·e·sin(1) ≈ 1.4686939399 + 2.2873552872i.
+    /// Free42 v3.0.5: re≈1.4686939399, im≈2.2873552872.
+    #[test]
+    fn exp_z_complex_result() {
+        let mut s = make_state("1", "1", "0", "0");
+        op_exp_z(&mut s).unwrap();
+        let e = std::f64::consts::E;
+        let expected_re = e * 1.0_f64.cos();
+        let expected_im = e * 1.0_f64.sin();
+        assert_relative_eq!(get_x_f64(&s), expected_re, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), expected_im, max_relative = 1e-7);
+    }
+
+    // ── Op::LnZ tests (≥ 5 including Domain guard) ───────────────────────────
+
+    /// Catches: ln(1+0i) not returning (0+0i).
+    /// Source: HP 00041-90034 ~p.26, LNZ example: ln(1) = 0.
+    #[test]
+    fn ln_z_one_is_zero() {
+        let mut s = make_state("1", "0", "0", "0");
+        op_ln_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-7);
+    }
+
+    /// Catches: ln(e+0i) not returning (1+0i).
+    /// Free42 v3.0.5: re=1.0, im=0.
+    #[test]
+    fn ln_z_e_is_one() {
+        let e_str = "2.718281828459045";
+        let mut s = make_state(e_str, "0", "0", "0");
+        op_ln_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 1.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-6);
+    }
+
+    /// Catches: ln(0+1i) not returning (0 + π/2·i) in radians mode.
+    /// ln(i) = 0 + i·π/2.
+    /// Free42 v3.0.5 (RAD mode): re=0, im=1.5707963268.
+    #[test]
+    fn ln_z_pure_imaginary() {
+        let mut s = make_state("0", "1", "0", "0");
+        s.angle_mode = crate::state::AngleMode::Rad;
+        op_ln_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
+        assert_relative_eq!(
+            get_y_f64(&s),
+            std::f64::consts::FRAC_PI_2,
+            max_relative = 1e-7
+        );
+    }
+
+    /// Catches: ln(-1+0i) not returning (0 + π·i) in radians mode.
+    /// ln(-1) = i·π — principal branch.
+    /// Free42 v3.0.5 (RAD mode): re=0, im=π≈3.1415926536.
+    #[test]
+    fn ln_z_neg_one_is_i_pi() {
+        let mut s = make_state("-1", "0", "0", "0");
+        s.angle_mode = crate::state::AngleMode::Rad;
+        op_ln_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
+        assert_relative_eq!(
+            get_y_f64(&s),
+            std::f64::consts::PI,
+            max_relative = 1e-7
+        );
+    }
+
+    /// Catches: LNZ(0+0i) not returning Domain (CMPLX-11 / Pitfall 6).
+    #[test]
+    fn ln_z_zero_is_domain() {
+        let mut s = make_state("0", "0", "0", "0");
+        let result = op_ln_z(&mut s);
+        assert!(
+            matches!(result, Err(HpError::Domain)),
+            "LNZ(0+0i) must return Domain (CMPLX-11)"
+        );
+        assert!(!s.complex_mode, "complex_mode must not be set on Domain");
+    }
+
+    /// Catches: complex_mode not set by LnZ.
+    #[test]
+    fn ln_z_sets_complex_mode() {
+        let mut s = make_state("1", "0", "0", "0");
+        op_ln_z(&mut s).unwrap();
+        assert!(s.complex_mode, "LNZ must set complex_mode = true");
+    }
+
+    // ── Op::LogZ tests (≥ 5 including Domain guard) ──────────────────────────
+
+    /// Catches: log10(10+0i) not returning (1+0i).
+    /// Source: HP 00041-90034 ~p.26, LOGZ example.
+    /// Free42 v3.0.5: re=1.0, im=0.
+    #[test]
+    fn log_z_ten_is_one() {
+        let mut s = make_state("10", "0", "0", "0");
+        op_log_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 1.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-6);
+    }
+
+    /// Catches: log10(100+0i) not returning (2+0i).
+    /// Free42 v3.0.5: re=2.0, im=0.
+    #[test]
+    fn log_z_hundred_is_two() {
+        let mut s = make_state("100", "0", "0", "0");
+        op_log_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 2.0, max_relative = 1e-7);
+        assert_relative_eq!(get_y_f64(&s), 0.0, max_relative = 1e-6);
+    }
+
+    /// Catches: LOGZ(0+0i) not returning Domain.
+    #[test]
+    fn log_z_zero_is_domain() {
+        let mut s = make_state("0", "0", "0", "0");
+        let result = op_log_z(&mut s);
+        assert!(
+            matches!(result, Err(HpError::Domain)),
+            "LOGZ(0+0i) must return Domain"
+        );
+        assert!(!s.complex_mode, "complex_mode must not be set on Domain");
+    }
+
+    /// Catches: complex_mode not set by LOGZ.
+    #[test]
+    fn log_z_sets_complex_mode() {
+        let mut s = make_state("10", "0", "0", "0");
+        op_log_z(&mut s).unwrap();
+        assert!(s.complex_mode, "LOGZ must set complex_mode = true");
+    }
+
+    /// Catches: lift not disabled by LOGZ.
+    #[test]
+    fn log_z_disables_lift() {
+        let mut s = make_state("10", "0", "0", "0");
+        s.stack.lift_enabled = true;
+        op_log_z(&mut s).unwrap();
+        assert!(!s.stack.lift_enabled, "LOGZ must disable stack lift");
+    }
+
+    /// Catches: log10(-1+0i) in radians not returning (0 + π/ln(10)·i).
+    /// log10(-1) = i·π/ln(10) ≈ 1.3643763538i (principal branch, RAD mode).
+    /// Free42 v3.0.5 (RAD): re=0, im≈1.3643763538.
+    #[test]
+    fn log_z_neg_one_complex() {
+        let mut s = make_state("-1", "0", "0", "0");
+        s.angle_mode = crate::state::AngleMode::Rad;
+        op_log_z(&mut s).unwrap();
+        assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
+        // π / ln(10)
+        let expected_im = std::f64::consts::PI / std::f64::consts::LN_10;
+        assert_relative_eq!(get_y_f64(&s), expected_im, max_relative = 1e-7);
     }
 
     // ── complex_mode lifecycle tests ──────────────────────────────────────────
