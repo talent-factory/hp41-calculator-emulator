@@ -269,6 +269,19 @@ fn op_display_name(op: &Op) -> String {
         Op::CTimes => "C\u{00D7}".to_string(),
         Op::CDiv => "C\u{00F7}".to_string(),
         Op::Real => "REAL".to_string(),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => "MAGZ".to_string(),
+        Op::Cinv => "CINV".to_string(),
+        Op::ZpowN => "Z\u{2191}N".to_string(),
+        Op::Zpow1N => "Z\u{2191}1/N".to_string(),
+        Op::ExpZ => "E\u{2191}Z".to_string(),
+        Op::LnZ => "LNZ".to_string(),
+        Op::SinZ => "SINZ".to_string(),
+        Op::CosZ => "COSZ".to_string(),
+        Op::TanZ => "TANZ".to_string(),
+        Op::ApowZ => "A\u{2191}Z".to_string(),
+        Op::LogZ => "LOGZ".to_string(),
+        Op::ZpowW => "Z\u{2191}W".to_string(),
     }
 }
 
