@@ -447,8 +447,8 @@ pub fn op_sign(state: &mut CalcState) -> Result<(), HpError> {
 /// 4. Sign check (D-07): negative X → `Domain`.
 /// 5. Iterative f64 product (D-04); convert via
 ///    `Decimal::from_f64(...).map(HpNum::rounded).ok_or(HpError::Overflow)`
-///    — practical magnitude wall is `X ≤ 27` (D-05); `28..=69` returns
-///    `Overflow` from the conversion side.
+///    — practical magnitude wall is `X ≤ 26` (Phase 27 proptest calibration);
+///    `27..=69` returns `Overflow` from the conversion side.
 ///
 /// LiftEffect: Enable (via `unary_result`).
 pub fn op_fact(state: &mut CalcState) -> Result<(), HpError> {

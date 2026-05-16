@@ -152,7 +152,7 @@
         "phase": "20",
         "key_path": null,
         "description": "Sign of X: -1, 0, or +1",
-        "divergences": ["SIGN-on-ALPHA returns 0 per Phase 25 docs"]
+        "divergences": []
     },
     {
         "op_variant": "Fact",
@@ -162,7 +162,7 @@
         "phase": "20",
         "key_path": null,
         "description": "Factorial of integer X; OutOfRange for X>69",
-        "divergences": ["FACT effective cap <= 27 per Phase 20 D-05"]
+        "divergences": ["FACT effective cap <= 26 per Phase 27 proptest calibration; X in 27..=69 returns Overflow via the Decimal::from_f64 wall"]
     },
     {
         "op_variant": "Recip",

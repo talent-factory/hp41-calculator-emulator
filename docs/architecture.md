@@ -341,14 +341,17 @@ The frontend never references Rust enums. Every key sends a string ID (`"enter"`
 
 | Layer | Tool | Target | Current |
 |-------|------|--------|---------|
-| Unit & property | `cargo test` + `proptest` | `hp41-core` | 150+ tests |
+| Unit & property | `cargo test` + `proptest` (19 properties) | `hp41-core` | 1202/1202 workspace-wide |
 | Print emulation | integration | `hp41-core/tests/print_tests.rs` | passing |
 | Synthetic ops | integration | `hp41-core/tests/synthetic_tests.rs` | 21 tests |
+| Indirect addressing | integration | `hp41-core/tests/indirect_addressing.rs` | 42 tests |
 | Snapshot | `insta` | display formatting, state serialization | passing |
-| Coverage gate | `cargo-llvm-cov` | ≥80% line coverage on `hp41-core` | 92.5% lines / 89.9% regions |
-| Numerical accuracy | hand-crafted 500-case suite | ≥98% agreement vs HP-41 hardware | 99% (495/500) |
+| Coverage gate | `cargo-llvm-cov` | ≥95% line coverage on `hp41-core` (Phase 27 atomic raise from 80%) | 95.25% lines / 93.75% regions |
+| Numerical accuracy | hand-crafted 566-case suite | ≥98% agreement vs HP-41 hardware | 99.1% (561/566) |
 | TUI integration | `cargo test --bin hp41-cli` | `hp41-cli` | ~99 tests |
 | GUI Rust | `cargo test` (gui workspace) | `hp41-gui/src-tauri` | 13+ tests |
+| GUI frontend | Vitest | `hp41-gui/src` | 142/142 |
+| GUI E2E | WebdriverIO + tauri-driver (Ubuntu-only) | `hp41-gui/e2e/smoke.spec.ts` | smoke green on CI |
 | TypeScript build | `tsc --noEmit` + Vite build | `hp41-gui/src` | gated by `gui-ci` |
 
 Run the full gates:

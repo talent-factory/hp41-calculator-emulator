@@ -13,7 +13,8 @@ A faithful Rust-based behavioral emulation of the HP-41C/CV/CX programmable RPN 
 - v1.0 CLI shipped 2026-05-08 — 8 phases, 45 plans
 - v1.1 CLI Feature Completeness shipped 2026-05-09 — Phases 9–12, 13 plans (EEX-fix, STO arithmetic modals, print emulation, synthetic programming)
 - v2.0 Tauri GUI shipped 2026-05-10 — Phases 13–18, 19 plans (pixel-perfect HP-41C desktop app)
-- v2.1 Keyboard Authenticity (in progress) — Phase 19, 10 tasks (5-col layout, one-shot SHIFT, three-label keys, run_stop command, stub-error pattern)
+- v2.1 Keyboard Authenticity shipped 2026-05-13 — Phase 19, 10 tasks (5-col layout, one-shot SHIFT, three-label keys, run_stop command, stub-error pattern); landed via quick-task reconcile, no tag yet
+- v2.2 HP-41CV Feature Completeness shipped 2026-05-16 — Phases 20–27, 8/8 phases (Core Math; Flags/Display/Sound; Program Control & Memory; ALPHA; Indirect Addressing; CLI Integration & JSON pipeline; GUI Integration & Polish; Test Hardening). Tag v2.2 on main.
 
 ## Git Workflow
 
