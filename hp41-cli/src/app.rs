@@ -669,6 +669,13 @@ impl App {
                 }
                 Err(e) => self.message = Some(format!("{e}")),
             }
+            // WR-06 fix: maintain the documented "F5 / R / S code paths reset
+            // last_key_code to 0 BEFORE GETKEY runs" invariant (CLAUDE.md v1.1
+            // additions). The Math1 modal-submit path is a new F5 dispatch
+            // route that bypassed this reset — if a user was mid-program with
+            // Op::GetKey waiting on a keypress, the next GetKey would see a
+            // stale code from before the modal opened.
+            self.state.last_key_code = 0;
             return;
         }
 
