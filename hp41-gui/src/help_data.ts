@@ -9,13 +9,34 @@
 // Hard-build-blocker semantics (D-25.17 / D-26.8): a malformed JSON file
 // fails vite's build step. This is intentional — canonical data files must
 // not be empty / malformed.
+//
+// Phase 31-04: parallel-loads docs/hp41-math1-functions.json via Vite static
+// JSON-import (D-31.10 / C-28.3 / ADR-005). Mirrors hp41-cli/src/help_data.rs
+// Phase 29 D-29.2 second OnceLock + merged accessor pattern.
 
 import functions from '../../docs/hp41cv-functions.json';
+import math1Functions from '../../docs/hp41-math1-functions.json';
+
+/// XROM module reference attached to Math Pac I (and future v3.1+ pac) entries.
+/// Matches the `xrom` object shape in docs/hp41-math1-functions.json (ADR-005 /
+/// C-28.3 / Phase 29 D-29.1).
+export interface XromEntry {
+    /// Human-readable module name, e.g. "Math 1".
+    module: string;
+    /// HP-41 hardware XROM module ID (7 for Math Pac I).
+    module_id: number;
+    /// 1-based function index within the module.
+    function_id: number;
+}
 
 /// One row in the canonical HP-41CV function table.
 ///
 /// Mirrors hp41-cli::help_data::HelpEntry (Rust) field-for-field. See
 /// `hp41-cli/src/help_data.rs` lines 24-57 for the canonical schema.
+///
+/// Phase 31-04 extends with optional `xrom` field: present on Math Pac I
+/// entries (loaded from docs/hp41-math1-functions.json), absent on v2.2
+/// built-in entries.
 export interface HelpEntry {
     /// Op variant name (PascalCase, e.g. `"Pi"`). For XEQ-by-Name-only
     /// conditional tests this is an `_XEQ`-suffixed alias.
@@ -34,6 +55,10 @@ export interface HelpEntry {
     description: string;
     /// Optional free-form notes about HP-41 hardware divergences.
     divergences?: string[];
+    /// XROM module reference — present on Math Pac I entries, absent on
+    /// v2.2 built-in entries. Used by HelpOverlay.tsx to partition entries
+    /// into "HP-41CV (built-in)" vs "Math 1 Pac (XROM 7)" sections (D-31.8).
+    xrom?: XromEntry;
 }
 
 /// Lazy-init cache. Vite's static `import` is itself the cache (module
@@ -107,4 +132,23 @@ export function filterHelpEntries(query: string): readonly HelpEntry[] {
             e.category.toLowerCase().includes(q)
         )
     );
+}
+
+/// Phase 31-04: Math Pac I function entries from docs/hp41-math1-functions.json.
+///
+/// Vite static JSON-import: baked into the production bundle at build time.
+/// Malformed JSON fails the Vite build — hard-build-blocker semantics per
+/// D-25.17 (parallel to hp41-cli/src/help_data.rs `.expect("...malformed")`).
+/// Mirrors Phase 29 D-29.2 second OnceLock + accessor pattern in Rust.
+export function helpEntriesMath1(): readonly HelpEntry[] {
+    return math1Functions as readonly HelpEntry[];
+}
+
+/// Phase 31-04: Merged accessor returning all built-in + Math Pac I entries.
+///
+/// Parallel to hp41-cli/src/help_data.rs::help_entries_all() (Phase 29 D-29.2).
+/// Used by HelpOverlay.tsx to obtain the full entry pool; the overlay then
+/// partitions by presence of `entry.xrom` into two sections (D-31.8).
+export function helpEntriesAll(): readonly HelpEntry[] {
+    return [...helpEntries(), ...helpEntriesMath1()];
 }

@@ -15,6 +15,7 @@ use std::str::FromStr;
 
 use crate::error::HpError;
 use crate::num::HpNum;
+use crate::ops::math1::xrom::MATH_1;
 use crate::ops::{Op, TestKind};
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
@@ -332,9 +333,27 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
                 ));
             }
         }
-        2..=4 => {
-            // CATALOG 2 (XROM modules) / 3 (HP-IL) / 4 (peripherals) — none
-            // in this emulator → single payload line.
+        2 => {
+            // CATALOG 2: XROM modules loaded in this emulator.
+            // Surgical Phase 31-04 exception (analogous to v2.2 Plan 25-03
+            // builtin_card_op 4→12 extension). Instant-scroll per W1 fix:
+            // single-pass synchronous push into print_buffer — NO PSE-step,
+            // NO per-line yield (v2.2 CAT 1 shape; D-31.12/D-31.14 PSE-step
+            // deferred to v3.1 polish per RESEARCH Open Q2).
+            if state.xrom_modules & 0b0000_0001 != 0 {
+                // Math Pac I (bit 0) is loaded.
+                state
+                    .print_buffer
+                    .push(format!("{:<24}", format!("XROM {} {}", MATH_1.id, MATH_1.name)));
+                for (name, _op) in MATH_1.ops {
+                    state.print_buffer.push(format!("{:<24}", name));
+                }
+            } else {
+                state.print_buffer.push(format!("{:<24}", "NO XROM"));
+            }
+        }
+        3..=4 => {
+            // CATALOG 3 (HP-IL) / 4 (peripherals) — not emulated.
             state.print_buffer.push(format!("{:<24}", "NOT AVAILABLE"));
         }
         _ => return Err(HpError::InvalidOp), // defensive; guarded above
