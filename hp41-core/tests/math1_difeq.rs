@@ -11,7 +11,6 @@
 
 #![allow(clippy::unwrap_used)]
 
-use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
 use hp41_core::ops::math1::difeq::op_difeq_run_loop;
 use hp41_core::ops::Op;
