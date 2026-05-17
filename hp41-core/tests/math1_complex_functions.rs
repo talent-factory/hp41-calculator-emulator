@@ -27,8 +27,12 @@ fn make_state(x: f64, y: f64, z: f64, t: f64) -> CalcState {
     s
 }
 
-fn get_x(s: &CalcState) -> f64 { s.stack.x.inner().to_f64().unwrap() }
-fn get_y(s: &CalcState) -> f64 { s.stack.y.inner().to_f64().unwrap() }
+fn get_x(s: &CalcState) -> f64 {
+    s.stack.x.inner().to_f64().unwrap()
+}
+fn get_y(s: &CalcState) -> f64 {
+    s.stack.y.inner().to_f64().unwrap()
+}
 
 // ── Op::Magz integration tests ───────────────────────────────────────────────
 
@@ -93,7 +97,10 @@ fn dispatch_cinv_one_over_i() {
 fn dispatch_cinv_zero_is_divide_by_zero() {
     let mut s = make_state(0.0, 0.0, 0.0, 0.0);
     let r = dispatch(&mut s, Op::Cinv);
-    assert!(matches!(r, Err(hp41_core::HpError::DivideByZero)), "Cinv(0,0) must DivideByZero");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::DivideByZero)),
+        "Cinv(0,0) must DivideByZero"
+    );
 }
 
 /// Catches: Cinv(1+0i) = 1+0i identity.
@@ -186,7 +193,10 @@ fn dispatch_ln_z_one_is_zero() {
 fn dispatch_ln_z_zero_is_domain() {
     let mut s = make_state(0.0, 0.0, 0.0, 0.0);
     let r = dispatch(&mut s, Op::LnZ);
-    assert!(matches!(r, Err(hp41_core::HpError::Domain)), "LnZ(0,0) must Domain");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "LnZ(0,0) must Domain"
+    );
 }
 
 /// Catches: LnZ sets complex_mode.
@@ -234,7 +244,10 @@ fn dispatch_log_z_ten_is_one() {
 fn dispatch_log_z_zero_is_domain() {
     let mut s = make_state(0.0, 0.0, 0.0, 0.0);
     let r = dispatch(&mut s, Op::LogZ);
-    assert!(matches!(r, Err(hp41_core::HpError::Domain)), "LogZ(0,0) must Domain");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "LogZ(0,0) must Domain"
+    );
 }
 
 /// Catches: LogZ sets complex_mode.
@@ -375,7 +388,10 @@ fn dispatch_tan_z_zero_is_zero() {
 fn dispatch_tan_z_singularity_is_domain() {
     let mut s = make_state(std::f64::consts::FRAC_PI_2, 0.0, 0.0, 0.0);
     let r = dispatch(&mut s, Op::TanZ);
-    assert!(matches!(r, Err(hp41_core::HpError::Domain)), "TanZ(pi/2,0) must Domain");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "TanZ(pi/2,0) must Domain"
+    );
 }
 
 /// Catches: TanZ sets complex_mode.
@@ -422,7 +438,10 @@ fn dispatch_z_pow_n_zero_exp_is_one() {
     let mut s = make_state(0.0, 5.0, 3.0, 0.0);
     dispatch(&mut s, Op::ZpowN).unwrap();
     assert_relative_eq!(get_x(&s), 1.0, max_relative = 1e-7);
-    assert!(get_y(&s).is_nan() || get_y(&s).abs() < 1e-9, "ZpowN(z,0) imag must be ~0");
+    assert!(
+        get_y(&s).is_nan() || get_y(&s).abs() < 1e-9,
+        "ZpowN(z,0) imag must be ~0"
+    );
 }
 
 /// Catches: ZpowN sets complex_mode.
@@ -515,7 +534,10 @@ fn dispatch_a_pow_z_pure_real() {
 fn dispatch_a_pow_z_zero_base_is_domain() {
     let mut s = make_state(1.0, 0.0, 0.0, 0.0);
     let r = dispatch(&mut s, Op::ApowZ);
-    assert!(matches!(r, Err(hp41_core::HpError::Domain)), "ApowZ with a=0 must Domain");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "ApowZ with a=0 must Domain"
+    );
 }
 
 /// Catches: ApowZ sets complex_mode.
@@ -532,8 +554,16 @@ fn dispatch_a_pow_z_t_replicate() {
     // a=Z+iT=(2,7), z=X+iY=(1,0): result=(2,~0); old T was 7
     let mut s = make_state(1.0, 0.0, 2.0, 7.0);
     dispatch(&mut s, Op::ApowZ).unwrap();
-    assert_relative_eq!(s.stack.z.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.z.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: ApowZ LiftEffect::Enable not applied.
@@ -542,7 +572,10 @@ fn dispatch_a_pow_z_enables_lift() {
     let mut s = make_state(2.0, 0.0, 3.0, 0.0);
     s.stack.lift_enabled = false;
     dispatch(&mut s, Op::ApowZ).unwrap();
-    assert!(s.stack.lift_enabled, "ApowZ must LiftEffect::Enable (binary)");
+    assert!(
+        s.stack.lift_enabled,
+        "ApowZ must LiftEffect::Enable (binary)"
+    );
 }
 
 // ── Op::ZpowW integration tests ───────────────────────────────────────────────
@@ -563,7 +596,10 @@ fn dispatch_z_pow_w_pure_real() {
 fn dispatch_z_pow_w_zero_neg_exp_is_domain() {
     let mut s = make_state(0.0, 0.0, -1.0, 0.0);
     let r = dispatch(&mut s, Op::ZpowW);
-    assert!(matches!(r, Err(hp41_core::HpError::Domain)), "ZpowW(0,0,-1) must Domain");
+    assert!(
+        matches!(r, Err(hp41_core::HpError::Domain)),
+        "ZpowW(0,0,-1) must Domain"
+    );
 }
 
 /// Catches: ZpowW sets complex_mode.
@@ -580,8 +616,16 @@ fn dispatch_z_pow_w_t_replicate() {
     // z=(2,0), w=(3,7): T was 7
     let mut s = make_state(2.0, 0.0, 3.0, 7.0);
     dispatch(&mut s, Op::ZpowW).unwrap();
-    assert_relative_eq!(s.stack.z.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.z.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: ZpowW (0+0i)^(positive) = 0 (not Domain).

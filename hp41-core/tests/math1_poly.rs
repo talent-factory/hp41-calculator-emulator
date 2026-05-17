@@ -38,7 +38,10 @@ fn set_reg(state: &mut CalcState, idx: usize, val: f64) {
 fn dispatch_poly_workflow_succeeds() {
     let mut s = make_state();
     let result = dispatch(&mut s, Op::PolyWorkflow);
-    assert!(result.is_ok(), "dispatch(Op::PolyWorkflow) must return Ok(())");
+    assert!(
+        result.is_ok(),
+        "dispatch(Op::PolyWorkflow) must return Ok(())"
+    );
 }
 
 /// Catches: Op::PolyWorkflow not setting modal_program to DegreePrompt.
@@ -123,11 +126,14 @@ fn dispatch_poly_workflow_does_not_write_to_print_buffer() {
 #[test]
 fn dispatch_roots_succeeds_for_simple_quadratic() {
     let mut s = make_state();
-    set_reg(&mut s, 0, 1.0);  // A=1 (x² term)
-    set_reg(&mut s, 1, 0.0);  // B=0
+    set_reg(&mut s, 0, 1.0); // A=1 (x² term)
+    set_reg(&mut s, 1, 0.0); // B=0
     set_reg(&mut s, 2, -1.0); // C=-1 (constant)
     let result = dispatch(&mut s, Op::Roots);
-    assert!(result.is_ok(), "dispatch(Op::Roots) must return Ok(()) for x²-1=0");
+    assert!(
+        result.is_ok(),
+        "dispatch(Op::Roots) must return Ok(()) for x²-1=0"
+    );
 }
 
 /// Catches: Op::Roots not writing any output to print_buffer.
@@ -136,8 +142,8 @@ fn dispatch_roots_succeeds_for_simple_quadratic() {
 fn dispatch_roots_writes_to_print_buffer() {
     let mut s = make_state();
     s.display_mode = hp41_core::DisplayMode::Fix(4);
-    set_reg(&mut s, 0, 1.0);  // A=1
-    set_reg(&mut s, 1, 0.0);  // B=0
+    set_reg(&mut s, 0, 1.0); // A=1
+    set_reg(&mut s, 1, 0.0); // B=0
     set_reg(&mut s, 2, -1.0); // C=-1
     dispatch(&mut s, Op::Roots).unwrap();
     assert!(
@@ -152,12 +158,15 @@ fn dispatch_roots_writes_to_print_buffer() {
 fn dispatch_roots_output_has_u_prefix() {
     let mut s = make_state();
     s.display_mode = hp41_core::DisplayMode::Fix(4);
-    set_reg(&mut s, 0, 1.0);  // A=1
-    set_reg(&mut s, 1, 0.0);  // B=0
+    set_reg(&mut s, 0, 1.0); // A=1
+    set_reg(&mut s, 1, 0.0); // B=0
     set_reg(&mut s, 2, -1.0); // C=-1
     dispatch(&mut s, Op::Roots).unwrap();
     let has_u_line = s.print_buffer.iter().any(|l| l.starts_with("U="));
-    assert!(has_u_line, "Op::Roots print_buffer must contain at least one 'U=' line");
+    assert!(
+        has_u_line,
+        "Op::Roots print_buffer must contain at least one 'U=' line"
+    );
 }
 
 /// Catches: Op::Roots not clearing modal_program on success.
@@ -208,14 +217,17 @@ fn dispatch_roots_lift_effect_neutral() {
 fn dispatch_roots_quadratic_real_root_count() {
     let mut s = make_state();
     s.display_mode = hp41_core::DisplayMode::Fix(4);
-    set_reg(&mut s, 0, 1.0);  // A=1 (x² term)
+    set_reg(&mut s, 0, 1.0); // A=1 (x² term)
     set_reg(&mut s, 1, -3.0); // B=-3 (x term)
-    set_reg(&mut s, 2, 2.0);  // C=2 (constant)
+    set_reg(&mut s, 2, 2.0); // C=2 (constant)
     dispatch(&mut s, Op::Roots).unwrap();
-    let u_count = s.print_buffer.iter().filter(|l| l.starts_with("U=")).count();
+    let u_count = s
+        .print_buffer
+        .iter()
+        .filter(|l| l.starts_with("U="))
+        .count();
     assert_eq!(
-        u_count,
-        2,
+        u_count, 2,
         "x²-3x+2 has 2 real roots → exactly 2 U= lines in print_buffer"
     );
 }
@@ -239,6 +251,9 @@ fn dispatch_roots_complex_pair_four_line_format() {
     );
     assert!(s.print_buffer[0].starts_with("U="), "Line 0: U=<u>");
     assert!(s.print_buffer[1].starts_with("V="), "Line 1: V=<v>");
-    assert!(s.print_buffer[2].starts_with("U="), "Line 2: U=<u> (repeated)");
+    assert!(
+        s.print_buffer[2].starts_with("U="),
+        "Line 2: U=<u> (repeated)"
+    );
     assert!(s.print_buffer[3].starts_with("-V=-"), "Line 3: -V=-<v>");
 }

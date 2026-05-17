@@ -68,10 +68,14 @@ fn integ_resolves_via_xeq_intg_mnemonic() {
 fn integ_strict_reject_nested_integ_state() {
     let (mut state, program) = make_state_with_fn("F", 0.0, 1.0, 4, vec![Op::Rtn]);
     state.program.pop(); // remove extra RTN added by make_state_with_fn
-    // Pre-set integ_state to simulate outer INTG in progress
+                         // Pre-set integ_state to simulate outer INTG in progress
     state.integ_state = Some(IntegState::default());
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "Op::Integ nested INTG must return InvalidOp");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "Op::Integ nested INTG must return InvalidOp"
+    );
 }
 
 // ── Test 3: Op::Integ call_stack pre-mutation cap (Pitfall 4) ────────────────
@@ -85,10 +89,20 @@ fn integ_call_stack_cap_pre_mutation() {
     let saved_call_stack = state.call_stack.clone();
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::CallDepth), "Op::Integ with 4-deep call_stack must return CallDepth");
+    assert_eq!(
+        result,
+        Err(HpError::CallDepth),
+        "Op::Integ with 4-deep call_stack must return CallDepth"
+    );
     // call_stack must be UNCHANGED — guard fired before any mutation
-    assert_eq!(state.call_stack, saved_call_stack, "call_stack must not be modified on pre-mutation rejection");
-    assert!(state.integ_state.is_none(), "integ_state must remain None after CallDepth rejection");
+    assert_eq!(
+        state.call_stack, saved_call_stack,
+        "call_stack must not be modified on pre-mutation rejection"
+    );
+    assert!(
+        state.integ_state.is_none(),
+        "integ_state must remain None after CallDepth rejection"
+    );
 }
 
 // ── Test 4: Op::Integ subdivision cap 32768 ──────────────────────────────────
@@ -98,7 +112,11 @@ fn integ_call_stack_cap_pre_mutation() {
 fn integ_subdivision_cap_32768() {
     let (mut state, program) = make_state_with_fn("F", 0.0, 1.0, 32769, vec![]);
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::Domain), "Op::Integ n > 32768 must return Domain (INTG-07)");
+    assert_eq!(
+        result,
+        Err(HpError::Domain),
+        "Op::Integ n > 32768 must return Domain (INTG-07)"
+    );
     assert_eq!(INTG_MAX_EVALS, 32768, "INTG_MAX_EVALS must be 2^15 = 32768");
 }
 
@@ -108,8 +126,16 @@ fn integ_subdivision_cap_32768() {
 #[test]
 fn integ_mode_explicit_is_default() {
     let state = IntegState::default();
-    assert_eq!(state.mode, IntegMode::Explicit, "IntegState::default().mode must be Explicit");
-    assert_eq!(IntegMode::default(), IntegMode::Explicit, "IntegMode::default() must be Explicit");
+    assert_eq!(
+        state.mode,
+        IntegMode::Explicit,
+        "IntegState::default().mode must be Explicit"
+    );
+    assert_eq!(
+        IntegMode::default(),
+        IntegMode::Explicit,
+        "IntegMode::default() must be Explicit"
+    );
 }
 
 // ── Test 6: Op::Integ IntegState struct fields correct ───────────────────────
@@ -136,14 +162,23 @@ fn integ_state_fields_populated_correctly() {
 #[test]
 fn integ_constant_one_function() {
     // f(x) = 1 (push 1, not x) → ∫₀¹ 1 dx = 1.0
-    let (mut state, program) = make_state_with_fn("C", 0.0, 1.0, 10, vec![
-        Op::Clx, // clear x_k
-        // Push literal 1
-        Op::PushNum(HpNum::from(1i32)),
-    ]);
+    let (mut state, program) = make_state_with_fn(
+        "C",
+        0.0,
+        1.0,
+        10,
+        vec![
+            Op::Clx, // clear x_k
+            // Push literal 1
+            Op::PushNum(HpNum::from(1i32)),
+        ],
+    );
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "Op::Integ constant-1 function failed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "Op::Integ constant-1 function failed: {result:?}"
+    );
 
     let x_val = get_x_f64(&state);
     // ∫₀¹ 1 dx = 1.0 (exact — Simpson is exact for constant functions)
@@ -164,8 +199,15 @@ fn integ_cancel_requested_fires_at_sample_boundary() {
     state.cancel_requested.store(true, Ordering::Relaxed);
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::Canceled), "Op::Integ must return Canceled when cancel_requested is set");
-    assert!(state.integ_state.is_none(), "integ_state must be None after Op::Integ cancellation");
+    assert_eq!(
+        result,
+        Err(HpError::Canceled),
+        "Op::Integ must return Canceled when cancel_requested is set"
+    );
+    assert!(
+        state.integ_state.is_none(),
+        "integ_state must be None after Op::Integ cancellation"
+    );
 }
 
 // ── Test 9: Op::Integ solve_state set → rejected (XROM-08 checks all states) ──
@@ -177,8 +219,15 @@ fn integ_strict_reject_when_solve_state_set() {
     state.solve_state = Some(hp41_core::ops::math1::solve::SolveState::default());
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "Op::Integ with solve_state set must return InvalidOp (XROM-08)");
-    assert!(state.integ_state.is_none(), "integ_state must remain None after pre-mutation rejection");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "Op::Integ with solve_state set must return InvalidOp (XROM-08)"
+    );
+    assert!(
+        state.integ_state.is_none(),
+        "integ_state must remain None after pre-mutation rejection"
+    );
 }
 
 // ── Test 10: Op::Integ linear function ∫₀¹ x dx = 0.5 ───────────────────────
@@ -187,9 +236,15 @@ fn integ_strict_reject_when_solve_state_set() {
 #[test]
 fn integ_linear_function_x_over_0_to_1() {
     // f(x) = x (identity — x is already in X from the integ loop push)
-    let (mut state, program) = make_state_with_fn("L", 0.0, 1.0, 10, vec![
-        // f(x) = x: X already holds x_k, just return it
-    ]);
+    let (mut state, program) = make_state_with_fn(
+        "L",
+        0.0,
+        1.0,
+        10,
+        vec![
+            // f(x) = x: X already holds x_k, just return it
+        ],
+    );
 
     let result = op_integ_run_loop(&mut state, &program);
     assert!(result.is_ok(), "Op::Integ linear f(x)=x failed: {result:?}");
@@ -208,12 +263,21 @@ fn integ_linear_function_x_over_0_to_1() {
 #[test]
 fn integ_reversed_interval() {
     // ∫₁⁰ x dx = -0.5 (reversed interval flips sign)
-    let (mut state, program) = make_state_with_fn("L2", 1.0, 0.0, 10, vec![
-        // f(x) = x: identity
-    ]);
+    let (mut state, program) = make_state_with_fn(
+        "L2",
+        1.0,
+        0.0,
+        10,
+        vec![
+            // f(x) = x: identity
+        ],
+    );
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "Op::Integ reversed interval failed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "Op::Integ reversed interval failed: {result:?}"
+    );
 
     let x_val = get_x_f64(&state);
     // ∫₁⁰ x dx = -0.5 (h is negative when b < a)
@@ -232,7 +296,11 @@ fn integ_strict_reject_when_difeq_state_set() {
     state.difeq_state = Some(hp41_core::ops::math1::difeq::DifeqState::default());
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "Op::Integ with difeq_state set must return InvalidOp (XROM-08)");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "Op::Integ with difeq_state set must return InvalidOp (XROM-08)"
+    );
 }
 
 // ── Test 13: Op::Integ clears integ_state on success ─────────────────────────
@@ -264,8 +332,15 @@ fn integ_missing_label_returns_invalid_op() {
     state.stack.y = HpNum::from(1i32);
 
     let result = op_integ_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "Op::Integ missing label must return InvalidOp");
-    assert!(state.integ_state.is_none(), "integ_state must be None after label-not-found");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "Op::Integ missing label must return InvalidOp"
+    );
+    assert!(
+        state.integ_state.is_none(),
+        "integ_state must be None after label-not-found"
+    );
 }
 
 // ── Test 15: Op::Integ IntegMode::Discrete (plan 28-07 returns InvalidOp) ────
@@ -279,6 +354,13 @@ fn integ_mode_discrete_not_yet_implemented() {
     // This test validates IntegMode enum correctness
     let d = IntegMode::Discrete;
     let e = IntegMode::Explicit;
-    assert_ne!(d, e, "IntegMode::Discrete and Explicit must be different variants");
-    assert_eq!(IntegMode::default(), IntegMode::Explicit, "Default must be Explicit (Phase 28-07 scope)");
+    assert_ne!(
+        d, e,
+        "IntegMode::Discrete and Explicit must be different variants"
+    );
+    assert_eq!(
+        IntegMode::default(),
+        IntegMode::Explicit,
+        "Default must be Explicit (Phase 28-07 scope)"
+    );
 }

@@ -356,7 +356,12 @@ pub fn op_mat_vmat(state: &mut CalcState) -> Result<(), HpError> {
     for c in 0..cols {
         for r in 0..rows {
             let val = matrix_get(state, r, c)?;
-            let line = format!("A{},{}={}", r + 1, c + 1, format_hpnum(&val, &state.display_mode));
+            let line = format!(
+                "A{},{}={}",
+                r + 1,
+                c + 1,
+                format_hpnum(&val, &state.display_mode)
+            );
             state.print_buffer.push(line);
         }
     }
@@ -556,7 +561,8 @@ pub fn setup_matrix(state: &mut CalcState, n: u8, elements: &[f64]) {
     state.regs[ORDER_REG] = HpNum::from(n as i32);
     // Ensure regs vector is large enough to hold the matrix (base + n*n elements)
     // Plus extra room for B-vector in SIMEQ tests (base + n*n + n)
-    let required_size = DEFAULT_MATRIX_BASE_REG as usize + (n as usize) * (n as usize) + n as usize + 1;
+    let required_size =
+        DEFAULT_MATRIX_BASE_REG as usize + (n as usize) * (n as usize) + n as usize + 1;
     if state.regs.len() < required_size {
         state.regs.resize(required_size, HpNum::zero());
     }
@@ -619,7 +625,11 @@ mod tests {
         let mut state = CalcState::new();
         state.regs[ORDER_REG] = HpNum::from(3i32);
         op_mat_size(&mut state).unwrap();
-        assert_eq!(state.stack.x, HpNum::from(3i32), "SIZE must push R14 (order=3) to X");
+        assert_eq!(
+            state.stack.x,
+            HpNum::from(3i32),
+            "SIZE must push R14 (order=3) to X"
+        );
     }
 
     // Catches: MatVmat not pushing to print_buffer in column-major order
@@ -631,11 +641,26 @@ mod tests {
         setup_matrix(&mut state, 2, &[1.0, 2.0, 3.0, 4.0]);
         op_mat_vmat(&mut state).unwrap();
         // Column-major iteration: A1,1 A2,1 A1,2 A2,2
-        assert!(!state.print_buffer.is_empty(), "VMAT must push to print_buffer");
-        assert!(state.print_buffer[0].contains("A1,1="), "First output must be A1,1");
-        assert!(state.print_buffer[1].contains("A2,1="), "Second output must be A2,1");
-        assert!(state.print_buffer[2].contains("A1,2="), "Third output must be A1,2");
-        assert!(state.print_buffer[3].contains("A2,2="), "Fourth output must be A2,2");
+        assert!(
+            !state.print_buffer.is_empty(),
+            "VMAT must push to print_buffer"
+        );
+        assert!(
+            state.print_buffer[0].contains("A1,1="),
+            "First output must be A1,1"
+        );
+        assert!(
+            state.print_buffer[1].contains("A2,1="),
+            "Second output must be A2,1"
+        );
+        assert!(
+            state.print_buffer[2].contains("A1,2="),
+            "Third output must be A1,2"
+        );
+        assert!(
+            state.print_buffer[3].contains("A2,2="),
+            "Fourth output must be A2,2"
+        );
     }
 
     // ── column_major ─────────────────────────────────────────────────────────
@@ -698,7 +723,10 @@ mod tests {
         }
         setup_matrix(&mut state, 14, &elems);
         let result = op_mat_det(&mut state);
-        assert!(result.is_ok(), "ORDER=14 must be accepted (boundary condition)");
+        assert!(
+            result.is_ok(),
+            "ORDER=14 must be accepted (boundary condition)"
+        );
     }
 
     // ── inv_singular ──────────────────────────────────────────────────────────
@@ -788,7 +816,11 @@ mod tests {
     fn det_3x3_singular_example() {
         let mut state = CalcState::new();
         // Row-major input: [[1,2,3],[4,5,6],[7,8,9]]
-        setup_matrix(&mut state, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        setup_matrix(
+            &mut state,
+            3,
+            &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+        );
         op_mat_det(&mut state).unwrap();
         // det([[1,2,3],[4,5,6],[7,8,9]]) = 0 (rows are arithmetic progression)
         let det_val = state.stack.x.inner().to_f64().unwrap();
@@ -805,7 +837,11 @@ mod tests {
     fn det_3x3_nonsingular() {
         let mut state = CalcState::new();
         // Row-major: [[1,2,0],[0,1,0],[0,0,3]]
-        setup_matrix(&mut state, 3, &[1.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 3.0]);
+        setup_matrix(
+            &mut state,
+            3,
+            &[1.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 3.0],
+        );
         op_mat_det(&mut state).unwrap();
         let det_val = state.stack.x.inner().to_f64().unwrap();
         assert!(

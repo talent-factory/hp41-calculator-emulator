@@ -3399,7 +3399,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "0");
         dispatch(&mut s, Op::Asinh).unwrap();
-        case!("asinh", "ASINH(0) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+        case!(
+            "asinh",
+            "ASINH(0) = 0 (HP 00041-90034 p.45)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // Source: HP 00041-90034 p.45, ex.7 — asinh(1) = 0.881373587
@@ -3435,7 +3440,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "1");
         dispatch(&mut s, Op::Acosh).unwrap();
-        case!("acosh", "ACOSH(1) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+        case!(
+            "acosh",
+            "ACOSH(1) = 0 (HP 00041-90034 p.45)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // Source: HP 00041-90034 p.45, ex.9 — acosh(2) = 1.316957897
@@ -3471,7 +3481,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         push(&mut s, "0");
         dispatch(&mut s, Op::Atanh).unwrap();
-        case!("atanh", "ATANH(0) = 0 (HP 00041-90034 p.45)", 0.0, get_x(&s));
+        case!(
+            "atanh",
+            "ATANH(0) = 0 (HP 00041-90034 p.45)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // Source: HP 00041-90034 p.45, ex.11 — atanh(0.5) = 0.549306144
@@ -3515,8 +3530,18 @@ fn test_numerical_accuracy_suite() {
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)); // Z = re(τ)
         s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(4i32)); // T = im(τ)
         dispatch(&mut s, Op::CPlus).unwrap();
-        case!("c_plus_re", "C+: re(1+2i + 3+4i) = 4.0 (HP 00041-90034 p.24)", 4.0, get_x(&s));
-        case!("c_plus_im", "C+: im(1+2i + 3+4i) = 6.0 (HP 00041-90034 p.24)", 6.0, get_y(&s));
+        case!(
+            "c_plus_re",
+            "C+: re(1+2i + 3+4i) = 4.0 (HP 00041-90034 p.24)",
+            4.0,
+            get_x(&s)
+        );
+        case!(
+            "c_plus_im",
+            "C+: im(1+2i + 3+4i) = 6.0 (HP 00041-90034 p.24)",
+            6.0,
+            get_y(&s)
+        );
     }
 
     {
@@ -3529,8 +3554,18 @@ fn test_numerical_accuracy_suite() {
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
         s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::CMinus).unwrap();
-        case!("c_minus_re", "C-: re(5+3i - 2+1i) = 3.0 (HP 00041-90034 p.24)", 3.0, get_x(&s));
-        case!("c_minus_im", "C-: im(5+3i - 2+1i) = 2.0 (HP 00041-90034 p.24)", 2.0, get_y(&s));
+        case!(
+            "c_minus_re",
+            "C-: re(5+3i - 2+1i) = 3.0 (HP 00041-90034 p.24)",
+            3.0,
+            get_x(&s)
+        );
+        case!(
+            "c_minus_im",
+            "C-: im(5+3i - 2+1i) = 2.0 (HP 00041-90034 p.24)",
+            2.0,
+            get_y(&s)
+        );
     }
 
     {
@@ -3539,13 +3574,23 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.25, complex multiplication.
         // Free42 v3.0.5: re=5, im=1.
         let mut s = CalcState::new();
-        push(&mut s, "2");  // X = re(ζ)
-        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));   // Y = im(ζ)
-        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));   // Z = re(τ)
+        push(&mut s, "2"); // X = re(ζ)
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)); // Y = im(ζ)
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32)); // Z = re(τ)
         s.stack.t = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32)); // T = im(τ) = -1
         dispatch(&mut s, Op::CTimes).unwrap();
-        case!("c_times_re", "C×: re(2+3i × 1-1i) = 5.0 (HP 00041-90034 p.25)", 5.0, get_x(&s));
-        case!("c_times_im", "C×: im(2+3i × 1-1i) = 1.0 (HP 00041-90034 p.25)", 1.0, get_y(&s));
+        case!(
+            "c_times_re",
+            "C×: re(2+3i × 1-1i) = 5.0 (HP 00041-90034 p.25)",
+            5.0,
+            get_x(&s)
+        );
+        case!(
+            "c_times_im",
+            "C×: im(2+3i × 1-1i) = 1.0 (HP 00041-90034 p.25)",
+            1.0,
+            get_y(&s)
+        );
     }
 
     {
@@ -3553,13 +3598,23 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.25, complex division.
         // Free42 v3.0.5: re=3, im=-1.
         let mut s = CalcState::new();
-        push(&mut s, "4");  // X = re(ζ) = 4
-        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));  // Y = im(ζ) = 2
-        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));  // Z = re(τ) = 1
-        s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));  // T = im(τ) = 1
+        push(&mut s, "4"); // X = re(ζ) = 4
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32)); // Y = im(ζ) = 2
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32)); // Z = re(τ) = 1
+        s.stack.t = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32)); // T = im(τ) = 1
         dispatch(&mut s, Op::CDiv).unwrap();
-        case!("c_div_re", "C÷: re(4+2i ÷ 1+1i) = 3.0 (HP 00041-90034 p.25)", 3.0, get_x(&s));
-        case!("c_div_im", "C÷: im(4+2i ÷ 1+1i) = -1.0 (HP 00041-90034 p.25)", -1.0, get_y(&s));
+        case!(
+            "c_div_re",
+            "C÷: re(4+2i ÷ 1+1i) = 3.0 (HP 00041-90034 p.25)",
+            3.0,
+            get_x(&s)
+        );
+        case!(
+            "c_div_im",
+            "C÷: im(4+2i ÷ 1+1i) = -1.0 (HP 00041-90034 p.25)",
+            -1.0,
+            get_y(&s)
+        );
     }
 
     // ── v3.0 Extension: Complex Functions (Plan 28-04) ───────────────────────
@@ -3577,7 +3632,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(4i32));
         dispatch(&mut s, Op::Magz).unwrap();
-        case!("magz_3_4", "MAGZ(3+4i) = 5.0 (HP 00041-90034 ~p.25)", 5.0, get_x(&s));
+        case!(
+            "magz_3_4",
+            "MAGZ(3+4i) = 5.0 (HP 00041-90034 ~p.25)",
+            5.0,
+            get_x(&s)
+        );
     }
     {
         // MAGZ: |1+1i| = sqrt(2)
@@ -3586,7 +3646,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::Magz).unwrap();
-        case!("magz_1_1", "MAGZ(1+1i) = sqrt(2) (Free42 v3.0.5: 1.4142135624)", std::f64::consts::SQRT_2, get_x(&s));
+        case!(
+            "magz_1_1",
+            "MAGZ(1+1i) = sqrt(2) (Free42 v3.0.5: 1.4142135624)",
+            std::f64::consts::SQRT_2,
+            get_x(&s)
+        );
     }
     {
         // MAGZ: |0+0i| = 0
@@ -3602,8 +3667,18 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::Cinv).unwrap();
-        case!("cinv_re", "CINV(1+1i) re = 0.5 (HP 00041-90034 ~p.25)", 0.5, get_x(&s));
-        case!("cinv_im", "CINV(1+1i) im = -0.5 (HP 00041-90034 ~p.25)", -0.5, get_y(&s));
+        case!(
+            "cinv_re",
+            "CINV(1+1i) re = 0.5 (HP 00041-90034 ~p.25)",
+            0.5,
+            get_x(&s)
+        );
+        case!(
+            "cinv_im",
+            "CINV(1+1i) im = -0.5 (HP 00041-90034 ~p.25)",
+            -0.5,
+            get_y(&s)
+        );
     }
     {
         // CINV: 1/(0+1i) = 0 - 1i
@@ -3611,7 +3686,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::Cinv).unwrap();
-        case!("cinv_i_im", "CINV(0+1i) im = -1.0 (Free42 v3.0.5)", -1.0, get_y(&s));
+        case!(
+            "cinv_i_im",
+            "CINV(0+1i) im = -1.0 (Free42 v3.0.5)",
+            -1.0,
+            get_y(&s)
+        );
     }
 
     {
@@ -3619,7 +3699,12 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 ~p.25. Free42 v3.0.5: re=1, im=0.
         let mut s = CalcState::new();
         dispatch(&mut s, Op::ExpZ).unwrap();
-        case!("expz_zero", "E↑Z(0+0i) re = 1.0 (HP 00041-90034 ~p.25)", 1.0, get_x(&s));
+        case!(
+            "expz_zero",
+            "E↑Z(0+0i) re = 1.0 (HP 00041-90034 ~p.25)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // ExpZ: e^(1+0i) = e
@@ -3627,7 +3712,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ExpZ).unwrap();
-        case!("expz_one", "E↑Z(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", std::f64::consts::E, get_x(&s));
+        case!(
+            "expz_one",
+            "E↑Z(1+0i) re = e (Free42 v3.0.5: 2.7182818285)",
+            std::f64::consts::E,
+            get_x(&s)
+        );
     }
     {
         // ExpZ: e^(1+1i) re part = e*cos(1)
@@ -3637,7 +3727,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ExpZ).unwrap();
         let expected = std::f64::consts::E * 1.0_f64.cos();
-        case!("expz_1_1_re", "E↑Z(1+1i) re = e·cos(1) (Free42 v3.0.5: 1.4686939399)", expected, get_x(&s));
+        case!(
+            "expz_1_1_re",
+            "E↑Z(1+1i) re = e·cos(1) (Free42 v3.0.5: 1.4686939399)",
+            expected,
+            get_x(&s)
+        );
     }
 
     {
@@ -3647,7 +3742,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LnZ).unwrap();
-        case!("lnz_one", "LNZ(1+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+        case!(
+            "lnz_one",
+            "LNZ(1+0i) re = 0 (HP 00041-90034 ~p.26)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // LnZ: ln(-1+0i) im = pi (principal branch, RAD mode)
@@ -3656,7 +3756,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32));
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LnZ).unwrap();
-        case!("lnz_neg_one_im", "LNZ(-1+0i) im = pi (Free42 v3.0.5: 3.1415926536)", std::f64::consts::PI, get_y(&s));
+        case!(
+            "lnz_neg_one_im",
+            "LNZ(-1+0i) im = pi (Free42 v3.0.5: 3.1415926536)",
+            std::f64::consts::PI,
+            get_y(&s)
+        );
     }
     {
         // LnZ: ln(0+1i) im = pi/2 (RAD mode)
@@ -3665,7 +3770,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LnZ).unwrap();
-        case!("lnz_i_im", "LNZ(0+1i) im = pi/2 (Free42 v3.0.5 RAD: 1.5707963268)", std::f64::consts::FRAC_PI_2, get_y(&s));
+        case!(
+            "lnz_i_im",
+            "LNZ(0+1i) im = pi/2 (Free42 v3.0.5 RAD: 1.5707963268)",
+            std::f64::consts::FRAC_PI_2,
+            get_y(&s)
+        );
     }
 
     {
@@ -3675,7 +3785,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(10i32));
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LogZ).unwrap();
-        case!("logz_10", "LOGZ(10+0i) re = 1.0 (HP 00041-90034 ~p.26)", 1.0, get_x(&s));
+        case!(
+            "logz_10",
+            "LOGZ(10+0i) re = 1.0 (HP 00041-90034 ~p.26)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // LogZ: log10(100+0i) = 2+0i
@@ -3684,7 +3799,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(100i32));
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LogZ).unwrap();
-        case!("logz_100", "LOGZ(100+0i) re = 2.0 (Free42 v3.0.5)", 2.0, get_x(&s));
+        case!(
+            "logz_100",
+            "LOGZ(100+0i) re = 2.0 (Free42 v3.0.5)",
+            2.0,
+            get_x(&s)
+        );
     }
     {
         // LogZ: log10(-1+0i) im = pi/ln(10) (principal branch, RAD)
@@ -3694,7 +3814,12 @@ fn test_numerical_accuracy_suite() {
         s.angle_mode = hp41_core::AngleMode::Rad;
         dispatch(&mut s, Op::LogZ).unwrap();
         let expected_im = std::f64::consts::PI / std::f64::consts::LN_10;
-        case!("logz_neg1_im", "LOGZ(-1+0i) im = pi/ln10 (Free42 v3.0.5 RAD: ~1.3644)", expected_im, get_y(&s));
+        case!(
+            "logz_neg1_im",
+            "LOGZ(-1+0i) im = pi/ln10 (Free42 v3.0.5 RAD: ~1.3644)",
+            expected_im,
+            get_y(&s)
+        );
     }
 
     {
@@ -3702,7 +3827,12 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=0, im=0.
         let mut s = CalcState::new();
         dispatch(&mut s, Op::SinZ).unwrap();
-        case!("sinz_zero", "SINZ(0+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+        case!(
+            "sinz_zero",
+            "SINZ(0+0i) re = 0 (HP 00041-90034 ~p.26)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // SinZ: sin(0+1i) im = sinh(1) ≈ 1.1752011936
@@ -3710,7 +3840,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::SinZ).unwrap();
-        case!("sinz_i_im", "SINZ(0+1i) im = sinh(1) (Free42 v3.0.5: 1.1752011936)", 1.0_f64.sinh(), get_y(&s));
+        case!(
+            "sinz_i_im",
+            "SINZ(0+1i) im = sinh(1) (Free42 v3.0.5: 1.1752011936)",
+            1.0_f64.sinh(),
+            get_y(&s)
+        );
     }
     {
         // SinZ: sin(1+1i) re = sin(1)*cosh(1)
@@ -3720,7 +3855,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::SinZ).unwrap();
         let expected = 1.0_f64.sin() * 1.0_f64.cosh();
-        case!("sinz_1_1_re", "SINZ(1+1i) re = sin(1)*cosh(1) (Free42 v3.0.5: ~1.2985)", expected, get_x(&s));
+        case!(
+            "sinz_1_1_re",
+            "SINZ(1+1i) re = sin(1)*cosh(1) (Free42 v3.0.5: ~1.2985)",
+            expected,
+            get_x(&s)
+        );
     }
 
     {
@@ -3728,7 +3868,12 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=1, im=0.
         let mut s = CalcState::new();
         dispatch(&mut s, Op::CosZ).unwrap();
-        case!("cosz_zero", "COSZ(0+0i) re = 1.0 (HP 00041-90034 ~p.26)", 1.0, get_x(&s));
+        case!(
+            "cosz_zero",
+            "COSZ(0+0i) re = 1.0 (HP 00041-90034 ~p.26)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // CosZ: cos(0+1i) re = cosh(1) ≈ 1.5430806348
@@ -3736,7 +3881,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::CosZ).unwrap();
-        case!("cosz_i_re", "COSZ(0+1i) re = cosh(1) (Free42 v3.0.5: 1.5430806348)", 1.0_f64.cosh(), get_x(&s));
+        case!(
+            "cosz_i_re",
+            "COSZ(0+1i) re = cosh(1) (Free42 v3.0.5: 1.5430806348)",
+            1.0_f64.cosh(),
+            get_x(&s)
+        );
     }
     {
         // CosZ: cos(1+1i) re = cos(1)*cosh(1)
@@ -3746,7 +3896,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::CosZ).unwrap();
         let expected = 1.0_f64.cos() * 1.0_f64.cosh();
-        case!("cosz_1_1_re", "COSZ(1+1i) re = cos(1)*cosh(1) (Free42 v3.0.5: ~0.8337)", expected, get_x(&s));
+        case!(
+            "cosz_1_1_re",
+            "COSZ(1+1i) re = cos(1)*cosh(1) (Free42 v3.0.5: ~0.8337)",
+            expected,
+            get_x(&s)
+        );
     }
 
     {
@@ -3754,18 +3909,26 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 ~p.26. Free42 v3.0.5 (RAD): re=0, im=0.
         let mut s = CalcState::new();
         dispatch(&mut s, Op::TanZ).unwrap();
-        case!("tanz_zero", "TANZ(0+0i) re = 0 (HP 00041-90034 ~p.26)", 0.0, get_x(&s));
+        case!(
+            "tanz_zero",
+            "TANZ(0+0i) re = 0 (HP 00041-90034 ~p.26)",
+            0.0,
+            get_x(&s)
+        );
     }
     {
         // TanZ: tan(pi/4+0i) = 1+0i
         // Free42 v3.0.5 (RAD): re=1.0, im=0.
         let mut s = CalcState::new();
         let pi4_val = std::f64::consts::FRAC_PI_4;
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(pi4_val).unwrap()
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(pi4_val).unwrap());
         dispatch(&mut s, Op::TanZ).unwrap();
-        case!("tanz_pi4", "TANZ(pi/4+0i) re = 1.0 (Free42 v3.0.5 RAD)", 1.0, get_x(&s));
+        case!(
+            "tanz_pi4",
+            "TANZ(pi/4+0i) re = 1.0 (Free42 v3.0.5 RAD)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // TanZ: tan(0+1i) im = tanh(1) ≈ 0.7615941559
@@ -3773,7 +3936,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::TanZ).unwrap();
-        case!("tanz_i_im", "TANZ(0+1i) im = tanh(1) (Free42 v3.0.5: 0.7615941559)", 1.0_f64.tanh(), get_y(&s));
+        case!(
+            "tanz_i_im",
+            "TANZ(0+1i) im = tanh(1) (Free42 v3.0.5: 0.7615941559)",
+            1.0_f64.tanh(),
+            get_y(&s)
+        );
     }
 
     {
@@ -3783,7 +3951,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)); // N
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32)); // re(base)
         dispatch(&mut s, Op::ZpowN).unwrap();
-        case!("zpown_2_3", "Z↑N: (2+0i)^3 = 8.0 (Free42 v3.0.5)", 8.0, get_x(&s));
+        case!(
+            "zpown_2_3",
+            "Z↑N: (2+0i)^3 = 8.0 (Free42 v3.0.5)",
+            8.0,
+            get_x(&s)
+        );
     }
     {
         // ZpowN: (1+1i)^2 = 0+2i (N=X=2, base=Y+iZ=(1,1))
@@ -3793,7 +3966,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ZpowN).unwrap();
-        case!("zpown_1i_2_im", "Z↑N: (1+1i)^2 im = 2 (Free42 v3.0.5)", 2.0, get_y(&s));
+        case!(
+            "zpown_1i_2_im",
+            "Z↑N: (1+1i)^2 im = 2 (Free42 v3.0.5)",
+            2.0,
+            get_y(&s)
+        );
     }
     {
         // ZpowN: z^0 = 1 always (N=X=0, base=Y+iZ=(5,3))
@@ -3802,7 +3980,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(5i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
         dispatch(&mut s, Op::ZpowN).unwrap();
-        case!("zpown_zero_exp", "Z↑N: z^0 = 1 always (Free42 v3.0.5)", 1.0, get_x(&s));
+        case!(
+            "zpown_zero_exp",
+            "Z↑N: z^0 = 1 always (Free42 v3.0.5)",
+            1.0,
+            get_x(&s)
+        );
     }
 
     {
@@ -3812,7 +3995,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::Zpow1N).unwrap();
-        case!("zpow1n_sqrt1", "Z↑1/N: sqrt(1+0i) re = 1 (Free42 v3.0.5)", 1.0, get_x(&s));
+        case!(
+            "zpow1n_sqrt1",
+            "Z↑1/N: sqrt(1+0i) re = 1 (Free42 v3.0.5)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // Zpow1N: sqrt(-1+0i) im = 1 (principal branch: i). N=X=2, base=Y+iZ=(-1,0)
@@ -3821,7 +4009,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
         s.stack.y = hp41_core::HpNum::rounded(-rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::Zpow1N).unwrap();
-        case!("zpow1n_sqrt_neg1_im", "Z↑1/N: sqrt(-1+0i) im = 1 (principal sqrt, Free42)", 1.0, get_y(&s));
+        case!(
+            "zpow1n_sqrt_neg1_im",
+            "Z↑1/N: sqrt(-1+0i) im = 1 (principal sqrt, Free42)",
+            1.0,
+            get_y(&s)
+        );
     }
     {
         // Zpow1N: (0+0i)^(1/5) = 0+0i (zero-first-arm per RESEARCH)
@@ -3829,7 +4022,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(5i32));
         dispatch(&mut s, Op::Zpow1N).unwrap();
-        case!("zpow1n_zero", "Z↑1/N: (0+0i)^(1/5) = 0 (zero-first-arm)", 0.0, get_x(&s));
+        case!(
+            "zpow1n_zero",
+            "Z↑1/N: (0+0i)^(1/5) = 0 (zero-first-arm)",
+            0.0,
+            get_x(&s)
+        );
     }
 
     {
@@ -3839,7 +4037,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
         dispatch(&mut s, Op::ApowZ).unwrap();
-        case!("apowz_2_3", "A↑Z: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)", 8.0, get_x(&s));
+        case!(
+            "apowz_2_3",
+            "A↑Z: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)",
+            8.0,
+            get_x(&s)
+        );
     }
     {
         // ApowZ: (1+0i)^(z) = 1 for any z. a=Z+iT=(1,0), z=X+iY=(5,3).
@@ -3849,7 +4052,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ApowZ).unwrap();
-        case!("apowz_1_any", "A↑Z: (1+0i)^(5+3i) re = 1 (Free42 v3.0.5)", 1.0, get_x(&s));
+        case!(
+            "apowz_1_any",
+            "A↑Z: (1+0i)^(5+3i) re = 1 (Free42 v3.0.5)",
+            1.0,
+            get_x(&s)
+        );
     }
     {
         // ApowZ: (e+0i)^(1+0i) = e. a=Z+iT=(e,0), z=X+iY=(1,0).
@@ -3859,7 +4067,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(e_val).unwrap());
         dispatch(&mut s, Op::ApowZ).unwrap();
-        case!("apowz_e_1", "A↑Z: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", e_val, get_x(&s));
+        case!(
+            "apowz_e_1",
+            "A↑Z: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)",
+            e_val,
+            get_x(&s)
+        );
     }
 
     {
@@ -3869,7 +4082,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(2i32));
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32));
         dispatch(&mut s, Op::ZpowW).unwrap();
-        case!("zpoww_2_3", "Z↑W: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)", 8.0, get_x(&s));
+        case!(
+            "zpoww_2_3",
+            "Z↑W: (2+0i)^(3+0i) re = 8 (HP 00041-90034 ~p.26)",
+            8.0,
+            get_x(&s)
+        );
     }
     {
         // ZpowW: (e+0i)^(1+0i) = e. z=X+iY=(e,0), w=Z+iT=(1,0).
@@ -3879,7 +4097,12 @@ fn test_numerical_accuracy_suite() {
         s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(e_val).unwrap());
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ZpowW).unwrap();
-        case!("zpoww_e_1", "Z↑W: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)", e_val, get_x(&s));
+        case!(
+            "zpoww_e_1",
+            "Z↑W: e^(1+0i) re = e (Free42 v3.0.5: 2.7182818285)",
+            e_val,
+            get_x(&s)
+        );
     }
     {
         // ZpowW: (0+0i)^(1+0i) = 0. z=(0,0), w=(1,0): Re(w)=1 > 0 → 0 (not Domain).
@@ -3887,7 +4110,12 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from(1i32));
         dispatch(&mut s, Op::ZpowW).unwrap();
-        case!("zpoww_zero_pos", "Z↑W: (0+0i)^(1+0i) = 0 (Re(w)>0 case)", 0.0, get_x(&s));
+        case!(
+            "zpoww_zero_pos",
+            "Z↑W: (0+0i)^(1+0i) = 0 (Re(w)>0 case)",
+            0.0,
+            get_x(&s)
+        );
     }
 
     // ── v3.0 EXTENSION (Plan 28-05, POLY-01..07) ─────────────────────────────
@@ -3963,12 +4191,14 @@ fn test_numerical_accuracy_suite() {
         // Free42 v3.0.5: confirms real roots 1.0 and 2.0 for these coefficients.
         let mut s = CalcState::new();
         s.display_mode = hp41_core::DisplayMode::Fix(4);
-        set_poly_reg(&mut s, 0, 1.0);  // A=1 (x² term)
+        set_poly_reg(&mut s, 0, 1.0); // A=1 (x² term)
         set_poly_reg(&mut s, 1, -3.0); // B=-3 (x term)
-        set_poly_reg(&mut s, 2, 2.0);  // C=2 (constant)
+        set_poly_reg(&mut s, 2, 2.0); // C=2 (constant)
         dispatch(&mut s, Op::Roots).unwrap();
         // Roots 1.0 and 2.0 — sum should be 3.0 (Vieta's formula: -B/A = 3)
-        let u_vals: Vec<f64> = s.print_buffer.iter()
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
             .filter(|l| l.starts_with("U="))
             .map(|l| parse_u_value(l))
             .collect();
@@ -4005,11 +4235,13 @@ fn test_numerical_accuracy_suite() {
         // Free42 v3.0.5: roots 1.0 and -1.0 confirmed.
         let mut s = CalcState::new();
         s.display_mode = hp41_core::DisplayMode::Fix(4);
-        set_poly_reg(&mut s, 0, 1.0);  // A=1 (x² term)
-        set_poly_reg(&mut s, 1, 0.0);  // B=0
+        set_poly_reg(&mut s, 0, 1.0); // A=1 (x² term)
+        set_poly_reg(&mut s, 1, 0.0); // B=0
         set_poly_reg(&mut s, 2, -1.0); // C=-1 (constant)
         dispatch(&mut s, Op::Roots).unwrap();
-        let u_vals: Vec<f64> = s.print_buffer.iter()
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
             .filter(|l| l.starts_with("U="))
             .map(|l| parse_u_value(l))
             .collect();
@@ -4299,7 +4531,7 @@ fn matrix_inv_round_trip_2x2() {
     // inv([[2,1],[1,2]])(0,0) = 2/3
     let a00 = s.regs[15].inner().to_f64().unwrap();
     assert!(
-        (a00 - 2.0/3.0).abs() < WIDE_TOL,
+        (a00 - 2.0 / 3.0).abs() < WIDE_TOL,
         "inv(A)(0,0) must be ≈ 2/3, got {a00}"
     );
 }
@@ -4312,7 +4544,7 @@ fn matrix_simeq_exact_solution() {
     let mut s = CalcState::new();
     matrix_setup_acc(&mut s, 2, &[2.0, 1.0, 1.0, 3.0]);
     // b_base = 15 + 4 = 19
-    s.regs[19] = HpNum::from(5i32);  // B1=5
+    s.regs[19] = HpNum::from(5i32); // B1=5
     s.regs[20] = HpNum::from(10i32); // B2=10
     dispatch(&mut s, Op::Xeq("SIMEQ".to_string())).unwrap();
     let x_sol = s.regs[19].inner().to_f64().unwrap();
@@ -4351,10 +4583,16 @@ fn matrix_singular_detection_at_inv_epsilon() {
 // Pitfall-2 guard: SAME integral in Fix(4) vs Fix(9) must produce SAME correct result
 // with DIFFERENT tolerance margins — demonstrates threshold formula correctness.
 
-fn make_integ_state_for_acc(label: &str, a: f64, b: f64, n: u32, program: Vec<Op>) -> (CalcState, Vec<Op>) {
+fn make_integ_state_for_acc(
+    label: &str,
+    a: f64,
+    b: f64,
+    n: u32,
+    program: Vec<Op>,
+) -> (CalcState, Vec<Op>) {
     use hp41_core::num::HpNum;
-    use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
     let mut state = CalcState::new();
     state.program = program.clone();
     state.alpha_reg = label.to_string();
@@ -4474,11 +4712,7 @@ fn integ_pitfall2_fix4_vs_fix9_different_precision() {
     );
 
     // Both modes should produce a correct result for x^2
-    let program = vec![
-        Op::Lbl("P2".to_string()),
-        Op::Sq,
-        Op::Rtn,
-    ];
+    let program = vec![Op::Lbl("P2".to_string()), Op::Sq, Op::Rtn];
 
     // Fix(4) test
     let (mut state4, prog4) = make_integ_state_for_acc("P2", 0.0, 1.0, 10, program.clone());
@@ -4510,9 +4744,14 @@ fn integ_pitfall2_fix4_vs_fix9_different_precision() {
 // Modified secant iteration per SOLV-03; convergence threshold 5e-9 (10-digit BCD).
 // Three termination paths per SOLV-04: ROOT IS, ROOT IS BETWEEN, NO ROOT FOUND.
 
-fn make_solve_state_for_acc(label: &str, x1: f64, x2: f64, program: Vec<Op>) -> (CalcState, Vec<Op>) {
-    use rust_decimal::Decimal;
+fn make_solve_state_for_acc(
+    label: &str,
+    x1: f64,
+    x2: f64,
+    program: Vec<Op>,
+) -> (CalcState, Vec<Op>) {
     use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
     let mut state = CalcState::new();
     state.program = program.clone();
     state.alpha_reg = label.to_string();
@@ -4542,13 +4781,19 @@ fn solve_polynomial_root() {
 
     let result = op_solve_run_loop(&mut state, &prog);
     assert!(result.is_ok(), "SOLVE on x²-2 failed: {result:?}");
-    assert!(!state.print_buffer.is_empty(), "print_buffer must have termination message");
+    assert!(
+        !state.print_buffer.is_empty(),
+        "print_buffer must have termination message"
+    );
     let msg = &state.print_buffer[0];
     assert!(
         msg.starts_with("ROOT IS "),
         "SOLVE on x²-2 must produce ROOT IS, got: {msg:?}"
     );
-    assert!(!msg.contains("BETWEEN"), "must be ROOT IS (not BETWEEN) for polynomial: {msg:?}");
+    assert!(
+        !msg.contains("BETWEEN"),
+        "must be ROOT IS (not BETWEEN) for polynomial: {msg:?}"
+    );
 
     // The root should be approximately √2 ≈ 1.4142
     // Extract root value from print_buffer message for verification
@@ -4576,7 +4821,10 @@ fn solve_transcendental_root() {
 
     let result = op_solve_run_loop(&mut state, &prog);
     assert!(result.is_ok(), "SOLVE on sin(x) failed: {result:?}");
-    assert!(!state.print_buffer.is_empty(), "print_buffer must have termination message");
+    assert!(
+        !state.print_buffer.is_empty(),
+        "print_buffer must have termination message"
+    );
     let msg = &state.print_buffer[0];
     assert!(
         msg.starts_with("ROOT IS"),
@@ -4602,7 +4850,10 @@ fn solve_no_convergence() {
     let (mut state, prog) = make_solve_state_for_acc("FNOSOL", 1.0, 2.0, program);
 
     let result = op_solve_run_loop(&mut state, &prog);
-    assert!(result.is_ok(), "NO ROOT FOUND must be Ok(()), got: {result:?}");
+    assert!(
+        result.is_ok(),
+        "NO ROOT FOUND must be Ok(()), got: {result:?}"
+    );
     assert_eq!(
         state.print_buffer.first().map(|s| s.as_str()),
         Some("NO ROOT FOUND"),
@@ -4619,17 +4870,19 @@ fn solve_sign_change_no_narrowing() {
     // Catches: sign-change path producing an error instead of valid termination.
     use hp41_core::ops::math1::solve::op_solve_run_loop;
 
-    let program = vec![
-        Op::Lbl("FSCNB".to_string()),
-        Op::Sin,
-        Op::Rtn,
-    ];
+    let program = vec![Op::Lbl("FSCNB".to_string()), Op::Sin, Op::Rtn];
     let (mut state, prog) = make_solve_state_for_acc("FSCNB", 3.1, 3.2, program);
     dispatch(&mut state, Op::SetRad).unwrap();
 
     let result = op_solve_run_loop(&mut state, &prog);
-    assert!(result.is_ok(), "sign-change case must not error: {result:?}");
-    assert!(!state.print_buffer.is_empty(), "must have termination message");
+    assert!(
+        result.is_ok(),
+        "sign-change case must not error: {result:?}"
+    );
+    assert!(
+        !state.print_buffer.is_empty(),
+        "must have termination message"
+    );
     let msg = &state.print_buffer[0];
     assert!(
         msg.starts_with("ROOT IS"),
@@ -4659,8 +4912,8 @@ fn make_difeq_state_for_acc(
     max_steps: u32,
     program: Vec<Op>,
 ) -> (CalcState, Vec<Op>) {
-    use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
     let mut state = CalcState::new();
     state.program = program.clone();
     state.alpha_reg = label.to_string();
@@ -4696,10 +4949,17 @@ fn difeq_exp_growth() {
     // After 10 steps, print_buffer[0]=initial, print_buffer[10]=step10 (x=1.0)
     assert!(state.print_buffer.len() > 10, "Need at least 11 lines");
     let step10 = &state.print_buffer[10];
-    let y_str = step10.split(" Y=").nth(1).and_then(|s| s.split_whitespace().next()).unwrap_or("0");
+    let y_str = step10
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0");
     let y_val: f64 = y_str.parse().unwrap_or(0.0);
     let e = std::f64::consts::E;
-    assert!((y_val - e).abs() < 1e-4, "dy/dx=y at x=1: expected {e:.6}, got {y_val:.6} (OM Ch.7 p.43)");
+    assert!(
+        (y_val - e).abs() < 1e-4,
+        "dy/dx=y at x=1: expected {e:.6}, got {y_val:.6} (OM Ch.7 p.43)"
+    );
 }
 
 #[test]
@@ -4725,10 +4985,17 @@ fn difeq_exp_decay() {
     assert!(result.is_ok(), "DIFEQ dy/dx=-y failed: {result:?}");
     assert!(state.print_buffer.len() > 10, "Need at least 11 lines");
     let step10 = &state.print_buffer[10];
-    let y_str = step10.split(" Y=").nth(1).and_then(|s| s.split_whitespace().next()).unwrap_or("0");
+    let y_str = step10
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0");
     let y_val: f64 = y_str.parse().unwrap_or(0.0);
     let expected = (-1.0_f64).exp(); // 1/e ≈ 0.36788
-    assert!((y_val - expected).abs() < 1e-4, "dy/dx=-y at x=1: expected {expected:.6}, got {y_val:.6} (OM Ch.7)");
+    assert!(
+        (y_val - expected).abs() < 1e-4,
+        "dy/dx=-y at x=1: expected {expected:.6}, got {y_val:.6} (OM Ch.7)"
+    );
 }
 
 #[test]
@@ -4751,14 +5018,25 @@ fn difeq_harmonic_oscillator() {
     let (mut state, prog) = make_difeq_state_for_acc("HO", 2, 0.1, 0.0, 1.0, 0.0, 12, program);
 
     let result = op_difeq_run_loop(&mut state, &prog);
-    assert!(result.is_ok(), "DIFEQ y''=-y (harmonic oscillator) failed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "DIFEQ y''=-y (harmonic oscillator) failed: {result:?}"
+    );
     assert!(state.print_buffer.len() > 10, "Need at least 11 lines");
     let step10 = &state.print_buffer[10];
     // ORDER=2 format: "X=<v> Y=<v> Y'=<v>"
-    let y_str = step10.split(" Y=").nth(1).and_then(|s| s.split(" Y'=").next()).and_then(|s| s.split_whitespace().next()).unwrap_or("0");
+    let y_str = step10
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split(" Y'=").next())
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0");
     let y_val: f64 = y_str.parse().unwrap_or(0.0);
     let cos1 = 1.0_f64.cos(); // ≈ 0.5403
-    assert!((y_val - cos1).abs() < 1e-3, "y''=-y at x=1: expected cos(1)≈{cos1:.5}, got {y_val:.5} (OM Ch.7 pp.43-50)");
+    assert!(
+        (y_val - cos1).abs() < 1e-3,
+        "y''=-y at x=1: expected cos(1)≈{cos1:.5}, got {y_val:.5} (OM Ch.7 pp.43-50)"
+    );
 }
 
 #[test]
@@ -4783,10 +5061,17 @@ fn difeq_linear_growth() {
     assert!(result.is_ok(), "DIFEQ dy/dx=x failed: {result:?}");
     assert!(state.print_buffer.len() > 10, "Need at least 11 lines");
     let step10 = &state.print_buffer[10];
-    let y_str = step10.split(" Y=").nth(1).and_then(|s| s.split_whitespace().next()).unwrap_or("0");
+    let y_str = step10
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0");
     let y_val: f64 = y_str.parse().unwrap_or(0.0);
     // y = x²/2; at x=1.0, y = 0.5 exactly
-    assert!((y_val - 0.5).abs() < 1e-4, "dy/dx=x at x=1: expected y=0.5, got {y_val:.6} (OM Ch.7, closed form y=x²/2)");
+    assert!(
+        (y_val - 0.5).abs() < 1e-4,
+        "dy/dx=x at x=1: expected y=0.5, got {y_val:.6} (OM Ch.7, closed form y=x²/2)"
+    );
 }
 
 #[test]
@@ -4810,28 +5095,54 @@ fn difeq_step_size_effect() {
     ];
 
     // h=0.1, 10 steps → x=1.0 (max_steps=12 to get print_buffer[10])
-    let (mut state1, prog1) = make_difeq_state_for_acc("SS", 1, 0.1, 0.0, 1.0, 0.0, 12, program.clone());
+    let (mut state1, prog1) =
+        make_difeq_state_for_acc("SS", 1, 0.1, 0.0, 1.0, 0.0, 12, program.clone());
     op_difeq_run_loop(&mut state1, &prog1).unwrap();
-    assert!(state1.print_buffer.len() > 10, "h=0.1 case needs at least 11 print_buffer entries");
-    let y_h01: f64 = state1.print_buffer[10].split(" Y=").nth(1)
-        .and_then(|s| s.split_whitespace().next()).unwrap_or("0").parse().unwrap_or(0.0);
+    assert!(
+        state1.print_buffer.len() > 10,
+        "h=0.1 case needs at least 11 print_buffer entries"
+    );
+    let y_h01: f64 = state1.print_buffer[10]
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0.0);
 
     // h=0.5, 2 steps → x=1.0 (max_steps=4 to get print_buffer[2])
     let (mut state2, prog2) = make_difeq_state_for_acc("SS", 1, 0.5, 0.0, 1.0, 0.0, 4, program);
     op_difeq_run_loop(&mut state2, &prog2).unwrap();
-    assert!(state2.print_buffer.len() > 2, "h=0.5 case needs at least 3 print_buffer entries");
-    let y_h05: f64 = state2.print_buffer[2].split(" Y=").nth(1)
-        .and_then(|s| s.split_whitespace().next()).unwrap_or("0").parse().unwrap_or(0.0);
+    assert!(
+        state2.print_buffer.len() > 2,
+        "h=0.5 case needs at least 3 print_buffer entries"
+    );
+    let y_h05: f64 = state2.print_buffer[2]
+        .split(" Y=")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0.0);
 
     let e = std::f64::consts::E;
     let err_h01 = (y_h01 - e).abs();
     let err_h05 = (y_h05 - e).abs();
 
     // h=0.1 achieves better accuracy than h=0.5 (both within 1e-2 for this test)
-    assert!(err_h01 < 1e-4, "h=0.1 dy/dx=y at x=1: error {err_h01:.2e} too large (OM Ch.7)");
-    assert!(err_h05 < 1e-2, "h=0.5 dy/dx=y at x=1: error {err_h05:.2e} too large (OM Ch.7)");
+    assert!(
+        err_h01 < 1e-4,
+        "h=0.1 dy/dx=y at x=1: error {err_h01:.2e} too large (OM Ch.7)"
+    );
+    assert!(
+        err_h05 < 1e-2,
+        "h=0.5 dy/dx=y at x=1: error {err_h05:.2e} too large (OM Ch.7)"
+    );
     // h=0.1 must be strictly more accurate than h=0.5 (qualitative convergence)
-    assert!(err_h01 < err_h05, "h=0.1 must be more accurate than h=0.5: {err_h01:.2e} vs {err_h05:.2e}");
+    assert!(
+        err_h01 < err_h05,
+        "h=0.1 must be more accurate than h=0.5: {err_h01:.2e} vs {err_h05:.2e}"
+    );
 }
 
 // ── Phase 28 Plan 28-10: FOUR Numerical Accuracy ─────────────────────────────
@@ -4858,7 +5169,10 @@ fn four_constant_signal_accuracy() {
     let pairs = compute_dft(&samples, 4).unwrap();
     // a₀ = (2/N)·N·Y = 2Y = 10.0
     let a0 = pairs[0].0.inner().to_f64().unwrap();
-    assert!((a0 - 2.0 * y_val).abs() < 1e-5, "a₀ = 2Y for constant signal, got {a0}");
+    assert!(
+        (a0 - 2.0 * y_val).abs() < 1e-5,
+        "a₀ = 2Y for constant signal, got {a0}"
+    );
     // All harmonics ≈ 0
     for (n_idx, (an, bn)) in pairs.iter().enumerate().skip(1) {
         let an_val = an.inner().to_f64().unwrap();
@@ -4888,7 +5202,10 @@ fn four_pure_sine_accuracy() {
         .collect();
     let pairs = compute_dft(&samples, 3).unwrap();
     let b1 = pairs[1].1.inner().to_f64().unwrap();
-    assert!((b1 - 1.0).abs() < 1e-5, "b₁ = 1 for pure sin(2πk/N), got {b1}");
+    assert!(
+        (b1 - 1.0).abs() < 1e-5,
+        "b₁ = 1 for pure sin(2πk/N), got {b1}"
+    );
     let a1 = pairs[1].0.inner().to_f64().unwrap();
     assert!(a1.abs() < 1e-5, "a₁ ≈ 0 for pure sine, got {a1}");
 }
@@ -4913,7 +5230,10 @@ fn four_pure_cosine_accuracy() {
         .collect();
     let pairs = compute_dft(&samples, 3).unwrap();
     let a1 = pairs[1].0.inner().to_f64().unwrap();
-    assert!((a1 - 1.0).abs() < 1e-5, "a₁ = 1 for pure cos(2πk/N), got {a1}");
+    assert!(
+        (a1 - 1.0).abs() < 1e-5,
+        "a₁ = 1 for pure cos(2πk/N), got {a1}"
+    );
 }
 
 #[test]
@@ -4933,9 +5253,15 @@ fn four_rect_to_polar_accuracy() {
     let polar = convert_to_polar(&pairs).unwrap();
     let c = polar[0].0.inner().to_f64().unwrap();
     let phi = polar[0].1.inner().to_f64().unwrap();
-    assert!((c - 5.0).abs() < 1e-7, "magnitude c = 5.0 for (3,4), got {c}");
+    assert!(
+        (c - 5.0).abs() < 1e-7,
+        "magnitude c = 5.0 for (3,4), got {c}"
+    );
     let expected_phi = (4.0f64).atan2(3.0);
-    assert!((phi - expected_phi).abs() < 1e-7, "phase φ = atan2(4,3) ≈ 0.9273, got {phi}");
+    assert!(
+        (phi - expected_phi).abs() < 1e-7,
+        "phase φ = atan2(4,3) ≈ 0.9273, got {phi}"
+    );
 }
 
 #[test]
@@ -4994,7 +5320,10 @@ fn tri_sss_equilateral_accuracy() {
     // All three angles must be 60°
     for line in &state.print_buffer {
         let val: f64 = line.split('=').nth(1).unwrap().trim().parse().unwrap();
-        assert!((val - 60.0).abs() < 0.01, "equilateral angle should be 60°, got {val}");
+        assert!(
+            (val - 60.0).abs() < 0.01,
+            "equilateral angle should be 60°, got {val}"
+        );
     }
 }
 
@@ -5017,12 +5346,36 @@ fn tri_asa_30_60_accuracy() {
     state.stack.z = HpNum::rounded(Decimal::from_f64(60.0).unwrap());
     op_tri_asa(&mut state).unwrap();
 
-    let angle_c: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
-    let side_a: f64 = state.print_buffer[1].split('=').nth(1).unwrap().trim().parse().unwrap();
-    let side_b: f64 = state.print_buffer[2].split('=').nth(1).unwrap().trim().parse().unwrap();
-    assert!((angle_c - 90.0).abs() < 0.01, "C should be 90°, got {angle_c}");
+    let angle_c: f64 = state.print_buffer[0]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let side_a: f64 = state.print_buffer[1]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let side_b: f64 = state.print_buffer[2]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        (angle_c - 90.0).abs() < 0.01,
+        "C should be 90°, got {angle_c}"
+    );
     assert!((side_a - 1.0).abs() < 0.01, "a should be 1, got {side_a}");
-    assert!((side_b - 3.0_f64.sqrt()).abs() < 0.01, "b should be √3, got {side_b}");
+    assert!(
+        (side_b - 3.0_f64.sqrt()).abs() < 0.01,
+        "b should be √3, got {side_b}"
+    );
 }
 
 #[test]
@@ -5044,8 +5397,17 @@ fn tri_saa_accuracy() {
     state.stack.z = HpNum::rounded(Decimal::from_f64(60.0).unwrap());
     op_tri_saa(&mut state).unwrap();
 
-    let side_b: f64 = state.print_buffer[1].split('=').nth(1).unwrap().trim().parse().unwrap();
-    assert!((side_b - 10.0 * 3.0_f64.sqrt()).abs() < 0.1, "b ≈ 10√3, got {side_b}");
+    let side_b: f64 = state.print_buffer[1]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        (side_b - 10.0 * 3.0_f64.sqrt()).abs() < 0.1,
+        "b ≈ 10√3, got {side_b}"
+    );
 }
 
 #[test]
@@ -5067,8 +5429,17 @@ fn tri_sas_accuracy() {
     state.stack.z = HpNum::rounded(Decimal::from_f64(4.0).unwrap());
     op_tri_sas(&mut state).unwrap();
 
-    let side_a: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
-    assert!((side_a - 13.0_f64.sqrt()).abs() < 0.01, "a = √13 ≈ 3.606, got {side_a}");
+    let side_a: f64 = state.print_buffer[0]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        (side_a - 13.0_f64.sqrt()).abs() < 0.01,
+        "a = √13 ≈ 3.606, got {side_a}"
+    );
 }
 
 #[test]
@@ -5091,11 +5462,33 @@ fn tri_ssa_ambiguous_accuracy() {
     state.stack.z = HpNum::rounded(Decimal::from_f64(30.0).unwrap());
     op_tri_ssa(&mut state).unwrap();
 
-    assert_eq!(state.print_buffer.len(), 6, "Two-solution SSA must produce 6 output lines");
-    let b1: f64 = state.print_buffer[0].split('=').nth(1).unwrap().trim().parse().unwrap();
-    let b2: f64 = state.print_buffer[3].split('=').nth(1).unwrap().trim().parse().unwrap();
-    assert!((b1 - 53.1301).abs() < 0.01, "B1 ≈ 53.13° (asin(0.8)), got {b1}");
-    assert!((b2 - 126.8699).abs() < 0.01, "B2 ≈ 126.87° (180°-B1), got {b2}");
+    assert_eq!(
+        state.print_buffer.len(),
+        6,
+        "Two-solution SSA must produce 6 output lines"
+    );
+    let b1: f64 = state.print_buffer[0]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let b2: f64 = state.print_buffer[3]
+        .split('=')
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        (b1 - 53.1301).abs() < 0.01,
+        "B1 ≈ 53.13° (asin(0.8)), got {b1}"
+    );
+    assert!(
+        (b2 - 126.8699).abs() < 0.01,
+        "B2 ≈ 126.87° (180°-B1), got {b2}"
+    );
 }
 
 // ── Phase 28 Plan 28-10: TRANS Numerical Accuracy ────────────────────────────
@@ -5122,8 +5515,14 @@ fn trans2d_pure_rotation_accuracy() {
 
     let x_prime = state.stack.x.inner().to_f64().unwrap();
     let y_prime = state.stack.y.inner().to_f64().unwrap();
-    assert!(x_prime.abs() < 1e-7, "x' should be 0 after 90° rotation, got {x_prime}");
-    assert!((y_prime - (-1.0)).abs() < 1e-7, "y' should be -1 after 90° rotation, got {y_prime}");
+    assert!(
+        x_prime.abs() < 1e-7,
+        "x' should be 0 after 90° rotation, got {x_prime}"
+    );
+    assert!(
+        (y_prime - (-1.0)).abs() < 1e-7,
+        "y' should be -1 after 90° rotation, got {y_prime}"
+    );
 }
 
 #[test]
@@ -5145,8 +5544,14 @@ fn trans2d_pure_translation_accuracy() {
 
     let x_prime = state.stack.x.inner().to_f64().unwrap();
     let y_prime = state.stack.y.inner().to_f64().unwrap();
-    assert!(x_prime.abs() < 1e-7, "x'=0 for pure translation to origin, got {x_prime}");
-    assert!(y_prime.abs() < 1e-7, "y'=0 for pure translation to origin, got {y_prime}");
+    assert!(
+        x_prime.abs() < 1e-7,
+        "x'=0 for pure translation to origin, got {x_prime}"
+    );
+    assert!(
+        y_prime.abs() < 1e-7,
+        "y'=0 for pure translation to origin, got {y_prime}"
+    );
 }
 
 #[test]
@@ -5170,9 +5575,18 @@ fn trans3d_rodrigues_z_axis_accuracy() {
     let x_rot = state.stack.x.inner().to_f64().unwrap();
     let y_rot = state.stack.y.inner().to_f64().unwrap();
     let z_rot = state.stack.z.inner().to_f64().unwrap();
-    assert!(x_rot.abs() < 1e-6, "z-axis 90°: x' should be 0, got {x_rot}");
-    assert!((y_rot - 1.0).abs() < 1e-6, "z-axis 90°: y' should be 1, got {y_rot}");
-    assert!(z_rot.abs() < 1e-6, "z-axis 90°: z' should be 0, got {z_rot}");
+    assert!(
+        x_rot.abs() < 1e-6,
+        "z-axis 90°: x' should be 0, got {x_rot}"
+    );
+    assert!(
+        (y_rot - 1.0).abs() < 1e-6,
+        "z-axis 90°: y' should be 1, got {y_rot}"
+    );
+    assert!(
+        z_rot.abs() < 1e-6,
+        "z-axis 90°: z' should be 0, got {z_rot}"
+    );
 }
 
 #[test]
@@ -5197,9 +5611,18 @@ fn trans3d_rodrigues_arbitrary_axis_accuracy() {
     let x_rot = state.stack.x.inner().to_f64().unwrap();
     let y_rot = state.stack.y.inner().to_f64().unwrap();
     let z_rot = state.stack.z.inner().to_f64().unwrap();
-    assert!(x_rot.abs() < 1e-5, "(1,1,1) 120°: x' should be 0, got {x_rot}");
-    assert!((y_rot - 1.0).abs() < 1e-5, "(1,1,1) 120°: y' should be 1, got {y_rot}");
-    assert!(z_rot.abs() < 1e-5, "(1,1,1) 120°: z' should be 0, got {z_rot}");
+    assert!(
+        x_rot.abs() < 1e-5,
+        "(1,1,1) 120°: x' should be 0, got {x_rot}"
+    );
+    assert!(
+        (y_rot - 1.0).abs() < 1e-5,
+        "(1,1,1) 120°: y' should be 1, got {y_rot}"
+    );
+    assert!(
+        z_rot.abs() < 1e-5,
+        "(1,1,1) 120°: z' should be 0, got {z_rot}"
+    );
 }
 
 #[test]
@@ -5208,7 +5631,9 @@ fn trans3d_inverse_round_trip_accuracy() {
     // Any forward transform followed by inverse must recover the original point.
     // Free42 v3.0.5: |round-trip error| < 1e-7 for all cases.
     // Catches: inverse formula wrong (should use -θ in Rodrigues).
-    use hp41_core::ops::math1::trans::{do_trans3d_forward, do_trans3d_inverse, store_trans3d_params};
+    use hp41_core::ops::math1::trans::{
+        do_trans3d_forward, do_trans3d_inverse, store_trans3d_params,
+    };
     use rust_decimal::prelude::FromPrimitive;
     use rust_decimal::Decimal;
 
@@ -5237,7 +5662,16 @@ fn trans3d_inverse_round_trip_accuracy() {
     let x_back = state.stack.x.inner().to_f64().unwrap();
     let y_back = state.stack.y.inner().to_f64().unwrap();
     let z_back = state.stack.z.inner().to_f64().unwrap();
-    assert!((x_back - input.0).abs() < 1e-5, "round-trip x: {input:?} → {x_back}");
-    assert!((y_back - input.1).abs() < 1e-5, "round-trip y: {input:?} → {y_back}");
-    assert!((z_back - input.2).abs() < 1e-5, "round-trip z: {input:?} → {z_back}");
+    assert!(
+        (x_back - input.0).abs() < 1e-5,
+        "round-trip x: {input:?} → {x_back}"
+    );
+    assert!(
+        (y_back - input.1).abs() < 1e-5,
+        "round-trip y: {input:?} → {y_back}"
+    );
+    assert!(
+        (z_back - input.2).abs() < 1e-5,
+        "round-trip z: {input:?} → {z_back}"
+    );
 }

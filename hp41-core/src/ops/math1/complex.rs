@@ -510,8 +510,8 @@ pub fn op_tan_z(state: &mut CalcState) -> Result<(), HpError> {
     let x_f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
     let y_f = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
 
-    let s = x_f.sin();  // sin(x)
-    let c = x_f.cos();  // cos(x)
+    let s = x_f.sin(); // sin(x)
+    let c = x_f.cos(); // cos(x)
     let ch = y_f.cosh(); // cosh(y)
     let sh = y_f.sinh(); // sinh(y)
 
@@ -618,8 +618,12 @@ pub fn op_z_pow_n(state: &mut CalcState) -> Result<(), HpError> {
 
     for _ in 0..abs_n {
         // (acc_re + i·acc_im) * (re + i·im) = (acc_re·re - acc_im·im) + i(acc_re·im + acc_im·re)
-        let new_re = acc_re.checked_mul(&re)?.checked_sub(&acc_im.checked_mul(&im)?)?;
-        let new_im = acc_re.checked_mul(&im)?.checked_add(&acc_im.checked_mul(&re)?)?;
+        let new_re = acc_re
+            .checked_mul(&re)?
+            .checked_sub(&acc_im.checked_mul(&im)?)?;
+        let new_im = acc_re
+            .checked_mul(&im)?
+            .checked_add(&acc_im.checked_mul(&re)?)?;
         acc_re = new_re;
         acc_im = new_im;
     }
@@ -630,7 +634,9 @@ pub fn op_z_pow_n(state: &mut CalcState) -> Result<(), HpError> {
         if acc_re.is_zero() && acc_im.is_zero() {
             return Err(HpError::DivideByZero);
         }
-        let denom = acc_re.checked_mul(&acc_re)?.checked_add(&acc_im.checked_mul(&acc_im)?)?;
+        let denom = acc_re
+            .checked_mul(&acc_re)?
+            .checked_add(&acc_im.checked_mul(&acc_im)?)?;
         let inv_re = acc_re.checked_div(&denom)?;
         let inv_im = acc_im.negate().checked_div(&denom)?;
         acc_re = inv_re;
@@ -946,7 +952,10 @@ mod tests {
         let mut s = make_state("1", "2", "3", "4");
         assert!(!s.complex_mode, "complex_mode must start false");
         op_c_plus(&mut s).unwrap();
-        assert!(s.complex_mode, "C+ must set complex_mode = true (D-28.2 auto-on)");
+        assert!(
+            s.complex_mode,
+            "C+ must set complex_mode = true (D-28.2 auto-on)"
+        );
     }
 
     /// Catches: lift_enabled not set to true by C+ (binary op must Enable).
@@ -955,7 +964,10 @@ mod tests {
         let mut s = make_state("1", "2", "3", "4");
         s.stack.lift_enabled = false; // start disabled
         op_c_plus(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "C+ must enable stack lift (LiftEffect::Enable)");
+        assert!(
+            s.stack.lift_enabled,
+            "C+ must enable stack lift (LiftEffect::Enable)"
+        );
     }
 
     /// Catches: zero-zero identity failing.
@@ -1182,7 +1194,10 @@ mod tests {
         let mut s = CalcState::new();
         s.complex_mode = false;
         op_real(&mut s).unwrap();
-        assert!(!s.complex_mode, "Op::Real when already false must stay false");
+        assert!(
+            !s.complex_mode,
+            "Op::Real when already false must stay false"
+        );
     }
 
     /// Catches: Op::Real modifying stack X.
@@ -1214,13 +1229,19 @@ mod tests {
         // Test with lift_enabled = true
         s.stack.lift_enabled = true;
         op_real(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "Op::Real must leave lift_enabled true when it was true");
+        assert!(
+            s.stack.lift_enabled,
+            "Op::Real must leave lift_enabled true when it was true"
+        );
 
         // Test with lift_enabled = false
         s.complex_mode = true;
         s.stack.lift_enabled = false;
         op_real(&mut s).unwrap();
-        assert!(!s.stack.lift_enabled, "Op::Real must leave lift_enabled false when it was false");
+        assert!(
+            !s.stack.lift_enabled,
+            "Op::Real must leave lift_enabled false when it was false"
+        );
     }
 
     // ── Op::Magz tests (≥ 5) ─────────────────────────────────────────────────
@@ -1250,11 +1271,7 @@ mod tests {
     fn magz_unit_complex() {
         let mut s = make_state("1", "1", "0", "0");
         op_magz(&mut s).unwrap();
-        assert_relative_eq!(
-            get_x_f64(&s),
-            std::f64::consts::SQRT_2,
-            max_relative = 1e-7
-        );
+        assert_relative_eq!(get_x_f64(&s), std::f64::consts::SQRT_2, max_relative = 1e-7);
     }
 
     /// Catches: magnitude of negative components not producing positive result.
@@ -1281,7 +1298,10 @@ mod tests {
         let mut s = make_state("3", "4", "0", "0");
         s.stack.lift_enabled = true;
         op_magz(&mut s).unwrap();
-        assert!(!s.stack.lift_enabled, "MAGZ must disable stack lift (LiftEffect::Disable)");
+        assert!(
+            !s.stack.lift_enabled,
+            "MAGZ must disable stack lift (LiftEffect::Disable)"
+        );
     }
 
     /// Catches: Y register being modified by MAGZ (must stay unchanged).
@@ -1339,7 +1359,10 @@ mod tests {
             "CINV(0,0) must return DivideByZero"
         );
         // complex_mode must NOT have been set (guard fires before mutation)
-        assert!(!s.complex_mode, "complex_mode must not be set on DivideByZero");
+        assert!(
+            !s.complex_mode,
+            "complex_mode must not be set on DivideByZero"
+        );
     }
 
     /// Catches: complex_mode not set by CINV.
@@ -1478,11 +1501,7 @@ mod tests {
         s.angle_mode = crate::state::AngleMode::Rad;
         op_ln_z(&mut s).unwrap();
         assert_relative_eq!(get_x_f64(&s), 0.0, max_relative = 1e-7);
-        assert_relative_eq!(
-            get_y_f64(&s),
-            std::f64::consts::PI,
-            max_relative = 1e-7
-        );
+        assert_relative_eq!(get_y_f64(&s), std::f64::consts::PI, max_relative = 1e-7);
     }
 
     /// Catches: LNZ(0+0i) not returning Domain (CMPLX-11 / Pitfall 6).
@@ -1911,7 +1930,10 @@ mod tests {
         let mut s = make_state("2", "0", "3", "0");
         s.stack.lift_enabled = false;
         op_a_pow_z(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "A↑Z must enable stack lift (binary op)");
+        assert!(
+            s.stack.lift_enabled,
+            "A↑Z must enable stack lift (binary op)"
+        );
     }
 
     // ── Op::ZpowW tests (≥ 5 including Domain guards) ────────────────────────
@@ -1980,7 +2002,10 @@ mod tests {
         let mut s = make_state("2", "0", "3", "0");
         s.stack.lift_enabled = false;
         op_z_pow_w(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "Z↑W must enable stack lift (binary op)");
+        assert!(
+            s.stack.lift_enabled,
+            "Z↑W must enable stack lift (binary op)"
+        );
     }
 
     // ── complex_mode lifecycle tests ──────────────────────────────────────────

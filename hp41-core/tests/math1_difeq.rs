@@ -72,8 +72,14 @@ fn difeq_xrom_resolve() {
 #[test]
 fn difeq_in_math1_ops() {
     use hp41_core::ops::math1::xrom::MATH_1;
-    let found = MATH_1.ops.iter().any(|(name, op)| *name == "DIFEQ" && *op == Op::Difeq);
-    assert!(found, "MATH_1.ops must contain (\"DIFEQ\", Op::Difeq) after Plan 28-09");
+    let found = MATH_1
+        .ops
+        .iter()
+        .any(|(name, op)| *name == "DIFEQ" && *op == Op::Difeq);
+    assert!(
+        found,
+        "MATH_1.ops must contain (\"DIFEQ\", Op::Difeq) after Plan 28-09"
+    );
 }
 
 // Catches: DifeqState struct not populated correctly during op_difeq_run_loop execution
@@ -127,7 +133,7 @@ fn difeq_prgm_display_arm() {
     // Verify the Op::Difeq is stored and retrievable (display arm must not panic)
     assert_eq!(state.program.len(), 1);
     match &state.program[0] {
-        Op::Difeq => {}, // Op::Difeq stored correctly — display arm is in prgm_display.rs
+        Op::Difeq => {} // Op::Difeq stored correctly — display arm is in prgm_display.rs
         _ => panic!("program[0] must be Op::Difeq"),
     }
 }

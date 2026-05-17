@@ -69,9 +69,9 @@ use crate::num::HpNum;
 use crate::ops::Op;
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 // ── DifeqState struct ─────────────────────────────────────────────────────────
 
@@ -194,15 +194,27 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     //   R03 = y0
     //   R04 = y_prime0 (only relevant when order=2)
     let user_label = state.alpha_reg.clone();
-    let order_raw = state.regs.first().map(|r| r.inner().to_u8().unwrap_or(0)).unwrap_or(0);
+    let order_raw = state
+        .regs
+        .first()
+        .map(|r| r.inner().to_u8().unwrap_or(0))
+        .unwrap_or(0);
     let step_size_val = state.regs.get(1).cloned().unwrap_or_default();
     let x0 = state.regs.get(2).cloned().unwrap_or_default();
     let y0 = state.regs.get(3).cloned().unwrap_or_default();
     let y_prime0 = state.regs.get(4).cloned().unwrap_or_default();
     // R05 = max_steps (integer part; 0 or unset → default 1000)
     // Phase 29 / CLI-08 wires this to the "N STEPS=?" modal parameter.
-    let max_steps_raw = state.regs.get(5).map(|r| r.inner().to_u32().unwrap_or(0)).unwrap_or(0);
-    let max_steps = if max_steps_raw == 0 { 1000u32 } else { max_steps_raw };
+    let max_steps_raw = state
+        .regs
+        .get(5)
+        .map(|r| r.inner().to_u32().unwrap_or(0))
+        .unwrap_or(0);
+    let max_steps = if max_steps_raw == 0 {
+        1000u32
+    } else {
+        max_steps_raw
+    };
 
     // ORDER validation: only 1 and 2 are accepted per DIFEQ-01.
     // Any other value writes modal_prompt and returns Ok(()) (NOT an HpError).
@@ -219,7 +231,11 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
         step_size: step_size_val.clone(),
         x: x0.clone(),
         y: y0.clone(),
-        y_prime: if order == 2 { Some(y_prime0.clone()) } else { None },
+        y_prime: if order == 2 {
+            Some(y_prime0.clone())
+        } else {
+            None
+        },
         step_count: 0,
         max_steps,
     });
@@ -298,8 +314,9 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
                     let x_new = HpNum::from(
                         Decimal::from_f64(
                             x_n.inner().to_f64().ok_or(HpError::Overflow)?
-                            + h.inner().to_f64().ok_or(HpError::Overflow)?
-                        ).ok_or(HpError::Overflow)?
+                                + h.inner().to_f64().ok_or(HpError::Overflow)?,
+                        )
+                        .ok_or(HpError::Overflow)?,
                     );
                     // Update state
                     if let Some(ref mut st) = state.difeq_state {
@@ -308,7 +325,11 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
                         st.step_count += 1;
                     }
                     // Push step output (DIFEQ-05)
-                    let line = format!("X={} Y={}", format_hpnum(&x_new, &display_mode), format_hpnum(&y_new, &display_mode));
+                    let line = format!(
+                        "X={} Y={}",
+                        format_hpnum(&x_new, &display_mode),
+                        format_hpnum(&y_new, &display_mode)
+                    );
                     state.print_buffer.push(line);
                     Ok(())
                 }
@@ -324,8 +345,9 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
                     let x_new = HpNum::from(
                         Decimal::from_f64(
                             x_n.inner().to_f64().ok_or(HpError::Overflow)?
-                            + h.inner().to_f64().ok_or(HpError::Overflow)?
-                        ).ok_or(HpError::Overflow)?
+                                + h.inner().to_f64().ok_or(HpError::Overflow)?,
+                        )
+                        .ok_or(HpError::Overflow)?,
                     );
                     // Update state
                     if let Some(ref mut st) = state.difeq_state {
@@ -384,7 +406,6 @@ fn rk4_step_order1(
     y_n: &HpNum,
     h: &HpNum,
 ) -> Result<HpNum, HpError> {
-
     let save_call_stack_len = state.call_stack.len();
     let x_f64 = x_n.inner().to_f64().ok_or(HpError::Overflow)?;
     let y_f64 = y_n.inner().to_f64().ok_or(HpError::Overflow)?;
@@ -397,7 +418,9 @@ fn rk4_step_order1(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -409,7 +432,9 @@ fn rk4_step_order1(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -421,7 +446,9 @@ fn rk4_step_order1(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -433,7 +460,9 @@ fn rk4_step_order1(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -441,7 +470,9 @@ fn rk4_step_order1(
 
     // y_{n+1} = y_n + (k1 + 2·k2 + 2·k3 + k4) / 6
     let y_new_f64 = y_f64 + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0;
-    Ok(HpNum::from(Decimal::from_f64(y_new_f64).ok_or(HpError::Overflow)?))
+    Ok(HpNum::from(
+        Decimal::from_f64(y_new_f64).ok_or(HpError::Overflow)?,
+    ))
 }
 
 // ── rk4_step_order2: ORDER=2 RK4 helper ──────────────────────────────────────
@@ -482,7 +513,6 @@ fn rk4_step_order2(
     z_n: &HpNum,
     h: &HpNum,
 ) -> Result<(HpNum, HpNum), HpError> {
-
     let save_call_stack_len = state.call_stack.len();
     let x_f64 = x_n.inner().to_f64().ok_or(HpError::Overflow)?;
     let y_f64 = y_n.inner().to_f64().ok_or(HpError::Overflow)?;
@@ -499,7 +529,9 @@ fn rk4_step_order2(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -510,11 +542,18 @@ fn rk4_step_order2(
 
     // k2z = h · f(x_n+h/2, y_n+k1y/2, z_n+k1z/2)  (1 user call)
     let k2z = {
-        push_three_args(state, x_f64 + h_f64 / 2.0, y_f64 + k1y / 2.0, z_f64 + k1z / 2.0)?;
+        push_three_args(
+            state,
+            x_f64 + h_f64 / 2.0,
+            y_f64 + k1y / 2.0,
+            z_f64 + k1z / 2.0,
+        )?;
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -525,11 +564,18 @@ fn rk4_step_order2(
 
     // k3z = h · f(x_n+h/2, y_n+k2y/2, z_n+k2z/2)  (1 user call)
     let k3z = {
-        push_three_args(state, x_f64 + h_f64 / 2.0, y_f64 + k2y / 2.0, z_f64 + k2z / 2.0)?;
+        push_three_args(
+            state,
+            x_f64 + h_f64 / 2.0,
+            y_f64 + k2y / 2.0,
+            z_f64 + k2z / 2.0,
+        )?;
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -544,7 +590,9 @@ fn rk4_step_order2(
         state.call_stack.push(state.pc);
         state.pc = label_pos + 1;
         let r = run_user_function(state, program);
-        while state.call_stack.len() > save_call_stack_len { state.call_stack.pop(); }
+        while state.call_stack.len() > save_call_stack_len {
+            state.call_stack.pop();
+        }
         r?;
         let f = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
         h_f64 * f
@@ -642,7 +690,12 @@ fn push_two_args(state: &mut CalcState, x_arg: f64, y_arg: f64) -> Result<(), Hp
 
 /// Push three args (x, y, z) to HP stack for ORDER=2 user-callback calls.
 /// After push: X = x_arg, Y = y_arg, Z = z_arg (user function reads f(x,y,z)).
-fn push_three_args(state: &mut CalcState, x_arg: f64, y_arg: f64, z_arg: f64) -> Result<(), HpError> {
+fn push_three_args(
+    state: &mut CalcState,
+    x_arg: f64,
+    y_arg: f64,
+    z_arg: f64,
+) -> Result<(), HpError> {
     // Push z first, y second, x last — HP stack LIFO: last push ends up in X
     state.stack.lift_enabled = true;
     enter_number(
@@ -696,11 +749,11 @@ mod tests {
         // R00 = order (1), R01 = h, R02 = x0, R03 = y0, R05 = max_steps
         state.regs[0] = HpNum::from(1i32); // order = 1
         state.regs[1] = HpNum::from(
-            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
+            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO),
         ); // h = 0.1
         state.regs[2] = HpNum::from(0i32); // x0 = 0
         state.regs[3] = HpNum::from(1i32); // y0 = 1
-        // R05 = max_steps: controls how many RK4 steps to take before stopping
+                                           // R05 = max_steps: controls how many RK4 steps to take before stopping
         state.regs[5] = HpNum::from(n_steps as i32); // number of steps
         (state, program)
     }
@@ -720,7 +773,7 @@ mod tests {
         state.alpha_reg = "ED".to_string();
         state.regs[0] = HpNum::from(1i32);
         state.regs[1] = HpNum::from(
-            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
+            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO),
         );
         state.regs[2] = HpNum::from(0i32);
         state.regs[3] = HpNum::from(1i32);
@@ -745,7 +798,7 @@ mod tests {
         state.alpha_reg = "HO".to_string();
         state.regs[0] = HpNum::from(2i32); // order = 2
         state.regs[1] = HpNum::from(
-            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
+            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO),
         );
         state.regs[2] = HpNum::from(0i32); // x0 = 0
         state.regs[3] = HpNum::from(1i32); // y0 = 1
@@ -815,7 +868,8 @@ mod tests {
             DifeqInputStep::Y0Prompt,
             DifeqInputStep::Ready, // Y1PrimePrompt is NOT visited for ORDER=1
         ];
-        let prompts: Vec<Option<String>> = steps.iter()
+        let prompts: Vec<Option<String>> = steps
+            .iter()
             .map(|s| ModalProgram::Difeq(s.clone()).current_prompt())
             .collect();
         assert_eq!(prompts[0], Some("FUNCTION NAME?".to_string()));
@@ -840,7 +894,8 @@ mod tests {
             DifeqInputStep::Y1PrimePrompt, // visited for ORDER=2
             DifeqInputStep::Ready,
         ];
-        let prompts: Vec<Option<String>> = steps.iter()
+        let prompts: Vec<Option<String>> = steps
+            .iter()
             .map(|s| ModalProgram::Difeq(s.clone()).current_prompt())
             .collect();
         assert_eq!(prompts[4], Some("Y0=?".to_string()));
@@ -1015,7 +1070,7 @@ mod tests {
         // Program: LBL "SR" / (return y already in Y) swap / (clobber R04) STO 04 / RTN
         let program = vec![
             Op::Lbl("SR".to_string()),
-            Op::XySwap, // y → X (f(x,y) = y for dy/dx = y)
+            Op::XySwap,    // y → X (f(x,y) = y for dy/dx = y)
             Op::StoReg(4), // clobber R04 — scratch register (user-responsibility divergence)
             Op::Rtn,
         ];
@@ -1024,7 +1079,7 @@ mod tests {
         state.alpha_reg = "SR".to_string();
         state.regs[0] = HpNum::from(1i32);
         state.regs[1] = HpNum::from(
-            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
+            rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO),
         );
         state.regs[2] = HpNum::from(0i32);
         state.regs[3] = HpNum::from(1i32);
@@ -1063,8 +1118,14 @@ mod tests {
             Err(HpError::InvalidOp),
             "DIFEQ with integ_state set must return InvalidOp (XROM-08 FINAL 3-state guard)"
         );
-        assert!(state.difeq_state.is_none(), "difeq_state must remain None after rejection");
-        assert!(state.integ_state.is_some(), "integ_state must be unchanged after pre-mutation rejection");
+        assert!(
+            state.difeq_state.is_none(),
+            "difeq_state must remain None after rejection"
+        );
+        assert!(
+            state.integ_state.is_some(),
+            "integ_state must be unchanged after pre-mutation rejection"
+        );
         state.integ_state = None; // reset
 
         // Test 2: solve_state pre-set → DIFEQ must reject
@@ -1075,7 +1136,10 @@ mod tests {
             Err(HpError::InvalidOp),
             "DIFEQ with solve_state set must return InvalidOp (XROM-08 FINAL 3-state guard)"
         );
-        assert!(state.difeq_state.is_none(), "difeq_state must remain None after rejection");
+        assert!(
+            state.difeq_state.is_none(),
+            "difeq_state must remain None after rejection"
+        );
         state.solve_state = None; // reset
 
         // Test 3: difeq_state pre-set → DIFEQ must reject itself
@@ -1114,9 +1178,16 @@ mod tests {
             "op_difeq_run_loop with full call_stack must return CallDepth"
         );
         // call_stack must still have 4 entries (no leak — pre-mutation check)
-        assert_eq!(state.call_stack.len(), 4, "call_stack must not be modified after CallDepth rejection");
+        assert_eq!(
+            state.call_stack.len(),
+            4,
+            "call_stack must not be modified after CallDepth rejection"
+        );
         // difeq_state must remain None (pre-mutation check)
-        assert!(state.difeq_state.is_none(), "difeq_state must be None after CallDepth rejection");
+        assert!(
+            state.difeq_state.is_none(),
+            "difeq_state must be None after CallDepth rejection"
+        );
     }
 
     // ── Cancellation test (D-28.8 per-64-steps check) ────────────────────────
@@ -1126,7 +1197,9 @@ mod tests {
     fn cancel_per_64_steps() {
         let (mut state, program) = make_exp_growth_state(100);
         // Pre-set cancel_requested = true (would normally come from GUI via Phase 31)
-        state.cancel_requested.store(true, std::sync::atomic::Ordering::Relaxed);
+        state
+            .cancel_requested
+            .store(true, std::sync::atomic::Ordering::Relaxed);
 
         let result = op_difeq_run_loop(&mut state, &program);
         assert_eq!(

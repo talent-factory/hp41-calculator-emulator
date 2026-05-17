@@ -54,29 +54,29 @@ pub const MATH_1: XromModule = XromModule {
         // ── Plan 28-03: Complex Stack Arithmetic ──────────────────────────────
         ("C+", Op::CPlus),
         ("C-", Op::CMinus),
-        ("C\u{00D7}", Op::CTimes),  // Unicode alias (primary)
-        ("C*", Op::CTimes),          // ASCII alias for C×
-        ("C\u{00F7}", Op::CDiv),     // Unicode alias (primary)
-        ("C/", Op::CDiv),            // ASCII alias for C÷
+        ("C\u{00D7}", Op::CTimes), // Unicode alias (primary)
+        ("C*", Op::CTimes),        // ASCII alias for C×
+        ("C\u{00F7}", Op::CDiv),   // Unicode alias (primary)
+        ("C/", Op::CDiv),          // ASCII alias for C÷
         ("REAL", Op::Real),
         // ── Plan 28-04: Complex Functions ─────────────────────────────────────
         ("MAGZ", Op::Magz),
         ("CINV", Op::Cinv),
-        ("Z\u{2191}N", Op::ZpowN),  // Unicode ↑ (primary)
-        ("Z^N", Op::ZpowN),          // ASCII alias for Z↑N
+        ("Z\u{2191}N", Op::ZpowN),    // Unicode ↑ (primary)
+        ("Z^N", Op::ZpowN),           // ASCII alias for Z↑N
         ("Z\u{2191}1/N", Op::Zpow1N), // Unicode ↑ (primary)
-        ("Z^1/N", Op::Zpow1N),       // ASCII alias for Z↑1/N
-        ("E\u{2191}Z", Op::ExpZ),   // Unicode ↑ (primary)
-        ("E^Z", Op::ExpZ),           // ASCII alias for E↑Z
+        ("Z^1/N", Op::Zpow1N),        // ASCII alias for Z↑1/N
+        ("E\u{2191}Z", Op::ExpZ),     // Unicode ↑ (primary)
+        ("E^Z", Op::ExpZ),            // ASCII alias for E↑Z
         ("LNZ", Op::LnZ),
         ("SINZ", Op::SinZ),
         ("COSZ", Op::CosZ),
         ("TANZ", Op::TanZ),
-        ("A\u{2191}Z", Op::ApowZ),  // Unicode ↑ (primary)
-        ("A^Z", Op::ApowZ),          // ASCII alias for A↑Z
+        ("A\u{2191}Z", Op::ApowZ), // Unicode ↑ (primary)
+        ("A^Z", Op::ApowZ),        // ASCII alias for A↑Z
         ("LOGZ", Op::LogZ),
-        ("Z\u{2191}W", Op::ZpowW),  // Unicode ↑ (primary)
-        ("Z^W", Op::ZpowW),          // ASCII alias for Z↑W
+        ("Z\u{2191}W", Op::ZpowW), // Unicode ↑ (primary)
+        ("Z^W", Op::ZpowW),        // ASCII alias for Z↑W
         // ── Plan 28-05: POLY / ROOTS ──────────────────────────────────────────
         ("POLY", Op::PolyWorkflow),
         ("ROOTS", Op::Roots),
@@ -168,15 +168,15 @@ fn math1_resolve(name: &str) -> Option<Op> {
         // ── Plan 28-03: Complex Stack Arithmetic ──────────────────────────────
         "C+" => Some(Op::CPlus),
         "C-" => Some(Op::CMinus),
-        "C\u{00D7}" | "C*" => Some(Op::CTimes),  // Unicode × and ASCII * both accepted
-        "C\u{00F7}" | "C/" => Some(Op::CDiv),     // Unicode ÷ and ASCII / both accepted
+        "C\u{00D7}" | "C*" => Some(Op::CTimes), // Unicode × and ASCII * both accepted
+        "C\u{00F7}" | "C/" => Some(Op::CDiv),   // Unicode ÷ and ASCII / both accepted
         "REAL" => Some(Op::Real),
         // ── Plan 28-04: Complex Functions ─────────────────────────────────────
         "MAGZ" => Some(Op::Magz),
         "CINV" => Some(Op::Cinv),
-        "Z\u{2191}N" | "Z^N" => Some(Op::ZpowN),    // Unicode ↑ and ASCII ^ both accepted
+        "Z\u{2191}N" | "Z^N" => Some(Op::ZpowN), // Unicode ↑ and ASCII ^ both accepted
         "Z\u{2191}1/N" | "Z^1/N" => Some(Op::Zpow1N),
-        "E\u{2191}Z" | "E^Z" => Some(Op::ExpZ),     // Unicode ↑ and ASCII ^ both accepted
+        "E\u{2191}Z" | "E^Z" => Some(Op::ExpZ), // Unicode ↑ and ASCII ^ both accepted
         "LNZ" => Some(Op::LnZ),
         "SINZ" => Some(Op::SinZ),
         "COSZ" => Some(Op::CosZ),
@@ -269,7 +269,10 @@ mod tests {
     // Catches: MATH_1 const field regression
     #[test]
     fn math1_const_id_and_name() {
-        assert_eq!(MATH_1.id, 7, "MATH_1.id must be 7 (HP Math Pac I hardware module ID)");
+        assert_eq!(
+            MATH_1.id, 7,
+            "MATH_1.id must be 7 (HP Math Pac I hardware module ID)"
+        );
         assert_eq!(
             MATH_1.name, "MATH 1A",
             "MATH_1.name must be 'MATH 1A' (HP-41C CATALOG 2 display string)"
@@ -282,21 +285,32 @@ mod tests {
     #[test]
     fn resolve_sinh_with_module_loaded() {
         let result = xrom_resolve("SINH", 0b0000_0001);
-        assert_eq!(result, Some(Op::Sinh), "xrom_resolve('SINH', bit0=1) must return Some(Op::Sinh)");
+        assert_eq!(
+            result,
+            Some(Op::Sinh),
+            "xrom_resolve('SINH', bit0=1) must return Some(Op::Sinh)"
+        );
     }
 
     // Catches: module-not-loaded path not short-circuiting before math1_resolve
     #[test]
     fn resolve_sinh_module_not_loaded_returns_none() {
         let result = xrom_resolve("SINH", 0b0000_0000);
-        assert!(result.is_none(), "xrom_resolve('SINH', bit0=0) must return None (module not loaded)");
+        assert!(
+            result.is_none(),
+            "xrom_resolve('SINH', bit0=0) must return None (module not loaded)"
+        );
     }
 
     // Catches: missing ASINH in math1_resolve match block
     #[test]
     fn resolve_asinh_with_module_loaded() {
         let result = xrom_resolve("ASINH", 0b0000_0001);
-        assert_eq!(result, Some(Op::Asinh), "xrom_resolve('ASINH', bit0=1) must return Some(Op::Asinh)");
+        assert_eq!(
+            result,
+            Some(Op::Asinh),
+            "xrom_resolve('ASINH', bit0=1) must return Some(Op::Asinh)"
+        );
     }
 
     // Catches: MATH_1.ops slice not populated with correct count

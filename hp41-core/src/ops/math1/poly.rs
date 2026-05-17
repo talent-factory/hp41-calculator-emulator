@@ -239,7 +239,10 @@ fn find_roots(coeffs: &[f64]) -> Result<Vec<ComplexRoot>, HpError> {
         if a.abs() < 1e-300 {
             return Err(HpError::Domain);
         }
-        return Ok(vec![ComplexRoot { re: -b / a, im: 0.0 }]);
+        return Ok(vec![ComplexRoot {
+            re: -b / a,
+            im: 0.0,
+        }]);
     }
 
     if n == 2 {
@@ -275,7 +278,10 @@ fn solve_quadratic(a: f64, b: f64, c: f64) -> Result<Vec<ComplexRoot>, HpError> 
         // Return the pair as (u+iv) and (u-iv)
         Ok(vec![
             ComplexRoot { re: u, im: v.abs() },
-            ComplexRoot { re: u, im: -v.abs() },
+            ComplexRoot {
+                re: u,
+                im: -v.abs(),
+            },
         ])
     }
 }
@@ -396,8 +402,14 @@ fn bairstow_deflate(coeffs: &[f64]) -> Result<Vec<ComplexRoot>, HpError> {
         let disc = p * p + 4.0 * q;
         if disc >= 0.0 {
             let sqrt_d = disc.sqrt();
-            all_roots.push(ComplexRoot { re: (p + sqrt_d) / 2.0, im: 0.0 });
-            all_roots.push(ComplexRoot { re: (p - sqrt_d) / 2.0, im: 0.0 });
+            all_roots.push(ComplexRoot {
+                re: (p + sqrt_d) / 2.0,
+                im: 0.0,
+            });
+            all_roots.push(ComplexRoot {
+                re: (p - sqrt_d) / 2.0,
+                im: 0.0,
+            });
         } else {
             let u = p / 2.0;
             let v = (-disc).sqrt() / 2.0;
@@ -416,7 +428,10 @@ fn bairstow_deflate(coeffs: &[f64]) -> Result<Vec<ComplexRoot>, HpError> {
         let a = remaining[0];
         let b = remaining[1];
         if a.abs() > 1e-300 {
-            all_roots.push(ComplexRoot { re: -b / a, im: 0.0 });
+            all_roots.push(ComplexRoot {
+                re: -b / a,
+                im: 0.0,
+            });
         }
     }
 
@@ -537,13 +552,15 @@ mod tests {
         set_reg(&mut s, 2, 2.0);
         op_roots(&mut s).unwrap();
         // Should have 2 "U=" lines (both real roots)
-        assert_eq!(
-            s.print_buffer.len(),
-            2,
-            "Two real roots → 2 U= lines"
+        assert_eq!(s.print_buffer.len(), 2, "Two real roots → 2 U= lines");
+        assert!(
+            s.print_buffer[0].starts_with("U="),
+            "First line must be U=..."
         );
-        assert!(s.print_buffer[0].starts_with("U="), "First line must be U=...");
-        assert!(s.print_buffer[1].starts_with("U="), "Second line must be U=...");
+        assert!(
+            s.print_buffer[1].starts_with("U="),
+            "Second line must be U=..."
+        );
     }
 
     // Catches: equal real roots (discriminant=0) not handled
@@ -587,8 +604,14 @@ mod tests {
         );
         assert_eq!(&s.print_buffer[0], "U=0.0000", "Line 0 must be U=0.0000");
         assert_eq!(&s.print_buffer[1], "V=1.0000", "Line 1 must be V=1.0000");
-        assert_eq!(&s.print_buffer[2], "U=0.0000", "Line 2 must be U=0.0000 (repeated)");
-        assert_eq!(&s.print_buffer[3], "-V=-1.0000", "Line 3 must be -V=-1.0000");
+        assert_eq!(
+            &s.print_buffer[2], "U=0.0000",
+            "Line 2 must be U=0.0000 (repeated)"
+        );
+        assert_eq!(
+            &s.print_buffer[3], "-V=-1.0000",
+            "Line 3 must be -V=-1.0000"
+        );
     }
 
     // Catches: single complex pair quadratic (x²+x+1) format
@@ -637,9 +660,16 @@ mod tests {
         // If it succeeds, all roots must cluster near 1.0.
         if result.is_ok() {
             // Count U= lines (real roots or real parts of complex pairs)
-            let u_lines: Vec<&String> = s.print_buffer.iter().filter(|l| l.starts_with("U=")).collect();
+            let u_lines: Vec<&String> = s
+                .print_buffer
+                .iter()
+                .filter(|l| l.starts_with("U="))
+                .collect();
             // We expect at least some roots to be found
-            assert!(!u_lines.is_empty(), "Should find at least some roots for (x-1)^5");
+            assert!(
+                !u_lines.is_empty(),
+                "Should find at least some roots for (x-1)^5"
+            );
 
             // Every U= value should be near 1.0 (within 0.1)
             for line in &u_lines {
@@ -728,7 +758,11 @@ mod tests {
         set_reg(&mut s, 1, 0.0);
         set_reg(&mut s, 2, -1.0);
         op_roots(&mut s).unwrap();
-        assert_eq!(s.print_buffer.len(), 2, "Two real roots → 2 U= lines (not 4)");
+        assert_eq!(
+            s.print_buffer.len(),
+            2,
+            "Two real roots → 2 U= lines (not 4)"
+        );
         assert!(s.print_buffer[0].starts_with("U="));
         assert!(s.print_buffer[1].starts_with("U="));
     }

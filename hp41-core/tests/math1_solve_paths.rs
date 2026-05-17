@@ -25,8 +25,8 @@ use hp41_core::state::{CalcState, DisplayMode};
 
 /// Build a CalcState configured for SOLVE with a given user function label + guesses.
 fn make_solve_state(label: &str, x1: f64, x2: f64, program: Vec<Op>) -> (CalcState, Vec<Op>) {
-    use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
 
     let mut state = CalcState::new();
     state.program = program.clone();
@@ -52,9 +52,9 @@ fn solve_root_found() {
     // Free42 v3.0.5: SOLVE with guesses 1 and 2 → ROOT IS 1.4142 (Fix 4)
     let program = vec![
         Op::Lbl("FSQM2".to_string()),
-        Op::Sq,                              // f(x) = x^2
+        Op::Sq, // f(x) = x^2
         Op::PushNum(HpNum::from(2i32)),
-        Op::Sub,                             // x^2 - 2
+        Op::Sub, // x^2 - 2
         Op::Rtn,
     ];
     let (mut state, prog) = make_solve_state("FSQM2", 1.0, 2.0, program);
@@ -100,9 +100,9 @@ fn solve_no_root_found() {
     // Free42 v3.0.5: SOLVE with f(x)=x²+1 → NO ROOT FOUND
     let program = vec![
         Op::Lbl("FSQP1".to_string()),
-        Op::Sq,                              // f(x) = x^2
+        Op::Sq, // f(x) = x^2
         Op::PushNum(HpNum::from(1i32)),
-        Op::Add,                             // x^2 + 1 (always > 0, no real root)
+        Op::Add, // x^2 + 1 (always > 0, no real root)
         Op::Rtn,
     ];
     let (mut state, prog) = make_solve_state("FSQP1", 1.0, 2.0, program);
@@ -120,8 +120,7 @@ fn solve_no_root_found() {
         state.print_buffer
     );
     assert_eq!(
-        state.print_buffer[0],
-        "NO ROOT FOUND",
+        state.print_buffer[0], "NO ROOT FOUND",
         "non-converging f must produce 'NO ROOT FOUND'"
     );
     assert!(
@@ -220,8 +219,8 @@ fn solve_root_between() {
         Op::Sin, // f(x) = sin(x) — root at π, 2π, etc.
         Op::Rtn,
     ];
-    use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::Decimal;
 
     let mut state = CalcState::new();
     state.program = program.clone();
@@ -235,7 +234,10 @@ fn solve_root_between() {
     hp41_core::ops::dispatch(&mut state, Op::SetRad).unwrap();
 
     let result = op_solve_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "SOLVE on sin(x) with brackets around π: {result:?}");
+    assert!(
+        result.is_ok(),
+        "SOLVE on sin(x) with brackets around π: {result:?}"
+    );
 
     assert_eq!(
         state.print_buffer.len(),

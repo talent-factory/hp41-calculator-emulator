@@ -148,7 +148,7 @@ fn make_solve_with_nested_integ() -> (CalcState, Vec<Op>) {
     state.program = program.clone();
     state.alpha_reg = "NI".to_string();
     state.regs[0] = HpNum::from(-1i32); // x1 = -1
-    state.regs[1] = HpNum::from(1i32);  // x2 = 1
+    state.regs[1] = HpNum::from(1i32); // x2 = 1
     state.stack.lift_enabled = false;
     (state, program)
 }
@@ -165,7 +165,7 @@ fn make_solve_with_nested_solve() -> (CalcState, Vec<Op>) {
     state.program = program.clone();
     state.alpha_reg = "NS".to_string();
     state.regs[0] = HpNum::from(-1i32); // x1 = -1
-    state.regs[1] = HpNum::from(1i32);  // x2 = 1
+    state.regs[1] = HpNum::from(1i32); // x2 = 1
     state.stack.lift_enabled = false;
     (state, program)
 }
@@ -279,7 +279,7 @@ fn nested_difeq_inside_solve_rejected() {
     state.program = program.clone();
     state.alpha_reg = "DS".to_string();
     state.regs[0] = HpNum::from(-1i32); // x1 = -1 (SOLVE guess 1 from R00)
-    state.regs[1] = HpNum::from(1i32);  // x2 = 1 (SOLVE guess 2 from R01)
+    state.regs[1] = HpNum::from(1i32); // x2 = 1 (SOLVE guess 2 from R01)
     state.stack.lift_enabled = false;
 
     let result = op_solve_run_loop(&mut state, &program);
@@ -315,9 +315,8 @@ fn nested_difeq_inside_difeq_rejected() {
     state.alpha_reg = "DD".to_string();
     // Set up for ORDER=1 DIFEQ: R00=order, R01=h, R02=x0, R03=y0, R05=max_steps
     state.regs[0] = HpNum::from(1i32); // order = 1
-    state.regs[1] = HpNum::from(
-        rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO)
-    );
+    state.regs[1] =
+        HpNum::from(rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO));
     state.regs[2] = HpNum::from(0i32); // x0
     state.regs[3] = HpNum::from(1i32); // y0
     state.regs[5] = HpNum::from(5i32); // max_steps = 5
@@ -416,8 +415,8 @@ fn user_fn_stores_to_scratch_corrupts_integ() {
     // ∫₀¹ x² dx = 1/3 ≈ 0.333
     let program = vec![
         Op::Lbl("K".to_string()),
-        Op::Sq,                     // f(x) = x^2
-        Op::StoReg(3),              // STO 03 — clobbers scratch register R03
+        Op::Sq,        // f(x) = x^2
+        Op::StoReg(3), // STO 03 — clobbers scratch register R03
         Op::Rtn,
     ];
     let mut state = CalcState::new();

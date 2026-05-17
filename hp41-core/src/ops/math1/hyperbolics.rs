@@ -159,7 +159,11 @@ mod tests {
     fn sinh_extreme_magnitude_overflows() {
         let mut s = make_state_with_x("1000");
         let result = op_sinh(&mut s);
-        assert_eq!(result, Err(HpError::Overflow), "sinh(1000) must overflow (inf in f64)");
+        assert_eq!(
+            result,
+            Err(HpError::Overflow),
+            "sinh(1000) must overflow (inf in f64)"
+        );
     }
 
     /// Catches: LiftEffect mismatch — unary_result sets lift_enabled=true (Enable).
@@ -168,7 +172,10 @@ mod tests {
         let mut s = make_state_with_x("1");
         s.stack.lift_enabled = false;
         op_sinh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_sinh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_sinh must enable stack lift via unary_result"
+        );
     }
 
     // ── COSH tests (5 minimum) ──────────────────────────────────────────────
@@ -206,7 +213,11 @@ mod tests {
     fn cosh_extreme_magnitude_overflows() {
         let mut s = make_state_with_x("1000");
         let result = op_cosh(&mut s);
-        assert_eq!(result, Err(HpError::Overflow), "cosh(1000) must overflow (inf in f64)");
+        assert_eq!(
+            result,
+            Err(HpError::Overflow),
+            "cosh(1000) must overflow (inf in f64)"
+        );
     }
 
     /// Catches: LiftEffect mismatch.
@@ -215,7 +226,10 @@ mod tests {
         let mut s = make_state_with_x("0");
         s.stack.lift_enabled = false;
         op_cosh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_cosh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_cosh must enable stack lift via unary_result"
+        );
     }
 
     // ── TANH tests (5 minimum) ──────────────────────────────────────────────
@@ -262,7 +276,10 @@ mod tests {
         let mut s = make_state_with_x("0");
         s.stack.lift_enabled = false;
         op_tanh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_tanh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_tanh must enable stack lift via unary_result"
+        );
     }
 
     // ── ASINH tests (5 minimum) ─────────────────────────────────────────────
@@ -301,7 +318,10 @@ mod tests {
         // asinh(500) ≈ 6.9078... — should not overflow
         let mut s = make_state_with_x("500");
         let result = op_asinh(&mut s);
-        assert!(result.is_ok(), "op_asinh should accept very large argument (no domain restriction)");
+        assert!(
+            result.is_ok(),
+            "op_asinh should accept very large argument (no domain restriction)"
+        );
     }
 
     /// Catches: LiftEffect mismatch.
@@ -310,7 +330,10 @@ mod tests {
         let mut s = make_state_with_x("0");
         s.stack.lift_enabled = false;
         op_asinh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_asinh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_asinh must enable stack lift via unary_result"
+        );
     }
 
     // ── ACOSH tests (5 minimum) ─────────────────────────────────────────────
@@ -340,7 +363,11 @@ mod tests {
     fn acosh_below_one_returns_domain() {
         let mut s = make_state_with_x("0.5");
         let result = op_acosh(&mut s);
-        assert_eq!(result, Err(HpError::Domain), "acosh(0.5) must return Domain (X < 1 forbidden)");
+        assert_eq!(
+            result,
+            Err(HpError::Domain),
+            "acosh(0.5) must return Domain (X < 1 forbidden)"
+        );
     }
 
     /// Catches: domain guard missing for X = 0 (should return Domain).
@@ -348,7 +375,11 @@ mod tests {
     fn acosh_zero_returns_domain() {
         let mut s = make_state_with_x("0");
         let result = op_acosh(&mut s);
-        assert_eq!(result, Err(HpError::Domain), "acosh(0) must return Domain (X < 1 forbidden)");
+        assert_eq!(
+            result,
+            Err(HpError::Domain),
+            "acosh(0) must return Domain (X < 1 forbidden)"
+        );
     }
 
     /// Catches: LiftEffect mismatch.
@@ -357,7 +388,10 @@ mod tests {
         let mut s = make_state_with_x("2");
         s.stack.lift_enabled = false;
         op_acosh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_acosh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_acosh must enable stack lift via unary_result"
+        );
     }
 
     // ── ATANH tests (5 minimum) ─────────────────────────────────────────────
@@ -387,7 +421,11 @@ mod tests {
     fn atanh_one_returns_domain() {
         let mut s = make_state_with_x("1");
         let result = op_atanh(&mut s);
-        assert_eq!(result, Err(HpError::Domain), "atanh(1) must return Domain (|X| >= 1 forbidden)");
+        assert_eq!(
+            result,
+            Err(HpError::Domain),
+            "atanh(1) must return Domain (|X| >= 1 forbidden)"
+        );
     }
 
     /// Catches: domain guard missing for X = -1.
@@ -395,7 +433,11 @@ mod tests {
     fn atanh_neg_one_returns_domain() {
         let mut s = make_state_with_x("-1");
         let result = op_atanh(&mut s);
-        assert_eq!(result, Err(HpError::Domain), "atanh(-1) must return Domain (|X| >= 1 forbidden)");
+        assert_eq!(
+            result,
+            Err(HpError::Domain),
+            "atanh(-1) must return Domain (|X| >= 1 forbidden)"
+        );
     }
 
     /// Catches: LiftEffect mismatch.
@@ -404,7 +446,10 @@ mod tests {
         let mut s = make_state_with_x("0.5");
         s.stack.lift_enabled = false;
         op_atanh(&mut s).unwrap();
-        assert!(s.stack.lift_enabled, "op_atanh must enable stack lift via unary_result");
+        assert!(
+            s.stack.lift_enabled,
+            "op_atanh must enable stack lift via unary_result"
+        );
     }
 
     // ── Cross-cutting: dispatch path test ───────────────────────────────────
@@ -415,7 +460,10 @@ mod tests {
         let mut s = make_state_with_x("1");
         let orig_x = s.stack.x.clone();
         op_sinh(&mut s).unwrap();
-        assert_eq!(s.stack.lastx, orig_x, "op_sinh must save X to LASTX via unary_result");
+        assert_eq!(
+            s.stack.lastx, orig_x,
+            "op_sinh must save X to LASTX via unary_result"
+        );
     }
 
     /// Catches: angle-mode dependence (hyperbolics must not be affected by angle mode).

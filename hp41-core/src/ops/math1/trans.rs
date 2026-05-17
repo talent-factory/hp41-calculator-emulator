@@ -93,10 +93,7 @@ fn f64_to_hpnum(v: f64) -> Result<HpNum, HpError> {
 ///
 /// Standard algebraic cross product formula:
 /// `(a₁, a₂, a₃) × (b₁, b₂, b₃) = (a₂b₃ - a₃b₂, a₃b₁ - a₁b₃, a₁b₂ - a₂b₁)`
-fn cross_product_3d(
-    a: (f64, f64, f64),
-    b: (f64, f64, f64),
-) -> (f64, f64, f64) {
+fn cross_product_3d(a: (f64, f64, f64), b: (f64, f64, f64)) -> (f64, f64, f64) {
     (
         a.1 * b.2 - a.2 * b.1,
         a.2 * b.0 - a.0 * b.2,
@@ -165,10 +162,22 @@ pub fn do_trans2d_forward(state: &mut CalcState) -> Result<(), HpError> {
     let x = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
     let y = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
 
-    let x0 = state.regs.get(0).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let y0 = state.regs.get(1).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+    let x0 = state
+        .regs
+        .get(0)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let y0 = state
+        .regs
+        .get(1)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
     // θ stored as raw value in current angle_mode
-    let theta_raw = state.regs.get(2).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+    let theta_raw = state
+        .regs
+        .get(2)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
     let theta = to_radians(theta_raw, state.angle_mode);
 
     let dx = x - x0;
@@ -201,9 +210,21 @@ pub fn do_trans2d_inverse(state: &mut CalcState) -> Result<(), HpError> {
     let x_prime = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
     let y_prime = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
 
-    let x0 = state.regs.get(0).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let y0 = state.regs.get(1).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let theta_raw = state.regs.get(2).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+    let x0 = state
+        .regs
+        .get(0)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let y0 = state
+        .regs
+        .get(1)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let theta_raw = state
+        .regs
+        .get(2)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
     let theta = to_radians(theta_raw, state.angle_mode);
 
     let cos_t = theta.cos();
@@ -243,13 +264,41 @@ pub fn do_trans3d_forward(state: &mut CalcState) -> Result<(), HpError> {
     let y = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
     let z = state.stack.z.inner().to_f64().ok_or(HpError::Overflow)?;
 
-    let x0 = state.regs.get(0).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let y0 = state.regs.get(1).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let z0 = state.regs.get(2).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_a = state.regs.get(3).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_b = state.regs.get(4).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_c = state.regs.get(5).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let theta_raw = state.regs.get(6).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+    let x0 = state
+        .regs
+        .get(0)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let y0 = state
+        .regs
+        .get(1)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let z0 = state
+        .regs
+        .get(2)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_a = state
+        .regs
+        .get(3)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_b = state
+        .regs
+        .get(4)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_c = state
+        .regs
+        .get(5)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let theta_raw = state
+        .regs
+        .get(6)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
     let theta = to_radians(theta_raw, state.angle_mode);
 
     let k = normalize_3d(axis_a, axis_b, axis_c)?;
@@ -274,13 +323,41 @@ pub fn do_trans3d_inverse(state: &mut CalcState) -> Result<(), HpError> {
     let y = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
     let z = state.stack.z.inner().to_f64().ok_or(HpError::Overflow)?;
 
-    let x0 = state.regs.get(0).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let y0 = state.regs.get(1).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let z0 = state.regs.get(2).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_a = state.regs.get(3).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_b = state.regs.get(4).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let axis_c = state.regs.get(5).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-    let theta_raw = state.regs.get(6).map(|v| v.inner().to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+    let x0 = state
+        .regs
+        .get(0)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let y0 = state
+        .regs
+        .get(1)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let z0 = state
+        .regs
+        .get(2)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_a = state
+        .regs
+        .get(3)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_b = state
+        .regs
+        .get(4)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let axis_c = state
+        .regs
+        .get(5)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let theta_raw = state
+        .regs
+        .get(6)
+        .map(|v| v.inner().to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
     let theta = to_radians(theta_raw, state.angle_mode);
 
     let k = normalize_3d(axis_a, axis_b, axis_c)?;
@@ -412,8 +489,14 @@ mod tests {
         set_stack_xyz(&mut state, 1.0, 0.0, 0.0);
         do_trans2d_forward(&mut state).unwrap();
         let (x_prime, y_prime, _) = get_xyz(&state);
-        assert!(approx_eq(x_prime, 0.0, 1e-6), "x' should be 0, got {x_prime}");
-        assert!(approx_eq(y_prime, -1.0, 1e-6), "y' should be -1, got {y_prime}");
+        assert!(
+            approx_eq(x_prime, 0.0, 1e-6),
+            "x' should be 0, got {x_prime}"
+        );
+        assert!(
+            approx_eq(y_prime, -1.0, 1e-6),
+            "y' should be -1, got {y_prime}"
+        );
     }
 
     // Catches: 2D forward+inverse round-trip not recovering input
@@ -472,8 +555,14 @@ mod tests {
         set_stack_xyz(&mut state, 3.0, 4.0, 0.0);
         do_trans2d_forward(&mut state).unwrap();
         let (x_prime, y_prime, _) = get_xyz(&state);
-        assert!(approx_eq(x_prime, 3.0, 1e-6), "identity: x' = x = 3, got {x_prime}");
-        assert!(approx_eq(y_prime, 4.0, 1e-6), "identity: y' = y = 4, got {y_prime}");
+        assert!(
+            approx_eq(x_prime, 3.0, 1e-6),
+            "identity: x' = x = 3, got {x_prime}"
+        );
+        assert!(
+            approx_eq(y_prime, 4.0, 1e-6),
+            "identity: y' = y = 4, got {y_prime}"
+        );
     }
 
     // Catches: 2D Rad angle mode not converted properly
@@ -486,8 +575,14 @@ mod tests {
         set_stack_xyz(&mut state, 1.0, 0.0, 0.0);
         do_trans2d_forward(&mut state).unwrap();
         let (x_prime, y_prime, _) = get_xyz(&state);
-        assert!(approx_eq(x_prime, 0.0, 1e-6), "x' should be 0 (π/2 rad rotation), got {x_prime}");
-        assert!(approx_eq(y_prime, -1.0, 1e-6), "y' should be -1, got {y_prime}");
+        assert!(
+            approx_eq(x_prime, 0.0, 1e-6),
+            "x' should be 0 (π/2 rad rotation), got {x_prime}"
+        );
+        assert!(
+            approx_eq(y_prime, -1.0, 1e-6),
+            "y' should be -1, got {y_prime}"
+        );
     }
 
     // ── Trans3d Tests ─────────────────────────────────────────────────────────
@@ -520,7 +615,10 @@ mod tests {
         do_trans3d_forward(&mut state).unwrap();
         let (x_rot, y_rot, z_rot) = get_xyz(&state);
         // Rodrigues around z-axis by 90°: (1,0,0) → (0,1,0)
-        assert!(approx_eq(x_rot, 0.0, 1e-6), "x' should be 0 (z-axis 90° rotation), got {x_rot}");
+        assert!(
+            approx_eq(x_rot, 0.0, 1e-6),
+            "x' should be 0 (z-axis 90° rotation), got {x_rot}"
+        );
         assert!(approx_eq(y_rot, 1.0, 1e-6), "y' should be 1, got {y_rot}");
         assert!(approx_eq(z_rot, 0.0, 1e-6), "z' should be 0, got {z_rot}");
     }
@@ -578,9 +676,15 @@ mod tests {
         do_trans3d_forward(&mut state).unwrap();
         let (x_rot, y_rot, z_rot) = get_xyz(&state);
         // x-axis 90°: (0,1,0) → (0,0,1)
-        assert!(approx_eq(x_rot, 0.0, 1e-6), "x should be 0 for x-axis rotation, got {x_rot}");
+        assert!(
+            approx_eq(x_rot, 0.0, 1e-6),
+            "x should be 0 for x-axis rotation, got {x_rot}"
+        );
         assert!(approx_eq(y_rot, 0.0, 1e-6), "y should be 0, got {y_rot}");
-        assert!(approx_eq(z_rot, 1.0, 1e-6), "z should be 1 (x-axis 90°), got {z_rot}");
+        assert!(
+            approx_eq(z_rot, 1.0, 1e-6),
+            "z should be 1 (x-axis 90°), got {z_rot}"
+        );
     }
 
     // Catches: zero-length axis not returning Domain error
@@ -591,7 +695,10 @@ mod tests {
         store_trans3d_params(&mut state, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 90.0);
         set_stack_xyz(&mut state, 1.0, 0.0, 0.0);
         let result = do_trans3d_forward(&mut state);
-        assert!(result.is_err(), "zero-length axis should return Domain error");
+        assert!(
+            result.is_err(),
+            "zero-length axis should return Domain error"
+        );
     }
 
     // Catches: 3D rotation about arbitrary axis (1,1,1) wrong
@@ -651,8 +758,17 @@ mod tests {
         set_stack_xyz(&mut state, 3.0, 4.0, 5.0);
         do_trans3d_forward(&mut state).unwrap();
         let (x_rot, y_rot, z_rot) = get_xyz(&state);
-        assert!(approx_eq(x_rot, 3.0, 1e-6), "θ=0 identity: x unchanged, got {x_rot}");
-        assert!(approx_eq(y_rot, 4.0, 1e-6), "θ=0 identity: y unchanged, got {y_rot}");
-        assert!(approx_eq(z_rot, 5.0, 1e-6), "θ=0 identity: z unchanged, got {z_rot}");
+        assert!(
+            approx_eq(x_rot, 3.0, 1e-6),
+            "θ=0 identity: x unchanged, got {x_rot}"
+        );
+        assert!(
+            approx_eq(y_rot, 4.0, 1e-6),
+            "θ=0 identity: y unchanged, got {y_rot}"
+        );
+        assert!(
+            approx_eq(z_rot, 5.0, 1e-6),
+            "θ=0 identity: z unchanged, got {z_rot}"
+        );
     }
 }

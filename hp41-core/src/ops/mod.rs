@@ -31,9 +31,8 @@ use math::{
     op_set_grad, op_set_rad, op_sign, op_sin, op_sq, op_sqrt, op_tan, op_tenpow, op_ypow,
 };
 use math1::complex::{
-    op_a_pow_z, op_c_div, op_c_minus, op_c_plus, op_c_times, op_cinv, op_cos_z, op_exp_z,
-    op_ln_z, op_log_z, op_magz, op_real, op_sin_z, op_tan_z, op_z_pow_1_n, op_z_pow_n,
-    op_z_pow_w,
+    op_a_pow_z, op_c_div, op_c_minus, op_c_plus, op_c_times, op_cinv, op_cos_z, op_exp_z, op_ln_z,
+    op_log_z, op_magz, op_real, op_sin_z, op_tan_z, op_z_pow_1_n, op_z_pow_n, op_z_pow_w,
 };
 use math1::hyperbolics::{op_acosh, op_asinh, op_atanh, op_cosh, op_sinh, op_tanh};
 use math1::matrix::{

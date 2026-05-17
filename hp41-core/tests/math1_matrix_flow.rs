@@ -151,10 +151,22 @@ fn matrix_vmat_column_major_display() {
     setup_matrix(&mut state, 2, &[1.0, 2.0, 3.0, 4.0]);
     dispatch(&mut state, Op::Xeq("VMAT".to_string())).unwrap();
     assert_eq!(state.print_buffer.len(), 4, "VMAT on 2×2 must push 4 lines");
-    assert!(state.print_buffer[0].contains("A1,1="), "First line must be A1,1");
-    assert!(state.print_buffer[1].contains("A2,1="), "Second line must be A2,1");
-    assert!(state.print_buffer[2].contains("A1,2="), "Third line must be A1,2");
-    assert!(state.print_buffer[3].contains("A2,2="), "Fourth line must be A2,2");
+    assert!(
+        state.print_buffer[0].contains("A1,1="),
+        "First line must be A1,1"
+    );
+    assert!(
+        state.print_buffer[1].contains("A2,1="),
+        "Second line must be A2,1"
+    );
+    assert!(
+        state.print_buffer[2].contains("A1,2="),
+        "Third line must be A1,2"
+    );
+    assert!(
+        state.print_buffer[3].contains("A2,2="),
+        "Fourth line must be A2,2"
+    );
 }
 
 // ── EDIT modal dispatch ───────────────────────────────────────────────────────
@@ -185,7 +197,17 @@ fn matrix_vcol_displays_b_vector() {
     state.regs[19] = hp41_core::num::HpNum::from(42i32);
     state.regs[20] = hp41_core::num::HpNum::from(7i32);
     dispatch(&mut state, Op::Xeq("VCOL".to_string())).unwrap();
-    assert_eq!(state.print_buffer.len(), 2, "VCOL on 2×2 must push 2 lines (B1, B2)");
-    assert!(state.print_buffer[0].contains("B1="), "First line must be B1");
-    assert!(state.print_buffer[1].contains("B2="), "Second line must be B2");
+    assert_eq!(
+        state.print_buffer.len(),
+        2,
+        "VCOL on 2×2 must push 2 lines (B1, B2)"
+    );
+    assert!(
+        state.print_buffer[0].contains("B1="),
+        "First line must be B1"
+    );
+    assert!(
+        state.print_buffer[1].contains("B2="),
+        "Second line must be B2"
+    );
 }

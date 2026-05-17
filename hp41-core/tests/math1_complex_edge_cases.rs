@@ -76,7 +76,10 @@ fn ln_z_zero_returns_domain() {
         "LNZ(0+0i) must return HpError::Domain (CMPLX-11); got {result:?}"
     );
     // Stack must be unchanged (guard fires before any mutation — Pitfall 6)
-    assert_eq!(s.stack.x, x_before, "X must be unchanged on Domain (guard fires first)");
+    assert_eq!(
+        s.stack.x, x_before,
+        "X must be unchanged on Domain (guard fires first)"
+    );
     assert_eq!(s.stack.y, y_before, "Y must be unchanged on Domain");
     // complex_mode must NOT have been set (guard fires before state.complex_mode = true)
     assert!(
@@ -106,7 +109,10 @@ fn c_div_zero_returns_divide_by_zero_before_division() {
         "C÷ with (0+0i) divisor must return DivideByZero before any mutation; got {result:?}"
     );
     // Verify stack is completely unchanged (guard fires BEFORE any mutation — Pitfall 6)
-    assert_eq!(s.stack.x, x_before, "X must be unchanged on DivideByZero (guard fires first)");
+    assert_eq!(
+        s.stack.x, x_before,
+        "X must be unchanged on DivideByZero (guard fires first)"
+    );
     assert_eq!(s.stack.y, y_before, "Y must be unchanged on DivideByZero");
     assert_eq!(s.stack.z, z_before, "Z must be unchanged on DivideByZero");
     assert_eq!(s.stack.t, t_before, "T must be unchanged on DivideByZero");
@@ -131,7 +137,7 @@ fn z_pow_w_zero_neg_exp_returns_domain() {
         hp41_core::HpNum::rounded(d)
     };
     s.stack.z = parse("-1"); // Re(w) = -1 ≤ 0 → Domain
-    s.stack.t = parse("0");  // Im(w) = 0
+    s.stack.t = parse("0"); // Im(w) = 0
 
     let x_before = s.stack.x.clone();
     let y_before = s.stack.y.clone();

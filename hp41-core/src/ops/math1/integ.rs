@@ -32,9 +32,9 @@ use crate::num::HpNum;
 use crate::ops::Op;
 use crate::stack::{apply_lift_effect, enter_number, unary_result, LiftEffect};
 use crate::state::{CalcState, DisplayMode};
-use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 // ── IntegMode enum ────────────────────────────────────────────────────────────
 
@@ -219,7 +219,11 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     // This matches the OM's "INTG requires the function label in ALPHA" convention.
     let a = state.stack.x.clone();
     let b = state.stack.y.clone();
-    let n_raw = state.regs.first().map(|r| r.trunc_int()).unwrap_or_default();
+    let n_raw = state
+        .regs
+        .first()
+        .map(|r| r.trunc_int())
+        .unwrap_or_default();
     let n_val = n_raw.inner().to_u32().unwrap_or(0);
     let user_label = state.alpha_reg.clone();
     let mode = IntegMode::Explicit; // Plan 28-07 implements Explicit mode; Discrete wired Phase 29
@@ -470,7 +474,10 @@ mod tests {
     // Catches: INTG_MAX_EVALS wrong value (must be 2^15 = 32768)
     #[test]
     fn max_evals_is_32768() {
-        assert_eq!(INTG_MAX_EVALS, 32_768, "INTG_MAX_EVALS must be 2^15 = 32768 per OM p.37");
+        assert_eq!(
+            INTG_MAX_EVALS, 32_768,
+            "INTG_MAX_EVALS must be 2^15 = 32768 per OM p.37"
+        );
     }
 
     // ── IntegState struct ─────────────────────────────────────────────────────
@@ -580,7 +587,10 @@ mod tests {
 
         let result = op_integ_run_loop(&mut state, &program);
         assert_eq!(result, Err(HpError::Domain), "n > 32768 must return Domain");
-        assert!(state.integ_state.is_none(), "integ_state must be cleared on domain error");
+        assert!(
+            state.integ_state.is_none(),
+            "integ_state must be cleared on domain error"
+        );
     }
 
     // ── Nested rejection (XROM-08 / ADR-002) ─────────────────────────────────
@@ -593,9 +603,16 @@ mod tests {
         state.integ_state = Some(IntegState::default());
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "nested INTG must return InvalidOp");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "nested INTG must return InvalidOp"
+        );
         // State must be UNCHANGED (pre-mutation guard fired before any mutation)
-        assert!(state.integ_state.is_some(), "integ_state must remain Some after nested rejection");
+        assert!(
+            state.integ_state.is_some(),
+            "integ_state must remain Some after nested rejection"
+        );
     }
 
     // Catches: solve_state set but not checked (XROM-08 checks all three solver states)
@@ -605,7 +622,11 @@ mod tests {
         state.solve_state = Some(crate::ops::math1::solve::SolveState::default());
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "INTG inside SOLVE must return InvalidOp");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "INTG inside SOLVE must return InvalidOp"
+        );
     }
 
     // Catches: difeq_state set but not checked (XROM-08)
@@ -615,7 +636,11 @@ mod tests {
         state.difeq_state = Some(crate::ops::math1::difeq::DifeqState::default());
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "INTG inside DIFEQ must return InvalidOp");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "INTG inside DIFEQ must return InvalidOp"
+        );
     }
 
     // ── Pre-mutation call_stack cap (Pitfall 4) ───────────────────────────────
@@ -629,7 +654,11 @@ mod tests {
         let call_stack_before = state.call_stack.clone();
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::CallDepth), "4-deep call_stack must return CallDepth");
+        assert_eq!(
+            result,
+            Err(HpError::CallDepth),
+            "4-deep call_stack must return CallDepth"
+        );
         // State must be UNCHANGED — call_stack still has 4 entries (no leak)
         assert_eq!(
             state.call_stack, call_stack_before,
@@ -650,8 +679,15 @@ mod tests {
         state.regs[0] = HpNum::from(64i32);
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::Canceled), "cancel_requested must cause HpError::Canceled");
-        assert!(state.integ_state.is_none(), "integ_state must be cleared on cancellation");
+        assert_eq!(
+            result,
+            Err(HpError::Canceled),
+            "cancel_requested must cause HpError::Canceled"
+        );
+        assert!(
+            state.integ_state.is_none(),
+            "integ_state must be cleared on cancellation"
+        );
     }
 
     // ── User label not found → InvalidOp ─────────────────────────────────────
@@ -663,8 +699,15 @@ mod tests {
         state.alpha_reg = "NONEXISTENT".to_string();
 
         let result = op_integ_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "missing label must return InvalidOp");
-        assert!(state.integ_state.is_none(), "integ_state must be None on label-not-found");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "missing label must return InvalidOp"
+        );
+        assert!(
+            state.integ_state.is_none(),
+            "integ_state must be None on label-not-found"
+        );
     }
 
     // ── IntegMode enum ────────────────────────────────────────────────────────

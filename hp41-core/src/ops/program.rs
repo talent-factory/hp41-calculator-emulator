@@ -518,7 +518,10 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                         } else if let Some(xrom_op) =
                             // Phase 28 (v3.0) XROM resolver — fires LAST (C-28.4 / Pitfall 1).
                             // Checked after builtin_card_op so built-in names always win.
-                            crate::ops::math1::xrom::xrom_resolve(&label, state.xrom_modules)
+                            crate::ops::math1::xrom::xrom_resolve(
+                                &label,
+                                state.xrom_modules,
+                            )
                         {
                             // No pc adjustment — same rationale as card_op above: XROM ops
                             // are single instructions dispatched inline, not subroutine calls.

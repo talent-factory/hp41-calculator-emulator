@@ -73,8 +73,16 @@ fn dispatch_c_plus_enables_lift() {
 fn dispatch_c_plus_t_replicate() {
     let mut s = make_state(1.0, 2.0, 3.0, 5.0); // old T = 5.0
     dispatch(&mut s, Op::CPlus).unwrap();
-    assert_relative_eq!(s.stack.z.inner().to_f64().unwrap(), 5.0, max_relative = 1e-7);
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 5.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.z.inner().to_f64().unwrap(),
+        5.0,
+        max_relative = 1e-7
+    );
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        5.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: CPlus LASTX not saved on the dispatch path.
@@ -82,7 +90,11 @@ fn dispatch_c_plus_t_replicate() {
 fn dispatch_c_plus_saves_lastx() {
     let mut s = make_state(7.0, 2.0, 3.0, 4.0); // X = 7.0 before op
     dispatch(&mut s, Op::CPlus).unwrap();
-    assert_relative_eq!(s.stack.lastx.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.lastx.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: CPlus zero-zero degenerate case failing.
@@ -128,7 +140,11 @@ fn dispatch_c_minus_enables_lift() {
 fn dispatch_c_minus_t_replicate() {
     let mut s = make_state(5.0, 3.0, 2.0, 9.0); // old T = 9.0
     dispatch(&mut s, Op::CMinus).unwrap();
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 9.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        9.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: CMinus sign error in subtraction.
@@ -184,7 +200,11 @@ fn dispatch_c_times_enables_lift() {
 fn dispatch_c_times_t_replicate() {
     let mut s = make_state(1.0, 0.0, 2.0, 7.0); // old T = 7.0
     dispatch(&mut s, Op::CTimes).unwrap();
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 7.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        7.0,
+        max_relative = 1e-7
+    );
 }
 
 /// Catches: CTimes cross-term mixing.
@@ -264,7 +284,11 @@ fn dispatch_c_div_one_over_i() {
 fn dispatch_c_div_t_replicate() {
     let mut s = make_state(4.0, 0.0, 2.0, 8.0); // old T = 8.0
     dispatch(&mut s, Op::CDiv).unwrap();
-    assert_relative_eq!(s.stack.t.inner().to_f64().unwrap(), 8.0, max_relative = 1e-7);
+    assert_relative_eq!(
+        s.stack.t.inner().to_f64().unwrap(),
+        8.0,
+        max_relative = 1e-7
+    );
 }
 
 // ── Op::Real — integration tests via dispatch() ──────────────────────────────
@@ -296,7 +320,10 @@ fn dispatch_real_lift_neutral_when_true() {
     s.complex_mode = true;
     s.stack.lift_enabled = true;
     dispatch(&mut s, Op::Real).unwrap();
-    assert!(s.stack.lift_enabled, "Real is Neutral — must not disable lift when it was true");
+    assert!(
+        s.stack.lift_enabled,
+        "Real is Neutral — must not disable lift when it was true"
+    );
 }
 
 /// Catches: Real modifying lift_enabled (must be Neutral) — false branch.
@@ -306,7 +333,10 @@ fn dispatch_real_lift_neutral_when_false() {
     s.complex_mode = true;
     s.stack.lift_enabled = false;
     dispatch(&mut s, Op::Real).unwrap();
-    assert!(!s.stack.lift_enabled, "Real is Neutral — must not enable lift when it was false");
+    assert!(
+        !s.stack.lift_enabled,
+        "Real is Neutral — must not enable lift when it was false"
+    );
 }
 
 /// Catches: Real not idempotent (second call should not fail or change state).
@@ -315,7 +345,10 @@ fn dispatch_real_idempotent() {
     let mut s = CalcState::new();
     s.complex_mode = false;
     dispatch(&mut s, Op::Real).unwrap();
-    assert!(!s.complex_mode, "Real when complex_mode already false must stay false");
+    assert!(
+        !s.complex_mode,
+        "Real when complex_mode already false must stay false"
+    );
 }
 
 /// Catches: Real not returning Ok (should never error).

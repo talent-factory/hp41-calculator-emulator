@@ -108,10 +108,7 @@ fn programmatic_xeq_unknown_returns_invalid_op() {
 /// Catches: programmatic WPRGM via run_loop — builtin chain fires in run_loop too.
 #[test]
 fn programmatic_xeq_wprgm_via_run_loop() {
-    let program = vec![
-        Op::Lbl("MAIN".to_string()),
-        Op::Xeq("WPRGM".to_string()),
-    ];
+    let program = vec![Op::Lbl("MAIN".to_string()), Op::Xeq("WPRGM".to_string())];
     let mut state = state_with_program(program);
     let result = run_program(&mut state, "MAIN");
     // WPRGM with empty alpha_reg → AlphaData, not InvalidOp

@@ -120,10 +120,7 @@ pub fn op_four(state: &mut CalcState) -> Result<(), HpError> {
 /// R{2n-1} = aₙ, R{2n} = bₙ (n ≥ 1). R23 = N, R24 = L.
 ///
 /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program, DFT algorithm.
-pub fn compute_dft(
-    samples: &[HpNum],
-    num_freq: u8,
-) -> Result<Vec<(HpNum, HpNum)>, HpError> {
+pub fn compute_dft(samples: &[HpNum], num_freq: u8) -> Result<Vec<(HpNum, HpNum)>, HpError> {
     let n = samples.len();
     if n == 0 {
         return Err(HpError::Domain);
@@ -175,11 +172,7 @@ pub fn compute_dft(
 /// - R24 = L (frequency count, needed for USER-mode eval)
 ///
 /// Precondition: pairs.len() == L + 1 (index 0 is DC, indices 1..L are harmonics).
-pub fn store_dft_to_registers(
-    state: &mut CalcState,
-    pairs: &[(HpNum, HpNum)],
-    n_samples: usize,
-) {
+pub fn store_dft_to_registers(state: &mut CalcState, pairs: &[(HpNum, HpNum)], n_samples: usize) {
     // R00 = a₀ (DC)
     if let Some((a0, _)) = pairs.first() {
         if state.regs.len() > 0 {
@@ -256,11 +249,7 @@ pub fn convert_to_polar(pairs: &[(HpNum, HpNum)]) -> Result<Vec<(HpNum, HpNum)>,
 /// `state.user_mode == true` AND `state.modal_program == Some(ModalProgram::Four(Ready))`.
 ///
 /// Source: HP-41C Math Pac I OM (HP 00041-90034, 1979), FOUR program, series evaluation.
-pub fn op_four_eval_at_t(
-    state: &CalcState,
-    t: HpNum,
-    period: HpNum,
-) -> Result<HpNum, HpError> {
+pub fn op_four_eval_at_t(state: &CalcState, t: HpNum, period: HpNum) -> Result<HpNum, HpError> {
     // Read N (sample count) from R23 and L (freq count) from R24.
     let n_from_reg = state
         .regs
@@ -351,9 +340,7 @@ mod tests {
     #[test]
     fn dft_constant_signal() {
         let n = 4;
-        let samples: Vec<HpNum> = (0..n)
-            .map(|_| HpNum::rounded(Decimal::from(5)))
-            .collect();
+        let samples: Vec<HpNum> = (0..n).map(|_| HpNum::rounded(Decimal::from(5))).collect();
         let pairs = compute_dft(&samples, 2).unwrap();
         // a₀ = 10.0 (DC component = 2 × mean = 2 × 5 = 10)
         assert!(approx_eq(&pairs[0].0, 10.0, TOLERANCE), "a₀ should be 10");
@@ -410,9 +397,10 @@ mod tests {
     // Catches: RECT? toggle rectangular form not reading back correctly
     #[test]
     fn rect_toggle_rectangular_form() {
-        let pairs = vec![
-            (HpNum::rounded(Decimal::from(3)), HpNum::rounded(Decimal::from(4))),
-        ];
+        let pairs = vec![(
+            HpNum::rounded(Decimal::from(3)),
+            HpNum::rounded(Decimal::from(4)),
+        )];
         // In rectangular form, the pairs are unchanged.
         assert!(approx_eq(&pairs[0].0, 3.0, TOLERANCE));
         assert!(approx_eq(&pairs[0].1, 4.0, TOLERANCE));
@@ -422,11 +410,15 @@ mod tests {
     // (a, b) = (3, 4) → c = 5.0, φ = atan2(4, 3) ≈ 0.927295
     #[test]
     fn rect_toggle_polar_form() {
-        let pairs = vec![
-            (HpNum::rounded(Decimal::from(3)), HpNum::rounded(Decimal::from(4))),
-        ];
+        let pairs = vec![(
+            HpNum::rounded(Decimal::from(3)),
+            HpNum::rounded(Decimal::from(4)),
+        )];
         let polar = convert_to_polar(&pairs).unwrap();
-        assert!(approx_eq(&polar[0].0, 5.0, TOLERANCE), "magnitude c should be 5");
+        assert!(
+            approx_eq(&polar[0].0, 5.0, TOLERANCE),
+            "magnitude c should be 5"
+        );
         let expected_phi = (4.0f64).atan2(3.0);
         assert!(
             approx_eq(&polar[0].1, expected_phi, TOLERANCE),
@@ -439,9 +431,7 @@ mod tests {
     #[test]
     fn four_pairs_cap() {
         let n = 8usize;
-        let samples: Vec<HpNum> = (0..n)
-            .map(|_| HpNum::rounded(Decimal::from(1)))
-            .collect();
+        let samples: Vec<HpNum> = (0..n).map(|_| HpNum::rounded(Decimal::from(1))).collect();
         // Request 11 frequencies (above cap)
         let pairs = compute_dft(&samples, 11).unwrap();
         // Should produce MAX_FOURIER_PAIRS + 1 entries (index 0 = DC, 1..10 = harmonics)
@@ -473,7 +463,10 @@ mod tests {
         assert!((r24 - 2.0).abs() < TOLERANCE, "R24 = L = 2, got {r24}");
         // R01 = a₁ ≈ 0 (constant signal has no harmonics)
         let r01 = state.regs[1].inner().to_f64().unwrap();
-        assert!(r01.abs() < TOLERANCE, "R01 = a₁ ≈ 0 for constant signal, got {r01}");
+        assert!(
+            r01.abs() < TOLERANCE,
+            "R01 = a₁ ≈ 0 for constant signal, got {r01}"
+        );
     }
 
     // Catches: USER-mode E-key evaluator wrong at t=0 for unit cosine signal (FOUR-06)
@@ -495,7 +488,11 @@ mod tests {
         let period = HpNum::zero(); // use N from R23
         let result = op_four_eval_at_t(&state, t, period).unwrap();
         // f(0) = 0/2 + 1·cos(0) + 0·sin(0) = 1.0
-        assert!(approx_eq(&result, 1.0, TOLERANCE), "f(0) should be 1.0, got {:?}", result);
+        assert!(
+            approx_eq(&result, 1.0, TOLERANCE),
+            "f(0) should be 1.0, got {:?}",
+            result
+        );
     }
 
     // Catches: USER-mode E-key evaluator wrong at t=2 for unit cosine signal
@@ -513,7 +510,11 @@ mod tests {
         let period = HpNum::zero();
         let result = op_four_eval_at_t(&state, t, period).unwrap();
         // f(2) = cos(2π·1·2/8) = cos(π/2) ≈ 0
-        assert!(approx_eq(&result, 0.0, 1e-5), "f(2) = cos(π/2) ≈ 0, got {:?}", result);
+        assert!(
+            approx_eq(&result, 0.0, 1e-5),
+            "f(2) = cos(π/2) ≈ 0, got {:?}",
+            result
+        );
     }
 
     // Catches: USER-mode E-key evaluator wrong at t=4 for unit cosine signal
@@ -531,7 +532,11 @@ mod tests {
         let period = HpNum::zero();
         let result = op_four_eval_at_t(&state, t, period).unwrap();
         // f(4) = cos(2π·1·4/8) = cos(π) = -1
-        assert!(approx_eq(&result, -1.0, 1e-5), "f(4) = cos(π) = -1, got {:?}", result);
+        assert!(
+            approx_eq(&result, -1.0, 1e-5),
+            "f(4) = cos(π) = -1, got {:?}",
+            result
+        );
     }
 
     // Catches: USER-mode E-key DC component wrong (a₀/2 contribution)
@@ -547,7 +552,11 @@ mod tests {
         let period = HpNum::zero();
         let result = op_four_eval_at_t(&state, t, period).unwrap();
         // f(t) = a₀/2 = 4/2 = 2.0
-        assert!(approx_eq(&result, 2.0, TOLERANCE), "DC-only f(t) = a₀/2 = 2, got {:?}", result);
+        assert!(
+            approx_eq(&result, 2.0, TOLERANCE),
+            "DC-only f(t) = a₀/2 = 2, got {:?}",
+            result
+        );
     }
 
     // Catches: USER-mode E-key period override wrong (explicit period > 0)
@@ -564,6 +573,10 @@ mod tests {
         let period = HpNum::rounded(Decimal::from(4)); // explicit period = 4
         let result = op_four_eval_at_t(&state, t, period).unwrap();
         // f(1) = cos(2π·1·1/4) = cos(π/2) ≈ 0
-        assert!(approx_eq(&result, 0.0, 1e-5), "f(1) with T=4: cos(π/2) ≈ 0, got {:?}", result);
+        assert!(
+            approx_eq(&result, 0.0, 1e-5),
+            "f(1) with T=4: cos(π/2) ≈ 0, got {:?}",
+            result
+        );
     }
 }

@@ -12,12 +12,12 @@
 
 #![allow(clippy::unwrap_used)]
 
+use approx::assert_relative_eq;
 use hp41_core::ops::{dispatch, Op};
 use hp41_core::CalcState;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::str::FromStr;
-use approx::assert_relative_eq;
 
 fn make_state_with_x(x_str: &str) -> CalcState {
     let mut state = CalcState::new();
@@ -167,7 +167,10 @@ fn dispatch_tanh_enables_lift() {
 fn dispatch_tanh_saturates_not_overflows() {
     let mut s = make_state_with_x("100");
     let result = dispatch(&mut s, Op::Tanh);
-    assert!(result.is_ok(), "Op::Tanh must saturate to ±1 for large |X|, not return error");
+    assert!(
+        result.is_ok(),
+        "Op::Tanh must saturate to ±1 for large |X|, not return error"
+    );
     assert_relative_eq!(get_x(&s), 1.0, max_relative = 1e-7);
 }
 

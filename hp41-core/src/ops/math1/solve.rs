@@ -48,9 +48,9 @@ use crate::format::format_hpnum;
 use crate::num::HpNum;
 use crate::ops::Op;
 use crate::state::CalcState;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Convergence threshold for SOLVE root-finding.
 ///
@@ -398,7 +398,9 @@ fn run_secant_loop(
                     &HpNum::from(Decimal::from_f64(x2_f64).unwrap_or(Decimal::ZERO)),
                     &state.display_mode,
                 );
-                state.print_buffer.push(format!("ROOT IS BETWEEN {v1} AND {v2}"));
+                state
+                    .print_buffer
+                    .push(format!("ROOT IS BETWEEN {v1} AND {v2}"));
             } else {
                 state.print_buffer.push("NO ROOT FOUND".to_string());
             }
@@ -425,13 +427,16 @@ fn run_secant_loop(
 
         // Sign change check with stagnation: if f(x1) and f(x_new) have opposite signs
         // AND x_new ≈ x2 (secant is not narrowing), report BETWEEN.
-        if fx1_f64 * fx_new_f64 < 0.0 && (x_new_f64 - x2_f64).abs() < 1e-14 * x2_f64.abs().max(1.0) {
+        if fx1_f64 * fx_new_f64 < 0.0 && (x_new_f64 - x2_f64).abs() < 1e-14 * x2_f64.abs().max(1.0)
+        {
             let v1 = format_hpnum(
                 &HpNum::from(Decimal::from_f64(x1_f64).unwrap_or(Decimal::ZERO)),
                 &state.display_mode,
             );
             let v2 = format_hpnum(&x_new, &state.display_mode);
-            state.print_buffer.push(format!("ROOT IS BETWEEN {v1} AND {v2}"));
+            state
+                .print_buffer
+                .push(format!("ROOT IS BETWEEN {v1} AND {v2}"));
             state.solve_state = None;
             state.pc = save_pc;
             return Ok(());
@@ -547,7 +552,7 @@ mod tests {
         state.program = program.clone();
         state.alpha_reg = "FN".to_string();
         state.regs[0] = HpNum::from(-1i32); // x1 = -1
-        state.regs[1] = HpNum::from(1i32);  // x2 = 1
+        state.regs[1] = HpNum::from(1i32); // x2 = 1
         state.stack.lift_enabled = false;
         (state, program)
     }
@@ -558,9 +563,9 @@ mod tests {
     fn make_x_squared_minus_2_state() -> (CalcState, Vec<Op>) {
         let program = vec![
             Op::Lbl("G".to_string()),
-            Op::Sq,               // x^2
+            Op::Sq, // x^2
             Op::PushNum(HpNum::from(2i32)),
-            Op::Sub,              // x^2 - 2
+            Op::Sub, // x^2 - 2
             Op::Rtn,
         ];
         let mut state = CalcState::new();
@@ -645,7 +650,10 @@ mod tests {
             "expected ROOT IS message, got: {msg:?}"
         );
         // solve_state must be cleared
-        assert!(state.solve_state.is_none(), "solve_state must be None after completion");
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must be None after completion"
+        );
     }
 
     // Catches: secant method not converging to √2 for f(x)=x²-2
@@ -655,7 +663,10 @@ mod tests {
     fn secant_root_polynomial() {
         let (mut state, program) = make_x_squared_minus_2_state();
         let result = op_solve_run_loop(&mut state, &program);
-        assert!(result.is_ok(), "SOLVE on f(x)=x²-2 should succeed: {result:?}");
+        assert!(
+            result.is_ok(),
+            "SOLVE on f(x)=x²-2 should succeed: {result:?}"
+        );
         // Check print_buffer for "ROOT IS"
         assert!(
             !state.print_buffer.is_empty(),
@@ -678,9 +689,9 @@ mod tests {
         // f(x) = x² + 1 — no real roots, will cap at 100 iterations
         let program = vec![
             Op::Lbl("NC".to_string()),
-            Op::Sq,                         // x^2
+            Op::Sq, // x^2
             Op::PushNum(HpNum::from(1i32)),
-            Op::Add,                        // x^2 + 1 (always > 0)
+            Op::Add, // x^2 + 1 (always > 0)
             Op::Rtn,
         ];
         let mut state = CalcState::new();
@@ -702,7 +713,10 @@ mod tests {
             msg, "NO ROOT FOUND",
             "non-converging function must produce 'NO ROOT FOUND', got: {msg:?}"
         );
-        assert!(state.solve_state.is_none(), "solve_state must be None after NO ROOT FOUND");
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must be None after NO ROOT FOUND"
+        );
     }
 
     // Catches: ROOT IS BETWEEN path not firing for sign-change stagnation
@@ -732,7 +746,10 @@ mod tests {
         // to confirm sign change detection leads to ROOT IS (not BETWEEN, since root exists).
         let (mut state, program) = make_identity_state();
         let result = op_solve_run_loop(&mut state, &program);
-        assert!(result.is_ok(), "SOLVE f(x)=x with straddling guesses: {result:?}");
+        assert!(
+            result.is_ok(),
+            "SOLVE f(x)=x with straddling guesses: {result:?}"
+        );
         let msg = &state.print_buffer[0];
         // For f(x)=x, the secant converges to the root at 0
         assert!(
@@ -762,7 +779,10 @@ mod tests {
         state.regs[1] = HpNum::from(2i32);
 
         let result = op_solve_run_loop(&mut state, &program);
-        assert!(result.is_ok(), "iteration cap must produce Ok(()): {result:?}");
+        assert!(
+            result.is_ok(),
+            "iteration cap must produce Ok(()): {result:?}"
+        );
         assert_eq!(
             state.print_buffer.first().map(|s| s.as_str()),
             Some("NO ROOT FOUND"),
@@ -836,11 +856,13 @@ mod tests {
         // Both should produce equivalent ROOT IS messages for x²-2
         assert!(
             state_solve.print_buffer[0].starts_with("ROOT IS"),
-            "Solve: {}", state_solve.print_buffer[0]
+            "Solve: {}",
+            state_solve.print_buffer[0]
         );
         assert!(
             state_sol.print_buffer[0].starts_with("ROOT IS"),
-            "Sol: {}", state_sol.print_buffer[0]
+            "Sol: {}",
+            state_sol.print_buffer[0]
         );
     }
 
@@ -854,8 +876,15 @@ mod tests {
         // Test 1: integ_state set → SOLVE must reject
         state.integ_state = Some(IntegState::default());
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "SOLVE inside INTG must return InvalidOp");
-        assert!(state.integ_state.is_some(), "integ_state must remain Some (pre-mutation)");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "SOLVE inside INTG must return InvalidOp"
+        );
+        assert!(
+            state.integ_state.is_some(),
+            "integ_state must remain Some (pre-mutation)"
+        );
         assert!(state.solve_state.is_none(), "solve_state must remain None");
 
         // Clean up for next test
@@ -864,8 +893,15 @@ mod tests {
         // Test 2: solve_state set → SOLVE must reject (nested SOLVE-in-SOLVE)
         state.solve_state = Some(SolveState::default());
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "SOLVE inside SOLVE must return InvalidOp");
-        assert!(state.solve_state.is_some(), "solve_state must remain Some (pre-mutation)");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "SOLVE inside SOLVE must return InvalidOp"
+        );
+        assert!(
+            state.solve_state.is_some(),
+            "solve_state must remain Some (pre-mutation)"
+        );
 
         // Clean up for next test
         state.solve_state = None;
@@ -873,8 +909,15 @@ mod tests {
         // Test 3: difeq_state set → SOLVE must reject
         state.difeq_state = Some(crate::ops::math1::difeq::DifeqState::default());
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "SOLVE inside DIFEQ must return InvalidOp");
-        assert!(state.difeq_state.is_some(), "difeq_state must remain Some (pre-mutation)");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "SOLVE inside DIFEQ must return InvalidOp"
+        );
+        assert!(
+            state.difeq_state.is_some(),
+            "difeq_state must remain Some (pre-mutation)"
+        );
     }
 
     // ── Pre-mutation call_stack cap (Pitfall 4) ───────────────────────────────
@@ -888,7 +931,11 @@ mod tests {
         let call_stack_before = state.call_stack.clone();
 
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::CallDepth), "4-deep call_stack must return CallDepth");
+        assert_eq!(
+            result,
+            Err(HpError::CallDepth),
+            "4-deep call_stack must return CallDepth"
+        );
         // State must be UNCHANGED — call_stack still has 4 entries (no leak)
         assert_eq!(
             state.call_stack, call_stack_before,
@@ -919,8 +966,15 @@ mod tests {
         state.cancel_requested.store(true, Ordering::Relaxed);
 
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::Canceled), "cancel_requested must cause HpError::Canceled");
-        assert!(state.solve_state.is_none(), "solve_state must be cleared on cancellation");
+        assert_eq!(
+            result,
+            Err(HpError::Canceled),
+            "cancel_requested must cause HpError::Canceled"
+        );
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must be cleared on cancellation"
+        );
     }
 
     // ── cancel_propagates for Op::Sol ────────────────────────────────────────
@@ -943,8 +997,15 @@ mod tests {
         state.cancel_requested.store(true, Ordering::Relaxed);
 
         let result = op_sol_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::Canceled), "Op::Sol: cancel must propagate");
-        assert!(state.solve_state.is_none(), "solve_state cleared on Sol cancel");
+        assert_eq!(
+            result,
+            Err(HpError::Canceled),
+            "Op::Sol: cancel must propagate"
+        );
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state cleared on Sol cancel"
+        );
     }
 
     // ── Missing user label → InvalidOp ───────────────────────────────────────
@@ -956,7 +1017,14 @@ mod tests {
         state.alpha_reg = "NONEXISTENT".to_string();
 
         let result = op_solve_run_loop(&mut state, &program);
-        assert_eq!(result, Err(HpError::InvalidOp), "missing label must return InvalidOp");
-        assert!(state.solve_state.is_none(), "solve_state must be None on label-not-found");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "missing label must return InvalidOp"
+        );
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must be None on label-not-found"
+        );
     }
 }

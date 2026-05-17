@@ -157,7 +157,6 @@ pub struct CalcState {
     pub pending_card_op: Option<crate::cardreader::CardOpRequest>,
 
     // ── Phase 28 (v3.0): XROM framework + Math Pac I ────────────────────────
-
     /// Bitfield of loaded XROM modules. Bit 0 = Math 1 loaded.
     /// Default: 0b0000_0001 (Math 1 pre-loaded per v3.0 scope).
     /// Persistent across save/load. `#[serde(default = "default_xrom_modules")]`.
@@ -334,15 +333,36 @@ mod tests {
     #[test]
     fn default_construction_phase28_fields() {
         let state = CalcState::default();
-        assert_eq!(state.xrom_modules, 0b0000_0001, "Math 1 must be pre-loaded by default");
+        assert_eq!(
+            state.xrom_modules, 0b0000_0001,
+            "Math 1 must be pre-loaded by default"
+        );
         assert!(!state.complex_mode, "complex_mode must default to false");
         assert_eq!(state.matrix_dim, None, "matrix_dim must default to None");
-        assert_eq!(state.matrix_active_reg, None, "matrix_active_reg must default to None");
-        assert!(state.modal_program.is_none(), "modal_program must default to None");
-        assert!(state.modal_prompt.is_none(), "modal_prompt must default to None");
-        assert!(state.integ_state.is_none(), "integ_state must default to None");
-        assert!(state.solve_state.is_none(), "solve_state must default to None");
-        assert!(state.difeq_state.is_none(), "difeq_state must default to None");
+        assert_eq!(
+            state.matrix_active_reg, None,
+            "matrix_active_reg must default to None"
+        );
+        assert!(
+            state.modal_program.is_none(),
+            "modal_program must default to None"
+        );
+        assert!(
+            state.modal_prompt.is_none(),
+            "modal_prompt must default to None"
+        );
+        assert!(
+            state.integ_state.is_none(),
+            "integ_state must default to None"
+        );
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must default to None"
+        );
+        assert!(
+            state.difeq_state.is_none(),
+            "difeq_state must default to None"
+        );
         assert!(
             !state.cancel_requested.load(Ordering::Relaxed),
             "cancel_requested must default to false"
@@ -366,13 +386,28 @@ mod tests {
         let json = serde_json::to_string(&state).unwrap();
 
         // Transient fields must NOT appear in serialized output
-        assert!(!json.contains("modal_prompt"), "modal_prompt must be serde(skip)");
-        assert!(!json.contains("integ_state"), "integ_state must be serde(skip)");
-        assert!(!json.contains("cancel_requested"), "cancel_requested must be serde(skip)");
+        assert!(
+            !json.contains("modal_prompt"),
+            "modal_prompt must be serde(skip)"
+        );
+        assert!(
+            !json.contains("integ_state"),
+            "integ_state must be serde(skip)"
+        );
+        assert!(
+            !json.contains("cancel_requested"),
+            "cancel_requested must be serde(skip)"
+        );
 
         // Persistent fields must appear in serialized output
-        assert!(json.contains("xrom_modules"), "xrom_modules must be serialized");
-        assert!(json.contains("complex_mode"), "complex_mode must be serialized");
+        assert!(
+            json.contains("xrom_modules"),
+            "xrom_modules must be serialized"
+        );
+        assert!(
+            json.contains("complex_mode"),
+            "complex_mode must be serialized"
+        );
         assert!(json.contains("matrix_dim"), "matrix_dim must be serialized");
 
         let restored: CalcState = serde_json::from_str(&json).unwrap();
@@ -382,8 +417,14 @@ mod tests {
         assert_eq!(restored.matrix_active_reg, Some(5));
 
         // Transient fields reset to defaults after round-trip
-        assert!(restored.modal_prompt.is_none(), "modal_prompt must reset to None after deserialization");
-        assert!(restored.integ_state.is_none(), "integ_state must reset to None after deserialization");
+        assert!(
+            restored.modal_prompt.is_none(),
+            "modal_prompt must reset to None after deserialization"
+        );
+        assert!(
+            restored.integ_state.is_none(),
+            "integ_state must reset to None after deserialization"
+        );
         assert!(
             !restored.cancel_requested.load(Ordering::Relaxed),
             "cancel_requested must reset to false after deserialization"
@@ -431,10 +472,22 @@ mod tests {
         let state: CalcState = serde_json::from_str(v22_json).unwrap();
 
         // Phase 28 fields must default cleanly
-        assert_eq!(state.xrom_modules, 0b0000_0001, "v2.2 save must get default xrom_modules");
-        assert!(!state.complex_mode, "v2.2 save must get default complex_mode");
-        assert_eq!(state.matrix_dim, None, "v2.2 save must get default matrix_dim");
-        assert_eq!(state.matrix_active_reg, None, "v2.2 save must get default matrix_active_reg");
+        assert_eq!(
+            state.xrom_modules, 0b0000_0001,
+            "v2.2 save must get default xrom_modules"
+        );
+        assert!(
+            !state.complex_mode,
+            "v2.2 save must get default complex_mode"
+        );
+        assert_eq!(
+            state.matrix_dim, None,
+            "v2.2 save must get default matrix_dim"
+        );
+        assert_eq!(
+            state.matrix_active_reg, None,
+            "v2.2 save must get default matrix_active_reg"
+        );
     }
 
     // Catches: cancel_requested not being a real Arc (copy instead of shared reference)

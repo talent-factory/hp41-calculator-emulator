@@ -96,8 +96,7 @@ fn f64_to_hpnum(v: f64) -> Result<HpNum, HpError> {
 
 /// Format a triangle angle in the current angle_mode for print_buffer output.
 fn fmt_angle(rad: f64, state: &CalcState) -> String {
-    let v = f64_to_hpnum(from_radians(rad, state.angle_mode))
-        .unwrap_or_else(|_| HpNum::zero());
+    let v = f64_to_hpnum(from_radians(rad, state.angle_mode)).unwrap_or_else(|_| HpNum::zero());
     format_hpnum(&v, &state.display_mode)
 }
 
@@ -509,9 +508,18 @@ mod tests {
         let angle_a = parse_line(&state.print_buffer[0]);
         let angle_b = parse_line(&state.print_buffer[1]);
         let angle_c = parse_line(&state.print_buffer[2]);
-        assert!(approx_eq(angle_a, 60.0, 0.01), "A should be 60°, got {angle_a}");
-        assert!(approx_eq(angle_b, 60.0, 0.01), "B should be 60°, got {angle_b}");
-        assert!(approx_eq(angle_c, 60.0, 0.01), "C should be 60°, got {angle_c}");
+        assert!(
+            approx_eq(angle_a, 60.0, 0.01),
+            "A should be 60°, got {angle_a}"
+        );
+        assert!(
+            approx_eq(angle_b, 60.0, 0.01),
+            "B should be 60°, got {angle_b}"
+        );
+        assert!(
+            approx_eq(angle_c, 60.0, 0.01),
+            "C should be 60°, got {angle_c}"
+        );
     }
 
     // Catches: SSS right triangle angles wrong (3-4-5)
@@ -539,7 +547,10 @@ mod tests {
         // a=10, b=2, c=2 violates triangle inequality (10 > 2+2)
         set_stack_xyz(&mut state, 10.0, 2.0, 2.0);
         let result = op_tri_sss(&mut state);
-        assert!(result.is_err(), "triangle inequality violation should return Domain error");
+        assert!(
+            result.is_err(),
+            "triangle inequality violation should return Domain error"
+        );
     }
 
     // Catches: SSS print_buffer count wrong (must be exactly 3 lines)
@@ -597,9 +608,18 @@ mod tests {
         let angle_c = parse_line(&state.print_buffer[0]);
         let side_a = parse_line(&state.print_buffer[1]);
         let side_b = parse_line(&state.print_buffer[2]);
-        assert!(approx_eq(angle_c, 60.0, 0.01), "C should be 60°, got {angle_c}");
-        assert!(approx_eq(side_a, 10.0, 0.01), "a should be 10, got {side_a}");
-        assert!(approx_eq(side_b, 10.0, 0.01), "b should be 10, got {side_b}");
+        assert!(
+            approx_eq(angle_c, 60.0, 0.01),
+            "C should be 60°, got {angle_c}"
+        );
+        assert!(
+            approx_eq(side_a, 10.0, 0.01),
+            "a should be 10, got {side_a}"
+        );
+        assert!(
+            approx_eq(side_b, 10.0, 0.01),
+            "b should be 10, got {side_b}"
+        );
     }
 
     // Catches: ASA angles summing to ≥ 180° not detected
@@ -635,9 +655,15 @@ mod tests {
         let angle_c = parse_line(&state.print_buffer[0]);
         let side_a = parse_line(&state.print_buffer[1]);
         let side_b = parse_line(&state.print_buffer[2]);
-        assert!(approx_eq(angle_c, 90.0, 0.01), "C should be 90°, got {angle_c}");
+        assert!(
+            approx_eq(angle_c, 90.0, 0.01),
+            "C should be 90°, got {angle_c}"
+        );
         assert!(approx_eq(side_a, 1.0, 0.01), "a should be 1, got {side_a}");
-        assert!(approx_eq(side_b, 3.0_f64.sqrt(), 0.01), "b should be √3, got {side_b}");
+        assert!(
+            approx_eq(side_b, 3.0_f64.sqrt(), 0.01),
+            "b should be √3, got {side_b}"
+        );
     }
 
     // Catches: ASA zero side error not detected
@@ -665,7 +691,10 @@ mod tests {
         let angle_c = parse_line(&state.print_buffer[0]);
         let side_b = parse_line(&state.print_buffer[1]);
         let side_c = parse_line(&state.print_buffer[2]);
-        assert!(approx_eq(angle_c, 90.0, 0.01), "C should be 90°, got {angle_c}");
+        assert!(
+            approx_eq(angle_c, 90.0, 0.01),
+            "C should be 90°, got {angle_c}"
+        );
         assert!(
             approx_eq(side_b, 10.0 * 3.0_f64.sqrt(), 0.1),
             "b should be ≈17.32, got {side_b}"
@@ -705,7 +734,10 @@ mod tests {
         let angle_c = parse_line(&state.print_buffer[0]);
         let side_b = parse_line(&state.print_buffer[1]);
         let side_c = parse_line(&state.print_buffer[2]);
-        assert!(approx_eq(angle_c, 60.0, 0.01), "C should be 60°, got {angle_c}");
+        assert!(
+            approx_eq(angle_c, 60.0, 0.01),
+            "C should be 60°, got {angle_c}"
+        );
         assert!(approx_eq(side_b, 5.0, 0.01), "b should be 5, got {side_b}");
         assert!(approx_eq(side_c, 5.0, 0.01), "c should be 5, got {side_c}");
     }
@@ -759,7 +791,10 @@ mod tests {
         set_stack_xyz(&mut state, 3.0, 90.0, 4.0);
         op_tri_sas(&mut state).unwrap();
         let side_a = parse_line(&state.print_buffer[0]);
-        assert!(approx_eq(side_a, 5.0, 0.01), "a should be 5 (Pythagorean), got {side_a}");
+        assert!(
+            approx_eq(side_a, 5.0, 0.01),
+            "a should be 5 (Pythagorean), got {side_a}"
+        );
     }
 
     // Catches: SAS zero side error
@@ -795,7 +830,11 @@ mod tests {
         set_stack_xyz(&mut state, 10.0, 5.0, 30.0);
         op_tri_ssa(&mut state).unwrap();
         // One solution: B, C, c
-        assert_eq!(state.print_buffer.len(), 3, "unique SSA: must push exactly 3 lines");
+        assert_eq!(
+            state.print_buffer.len(),
+            3,
+            "unique SSA: must push exactly 3 lines"
+        );
         // sin(B) = b·sin(A)/a = 5·0.5/10 = 0.25 → B≈14.48°
         let angle_b = parse_line(&state.print_buffer[0]);
         assert!(
@@ -813,7 +852,11 @@ mod tests {
         // X=a=1, Y=b=5, Z=A=30°
         set_stack_xyz(&mut state, 1.0, 5.0, 30.0);
         op_tri_ssa(&mut state).unwrap();
-        assert_eq!(state.print_buffer.len(), 1, "no-solution SSA: must push exactly 1 line");
+        assert_eq!(
+            state.print_buffer.len(),
+            1,
+            "no-solution SSA: must push exactly 1 line"
+        );
         assert_eq!(state.print_buffer[0], "NO SOLUTION");
     }
 

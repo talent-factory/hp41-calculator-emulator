@@ -32,11 +32,26 @@ use hp41_core::ops::math1::xrom::MATH_1;
 ///   X<Y?, X>=Y?, X≥Y?, X#0?, X≠0?, X<0?, X>0?, X<=0?, X≤0?, X>=0?, X≥0?
 const BUILTIN_CARD_OP_NAMES: &[&str] = &[
     // Card Reader ops
-    "WPRGM", "RDPRGM", "WDTA", "RDTA",
+    "WPRGM",
+    "RDPRGM",
+    "WDTA",
+    "RDTA",
     // Conditional tests (ASCII spellings)
-    "X<>Y?", "X#Y?", "X<Y?", "X>=Y?", "X#0?", "X<0?", "X>0?", "X<=0?", "X>=0?",
+    "X<>Y?",
+    "X#Y?",
+    "X<Y?",
+    "X>=Y?",
+    "X#0?",
+    "X<0?",
+    "X>0?",
+    "X<=0?",
+    "X>=0?",
     // Conditional tests (Unicode spellings)
-    "X\u{2260}Y?", "X\u{2265}Y?", "X\u{2260}0?", "X\u{2264}0?", "X\u{2265}0?",
+    "X\u{2260}Y?",
+    "X\u{2265}Y?",
+    "X\u{2260}0?",
+    "X\u{2264}0?",
+    "X\u{2265}0?",
 ];
 
 /// CI gate: no Math Pac I mnemonic may shadow a v2.2 built-in name.
@@ -63,6 +78,9 @@ fn math1_names_do_not_shadow_builtins() {
 /// Catches: const field regression during Plans 28-02..28-10 MATH_1.ops growth.
 #[test]
 fn math1_const_fields() {
-    assert_eq!(MATH_1.id, 7, "MATH_1.id must be 7 (HP Math Pac I hardware module ID)");
+    assert_eq!(
+        MATH_1.id, 7,
+        "MATH_1.id must be 7 (HP Math Pac I hardware module ID)"
+    );
     assert_eq!(MATH_1.name, "MATH 1A", "MATH_1.name must be 'MATH 1A'");
 }

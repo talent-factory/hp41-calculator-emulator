@@ -24,10 +24,7 @@ use rust_decimal::prelude::ToPrimitive;
 /// Build a state for SOLVE on f(x) = x (root at 0).
 /// Op::Solve master entry — reads alpha_reg + R00/R01.
 fn make_solve_identity() -> (CalcState, Vec<Op>) {
-    let program = vec![
-        Op::Lbl("ID".to_string()),
-        Op::Rtn,
-    ];
+    let program = vec![Op::Lbl("ID".to_string()), Op::Rtn];
     let mut state = CalcState::new();
     state.program = program.clone();
     state.alpha_reg = "ID".to_string();
@@ -62,7 +59,10 @@ fn solve_dispatch_arm_returns_invalid_op() {
 fn solve_sets_solve_state_during_run_loop() {
     let (mut state, program) = make_solve_identity();
     let result = op_solve_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "Op::Solve run_loop should succeed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "Op::Solve run_loop should succeed: {result:?}"
+    );
     // After completion, solve_state must be None (cleared on success)
     assert!(
         state.solve_state.is_none(),
@@ -114,10 +114,16 @@ fn solve_state_has_correct_fields() {
 fn solve_reads_label_from_alpha_reg() {
     let (mut state, program) = make_solve_identity();
     // alpha_reg = "ID" — this is the function label
-    assert_eq!(state.alpha_reg, "ID", "alpha_reg must be set to function label");
+    assert_eq!(
+        state.alpha_reg, "ID",
+        "alpha_reg must be set to function label"
+    );
     let result = op_solve_run_loop(&mut state, &program);
     // Should succeed — label "ID" is in the program
-    assert!(result.is_ok(), "Op::Solve must find label from alpha_reg: {result:?}");
+    assert!(
+        result.is_ok(),
+        "Op::Solve must find label from alpha_reg: {result:?}"
+    );
 }
 
 // Catches: Op::Solve XROM-08 guard ordering wrong (solve_state set before rejection)
@@ -129,7 +135,11 @@ fn solve_strict_reject_fires_pre_mutation() {
     let solve_state_before = state.solve_state.clone();
 
     let result = op_solve_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "nested Op::Solve must reject");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "nested Op::Solve must reject"
+    );
     // solve_state must be unchanged (guard fired before mutation)
     assert!(
         state.solve_state.is_some(),
@@ -172,11 +182,18 @@ fn sol_reads_scratch_registers_r00_r01() {
         "Op::Sol: R01 must hold x2"
     );
     let result = op_sol_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "Op::Sol should find root at 0 for f(x)=x: {result:?}");
-    assert!(!state.print_buffer.is_empty(), "Op::Sol must write termination message");
+    assert!(
+        result.is_ok(),
+        "Op::Sol should find root at 0 for f(x)=x: {result:?}"
+    );
+    assert!(
+        !state.print_buffer.is_empty(),
+        "Op::Sol must write termination message"
+    );
     assert!(
         state.print_buffer[0].starts_with("ROOT IS"),
-        "Op::Sol: f(x)=x with guesses ±1 must find ROOT IS: {:?}", state.print_buffer[0]
+        "Op::Sol: f(x)=x with guesses ±1 must find ROOT IS: {:?}",
+        state.print_buffer[0]
     );
 }
 
@@ -207,7 +224,11 @@ fn sol_strict_reject_fires_pre_mutation() {
     state.solve_state = Some(SolveState::default());
 
     let result = op_sol_run_loop(&mut state, &program);
-    assert_eq!(result, Err(HpError::InvalidOp), "Op::Sol must reject when solve_state is set");
+    assert_eq!(
+        result,
+        Err(HpError::InvalidOp),
+        "Op::Sol must reject when solve_state is set"
+    );
     assert!(
         state.solve_state.is_some(),
         "solve_state must remain Some after Op::Sol pre-mutation rejection"

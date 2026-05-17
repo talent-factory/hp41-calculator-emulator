@@ -95,15 +95,11 @@ impl MatrixInputStep {
             MatrixInputStep::OrderPrompt => Some("ORDER=?".to_string()),
             // ElementPrompt(row, col): 0-indexed → 1-indexed for OM-faithful display.
             // Column-major iteration: col varies slowest in the OM prompt sequence.
-            MatrixInputStep::ElementPrompt(r, c) => {
-                Some(format!("A{},{}=?", r + 1, c + 1))
-            }
+            MatrixInputStep::ElementPrompt(r, c) => Some(format!("A{},{}=?", r + 1, c + 1)),
             MatrixInputStep::Ready => None,
             MatrixInputStep::EditPrompt => Some("ROW\u{2191}COL=?".to_string()),
             // SimeqInputPrompt(idx): 0-indexed → 1-indexed for OM-faithful display.
-            MatrixInputStep::SimeqInputPrompt(idx) => {
-                Some(format!("B{}=?", idx + 1))
-            }
+            MatrixInputStep::SimeqInputPrompt(idx) => Some(format!("B{}=?", idx + 1)),
             MatrixInputStep::SimeqDone => None,
         }
     }
@@ -685,7 +681,10 @@ mod tests {
     #[test]
     fn solve_modal_dispatch_round_trip() {
         let variants = [
-            (SolveInputStep::FunctionNamePrompt, Some("FUNCTION NAME?".to_string())),
+            (
+                SolveInputStep::FunctionNamePrompt,
+                Some("FUNCTION NAME?".to_string()),
+            ),
             (SolveInputStep::Guess1Prompt, Some("GUESS 1=?".to_string())),
             (SolveInputStep::Guess2Prompt, Some("GUESS 2=?".to_string())),
             (SolveInputStep::Ready, None),
@@ -760,9 +759,15 @@ mod tests {
     #[test]
     fn four_modal_dispatch_round_trip() {
         let variants: Vec<(FourInputStep, Option<String>)> = vec![
-            (FourInputStep::NumSamplesPrompt, Some("NO. SAMPLES=?".to_string())),
+            (
+                FourInputStep::NumSamplesPrompt,
+                Some("NO. SAMPLES=?".to_string()),
+            ),
             (FourInputStep::NumFreqPrompt, Some("NO. FREQ=?".to_string())),
-            (FourInputStep::FirstCoeffPrompt, Some("1ST COEFF=?".to_string())),
+            (
+                FourInputStep::FirstCoeffPrompt,
+                Some("1ST COEFF=?".to_string()),
+            ),
             (FourInputStep::RectTogglePrompt, Some("RECT?".to_string())),
             (FourInputStep::SamplePrompt(0), Some("Y1=?".to_string())),
             (FourInputStep::SamplePrompt(9), Some("Y10=?".to_string())),
@@ -832,9 +837,18 @@ mod tests {
     #[test]
     fn trans_modal_dispatch_round_trip() {
         let variants: Vec<(TransInputStep, Option<String>)> = vec![
-            (TransInputStep::Init2dPrompt, Some("X0,Y0,\u{03B8}?".to_string())),
-            (TransInputStep::Init3dOriginPrompt, Some("ORIGIN?".to_string())),
-            (TransInputStep::Init3dAxisPrompt, Some("AXIS+\u{03B8}?".to_string())),
+            (
+                TransInputStep::Init2dPrompt,
+                Some("X0,Y0,\u{03B8}?".to_string()),
+            ),
+            (
+                TransInputStep::Init3dOriginPrompt,
+                Some("ORIGIN?".to_string()),
+            ),
+            (
+                TransInputStep::Init3dAxisPrompt,
+                Some("AXIS+\u{03B8}?".to_string()),
+            ),
             (TransInputStep::ForwardPrompt, Some("FWD?".to_string())),
             (TransInputStep::InversePrompt, Some("INV?".to_string())),
             (TransInputStep::Ready, None),
@@ -894,7 +908,10 @@ mod tests {
     fn integ_modal_dispatch_round_trip() {
         let variants = [
             (IntegInputStep::ModeChoice, Some("INTG MODE?".to_string())),
-            (IntegInputStep::FunctionNamePrompt, Some("FUNCTION NAME?".to_string())),
+            (
+                IntegInputStep::FunctionNamePrompt,
+                Some("FUNCTION NAME?".to_string()),
+            ),
             (IntegInputStep::IntervalPrompt, Some("(A,B)=?".to_string())),
             (IntegInputStep::SubdivisionPrompt, Some("N=?".to_string())),
             (IntegInputStep::Ready, None),
