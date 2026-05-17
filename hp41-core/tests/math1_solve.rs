@@ -41,16 +41,21 @@ fn make_sol_identity() -> (CalcState, Vec<Op>) {
 
 // ── Op::Solve: master entry tests ─────────────────────────────────────────────
 
-// Catches: Op::Solve dispatch arm not returning InvalidOp when called outside run_loop
-// (mirrors Op::Integ pattern — only valid inside run_loop match arm)
+// Catches: Op::Solve interactive branch (Phase 29 completion) not opening modal at
+// FunctionNamePrompt when called interactively (!is_running).
+// Phase 29 / CLI-07: Op::Solve now opens a modal when !is_running.
 #[test]
-fn solve_dispatch_arm_returns_invalid_op() {
+fn solve_dispatch_arm_opens_modal_when_interactive() {
     let mut state = CalcState::new();
+    // is_running = false by default (interactive mode)
     let result = hp41_core::ops::dispatch(&mut state, Op::Solve);
-    assert_eq!(
-        result,
-        Err(HpError::InvalidOp),
-        "Op::Solve dispatch must return InvalidOp (runs only in run_loop, not interactively)"
+    assert!(
+        result.is_ok(),
+        "Op::Solve must return Ok(()) when !is_running (opens FunctionNamePrompt modal)"
+    );
+    assert!(
+        state.modal_program.is_some(),
+        "Op::Solve must set modal_program when !is_running"
     );
 }
 

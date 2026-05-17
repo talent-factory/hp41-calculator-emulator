@@ -330,6 +330,86 @@ pub fn op_matrix_workflow(state: &mut CalcState) -> Result<(), HpError> {
     Ok(())
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the MATRIX modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// already flushed the entry buffer to `state.stack.x`. Each step reads X,
+/// advances the modal state machine, and updates `state.modal_prompt`.
+///
+/// ## Step transitions (column-major element entry):
+///
+/// - `OrderPrompt` → reads X as order N (clamped 1..=14 per MAT-09),
+///   sets `matrix_dim = Some((n, n))`, stores N in R14,
+///   advances to `ElementPrompt(0, 0)`.
+/// - `ElementPrompt(r, c)` → writes X to matrix A(r,c), advances to
+///   next element in column-major order. When all elements are entered,
+///   advances to `Ready` (no prompt).
+/// - `Ready` / all other steps → returns `Err(HpError::InvalidOp)` (nothing
+///   to submit in a non-prompting state).
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(state: &mut CalcState, step: MatrixInputStep) -> Result<(), HpError> {
+    match step {
+        MatrixInputStep::OrderPrompt => {
+            // Read X as order N (after flush_entry_buf; X holds the entered value)
+            let n_raw = state.stack.x.inner().to_u8().unwrap_or(0);
+            let n = n_raw.clamp(1, MAX_ORDER);
+            // Store N in R14 (ORDER_REG)
+            if ORDER_REG >= state.regs.len() {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[ORDER_REG] = HpNum::from(n as i32);
+            // Set matrix dimensions and active register
+            state.matrix_dim = Some((n, n));
+            state.matrix_active_reg = Some(DEFAULT_MATRIX_BASE_REG);
+            // Advance to first element prompt ElementPrompt(0, 0)
+            state.modal_program = Some(ModalProgram::Matrix(MatrixInputStep::ElementPrompt(0, 0)));
+            state.modal_prompt = Some("A1,1=?".to_string());
+            Ok(())
+        }
+        MatrixInputStep::ElementPrompt(r, c) => {
+            let (rows, cols) = state.matrix_dim.ok_or(HpError::InvalidOp)?;
+            // Write the current X value to matrix A(r, c)
+            let val = state.stack.x.clone();
+            matrix_set(state, r, c, val)?;
+            // Advance to next element in column-major order: row varies fastest
+            let next_r = r + 1;
+            if next_r < rows {
+                // More rows in this column
+                let prompt = format!("A{},{}=?", next_r + 1, c + 1);
+                state.modal_program = Some(ModalProgram::Matrix(MatrixInputStep::ElementPrompt(
+                    next_r, c,
+                )));
+                state.modal_prompt = Some(prompt);
+            } else {
+                // Move to next column
+                let next_c = c + 1;
+                if next_c < cols {
+                    let prompt = format!("A1,{}=?", next_c + 1);
+                    state.modal_program = Some(ModalProgram::Matrix(
+                        MatrixInputStep::ElementPrompt(0, next_c),
+                    ));
+                    state.modal_prompt = Some(prompt);
+                } else {
+                    // All elements entered — matrix is ready
+                    state.modal_program = Some(ModalProgram::Matrix(MatrixInputStep::Ready));
+                    state.modal_prompt = None;
+                }
+            }
+            Ok(())
+        }
+        MatrixInputStep::Ready
+        | MatrixInputStep::EditPrompt
+        | MatrixInputStep::SimeqInputPrompt(_)
+        | MatrixInputStep::SimeqDone => {
+            // No numeric submission expected in these states
+            Err(HpError::InvalidOp)
+        }
+    }
+}
+
 /// SIZE — returns current matrix order N (stored in R14) to X.
 ///
 /// LiftEffect: Enable (pushes a value to X).

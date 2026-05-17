@@ -48,16 +48,21 @@ fn get_x_f64(state: &CalcState) -> f64 {
 
 // ── Test 1: Op::Integ dispatch via XEQ "INTG" (xrom_resolve chain) ───────────
 
-// Catches: Op::Integ not registered in xrom_resolve — XEQ "INTG" returns InvalidOp
+// Catches: Op::Integ interactive branch (Phase 29 completion) not opening modal at
+// FunctionNamePrompt when called interactively (!is_running).
+// Phase 29 / CLI-07: Op::Integ now opens a modal when !is_running.
 #[test]
 fn integ_resolves_via_xeq_intg_mnemonic() {
     let mut state = CalcState::new();
-    // Op::Integ outside run_loop returns InvalidOp per dispatch stub design
+    // is_running = false by default (interactive mode)
     let result = dispatch(&mut state, Op::Integ);
-    assert_eq!(
-        result,
-        Err(HpError::InvalidOp),
-        "Op::Integ dispatch stub must return InvalidOp (only valid in run_loop)"
+    assert!(
+        result.is_ok(),
+        "Op::Integ must return Ok(()) when !is_running (opens FunctionNamePrompt modal)"
+    );
+    assert!(
+        state.modal_program.is_some(),
+        "Op::Integ must set modal_program when !is_running"
     );
 }
 

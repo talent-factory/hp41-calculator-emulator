@@ -22,3 +22,95 @@ pub mod solve;
 pub mod trans;
 pub mod tri;
 pub mod xrom;
+
+pub use modal::ModalProgram;
+
+use crate::error::HpError;
+use crate::state::CalcState;
+
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 / D-29.6 / D-29.7 ────
+
+/// Submit a numeric R/S input to the currently active modal workflow.
+///
+/// Flushes `state.entry_buf` (via `flush_entry_buf`) first, then dispatches to
+/// the per-program `submit_step` based on `state.modal_program`. Returns
+/// `Err(HpError::InvalidOp)` if no modal is active.
+///
+/// Used by the CLI R/S interceptor (hp41-cli `handle_key` F5 path when modal
+/// is active — D-29.5) and will be reused identically by hp41-gui Phase 31
+/// (D-25.6 CLI ↔ GUI parity).
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_modal(state: &mut CalcState) -> Result<(), HpError> {
+    use modal::ModalProgram;
+
+    // Flush entry_buf to X register first (so submit_step reads the numeric input)
+    crate::ops::flush_entry_buf(state)?;
+
+    let modal = match state.modal_program.clone() {
+        Some(m) => m,
+        None => return Err(HpError::InvalidOp),
+    };
+
+    match modal {
+        ModalProgram::Matrix(step) => matrix::submit_step(state, step),
+        ModalProgram::Solve(step) => solve::submit_step(state, step),
+        ModalProgram::Poly(step) => poly::submit_step(state, step),
+        ModalProgram::Integ(step) => integ::submit_step(state, step),
+        ModalProgram::Difeq(step) => difeq::submit_step(state, step),
+        ModalProgram::Four(step) => four::submit_step(state, step),
+        ModalProgram::Trans(step) => trans::submit_step(state, step),
+    }
+}
+
+/// Cancel the currently active modal workflow.
+///
+/// Clears `modal_program`, `modal_prompt`, and `entry_buf`. Leaves the stack and
+/// all matrix/solver state untouched. No error path (always succeeds).
+///
+/// Used by the CLI Esc interceptor (D-29.6) and will be reused identically by
+/// hp41-gui Phase 31 (D-25.6 CLI ↔ GUI parity).
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.6.
+pub fn cancel_modal(state: &mut CalcState) {
+    state.modal_program = None;
+    state.modal_prompt = None;
+    state.entry_buf.clear();
+}
+
+/// Submit an alpha label to the currently active modal workflow (for FunctionNamePrompt steps).
+///
+/// Trims and uppercases the label, writes it to `state.alpha_reg`, then dispatches to the
+/// per-program `submit_label_step` for the three user-callback programs (Integ, Solve, Difeq).
+/// Returns `Err(HpError::InvalidOp)` if no modal is active or if the current step is not a
+/// FunctionNamePrompt (doc comment: "unreachable in well-formed flow per D-29.9 gate").
+///
+/// Used by the CLI XeqByName{CollectForModal} Enter arm (D-29.7 / D-29.8) and will be
+/// reused identically by hp41-gui Phase 31 (D-25.6 CLI ↔ GUI parity).
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.7.
+pub fn submit_modal_with_label(state: &mut CalcState, label: &str) -> Result<(), HpError> {
+    use modal::{DifeqInputStep, IntegInputStep, ModalProgram, SolveInputStep};
+
+    let upper = label.trim().to_ascii_uppercase();
+    state.alpha_reg = upper.clone();
+
+    let modal = match state.modal_program.clone() {
+        Some(m) => m,
+        None => return Err(HpError::InvalidOp),
+    };
+
+    match modal {
+        ModalProgram::Solve(SolveInputStep::FunctionNamePrompt) => {
+            solve::submit_label_step(state)
+        }
+        ModalProgram::Integ(IntegInputStep::FunctionNamePrompt) => {
+            integ::submit_label_step(state)
+        }
+        ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt) => {
+            difeq::submit_label_step(state)
+        }
+        // Any other variant: unreachable in well-formed flow per D-29.9 gate
+        _ => Err(HpError::InvalidOp),
+    }
+}

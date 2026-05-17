@@ -448,6 +448,73 @@ fn format_root_component(val: f64, mode: &DisplayMode) -> String {
     format_hpnum(&n, mode)
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the POLY modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the POLY
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions:
+/// - `DegreePrompt` → reads X as polynomial degree n (clamped 2..=5),
+///   stores in R06, advances to `CoefficientPrompt(n, 0)` (first coefficient A).
+/// - `CoefficientPrompt(degree, idx)` → stores X in R{idx}, advances to next
+///   coefficient prompt. When all coefficients entered, advances to Ready.
+/// - `Ready` → `Err(HpError::InvalidOp)` (no submission in done state).
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: PolyInputStep,
+) -> Result<(), HpError> {
+    match step {
+        PolyInputStep::DegreePrompt => {
+            // Read degree from X (clamped to 2..=5 per POLY constraint)
+            let degree_raw = state.stack.x.inner().to_u8().unwrap_or(2);
+            let degree = degree_raw.clamp(2, 5);
+            // Store degree in R06 (beyond the coefficient registers R00..R05)
+            if state.regs.len() < 7 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[6] = HpNum::from(degree as i32);
+            // Advance to first coefficient prompt: CoefficientPrompt(degree, 0) = "A=?"
+            state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(degree, 0)));
+            state.modal_prompt = Some("A=?".to_string());
+            Ok(())
+        }
+        PolyInputStep::CoefficientPrompt(degree, idx) => {
+            // Store coefficient at R{idx}
+            if idx as usize >= state.regs.len() {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[idx as usize] = state.stack.x.clone();
+            // Advance to next coefficient or Ready
+            let next_idx = idx + 1;
+            if next_idx <= degree {
+                // Still more coefficients to collect
+                let coeff_name = match next_idx {
+                    0 => "A",
+                    1 => "B",
+                    2 => "C",
+                    3 => "D",
+                    4 => "E",
+                    5 => "F",
+                    _ => "?",
+                };
+                state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(degree, next_idx)));
+                state.modal_prompt = Some(format!("{coeff_name}=?"));
+            } else {
+                // All coefficients entered — Ready
+                state.modal_program = Some(ModalProgram::Poly(PolyInputStep::Ready));
+                state.modal_prompt = None;
+            }
+            Ok(())
+        }
+        PolyInputStep::Ready => Err(HpError::InvalidOp),
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
