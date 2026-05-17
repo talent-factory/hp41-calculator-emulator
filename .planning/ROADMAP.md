@@ -256,7 +256,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 |-------|-----------|----------------|--------|-----------|
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
-| 30. Documentation & ADRs | v3.0 | 3/3 | Complete   | 2026-05-17 |
+| 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
