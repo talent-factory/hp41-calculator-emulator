@@ -175,6 +175,7 @@ export const SEGMENT_MAP: Record<string, number[]> = {
     '(': [0, 5, 4, 3],                         // looks like C
     ')': [0, 1, 2, 3],                         // looks like reversed C
     '=': [6, 7, 3],                            // middle bar + bottom (two horizontals)
+    '\u{2261}': [0, 6, 7, 3],                  // ≡ HP-41 continuation marker: top + middle + bottom (three-bar shape)
     '/': [10, 13],                             // NE + SW diagonals
     ':': [9, 12],                              // two center verticals (compromise — 14-seg has no dots)
     ' ': [],                                   // space — all segments off

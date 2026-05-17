@@ -8,7 +8,7 @@ mod commands;
 mod key_map;
 mod persistence;
 mod prgm_display; // Phase 18 D-03
-mod types;
+pub mod types; // pub so integration tests (lcd_alternation_modal_prompt.rs) can access CalcStateView::from_state
 
 pub type AppState = Mutex<hp41_core::CalcState>;
 
