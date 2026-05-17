@@ -91,7 +91,7 @@ fn type_name_and_enter(name: &str) -> (App, tempfile::TempDir, Option<String>) {
 #[test]
 fn xeq_by_name_resolves_x_ne_y() {
     assert_eq!(
-        xeq_by_name_local_resolve("X<>Y?"),
+        xeq_by_name_local_resolve("X<>Y?", 0b0000_0001),
         Some(Op::Test(TestKind::XNeY))
     );
     // Drive through the modal — full integration path.
@@ -105,7 +105,7 @@ fn xeq_by_name_resolves_x_ne_y() {
 #[test]
 fn xeq_by_name_resolves_x_lt_y() {
     assert_eq!(
-        xeq_by_name_local_resolve("X<Y?"),
+        xeq_by_name_local_resolve("X<Y?", 0b0000_0001),
         Some(Op::Test(TestKind::XLtY))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X<Y?");
@@ -119,7 +119,7 @@ fn xeq_by_name_resolves_x_lt_y() {
 fn xeq_by_name_resolves_x_ge_y() {
     // ASCII spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X>=Y?"),
+        xeq_by_name_local_resolve("X>=Y?", 0b0000_0001),
         Some(Op::Test(TestKind::XGeY))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X>=Y?");
@@ -130,7 +130,7 @@ fn xeq_by_name_resolves_x_ge_y() {
 
     // Unicode spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X\u{2265}Y?"),
+        xeq_by_name_local_resolve("X\u{2265}Y?", 0b0000_0001),
         Some(Op::Test(TestKind::XGeY))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X\u{2265}Y?");
@@ -144,7 +144,7 @@ fn xeq_by_name_resolves_x_ge_y() {
 fn xeq_by_name_resolves_x_ne_zero() {
     // ASCII spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X#0?"),
+        xeq_by_name_local_resolve("X#0?", 0b0000_0001),
         Some(Op::Test(TestKind::XNeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X#0?");
@@ -152,7 +152,7 @@ fn xeq_by_name_resolves_x_ne_zero() {
 
     // Unicode spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X\u{2260}0?"),
+        xeq_by_name_local_resolve("X\u{2260}0?", 0b0000_0001),
         Some(Op::Test(TestKind::XNeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X\u{2260}0?");
@@ -165,7 +165,7 @@ fn xeq_by_name_resolves_x_ne_zero() {
 #[test]
 fn xeq_by_name_resolves_x_lt_zero() {
     assert_eq!(
-        xeq_by_name_local_resolve("X<0?"),
+        xeq_by_name_local_resolve("X<0?", 0b0000_0001),
         Some(Op::Test(TestKind::XLtZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X<0?");
@@ -175,7 +175,7 @@ fn xeq_by_name_resolves_x_lt_zero() {
 #[test]
 fn xeq_by_name_resolves_x_gt_zero() {
     assert_eq!(
-        xeq_by_name_local_resolve("X>0?"),
+        xeq_by_name_local_resolve("X>0?", 0b0000_0001),
         Some(Op::Test(TestKind::XGtZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X>0?");
@@ -186,7 +186,7 @@ fn xeq_by_name_resolves_x_gt_zero() {
 fn xeq_by_name_resolves_x_le_zero() {
     // ASCII spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X<=0?"),
+        xeq_by_name_local_resolve("X<=0?", 0b0000_0001),
         Some(Op::Test(TestKind::XLeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X<=0?");
@@ -197,7 +197,7 @@ fn xeq_by_name_resolves_x_le_zero() {
 
     // Unicode spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X\u{2264}0?"),
+        xeq_by_name_local_resolve("X\u{2264}0?", 0b0000_0001),
         Some(Op::Test(TestKind::XLeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X\u{2264}0?");
@@ -211,7 +211,7 @@ fn xeq_by_name_resolves_x_le_zero() {
 fn xeq_by_name_resolves_x_ge_zero() {
     // ASCII spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X>=0?"),
+        xeq_by_name_local_resolve("X>=0?", 0b0000_0001),
         Some(Op::Test(TestKind::XGeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X>=0?");
@@ -222,7 +222,7 @@ fn xeq_by_name_resolves_x_ge_zero() {
 
     // Unicode spelling.
     assert_eq!(
-        xeq_by_name_local_resolve("X\u{2265}0?"),
+        xeq_by_name_local_resolve("X\u{2265}0?", 0b0000_0001),
         Some(Op::Test(TestKind::XGeZero))
     );
     let (_app, _tmp, msg) = type_name_and_enter("X\u{2265}0?");
@@ -241,7 +241,7 @@ fn xeq_by_name_resolves_x_ge_zero() {
 #[test]
 fn xeq_by_name_unicode_form_works() {
     assert_eq!(
-        xeq_by_name_local_resolve("X\u{2260}Y?"),
+        xeq_by_name_local_resolve("X\u{2260}Y?", 0b0000_0001),
         Some(Op::Test(TestKind::XNeY))
     );
 
@@ -275,7 +275,7 @@ fn xeq_by_name_falls_through_to_card_reader() {
     // hp41-core::builtin_card_op (the Op::Xeq match arm at line ~73 of
     // ops/program.rs since is_running=false). dispatch then resolves to
     // Op::Wprgm.
-    assert_eq!(xeq_by_name_local_resolve("WPRGM"), None);
+    assert_eq!(xeq_by_name_local_resolve("WPRGM", 0b0000_0001), None);
 
     let (_app, _tmp, msg) = type_name_and_enter("WPRGM");
     // WPRGM dispatch sets a card-op pending state but does NOT push an error
@@ -292,7 +292,7 @@ fn xeq_by_name_falls_through_to_card_reader() {
 
 #[test]
 fn xeq_by_name_unknown_returns_invalid_op() {
-    assert_eq!(xeq_by_name_local_resolve("FOOBAR"), None);
+    assert_eq!(xeq_by_name_local_resolve("FOOBAR", 0b0000_0001), None);
 
     let (_app, _tmp, msg) = type_name_and_enter("FOOBAR");
     // Op::Xeq("FOOBAR") with no user LBL and no card-reader match returns
@@ -318,7 +318,7 @@ fn all_12_conditional_tests_reachable() {
     let keyboard_only = ["X=Y?", "X<=Y?", "X>Y?", "X=0?"];
     for name in &keyboard_only {
         assert_eq!(
-            xeq_by_name_local_resolve(name),
+            xeq_by_name_local_resolve(name, 0b0000_0001),
             None,
             "{name} is keyboard-only per W4; CLI resolver MUST return None"
         );
@@ -343,7 +343,7 @@ fn all_12_conditional_tests_reachable() {
     ];
     for (name, kind) in xeq_pairs {
         assert_eq!(
-            xeq_by_name_local_resolve(name),
+            xeq_by_name_local_resolve(name, 0b0000_0001),
             Some(Op::Test(kind.clone())),
             "{name} must resolve to Op::Test({kind:?})"
         );
@@ -390,7 +390,7 @@ fn cli_resolver_matches_core_resolver() {
     ];
     for (name, kind) in canonical {
         assert_eq!(
-            xeq_by_name_local_resolve(name),
+            xeq_by_name_local_resolve(name, 0b0000_0001),
             Some(Op::Test(kind.clone())),
             "CLI-local resolver disagreed with the canonical table for {name:?}"
         );
@@ -412,6 +412,36 @@ fn cli_resolver_matches_core_resolver() {
             "Mnemonic {name:?} reached InvalidOp — either CLI-local or core resolver dropped it; got {msg:?}"
         );
     }
+
+    // ── Phase 29 extension: Math Pac I canonical table (CLI-01 / C-28.4) ──────
+    // 10 positive cases: with Math 1 loaded (0b0000_0001), each name resolves.
+    // 10 negative cases: with Math 1 unloaded (0b0000_0000), each name returns None.
+    let math1_cases: &[(&str, Op)] = &[
+        ("SINH", Op::Sinh),
+        ("ASINH", Op::Asinh),
+        ("MATRIX", Op::MatrixWorkflow),
+        ("DET", Op::MatDet),
+        ("INV", Op::MatInv),
+        ("C+", Op::CPlus),
+        ("REAL", Op::Real),
+        ("INTG", Op::Integ),
+        ("SOLVE", Op::Solve),
+        ("DIFEQ", Op::Difeq),
+    ];
+    for (name, expected_op) in math1_cases {
+        // Positive: Math 1 loaded — must resolve.
+        assert_eq!(
+            xeq_by_name_local_resolve(name, 0b0000_0001),
+            Some(expected_op.clone()),
+            "CLI-local resolver must agree with core xrom_resolve for {name:?} when Math 1 is loaded"
+        );
+        // Negative: Math 1 NOT loaded — must NOT resolve (XROM-unloaded state).
+        assert_eq!(
+            xeq_by_name_local_resolve(name, 0b0000_0000),
+            None,
+            "CLI-local resolver must return None for Math Pac I name {name:?} when Math 1 module is unloaded (xrom_modules=0b0000_0000)"
+        );
+    }
 }
 
 // ── Backward-compat: the 4 card-reader names go through core resolver ───────
@@ -424,7 +454,7 @@ fn cli_resolver_returns_none_for_card_reader_names() {
     // else defers to the core resolver.
     for name in &["WPRGM", "RDPRGM", "WDTA", "RDTA"] {
         assert_eq!(
-            xeq_by_name_local_resolve(name),
+            xeq_by_name_local_resolve(name, 0b0000_0001),
             None,
             "CLI-local resolver MUST return None for v2.1 card-reader name {name}"
         );

@@ -1420,7 +1420,7 @@ impl App {
                     // builtin_card_op) and for user LBLs. Unknown names
                     // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
                     // no "did you mean…?" hint until Phase 26).
-                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc) {
+                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc, self.state.xrom_modules) {
                         self.call_dispatch(op);
                     } else {
                         self.call_dispatch(Op::Xeq(acc));
