@@ -63,7 +63,10 @@ fn make_app() -> (App, tempfile::TempDir) {
 /// Returns the post-Enter `app.message` for inspection.
 fn type_name_and_enter(name: &str) -> (App, tempfile::TempDir, Option<String>) {
     let (mut app, tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
+    app.pending_input = Some(PendingInput::XeqByName {
+        acc: String::new(),
+        mode: hp41_cli::app::XeqByNameMode::Normal,
+    });
     for c in name.chars() {
         app.handle_key(key(c));
     }
@@ -246,7 +249,10 @@ fn xeq_by_name_unicode_form_works() {
     );
 
     let (mut app, _tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
+    app.pending_input = Some(PendingInput::XeqByName {
+        acc: String::new(),
+        mode: hp41_cli::app::XeqByNameMode::Normal,
+    });
     app.handle_key(key('X'));
     app.handle_key(key('\u{2260}'));
     app.handle_key(key('Y'));

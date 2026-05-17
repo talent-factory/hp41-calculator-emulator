@@ -160,11 +160,9 @@ pub fn op_integ(state: &mut CalcState) -> Result<(), HpError> {
     // Full Discrete-mode dispatch (split inside submit_step(ModeChoice) based on
     // user choice) ships in a later plan per Phase 28-07-SUMMARY:245.
     if !state.is_running {
-        state.modal_program = Some(
-            crate::ops::math1::modal::ModalProgram::Integ(
-                crate::ops::math1::modal::IntegInputStep::ModeChoice,
-            ),
-        );
+        state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Integ(
+            crate::ops::math1::modal::IntegInputStep::ModeChoice,
+        ));
         state.modal_prompt = Some("INTG MODE?".to_string());
         return Ok(());
     }

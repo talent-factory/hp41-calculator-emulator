@@ -464,10 +464,7 @@ fn format_root_component(val: f64, mode: &DisplayMode) -> String {
 /// - `Ready` → `Err(HpError::InvalidOp)` (no submission in done state).
 ///
 /// Phase 29 / CLI-05 additive public surface — D-29.5.
-pub fn submit_step(
-    state: &mut CalcState,
-    step: PolyInputStep,
-) -> Result<(), HpError> {
+pub fn submit_step(state: &mut CalcState, step: PolyInputStep) -> Result<(), HpError> {
     match step {
         PolyInputStep::DegreePrompt => {
             // Read degree from X (clamped to 2..=5 per POLY constraint)
@@ -479,7 +476,9 @@ pub fn submit_step(
             }
             state.regs[6] = HpNum::from(degree as i32);
             // Advance to first coefficient prompt: CoefficientPrompt(degree, 0) = "A=?"
-            state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(degree, 0)));
+            state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(
+                degree, 0,
+            )));
             state.modal_prompt = Some("A=?".to_string());
             Ok(())
         }
@@ -502,7 +501,9 @@ pub fn submit_step(
                     5 => "F",
                     _ => "?",
                 };
-                state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(degree, next_idx)));
+                state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(
+                    degree, next_idx,
+                )));
                 state.modal_prompt = Some(format!("{coeff_name}=?"));
             } else {
                 // All coefficients entered — Ready.

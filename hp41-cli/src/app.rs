@@ -131,7 +131,10 @@ pub enum PendingInput {
     /// (HP-41 ALPHA register width per RESEARCH §Security V5).
     /// Plan 29-03 (D-29.8): migrated from tuple variant to struct variant
     /// with `mode: XeqByNameMode` discriminator for the CollectForModal flow.
-    XeqByName { acc: String, mode: XeqByNameMode },
+    XeqByName {
+        acc: String,
+        mode: XeqByNameMode,
+    },
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.

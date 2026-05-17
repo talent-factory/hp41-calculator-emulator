@@ -226,17 +226,16 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
     // D-11: pending_input prompts override normal status message
     // D-14: ALPHA mode has a standard status message
     // Phase 29 (D-29.3): modal_prompt renders via widened pending_prompt signature.
-    let base: String =
-        if app.pending_input.is_some() || app.state.modal_prompt.is_some() {
-            pending_prompt(
-                app.pending_input.as_ref(),
-                app.state.modal_prompt.as_deref(),
-            )
-        } else if app.state.alpha_mode {
-            "ALPHA mode — Enter or A to exit".to_string()
-        } else {
-            app.message.as_deref().unwrap_or("Ready").to_string()
-        };
+    let base: String = if app.pending_input.is_some() || app.state.modal_prompt.is_some() {
+        pending_prompt(
+            app.pending_input.as_ref(),
+            app.state.modal_prompt.as_deref(),
+        )
+    } else if app.state.alpha_mode {
+        "ALPHA mode — Enter or A to exit".to_string()
+    } else {
+        app.message.as_deref().unwrap_or("Ready").to_string()
+    };
     // Phase 25 (D-25.4 / Plan 01 / RESEARCH Open Q 5): prepend an "f→"
     // indicator when the prefix is armed AND no modal/ALPHA is active —
     // doubles the SHIFT annunciator with an inline cue right next to the
@@ -269,7 +268,10 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 /// - If both are None: return empty string (caller falls through to alpha/message/Ready).
 ///
 /// `pub` so integration tests under `hp41-cli/tests/` can verify status-bar formatting.
-pub fn pending_prompt(pending: Option<&crate::app::PendingInput>, modal_prompt: Option<&str>) -> String {
+pub fn pending_prompt(
+    pending: Option<&crate::app::PendingInput>,
+    modal_prompt: Option<&str>,
+) -> String {
     use crate::app::{PendingInput, XeqByNameMode};
     use hp41_core::ops::{FlagTestKind, StoArithKind};
 
@@ -286,7 +288,11 @@ pub fn pending_prompt(pending: Option<&crate::app::PendingInput>, modal_prompt: 
         }
     }
     // CollectForModal: modal_prompt wins when both are Some
-    if let Some(PendingInput::XeqByName { mode: XeqByNameMode::CollectForModal, .. }) = pending {
+    if let Some(PendingInput::XeqByName {
+        mode: XeqByNameMode::CollectForModal,
+        ..
+    }) = pending
+    {
         if let Some(mp) = modal_prompt {
             return mp.to_string();
         }
@@ -296,80 +302,86 @@ pub fn pending_prompt(pending: Option<&crate::app::PendingInput>, modal_prompt: 
     match pending {
         None => String::new(),
         Some(pending) => match pending {
-        PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
-        PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
-        PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
-        PendingInput::StoSub(acc) => format!("STO- [{acc:_<2}]"),
-        PendingInput::StoMul(acc) => format!("STO\u{00D7} [{acc:_<2}]"),
-        PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{acc:_<2}]"),
-        PendingInput::AssignKey => "Assign: press key to assign".to_string(),
-        PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
-        PendingInput::ConfirmLoad(idx) => {
-            let name = crate::programs::sample_programs()
-                .get(*idx)
-                .map(|p| p.name)
-                .unwrap_or("program");
-            format!("Load '{name}'? Current program will be lost. [Y/n]")
-        }
-        PendingInput::FmtDigits(mode) => {
-            let label = match mode {
-                hp41_core::DisplayMode::Fix(_) => "FIX",
-                hp41_core::DisplayMode::Sci(_) => "SCI",
-                hp41_core::DisplayMode::Eng(_) => "ENG",
-            };
-            format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
-        }
-        PendingInput::PrintModal => "PRNT: _".to_string(),
-        PendingInput::HexModal(acc) => {
-            if acc.is_empty() {
-                "HEX: __".to_string()
-            } else {
-                format!("HEX: {acc}_")
+            PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
+            PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
+            PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
+            PendingInput::StoSub(acc) => format!("STO- [{acc:_<2}]"),
+            PendingInput::StoMul(acc) => format!("STO\u{00D7} [{acc:_<2}]"),
+            PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{acc:_<2}]"),
+            PendingInput::AssignKey => "Assign: press key to assign".to_string(),
+            PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
+            PendingInput::ConfirmLoad(idx) => {
+                let name = crate::programs::sample_programs()
+                    .get(*idx)
+                    .map(|p| p.name)
+                    .unwrap_or("program");
+                format!("Load '{name}'? Current program will be lost. [Y/n]")
             }
-        }
-        // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
-        PendingInput::FlagPrompt { kind, ind, acc } => {
-            let mnemonic = match kind {
-                FlagPromptKind::SetFlag => "SF",
-                FlagPromptKind::ClearFlag => "CF",
-                FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
-                FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
-                FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
-                FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
-            };
-            let ind_str = if *ind { " IND" } else { "" };
-            format!("{mnemonic}{ind_str} [{acc:_<2}]")
-        }
-        PendingInput::RegisterPrompt { op, ind, acc } => {
-            let mnemonic = match op {
-                RegisterOpKind::Sto => "STO",
-                RegisterOpKind::Rcl => "RCL",
-                RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
-                RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
-                RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
-                RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
-                RegisterOpKind::View => "VIEW",
-                RegisterOpKind::Arcl => "ARCL",
-                RegisterOpKind::Asto => "ASTO",
-                RegisterOpKind::Isg => "ISG",
-                RegisterOpKind::Dse => "DSE",
-            };
-            let ind_str = if *ind { " IND" } else { "" };
-            format!("{mnemonic}{ind_str} [{acc:_<2}]")
-        }
-        PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
-        PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
-        PendingInput::TonePrompt => "TONE [_]".to_string(),
-        // Phase 29 (D-29.8): XeqByName is now a struct variant with XeqByNameMode.
-        // Two explicit arms per FN-CLI-04 (no `_ =>`).
-        PendingInput::XeqByName { acc, mode: XeqByNameMode::Normal } => {
-            format!("XEQ \"{acc}\"_")
-        }
-        PendingInput::XeqByName { acc, mode: XeqByNameMode::CollectForModal } => {
-            // CollectForModal: modal_prompt should have won above; this is fallback.
-            format!("NAME: {acc}_")
-        }
-        } // end Some(pending) => match pending
+            PendingInput::FmtDigits(mode) => {
+                let label = match mode {
+                    hp41_core::DisplayMode::Fix(_) => "FIX",
+                    hp41_core::DisplayMode::Sci(_) => "SCI",
+                    hp41_core::DisplayMode::Eng(_) => "ENG",
+                };
+                format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
+            }
+            PendingInput::PrintModal => "PRNT: _".to_string(),
+            PendingInput::HexModal(acc) => {
+                if acc.is_empty() {
+                    "HEX: __".to_string()
+                } else {
+                    format!("HEX: {acc}_")
+                }
+            }
+            // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
+            PendingInput::FlagPrompt { kind, ind, acc } => {
+                let mnemonic = match kind {
+                    FlagPromptKind::SetFlag => "SF",
+                    FlagPromptKind::ClearFlag => "CF",
+                    FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
+                    FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
+                    FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
+                    FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
+                };
+                let ind_str = if *ind { " IND" } else { "" };
+                format!("{mnemonic}{ind_str} [{acc:_<2}]")
+            }
+            PendingInput::RegisterPrompt { op, ind, acc } => {
+                let mnemonic = match op {
+                    RegisterOpKind::Sto => "STO",
+                    RegisterOpKind::Rcl => "RCL",
+                    RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
+                    RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
+                    RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
+                    RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
+                    RegisterOpKind::View => "VIEW",
+                    RegisterOpKind::Arcl => "ARCL",
+                    RegisterOpKind::Asto => "ASTO",
+                    RegisterOpKind::Isg => "ISG",
+                    RegisterOpKind::Dse => "DSE",
+                };
+                let ind_str = if *ind { " IND" } else { "" };
+                format!("{mnemonic}{ind_str} [{acc:_<2}]")
+            }
+            PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
+            PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
+            PendingInput::TonePrompt => "TONE [_]".to_string(),
+            // Phase 29 (D-29.8): XeqByName is now a struct variant with XeqByNameMode.
+            // Two explicit arms per FN-CLI-04 (no `_ =>`).
+            PendingInput::XeqByName {
+                acc,
+                mode: XeqByNameMode::Normal,
+            } => {
+                format!("XEQ \"{acc}\"_")
+            }
+            PendingInput::XeqByName {
+                acc,
+                mode: XeqByNameMode::CollectForModal,
+            } => {
+                // CollectForModal: modal_prompt should have won above; this is fallback.
+                format!("NAME: {acc}_")
+            }
+        }, // end Some(pending) => match pending
     } // end match pending (outer)
 }
 

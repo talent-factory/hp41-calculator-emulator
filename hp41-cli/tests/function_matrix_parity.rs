@@ -284,24 +284,59 @@ fn test_matrix_has_at_least_130_entries() {
 /// AND add matching JSON rows to `docs/hp41-math1-functions.json`.
 const MATH1_OP_VARIANT_NAMES: &[&str] = &[
     // Phase 28-02: Hyperbolics (6)
-    "Sinh", "Cosh", "Tanh", "Asinh", "Acosh", "Atanh",
+    "Sinh",
+    "Cosh",
+    "Tanh",
+    "Asinh",
+    "Acosh",
+    "Atanh",
     // Phase 28-03: Complex Stack Arithmetic (5)
-    "CPlus", "CMinus", "CTimes", "CDiv", "Real",
+    "CPlus",
+    "CMinus",
+    "CTimes",
+    "CDiv",
+    "Real",
     // Phase 28-04: Complex Functions (12)
-    "Magz", "Cinv", "ZpowN", "Zpow1N", "ExpZ", "LnZ", "SinZ", "CosZ", "TanZ", "ApowZ", "LogZ",
+    "Magz",
+    "Cinv",
+    "ZpowN",
+    "Zpow1N",
+    "ExpZ",
+    "LnZ",
+    "SinZ",
+    "CosZ",
+    "TanZ",
+    "ApowZ",
+    "LogZ",
     "ZpowW",
     // Phase 28-05: Polynomial (2)
-    "PolyWorkflow", "Roots",
+    "PolyWorkflow",
+    "Roots",
     // Phase 28-06: Matrix (8)
-    "MatrixWorkflow", "MatSize", "MatVmat", "MatEdit", "MatDet", "MatInv", "MatSimeq", "MatVcol",
+    "MatrixWorkflow",
+    "MatSize",
+    "MatVmat",
+    "MatEdit",
+    "MatDet",
+    "MatInv",
+    "MatSimeq",
+    "MatVcol",
     // Phase 28-07: Integration (1)
     "Integ",
     // Phase 28-08: Root Solver (2)
-    "Solve", "Sol",
+    "Solve",
+    "Sol",
     // Phase 28-09: Differential Equation (1)
     "Difeq",
     // Phase 28-10: Fourier / Triangle Solvers / Coordinate Transform (7)
-    "Four", "TriSss", "TriAsa", "TriSaa", "TriSas", "TriSsa", "Trans2d", "Trans3d",
+    "Four",
+    "TriSss",
+    "TriAsa",
+    "TriSaa",
+    "TriSas",
+    "TriSsa",
+    "Trans2d",
+    "Trans3d",
 ];
 
 #[test]

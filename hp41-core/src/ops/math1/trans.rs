@@ -455,10 +455,7 @@ pub fn store_trans3d_params(
 /// - `Ready` → `Err(HpError::InvalidOp)`.
 ///
 /// Phase 29 / CLI-05 additive public surface — D-29.5.
-pub fn submit_step(
-    state: &mut CalcState,
-    step: TransInputStep,
-) -> Result<(), HpError> {
+pub fn submit_step(state: &mut CalcState, step: TransInputStep) -> Result<(), HpError> {
     match step {
         TransInputStep::Init2dPrompt => {
             // BL-01 fix: capture ALL three 2D-init params (x₀, y₀, θ) from the
@@ -528,8 +525,14 @@ pub fn submit_step(
             let is_3d = state
                 .regs
                 .get(6)
-                .map(|r| r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
-                    || state.regs.get(3).map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON).unwrap_or(false))
+                .map(|r| {
+                    r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
+                        || state
+                            .regs
+                            .get(3)
+                            .map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON)
+                            .unwrap_or(false)
+                })
                 .unwrap_or(false);
             if is_3d {
                 do_trans3d_forward(state)?;
@@ -546,8 +549,14 @@ pub fn submit_step(
             let is_3d = state
                 .regs
                 .get(6)
-                .map(|r| r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
-                    || state.regs.get(3).map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON).unwrap_or(false))
+                .map(|r| {
+                    r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
+                        || state
+                            .regs
+                            .get(3)
+                            .map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON)
+                            .unwrap_or(false)
+                })
                 .unwrap_or(false);
             if is_3d {
                 do_trans3d_inverse(state)?;

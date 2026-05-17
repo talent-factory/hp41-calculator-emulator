@@ -385,11 +385,7 @@ fn integ_modal_flow_stages_params_for_run_loop() {
     use hp41_core::ops::math1::modal::{IntegInputStep, ModalProgram};
 
     // Program: LBL "F" / X^2 / RTN — same shape as make_x_squared_state in tests
-    let program = vec![
-        Op::Lbl("F".to_string()),
-        Op::Sq,
-        Op::Rtn,
-    ];
+    let program = vec![Op::Lbl("F".to_string()), Op::Sq, Op::Rtn];
     let mut state = CalcState::new();
     state.program = program.clone();
 
@@ -408,13 +404,19 @@ fn integ_modal_flow_stages_params_for_run_loop() {
     // After IntervalPrompt: X=a=0, Y=b=1 (what op_integ_run_loop expects).
     let x = state.stack.x.inner().to_f64().unwrap();
     let y = state.stack.y.inner().to_f64().unwrap();
-    assert_eq!(x, 0.0, "after IntervalPrompt, X must equal `a` (lower bound)");
-    assert_eq!(y, 1.0, "after IntervalPrompt, Y must equal `b` (upper bound)");
+    assert_eq!(
+        x, 0.0,
+        "after IntervalPrompt, X must equal `a` (lower bound)"
+    );
+    assert_eq!(
+        y, 1.0,
+        "after IntervalPrompt, Y must equal `b` (upper bound)"
+    );
 
     // SubdivisionPrompt: the user types `n=10`, R/S.
     // After flush_entry_buf, X=10, Y=b=1, Z=a=0.
     state.stack.z = state.stack.y.clone(); // Z = a (old Y was b; this simulates the lift)
-    // Re-stage: X=10 (entered N), Y=b=1, Z=a=0
+                                           // Re-stage: X=10 (entered N), Y=b=1, Z=a=0
     state.stack.x = HpNum::from(10i32);
     state.stack.y = HpNum::from(Decimal::from_f64(1.0).unwrap());
     state.stack.z = HpNum::from(Decimal::from_f64(0.0).unwrap());
@@ -425,13 +427,22 @@ fn integ_modal_flow_stages_params_for_run_loop() {
     let x = state.stack.x.inner().to_f64().unwrap();
     let y = state.stack.y.inner().to_f64().unwrap();
     let n = state.regs[0].inner().to_u32().unwrap();
-    assert_eq!(x, 0.0, "after SubdivisionPrompt, X must equal `a` (restored)");
-    assert_eq!(y, 1.0, "after SubdivisionPrompt, Y must equal `b` (restored)");
+    assert_eq!(
+        x, 0.0,
+        "after SubdivisionPrompt, X must equal `a` (restored)"
+    );
+    assert_eq!(
+        y, 1.0,
+        "after SubdivisionPrompt, Y must equal `b` (restored)"
+    );
     assert_eq!(n, 10, "after SubdivisionPrompt, R00 must equal N");
 
     // Run the integration — the run_loop reads exactly those slots.
     let result = op_integ_run_loop(&mut state, &program);
-    assert!(result.is_ok(), "op_integ_run_loop after modal staging must succeed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "op_integ_run_loop after modal staging must succeed: {result:?}"
+    );
     let x_val = state.stack.x.inner().to_f64().unwrap();
     // ∫₀¹ x² dx = 1/3 ≈ 0.333333...
     assert!(

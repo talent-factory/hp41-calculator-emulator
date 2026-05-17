@@ -120,11 +120,9 @@ pub fn op_solve(state: &mut CalcState) -> Result<(), HpError> {
     if !state.is_running {
         // Interactive: open the SOLVE modal at FunctionNamePrompt.
         // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
-        state.modal_program = Some(
-            crate::ops::math1::modal::ModalProgram::Solve(
-                crate::ops::math1::modal::SolveInputStep::FunctionNamePrompt,
-            ),
-        );
+        state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Solve(
+            crate::ops::math1::modal::SolveInputStep::FunctionNamePrompt,
+        ));
         state.modal_prompt = Some("FUNCTION NAME?".to_string());
         return Ok(());
     }

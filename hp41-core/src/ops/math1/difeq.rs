@@ -143,11 +143,9 @@ pub fn op_difeq(state: &mut CalcState) -> Result<(), HpError> {
     if !state.is_running {
         // Interactive: open the DIFEQ modal at FunctionNamePrompt.
         // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
-        state.modal_program = Some(
-            crate::ops::math1::modal::ModalProgram::Difeq(
-                crate::ops::math1::modal::DifeqInputStep::FunctionNamePrompt,
-            ),
-        );
+        state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Difeq(
+            crate::ops::math1::modal::DifeqInputStep::FunctionNamePrompt,
+        ));
         state.modal_prompt = Some("FUNCTION NAME?".to_string());
         return Ok(());
     }
@@ -812,10 +810,7 @@ pub fn submit_step(
             }
             state.regs[3] = state.stack.x.clone();
             // Check order from R00 to decide if Y'0 is needed
-            let order = state.regs[0]
-                .inner()
-                .to_u8()
-                .unwrap_or(1);
+            let order = state.regs[0].inner().to_u8().unwrap_or(1);
             if order == 2 {
                 state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::Y1PrimePrompt));
                 state.modal_prompt = Some("Y'0=?".to_string());

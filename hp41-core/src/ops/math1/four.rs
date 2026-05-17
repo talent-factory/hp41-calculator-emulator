@@ -340,10 +340,7 @@ pub fn op_four_eval_at_t(state: &CalcState, t: HpNum, period: HpNum) -> Result<H
 /// - `Ready` → `Err(HpError::InvalidOp)`.
 ///
 /// Phase 29 / CLI-05 additive public surface — D-29.5.
-pub fn submit_step(
-    state: &mut CalcState,
-    step: FourInputStep,
-) -> Result<(), HpError> {
+pub fn submit_step(state: &mut CalcState, step: FourInputStep) -> Result<(), HpError> {
     match step {
         FourInputStep::NumSamplesPrompt => {
             let n = state.stack.x.inner().to_u8().unwrap_or(0).max(1);
@@ -413,7 +410,8 @@ pub fn submit_step(
             state.regs[target] = state.stack.x.clone();
             let next_idx = idx + 1;
             if next_idx < n {
-                state.modal_program = Some(ModalProgram::Four(FourInputStep::SamplePrompt(next_idx)));
+                state.modal_program =
+                    Some(ModalProgram::Four(FourInputStep::SamplePrompt(next_idx)));
                 state.modal_prompt = Some(format!("Y{}=?", next_idx + 1));
             } else {
                 // All samples entered — Ready

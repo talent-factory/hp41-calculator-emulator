@@ -71,7 +71,10 @@ fn pending_input_variants_compile() {
     let v3 = PendingInput::ClpLabel("HELLO".to_string());
     let v4 = PendingInput::DelCount("123".to_string());
     let v5 = PendingInput::TonePrompt;
-    let v6 = PendingInput::XeqByName { acc: "FOO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal };
+    let v6 = PendingInput::XeqByName {
+        acc: "FOO".to_string(),
+        mode: hp41_cli::app::XeqByNameMode::Normal,
+    };
 
     assert!(matches!(
         v1,
@@ -213,7 +216,10 @@ fn pending_prompt_exhaustive() {
     assert!(pending_prompt(Some(&p), None).starts_with("DEL"));
     let p = PendingInput::TonePrompt;
     assert!(pending_prompt(Some(&p), None).starts_with("TONE"));
-    let p = PendingInput::XeqByName { acc: "HELLO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal };
+    let p = PendingInput::XeqByName {
+        acc: "HELLO".to_string(),
+        mode: hp41_cli::app::XeqByNameMode::Normal,
+    };
     assert!(pending_prompt(Some(&p), None).starts_with("XEQ"));
 }
 
@@ -439,7 +445,10 @@ fn test_tone_prompt_auto_dispatch() {
 #[test]
 fn test_xeq_by_name_modal_scaffold() {
     let (mut app, _tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
+    app.pending_input = Some(PendingInput::XeqByName {
+        acc: String::new(),
+        mode: hp41_cli::app::XeqByNameMode::Normal,
+    });
     for c in ['H', 'E', 'L', 'L', 'O'] {
         app.handle_key(key(c));
     }
@@ -474,7 +483,10 @@ fn test_esc_cancels_all_new_variants() {
         PendingInput::ClpLabel("AB".to_string()),
         PendingInput::DelCount("12".to_string()),
         PendingInput::TonePrompt,
-        PendingInput::XeqByName { acc: "FOO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal },
+        PendingInput::XeqByName {
+            acc: "FOO".to_string(),
+            mode: hp41_cli::app::XeqByNameMode::Normal,
+        },
     ];
 
     for v in variants {

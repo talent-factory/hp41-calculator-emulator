@@ -124,15 +124,9 @@ pub fn submit_modal_with_label(state: &mut CalcState, label: &str) -> Result<(),
     state.alpha_reg = upper;
 
     match modal {
-        ModalProgram::Solve(SolveInputStep::FunctionNamePrompt) => {
-            solve::submit_label_step(state)
-        }
-        ModalProgram::Integ(IntegInputStep::FunctionNamePrompt) => {
-            integ::submit_label_step(state)
-        }
-        ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt) => {
-            difeq::submit_label_step(state)
-        }
+        ModalProgram::Solve(SolveInputStep::FunctionNamePrompt) => solve::submit_label_step(state),
+        ModalProgram::Integ(IntegInputStep::FunctionNamePrompt) => integ::submit_label_step(state),
+        ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt) => difeq::submit_label_step(state),
         // Unreachable: requires_alpha_label() guarantees one of the three
         // FunctionNamePrompt variants above (D-29.7 / D-29.9). Defensive arm
         // preserved to satisfy match exhaustiveness without `_ =>` weakening.
