@@ -163,8 +163,7 @@ pub fn do_trans2d_forward(state: &mut CalcState) -> Result<(), HpError> {
     let y = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
 
     let x0 = state
-        .regs
-        .get(0)
+        .regs.first()
         .map(|v| v.inner().to_f64().unwrap_or(0.0))
         .unwrap_or(0.0);
     let y0 = state
@@ -211,8 +210,7 @@ pub fn do_trans2d_inverse(state: &mut CalcState) -> Result<(), HpError> {
     let y_prime = state.stack.y.inner().to_f64().ok_or(HpError::Overflow)?;
 
     let x0 = state
-        .regs
-        .get(0)
+        .regs.first()
         .map(|v| v.inner().to_f64().unwrap_or(0.0))
         .unwrap_or(0.0);
     let y0 = state
@@ -265,8 +263,7 @@ pub fn do_trans3d_forward(state: &mut CalcState) -> Result<(), HpError> {
     let z = state.stack.z.inner().to_f64().ok_or(HpError::Overflow)?;
 
     let x0 = state
-        .regs
-        .get(0)
+        .regs.first()
         .map(|v| v.inner().to_f64().unwrap_or(0.0))
         .unwrap_or(0.0);
     let y0 = state
@@ -324,8 +321,7 @@ pub fn do_trans3d_inverse(state: &mut CalcState) -> Result<(), HpError> {
     let z = state.stack.z.inner().to_f64().ok_or(HpError::Overflow)?;
 
     let x0 = state
-        .regs
-        .get(0)
+        .regs.first()
         .map(|v| v.inner().to_f64().unwrap_or(0.0))
         .unwrap_or(0.0);
     let y0 = state
@@ -438,8 +434,9 @@ pub fn store_trans3d_params(
 mod tests {
     use super::*;
     use crate::state::{AngleMode, CalcState, DisplayMode};
-    use rust_decimal::Decimal;
+    
 
+    #[allow(dead_code)]
     const TOLERANCE: f64 = 1e-7;
 
     fn approx_eq(actual: f64, expected: f64, tol: f64) -> bool {

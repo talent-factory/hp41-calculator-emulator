@@ -535,7 +535,7 @@ mod tests {
     use super::*;
     use crate::ops::math1::integ::IntegState;
     use crate::state::{CalcState, DisplayMode};
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     // ── Test helpers ──────────────────────────────────────────────────────────
 

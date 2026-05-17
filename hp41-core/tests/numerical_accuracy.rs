@@ -4610,7 +4610,7 @@ fn integ_sin_over_0_to_pi() {
     // Free42 v3.0.5: 2.000000000 (10-digit BCD precision)
     // Catches: Simpson rule sign error or endpoint weight error
     use hp41_core::ops::math1::integ::op_integ_run_loop;
-    use hp41_core::state::DisplayMode;
+    
 
     let program = vec![
         Op::Lbl("S".to_string()),
@@ -4902,6 +4902,7 @@ fn solve_sign_change_no_narrowing() {
 // DIFEQ reads parameters from: alpha_reg (user_label), R00 (order), R01 (step_size h),
 // R02 (x0), R03 (y0), R04 (y'0 for ORDER=2), R05 (max_steps).
 
+#[allow(clippy::too_many_arguments)]
 fn make_difeq_state_for_acc(
     label: &str,
     order: u8,
@@ -4934,7 +4935,7 @@ fn difeq_exp_growth() {
     // Analytical: y(x) = e^x. RK4 O(h^4) global error ≈ h^4/180 ≈ 6e-6 at 10 steps.
     // Catches: ORDER=1 RK4 formula wrong (most common implementation error)
     use hp41_core::ops::math1::difeq::op_difeq_run_loop;
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     // f(x, y) = y: user LBL receives x in X, y in Y; returns y (swap, RTN)
     let program = vec![
@@ -4970,7 +4971,7 @@ fn difeq_exp_decay() {
     // Analytical: y(x) = e^(-x). RK4 global error ≈ 6e-6 at 10 steps.
     // Catches: sign error in f(x,y)=-y negation path (most common ORDER=1 bug)
     use hp41_core::ops::math1::difeq::op_difeq_run_loop;
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     // f(x, y) = -y: swap then negate
     let program = vec![
@@ -5006,7 +5007,7 @@ fn difeq_harmonic_oscillator() {
     // Analytical: y(x) = cos(x). Uses coupled system y'=z, z'=-y per OM Ch.7 pp.43-50.
     // Catches: ORDER=2 coupled RK4 formula wrong (common implementation error)
     use hp41_core::ops::math1::difeq::op_difeq_run_loop;
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     // f(x, y, y') = -y: user LBL receives x in X, y in Y, y' in Z; returns -y in X
     let program = vec![
@@ -5046,7 +5047,7 @@ fn difeq_linear_growth() {
     // Free42 v3.0.5 oracle: y(1) = 0.5000 (exact for polynomial ODE — RK4 is exact).
     // Catches: step-size h incorrectly applied to f(x,y) (should be h*f, not f alone)
     use hp41_core::ops::math1::difeq::op_difeq_run_loop;
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     // f(x, y) = x: user LBL receives x in X, y in Y; returns x (already in X, just RTN)
     // Stack: X=x, Y=y after push_two_args. So just RTN (x is already in X).
@@ -5086,7 +5087,7 @@ fn difeq_step_size_effect() {
     // the accumulated BCD rounding error dominates over the theoretical O(h^4) discretization.
     // This test therefore verifies accuracy-within-1e-4 rather than O(h^4) convergence.
     use hp41_core::ops::math1::difeq::op_difeq_run_loop;
-    use rust_decimal::prelude::ToPrimitive;
+    
 
     let program = vec![
         Op::Lbl("SS".to_string()),

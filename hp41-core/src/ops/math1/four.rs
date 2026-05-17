@@ -175,7 +175,7 @@ pub fn compute_dft(samples: &[HpNum], num_freq: u8) -> Result<Vec<(HpNum, HpNum)
 pub fn store_dft_to_registers(state: &mut CalcState, pairs: &[(HpNum, HpNum)], n_samples: usize) {
     // R00 = a₀ (DC)
     if let Some((a0, _)) = pairs.first() {
-        if state.regs.len() > 0 {
+        if !state.regs.is_empty() {
             state.regs[0] = a0.clone();
         }
     }
@@ -397,7 +397,7 @@ mod tests {
     // Catches: RECT? toggle rectangular form not reading back correctly
     #[test]
     fn rect_toggle_rectangular_form() {
-        let pairs = vec![(
+        let pairs = [(
             HpNum::rounded(Decimal::from(3)),
             HpNum::rounded(Decimal::from(4)),
         )];

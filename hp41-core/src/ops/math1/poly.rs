@@ -454,7 +454,7 @@ fn format_root_component(val: f64, mode: &DisplayMode) -> String {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::ops::{dispatch, Op};
+    
     use crate::state::DisplayMode;
 
     fn make_state() -> CalcState {
@@ -466,6 +466,7 @@ mod tests {
         state.regs[idx] = HpNum::rounded(d);
     }
 
+    #[allow(dead_code)]
     fn get_x(state: &CalcState) -> f64 {
         state.stack.x.inner().to_f64().unwrap_or(f64::NAN)
     }

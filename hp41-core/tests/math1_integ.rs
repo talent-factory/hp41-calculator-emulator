@@ -15,7 +15,7 @@ use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
 use hp41_core::ops::math1::integ::{op_integ_run_loop, IntegMode, IntegState, INTG_MAX_EVALS};
 use hp41_core::ops::{dispatch, Op};
-use hp41_core::state::{CalcState, DisplayMode};
+use hp41_core::state::CalcState;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 

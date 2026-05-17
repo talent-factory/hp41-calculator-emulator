@@ -13,10 +13,10 @@
 
 use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
-use hp41_core::ops::math1::difeq::{op_difeq_run_loop, DifeqState};
+use hp41_core::ops::math1::difeq::op_difeq_run_loop;
 use hp41_core::ops::Op;
 use hp41_core::state::CalcState;
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 
 // ── Test helpers ──────────────────────────────────────────────────────────────

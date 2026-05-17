@@ -723,6 +723,7 @@ pub enum Op {
     /// Master entry: opens 5- or 6-prompt modal depending on ORDER:
     /// - ORDER=1 (5 prompts): FUNCTION NAME? / ORDER=? / STEP SIZE=? / X0=? / Y0=?
     /// - ORDER=2 (6 prompts): adds Y'0=? for initial derivative condition
+    ///
     /// Then runs 4th-order Runge-Kutta integration per OM Chapter 7.
     ///
     /// Dispatch arm returns `HpError::InvalidOp`; run_loop arm calls `op_difeq_run_loop`.

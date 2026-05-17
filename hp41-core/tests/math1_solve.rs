@@ -102,11 +102,8 @@ fn solve_state_has_correct_fields() {
     };
     assert_eq!(s.user_label, "F");
     assert_eq!(s.iteration, 0u8);
-    // iteration: u8 cap is 100 per SOLV-07
-    assert!(
-        u8::MAX >= 100,
-        "SolveState.iteration: u8 must be able to hold 100 iterations"
-    );
+    // iteration: u8 cap is 100 per SOLV-07 (compile-time assertion: u8::MAX = 255 >= 100)
+    const _: () = assert!(u8::MAX as u32 >= 100);
 }
 
 // Catches: Op::Solve not reading user label from alpha_reg (OM convention)

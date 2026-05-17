@@ -268,7 +268,7 @@ pub fn op_difeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     let save_pc = state.pc;
     let save_call_stack_len = state.call_stack.len();
     // Capture display_mode before the mutable borrow of state in the loop
-    let display_mode = state.display_mode.clone();
+    let display_mode = state.display_mode;
 
     loop {
         let step_count = {
@@ -860,7 +860,7 @@ mod tests {
     fn modal_order1_flow() {
         use crate::ops::math1::modal::{DifeqInputStep, ModalProgram};
         // Verify the 5 prompts for ORDER=1 flow
-        let steps = vec![
+        let steps = [
             DifeqInputStep::FunctionNamePrompt,
             DifeqInputStep::OrderPrompt,
             DifeqInputStep::StepSizePrompt,
@@ -885,7 +885,7 @@ mod tests {
     #[test]
     fn modal_order2_flow() {
         use crate::ops::math1::modal::{DifeqInputStep, ModalProgram};
-        let steps = vec![
+        let steps = [
             DifeqInputStep::FunctionNamePrompt,
             DifeqInputStep::OrderPrompt,
             DifeqInputStep::StepSizePrompt,

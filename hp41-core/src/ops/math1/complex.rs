@@ -48,6 +48,7 @@ use crate::state::{AngleMode, CalcState};
 ///
 /// Returns `HpNum::zero()` for the catastrophic case where `Decimal::from_f64`
 /// cannot represent the result — safe because atan2 output is bounded in [-π, π].
+#[allow(dead_code)] // Pitfall-6 helper kept for future complex-LN/POW use; covered by tests
 pub(super) fn complex_atan2(im: HpNum, re: HpNum) -> HpNum {
     if im.is_zero() && re.is_zero() {
         // Pitfall 6: (0,0) → 0, not NaN or Domain error
@@ -766,6 +767,7 @@ pub fn op_a_pow_z(state: &mut CalcState) -> Result<(), HpError> {
 /// **Guards (CMPLX-17 / Pitfall 6):**
 /// - z = (0+0i) AND Re(w) ≤ 0 → HpError::Domain
 /// - (0+0i)^w with Re(w) > 0 → returns (0+0i) (zero to positive power is 0)
+///
 /// Guard fires BEFORE any state mutation.
 /// LiftEffect: Enable. Sets complex_mode = true. OM p.~26.
 ///

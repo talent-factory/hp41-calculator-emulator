@@ -470,6 +470,7 @@ mod tests {
     use crate::state::{AngleMode, CalcState, DisplayMode};
     use rust_decimal::Decimal;
 
+    #[allow(dead_code)]
     const TOLERANCE: f64 = 1e-5;
 
     fn approx_eq(actual: f64, expected: f64, tol: f64) -> bool {
