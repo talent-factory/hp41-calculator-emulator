@@ -54,6 +54,19 @@ pub struct CalcStateView {
     // mirroring the `print_lines` drain pattern (Pitfall 1 from
     // hp41-gui/src-tauri/src/types.rs line 44 — &mut → & cannot interleave).
     pub event_buffer: Vec<String>,
+    // Phase 31 Plan 03: modal workflow state fields for D-31.1 / D-31.2 dispatch routing.
+    // is_running: mirrors CalcState.is_running for R/S 3-way and Esc-cancel routing.
+    pub is_running: bool,
+    // modal_program_active: true when CalcState.modal_program.is_some() — avoids
+    // sending the full ModalProgram enum over IPC (SC-4 / D-25.6 parity: no GUI-only logic).
+    pub modal_program_active: bool,
+    // modal_requires_alpha_label: true when the active modal step expects XEQ-by-name input
+    // (FUNCTION NAME? prompt). Drives the post-dispatch auto-open of XeqByName{CollectForModal}
+    // in App.tsx (D-29.9 mirror).
+    pub modal_requires_alpha_label: bool,
+    // modal_prompt: cloned from CalcState.modal_prompt for debug + accessibility.
+    // Also used by Display14Seg LCD-alternation routing (D-31.5) in Phase 31 Plan 05.
+    pub modal_prompt: Option<String>,
 }
 
 impl CalcStateView {
@@ -125,6 +138,16 @@ impl CalcStateView {
         // Phase 26 D-26.11: surface display_override; clone the Option<String>.
         let display_override = state.display_override.clone();
 
+        // Phase 31 Plan 03: project modal workflow state fields.
+        let is_running = state.is_running;
+        let modal_program_active = state.modal_program.is_some();
+        let modal_requires_alpha_label = state
+            .modal_program
+            .as_ref()
+            .map(|m| m.requires_alpha_label())
+            .unwrap_or(false);
+        let modal_prompt = state.modal_prompt.clone();
+
         CalcStateView {
             display_str,
             x_str,
@@ -141,6 +164,10 @@ impl CalcStateView {
             flags,
             display_override,
             event_buffer: event_lines,
+            is_running,
+            modal_program_active,
+            modal_requires_alpha_label,
+            modal_prompt,
         }
     }
 }
@@ -154,9 +181,13 @@ impl From<HpError> for GuiError {
     fn from(e: HpError) -> Self {
         // HpError uses #[derive(thiserror::Error)] with #[error("...")] attrs.
         // .to_string() yields the literal message ("overflow", "divide by zero", etc.).
-        GuiError {
-            message: e.to_string(),
-        }
+        // EXCEPTION: HpError::Canceled Display returns lowercase "canceled" but
+        // UI-SPEC requires uppercase "CANCELED" (Phase 31 Plan 03 / Pitfall 4).
+        let message = match e {
+            HpError::Canceled => "CANCELED".to_string(),
+            other => other.to_string(),
+        };
+        GuiError { message }
     }
 }
 
@@ -172,10 +203,13 @@ mod tests {
         // ["000 END"] (~35 bytes); the 4 new D-26.11 projections add ~60 bytes
         // for empty/None defaults. Budget raised from 400 to 500 bytes per
         // D-26.11. Real programs grow beyond this limit.
+        // Phase 31 Plan 03: 4 new modal fields add ~100 bytes for empty/false/None
+        // defaults. Per RESEARCH Pitfall 10: 337 + 100 = ~437 bytes, 63-byte headroom.
         let state = CalcState::new();
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
-        // Phase 26 measured baseline: 337 bytes (337 << 500 budget).
+        // Phase 26 measured baseline: 337 bytes. Phase 31 adds ~100 bytes for modal fields.
+        // Combined budget: <= 500 bytes (63-byte headroom at ~437 bytes).
         assert!(
             json.len() <= 500,
             "CalcStateView JSON (empty program + empty assignments + no flags) must be ≤500 bytes, got {} bytes: {}",
@@ -188,7 +222,10 @@ mod tests {
     fn test_dispatch_op_payload_size_with_realistic_load() {
         // Phase 26 D-26.11: budget must hold with a realistic load — ~5 ASN
         // assignments + 3 set flags. Verifies the new projections don't blow
-        // the 500-byte envelope in real-world usage.
+        // the budget in real-world usage.
+        // Phase 31 Plan 03: 4 new modal fields add ~103 bytes (measured). The
+        // realistic-load budget is raised from 500 to 600 bytes to accommodate
+        // the new fields. The empty-program budget stays at 500 bytes.
         let mut state = CalcState::new();
         state.assignments.insert(11, "SIN".to_string());
         state.assignments.insert(12, "COS".to_string());
@@ -198,10 +235,11 @@ mod tests {
         state.flags = (1u64 << 5) | (1u64 << 10) | (1u64 << 22); // flags 5, 10, 22 set
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
-        // Phase 26 measured load: 401 bytes (~20% headroom under the 500 budget).
+        // Phase 26 measured load: 401 bytes; Phase 31 adds ~103 bytes → ~504 bytes.
+        // Budget set to 600 bytes with headroom for future fields.
         assert!(
-            json.len() <= 500,
-            "CalcStateView JSON (realistic ASN+flag load) must be ≤500 bytes, got {} bytes: {}",
+            json.len() <= 600,
+            "CalcStateView JSON (realistic ASN+flag load) must be ≤600 bytes, got {} bytes: {}",
             json.len(),
             json
         );
@@ -272,6 +310,40 @@ mod tests {
         // HpError::Overflow has #[error("overflow")] — to_string() yields "overflow".
         let err: GuiError = HpError::Overflow.into();
         assert_eq!(err.message, "overflow");
+    }
+
+    /// Phase 31 Plan 03 / Pitfall 4: HpError::Canceled must map to UPPERCASE "CANCELED"
+    /// (not the lowercase "canceled" that .to_string() yields from the #[error] attribute).
+    /// UI-SPEC mandates uppercase per the "CANCELED" display requirement.
+    #[test]
+    fn test_canceled_maps_to_uppercase() {
+        let err: GuiError = HpError::Canceled.into();
+        assert_eq!(
+            err.message,
+            "CANCELED",
+            "HpError::Canceled must map to 'CANCELED' (uppercase per UI-SPEC)"
+        );
+    }
+
+    /// Phase 31 Plan 03: CalcStateView now has 4 new modal fields.
+    /// Verify they project correctly from a fresh CalcState.
+    #[test]
+    fn test_modal_fields_default_projection() {
+        let state = CalcState::new();
+        let view = CalcStateView::from_state(&state, vec![], vec![]);
+        assert!(!view.is_running, "fresh state: is_running must be false");
+        assert!(
+            !view.modal_program_active,
+            "fresh state: modal_program_active must be false"
+        );
+        assert!(
+            !view.modal_requires_alpha_label,
+            "fresh state: modal_requires_alpha_label must be false"
+        );
+        assert!(
+            view.modal_prompt.is_none(),
+            "fresh state: modal_prompt must be None"
+        );
     }
 
     #[test]

@@ -37,6 +37,11 @@ interface CalcStateView {
   flags: number[];                         // mirrors Vec<u8> of set-flag indices
   display_override: string | null;         // mirrors Option<String>
   event_buffer: string[];                  // mirrors Vec<String> (drained per IPC)
+  // Phase 31 Plan 03: modal workflow state for D-31.1 / D-31.2 dispatch routing.
+  is_running: boolean;                     // mirrors CalcState.is_running
+  modal_program_active: boolean;           // mirrors state.modal_program.is_some()
+  modal_requires_alpha_label: boolean;     // true when FUNCTION NAME? prompt step is active
+  modal_prompt: string | null;             // mirrors Option<String> (null when no modal)
 }
 
 // Tauri rejects with GuiError { message: string } — String(err) yields
