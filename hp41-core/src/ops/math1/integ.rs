@@ -478,12 +478,23 @@ fn run_user_function(state: &mut CalcState, program: &[Op]) -> Result<(), HpErro
 /// flushed the entry buffer to `state.stack.x`. Reads X, advances the INTG
 /// modal step state machine, updates `state.modal_prompt`.
 ///
+/// **CR-02 fix:** parameters are written to the SAME locations `op_integ_run_loop`
+/// reads from (stack X/Y for the integration bounds, R00 for the subdivision
+/// count). Previously the modal stored bounds in R02/R03 and N in R04, but the
+/// run_loop reads `a` from `state.stack.x`, `b` from `state.stack.y`, and `n`
+/// from `regs[0]` — so values entered via the modal were silently discarded at
+/// run time. Picking the run_loop side of the contract preserves the existing
+/// `make_x_squared_state()` test-helper convention.
+///
 /// Step transitions:
 /// - `ModeChoice` → advances to `FunctionNamePrompt` (Explicit mode).
-/// - `IntervalPrompt` → reads X as lower bound (Y = upper bound);
-///   stores in R02 (lower=a) / R03 (upper=b), advances to SubdivisionPrompt.
-/// - `SubdivisionPrompt` → reads X as N (subdivision count, capped at INTG_MAX_EVALS),
-///   stores in R04, advances to Ready.
+/// - `IntervalPrompt` → reads Y as upper bound `b`, leaves X as lower bound `a`;
+///   stack already holds the (a, b) pair so no scratch-register copy is needed.
+///   Advances to SubdivisionPrompt.
+/// - `SubdivisionPrompt` → reads X as N (subdivision count, capped at
+///   INTG_MAX_EVALS), stores in R00 — matching `op_integ_run_loop` line ~234
+///   which reads `n` from `regs[0]`. Restores the (a, b) pair to X/Y so the
+///   run_loop sees the integration bounds the user entered at IntervalPrompt.
 /// - All other steps → `Err(HpError::InvalidOp)`.
 ///
 /// Phase 29 / CLI-05 additive public surface — D-29.5.
@@ -500,19 +511,26 @@ pub fn submit_step(
             Ok(())
         }
         IntegInputStep::IntervalPrompt => {
-            // X = lower bound a; Y = upper bound b (OM: enter a first, then b)
-            // Store in scratch registers R02 (a) and R03 (b)
-            if state.regs.len() < 4 {
-                return Err(HpError::InvalidOp);
-            }
-            state.regs[2] = state.stack.x.clone();
-            state.regs[3] = state.stack.y.clone();
+            // OM: user enters `a` first, then `b` — so on entry: X = b, Y = a.
+            // op_integ_run_loop reads `a` from stack.x and `b` from stack.y, so we
+            // swap the two so the bounds land in the run_loop's expected slots.
+            // CR-02 fix: keep the bounds on the stack rather than copying them
+            // into scratch registers the run_loop never reads.
+            let a = state.stack.y.clone();
+            let b = state.stack.x.clone();
+            state.stack.x = a;
+            state.stack.y = b;
             state.modal_program = Some(ModalProgram::Integ(IntegInputStep::SubdivisionPrompt));
             state.modal_prompt = Some("N=?".to_string());
             Ok(())
         }
         IntegInputStep::SubdivisionPrompt => {
-            // X = N (subdivision count); cap at INTG_MAX_EVALS
+            // X = N (subdivision count); cap at INTG_MAX_EVALS.
+            // CR-02 fix: store N in R00 (where op_integ_run_loop reads `n`),
+            // not R04. Then restore (a, b) to (X, Y) by recovering them from
+            // the stack lift chain — but submit_modal has already flushed
+            // entry_buf which pushed N to X and shifted (a, b) down to (Y, Z).
+            // So Y holds `b`, Z holds `a`.
             let n_raw = state
                 .stack
                 .x
@@ -520,10 +538,16 @@ pub fn submit_step(
                 .to_u32()
                 .unwrap_or(INTG_MAX_EVALS)
                 .min(INTG_MAX_EVALS);
-            if state.regs.len() < 5 {
+            if state.regs.is_empty() {
                 return Err(HpError::InvalidOp);
             }
-            state.regs[4] = HpNum::from(n_raw as i32);
+            state.regs[0] = HpNum::from(n_raw as i32);
+            // Restore (a, b) → (X, Y): after the N push, Z = a, Y = b.
+            // Pop N off the top by shifting the stack down one slot.
+            let new_x = state.stack.z.clone(); // a
+            let new_y = state.stack.y.clone(); // b
+            state.stack.x = new_x;
+            state.stack.y = new_y;
             state.modal_program = Some(ModalProgram::Integ(IntegInputStep::Ready));
             state.modal_prompt = None;
             Ok(())
