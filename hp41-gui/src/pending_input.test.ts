@@ -496,6 +496,99 @@ describe('renderModalLcd — preview strings (D-26.3)', () => {
   });
 });
 
+// ── Phase 31 Plan 05: XeqByName mode discriminator (D-29.9 GUI mirror) ──────
+//
+// Tests added per Task 2 requirements:
+// (a) xeq_name normal mode Enter → existing xeq_<acc> behavior (backward-compat)
+// (b) xeq_name collect-for-modal Enter → __submit_modal_with_label__<acc> magic-prefix
+// (c) xeq_name collect-for-modal Backspace → pops last char, mode unchanged
+
+describe('handleModalKey — xeq_name with mode discriminator (Phase 31 Plan 05)', () => {
+  it('(a) normal mode Enter returns xeq_<acc> dispatchId (backward-compat)', () => {
+    // Mode 'normal' (explicit) — existing behavior must be preserved.
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: 'SINH',
+      dispatchPrefix: 'xeq',
+      mode: 'normal',
+    };
+    const r = handleModalKey('Enter', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('xeq_SINH');
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('(a-default) mode omitted (undefined) Enter also returns xeq_<acc> (default = normal)', () => {
+    // mode is optional — omitting it must default to 'normal' behavior.
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: 'TANH',
+      dispatchPrefix: 'xeq',
+      // mode intentionally omitted
+    };
+    const r = handleModalKey('Enter', pending, false);
+    expect(r.dispatchId).toBe('xeq_TANH');
+  });
+
+  it('(b) collect-for-modal Enter returns __submit_modal_with_label__<acc> magic-prefix', () => {
+    // Phase 31 Plan 05 / Pitfall 15: CollectForModal Enter must produce the
+    // magic-prefix dispatch id so App.tsx::invokeForKey routes to submit_modal_with_label.
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: 'F',
+      dispatchPrefix: 'xeq',
+      mode: 'collect-for-modal',
+    };
+    const r = handleModalKey('Enter', pending, false);
+    expect(r.nextPending).toBeNull();
+    expect(r.dispatchId).toBe('__submit_modal_with_label__F');
+    expect(r.consumesShift).toBe(false);
+  });
+
+  it('(b-full-label) collect-for-modal Enter with multi-char acc', () => {
+    // Full function name label (e.g. "INTEG" for INTG).
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: 'INTEG',
+      dispatchPrefix: 'xeq',
+      mode: 'collect-for-modal',
+    };
+    const r = handleModalKey('Enter', pending, false);
+    expect(r.dispatchId).toBe('__submit_modal_with_label__INTEG');
+  });
+
+  it('(c) collect-for-modal Backspace removes last char without changing mode', () => {
+    // Backspace during CollectForModal must preserve the mode field.
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: 'AB',
+      dispatchPrefix: 'xeq',
+      mode: 'collect-for-modal',
+    };
+    const r = handleModalKey('Backspace', pending, false);
+    expect(r.nextPending).toEqual({
+      kind: 'xeq_name',
+      acc: 'A',
+      dispatchPrefix: 'xeq',
+      mode: 'collect-for-modal',
+    });
+    expect(r.dispatchId).toBeNull();
+  });
+
+  it('collect-for-modal Enter with empty acc is a no-op (modal stays open)', () => {
+    // Empty label must not dispatch — matches existing 'normal' behavior.
+    const pending: PendingInput = {
+      kind: 'xeq_name',
+      acc: '',
+      dispatchPrefix: 'xeq',
+      mode: 'collect-for-modal',
+    };
+    const r = handleModalKey('Enter', pending, false);
+    expect(r.nextPending).toEqual(pending);
+    expect(r.dispatchId).toBeNull();
+  });
+});
+
 describe('Phase 26 W3 — KEY_DEFS audit (TypeScript side)', () => {
   it('every KEY_DEFS primary id is non-empty', () => {
     for (const id of KEY_DEFS_PRIMARY_IDS) {
