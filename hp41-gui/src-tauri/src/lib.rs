@@ -83,10 +83,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::dispatch_op,
             commands::get_state,
-            commands::sst_step,       // Phase 18 D-05
-            commands::bst_step,       // Phase 18 D-05
-            commands::run_stop,       // Phase 19 (v2.1) — R/S key toggle
-            commands::request_cancel, // Phase 31 Plan 31-02 — flip cancel_requested AtomicBool
+            commands::sst_step,                 // Phase 18 D-05
+            commands::bst_step,                 // Phase 18 D-05
+            commands::run_stop,                 // Phase 19 (v2.1) — R/S key toggle
+            commands::request_cancel,           // Phase 31 Plan 31-02 — flip cancel_requested AtomicBool
+            commands::submit_modal,             // Phase 31 Plan 31-03 — R/S submit modal step
+            commands::cancel_modal,             // Phase 31 Plan 31-03 — Esc cancel modal
+            commands::submit_modal_with_label,  // Phase 31 Plan 31-03 — XEQ-by-name FUNCTION NAME? step
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
