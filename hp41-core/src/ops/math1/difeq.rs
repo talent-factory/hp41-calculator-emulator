@@ -44,11 +44,25 @@
 //!
 //! ## Scratch Register Convention (RESEARCH Open Q6 / DIFEQ-03)
 //!
-//! R00 (x), R01 (y), R02 (y' for order=2), R03 (step_size), R04 (k1), R05 (k2),
-//! R06 (k3), R07 (k4) per OM convention. User-program-clobber of these registers
-//! is documented user-responsibility per RESEARCH Open Q6 (same as INTG/SOLVE).
-//! Emulator uses local Rust variables for RK4 intermediates; hardware-faithful
-//! meaning these registers are "reserved" and user function must avoid them.
+//! BL-03 fix: the documented layout below matches the code path actually used
+//! by `op_difeq_run_loop` (see lines 209-225) and `submit_step` (lines 754-827).
+//! The previous "R00 (x), R01 (y), R02 (y'), R03 (step_size), R04..R07 (k1..k4)"
+//! comment contradicted the implementation — RK4 intermediates k1..k4 live in
+//! local Rust variables, NOT in scratch registers.
+//!
+//! ```text
+//! R00 = ODE order (1 or 2; DIFEQ-01)
+//! R01 = step size h
+//! R02 = x0 (initial x)
+//! R03 = y0 (initial y)
+//! R04 = y'0 (initial y'; only for ORDER=2)
+//! R05 = max_steps (RK4 step budget; defaults to 1000 when R05 is 0)
+//! ```
+//!
+//! User-program-clobber of R00..R05 is documented user-responsibility per
+//! RESEARCH Open Q6 (same as INTG/SOLVE). Emulator uses local Rust variables
+//! for the RK4 k₁..k₄ intermediates; the OM-documented "user function must
+//! not write to scratch" advice applies to R00..R05 inclusive.
 //!
 //! ## Step-by-Step Output (DIFEQ-05)
 //!
