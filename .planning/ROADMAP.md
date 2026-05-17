@@ -25,7 +25,7 @@
 ### v3.0 — Math Pac I Emulation (Phases 28–32)
 
 - [x] **Phase 28: XROM Framework + Math Pac I Core Ops** — Land XROM registry, ~40 new `Op` variants, modal-workflow state machine, user-program callback infrastructure for INTG/SOLVE/DIFEQ, and all 10 Math Pac I top-level programs (`MATRIX`, `SOLVE`, `POLY`, `INTG`, `DIFEQ`, `FOUR`, complex stack, hyperbolics, triangle solvers, `TRANS`) in `hp41-core` (completed 2026-05-16)
-- [ ] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel
+- [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17)
 - [ ] **Phase 30: Documentation & ADRs** — Publish `docs/hp41-math1-functions.json` (~55 entries), regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 5 ADRs for Phase 28 irreversible decisions, README v3.0 soft-claim
 - [ ] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ)
 - [ ] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI
@@ -109,8 +109,8 @@
 
 **Plans**: 3 plans
   - [x] 29-01-PLAN.md — XEQ-by-name resolver chain extension + help_data second OnceLock + JSON wiring; CLI-01, CLI-02
-  - [ ] 29-02-PLAN.md — prgm_display.rs ~40 new arms + KEY_REF_TABLE derivation from JSON; CLI-03, CLI-04
-  - [ ] 29-03-PLAN.md — Modal-prompt routing for Math Pac I workflows (re-uses Phase 28's `ModalProgram` infrastructure); CLI-05
+  - [x] 29-02-PLAN.md — prgm_display.rs ~40 new arms + KEY_REF_TABLE derivation from JSON; CLI-03, CLI-04
+  - [x] 29-03-PLAN.md — Modal-prompt routing for Math Pac I workflows (re-uses Phase 28's `ModalProgram` infrastructure); CLI-05
 
 **Notable risks/decisions**:
   - **Discovery problem** (Pitfall 13): 40 new mnemonics push the XEQ-by-name modal past the "easily scrollable" threshold; CATALOG 2 (Phase 31) is the structural fix; Phase 29 ships JSON-derived KEY_REF_TABLE entries so Math Pac I functions are at least visible in the `?`-overlay
@@ -255,7 +255,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
-| 29. CLI Integration | v3.0 | 1/3 | In Progress|  |
+| 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 0/4 | Planned | |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
