@@ -137,8 +137,11 @@ gui-check:
 # control). For developer follow-up, run `cd hp41-gui && npm audit fix` manually.
 #
 # gui-ci: CI gate — TS type-check, Rust tests, release build, Vitest (D-27.14)
+# Phase 31 Plan 31-02: permission-coverage gate fires FIRST so a missing TOML
+# fails fast before any expensive build step (T-31-W1-permission-coverage).
 [group('gui')]
 gui-ci:
+	bash scripts/check-tauri-permissions.sh
 	cd hp41-gui && npm ci
 	cd hp41-gui && npm audit --omit=dev --audit-level=high || true
 	cd hp41-gui && npx tsc --noEmit
