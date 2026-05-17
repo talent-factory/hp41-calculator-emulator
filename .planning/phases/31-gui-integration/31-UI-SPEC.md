@@ -1,10 +1,11 @@
 ---
 phase: 31
 slug: gui-integration
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-17
+reviewed_at: 2026-05-17
 ---
 
 # Phase 31 — UI Design Contract
