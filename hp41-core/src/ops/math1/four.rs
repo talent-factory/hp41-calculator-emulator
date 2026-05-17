@@ -64,8 +64,21 @@ use crate::state::CalcState;
 pub const MAX_FOURIER_PAIRS: u8 = 10;
 
 /// Scratch register range used by FOUR per FOUR-05 (R00–R26, inclusive).
-/// R00 = a₀; R01..R22 = (aₙ, bₙ) pairs n=1..10; R23 = N; R24 = L.
+/// R00 = a₀; R01..R22 = (aₙ, bₙ) pairs n=1..10; R23 = N; R24 = L; R25 = start_idx; R26 = RECT.
 pub const SCRATCH_RANGE: std::ops::Range<usize> = 0..27;
+
+/// CR-03 fix: sample-collection offset.
+///
+/// During the FOUR modal sample-collection phase, the user-supplied samples
+/// must be stored in registers that do NOT overlap with the parameter
+/// registers R23 (N), R24 (L), R25 (start_idx), R26 (RECT). Before this fix,
+/// samples were written to R{idx} starting at R00, which corrupted R23..R26
+/// once `idx == 23` was reached (and the loop bound `n` was re-read from the
+/// now-corrupted R23, breaking termination). N is a `u8` (cap 255) and L is
+/// capped at MAX_FOURIER_PAIRS = 10, so the sample pool R{SAMPLE_OFFSET}..
+/// R{SAMPLE_OFFSET + N} stays well clear of R00..R26 as long as the user's
+/// `state.regs.len()` is large enough.
+pub const SAMPLE_OFFSET: usize = 27;
 
 /// Convert a float to HpNum, returning Domain on NaN/infinity.
 fn f64_to_hpnum(v: f64) -> Result<HpNum, HpError> {
@@ -382,18 +395,22 @@ pub fn submit_step(
             Ok(())
         }
         FourInputStep::SamplePrompt(idx) => {
-            // Number of samples N is stored in R23
+            // Number of samples N is stored in R23.
             let n = if state.regs.len() > 23 {
                 state.regs[23].inner().to_u8().unwrap_or(1)
             } else {
                 1
             };
-            // Store sample in scratch registers starting at R00
-            // (FOUR uses R00..R{N-1} as sample scratch, per FOUR-05 sketch)
-            if idx as usize >= state.regs.len() {
+            // CR-03 fix: store samples at R{SAMPLE_OFFSET + idx} (= R27 + idx),
+            // NOT at R{idx}. The previous layout (R{idx}) overwrote the
+            // parameter registers R23 (N), R24 (L), R25 (start_idx), R26 (RECT)
+            // once idx reached 23, and the loop's termination read of R23 was
+            // then poisoned by the very sample that overwrote it.
+            let target = SAMPLE_OFFSET + idx as usize;
+            if target >= state.regs.len() {
                 return Err(HpError::InvalidOp);
             }
-            state.regs[idx as usize] = state.stack.x.clone();
+            state.regs[target] = state.stack.x.clone();
             let next_idx = idx + 1;
             if next_idx < n {
                 state.modal_program = Some(ModalProgram::Four(FourInputStep::SamplePrompt(next_idx)));
