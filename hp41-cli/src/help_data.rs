@@ -21,6 +21,23 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
+/// XROM module descriptor embedded in a [`HelpEntry`] row (C-28.3).
+///
+/// Present for Math Pac I entries; absent (`None`) for v2.2 built-in entries.
+/// `#[serde(default)]` on the `xrom` field of `HelpEntry` means v2.2 JSON
+/// (no `xrom` key) parses unchanged — schema extension is additive.
+///
+/// - `module` — human-readable module name (e.g. `"Math 1"`).
+/// - `module_id` — HP-41C hardware XROM module ID (`7` for Math Pac I).
+/// - `function_id` — 1-indexed position of this entry in `MATH_1.ops`.
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct XromEntry {
+    pub module: String,
+    pub module_id: u8,
+    pub function_id: u16,
+}
+
 /// One row in the canonical HP-41CV function table.
 ///
 /// Schema per D-25.16:
@@ -37,6 +54,8 @@ use serde::Deserialize;
 ///   `None` for internal / programmatic-only variants.
 /// - `description` — <= 80 chars, suitable for the `?` overlay row.
 /// - `divergences` — optional free-form notes about HP-41 hardware divergences.
+/// - `xrom` — optional XROM descriptor (present for Math Pac I entries; `None`
+///   for v2.2 built-in entries). `#[serde(default)]` ensures backward compat.
 // `op_variant`, `status`, `phase`, `divergences` are not read inside src/ —
 // only by integration tests under `tests/` (cross-crate, opaque to dead-code
 // analysis) and by the `scripts/docs-matrix/` bin (deliberate JSON-schema
@@ -54,6 +73,10 @@ pub struct HelpEntry {
     pub description: String,
     #[serde(default)]
     pub divergences: Vec<String>,
+    /// XROM descriptor (C-28.3). `None` for v2.2 built-ins; `Some(_)` for
+    /// Math Pac I entries. `#[serde(default)]` keeps v2.2 JSON parsing clean.
+    #[serde(default)]
+    pub xrom: Option<XromEntry>,
 }
 
 /// Compile-time-embedded canonical data file. The relative path is from this
@@ -74,6 +97,41 @@ pub fn help_entries() -> &'static [HelpEntry] {
         serde_json::from_str(FUNCTIONS_JSON)
             .expect("hp41cv-functions.json is malformed — fix the JSON")
     })
+}
+
+/// Compile-time-embedded canonical data file for Math Pac I (D-29.1 / D-29.2).
+/// The relative path is from `hp41-cli/src/help_data.rs` to
+/// `docs/hp41-math1-functions.json` at the repo root.
+const MATH1_FUNCTIONS_JSON: &str = include_str!("../../docs/hp41-math1-functions.json");
+
+static MATH1_HELP_ENTRIES: OnceLock<Vec<HelpEntry>> = OnceLock::new();
+
+/// Access the parsed Math Pac I help entries (lazily initialized, thread-safe via OnceLock).
+///
+/// **Panics** on first invocation if `docs/hp41-math1-functions.json` is
+/// malformed — this is the **intentional** D-25.17 / D-29.2 hard-build-blocker
+/// behavior. Subsequent calls return the cached slice.
+///
+/// Narrow accessor — returns ONLY the Math Pac I pool. Use [`help_entries_all`]
+/// for the merged pool (v2.2 + Math Pac I) in UI rendering paths.
+pub fn help_entries_math1() -> &'static [HelpEntry] {
+    MATH1_HELP_ENTRIES.get_or_init(|| {
+        serde_json::from_str(MATH1_FUNCTIONS_JSON)
+            .expect("hp41-math1-functions.json is malformed — fix the JSON")
+    })
+}
+
+/// Merged accessor: chains both JSON pools (v2.2 built-ins + Math Pac I)
+/// in order. This is the **single source of truth** for:
+/// - The `?` help overlay (`ui::render_help_overlay` via `help_overlay_rows`)
+/// - The right-panel discoverability listing (`keys::key_ref_entries`)
+/// - The `function_matrix_parity.rs` full-pool sweep
+///
+/// The narrow accessors [`help_entries`] and [`help_entries_math1`] are
+/// retained for per-pool surgical tests (130-target smoke test, 45-target
+/// smoke test) and MUST NOT be removed.
+pub fn help_entries_all() -> impl Iterator<Item = &'static HelpEntry> {
+    help_entries().iter().chain(help_entries_math1().iter())
 }
 
 /// Render a list of `(key, op, desc)` 3-tuples in the legacy `HELP_DATA`
