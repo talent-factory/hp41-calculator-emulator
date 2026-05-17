@@ -168,17 +168,23 @@ gui-e2e:
 
 # ─── Docs ───────────────────────────────────────────────────────────────────
 
-# Regenerate the HP-41CV function matrix from canonical JSON (developer-side).
-# Reads docs/hp41cv-functions.json and writes docs/hp41cv-function-matrix.md.
+# Regenerate both function matrices from their canonical JSON sources (developer-side).
+# Reads docs/hp41cv-functions.json -> docs/hp41cv-function-matrix.md (unchanged, D-30.2).
+# Reads docs/hp41-math1-functions.json -> docs/hp41-math1-function-matrix.md (new, D-30.1).
 [group('docs')]
 docs-matrix:
 	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
 		docs/hp41cv-functions.json docs/hp41cv-function-matrix.md
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41-math1-functions.json docs/hp41-math1-function-matrix.md
 
-# CI-friendly drift catch (Pitfall 8): regenerate to a temp file and diff
-# against the committed copy. Exits non-zero on mismatch so CI fails fast.
+# CI-friendly drift catch (Pitfall 8): regenerate to temp files and diff both
+# against their committed copies. Exits non-zero on mismatch so CI fails fast.
 [group('docs')]
 docs-matrix-check:
 	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
 		docs/hp41cv-functions.json /tmp/hp41cv-function-matrix-check.md
 	diff -u docs/hp41cv-function-matrix.md /tmp/hp41cv-function-matrix-check.md
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41-math1-functions.json /tmp/hp41-math1-function-matrix-check.md
+	diff -u docs/hp41-math1-function-matrix.md /tmp/hp41-math1-function-matrix-check.md
