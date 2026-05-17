@@ -151,9 +151,11 @@ pub fn help_entries_all() -> impl Iterator<Item = &'static HelpEntry> {
 /// the [`help_overlay_rows`] helper which returns owned `String`s grouped by
 /// category with synthetic `=== {category} ===` header rows interleaved.
 pub fn help_overlay_rows() -> Vec<HelpRow> {
-    let entries = help_entries();
+    // D-29.2: migrate to merged accessor so Math Pac I categories appear in
+    // the `?` overlay alongside the v2.2 built-in categories (CLI-04).
+    let entries: Vec<&HelpEntry> = help_entries_all().collect();
     let mut categories: Vec<&str> = Vec::new();
-    for entry in entries {
+    for entry in &entries {
         if !categories.iter().any(|c| *c == entry.category) {
             categories.push(&entry.category);
         }
