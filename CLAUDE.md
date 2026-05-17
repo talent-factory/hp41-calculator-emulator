@@ -111,6 +111,56 @@ These decisions are final — do not revisit without strong justification:
 - **Frozen invariants preserved:** no `hp41-core/src/` source changes (frozen since Plan 25-01); no `hp41-gui/src-tauri/` source changes (SC-4 invariant); MSRV 1.88 unchanged (`tauri-driver` 2.0.6 MSRV 1.77 is compatible; WebdriverIO 9.x is a Node tool); `#![deny(clippy::unwrap_used)]` continues to apply (new test files carry `#![allow]` at file scope per the established Phase 1 onward pattern).
 - **`// Catches: <bug class>` rationale (D-27.1):** every new test in Phase 27 plans 01–04 carries this doc comment naming the bug class it guards against. The `case!` macro invocations in `numerical_accuracy.rs` carry equivalent provenance via Free42 / OM citations. A grep audit on the four new test files yields ≥ 80 `// Catches:` comments total (program_execution_coverage 42, phase22_stats_size_shrink 14, phase21_phase22_interactive_no_ops 12, format_eng_edges 24).
 
+### v3.0 additions (Math Pac I Emulation, Phases 28–30 — 31–32 IN PROGRESS)
+
+#### Phase 28 (XROM Framework + Math Pac I Core Ops, shipped 2026-05-16)
+
+- **Op-strategy A locked (ADR-001 / C-28.1):** one `Op` variant per Math Pac I function — rejected `Op::XromCall(u16)` table dispatch (Option B) to preserve the 4-way exhaustive-match invariant (compile-time `prgm_display.rs` check) that has caught dozens of bugs since Phase 1. Full write-up: `docs/adr/v3.0-001-op-strategy.md`.
+- **User-callback strict-reject policy locked (ADR-002 / C-28.2):** nested INTG/SOLVE/DIFEQ invocations are rejected at op entry with `HpError::InvalidOp` — matches Math Pac I OM 1979 hardware behaviour; avoids 4-deep `call_stack` overflow and cleanup-on-error complexity. Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 consulted only as sanity-check oracle, not copied. Full write-up: `docs/adr/v3.0-002-user-callback-policy.md`.
+- **JSON-pipeline separate-file shape locked (ADR-005 / C-28.3):** separate `docs/hp41-math1-functions.json` sibling with identical schema plus `xrom: { module, module_id, function_id }` object per entry — zero migration churn on 130 v2.2 entries; aligns with future v3.1+ pacs each getting their own JSON. Full write-up: `docs/adr/v3.0-005-json-pipeline.md`.
+- **`xrom_resolve` fires LAST in resolver chain (C-28.4):** after `builtin_card_op`, before `Err(InvalidOp)` — Pitfall 1 mitigation; prevents Math Pac I from shadowing existing built-in mnemonics. `tests/xrom_shadowing.rs` CI gate confirms.
+- **ComplexStack overlay X/Y/Z/T (D-28.1, D-28.2):** ζ = X+iY, τ = Z+iT — OM-faithful zero-field-growth overlay; `complex_mode: bool` on `CalcState` auto-activates on first complex op, cleared by `XEQ "REAL"` (D-28.3 extension — not in OM 1979, documented in `docs/hp41-math1-divergences.md`).
+- **`XEQ "REAL"` derived entry point (D-28.3):** new emulator extension to deactivate `complex_mode`; NOT in Math Pac I OM 1979; catalogued as D-30-05 in `docs/hp41-math1-divergences.md`.
+- **`modal_prompt: Option<String>` dedicated field (D-28.4):** overrides XROM-09's original print_buffer wording — modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`, `GUESS 1=?`) write to `modal_prompt` with `#[serde(skip)]`; `print_buffer` carries PRX/PRA/PRSTK output only. Clean lifecycle: set on prompt-open, cleared on prompt-resolve or modal-cancel.
+- **R/S submits modal numeric input (D-28.5):** hardware-faithful per HP Math Pac I OM 1979 p.13 "Press R/S to continue"; reuses the existing v2.1 `run_stop` Tauri command on the GUI side; no new Op variant.
+- **Hyperbolics XEQ-only — no dedicated keys (D-28.6):** SINH/COSH/TANH/ASINH/ACOSH/ATANH reachable via `XEQ "SINH"` etc. — mirrors real HP-41C with Math Pac I; f-prefix on SIN/COS/TAN is reserved for inverses (already wired in v2.2).
+- **Cancellation plumbing in Phase 28; wiring in Phase 31 (D-28.7, D-28.8):** `cancel_requested: Arc<AtomicBool>` with `#[serde(skip)]` on `CalcState`; per-64-samples check in INTG/SOLVE/DIFEQ loops returns `Err(HpError::Canceled)` when set; `request_cancel` Tauri command + GUI cancel button deferred to Phase 31 / GUI-05. Zero subsequent edits to `hp41-core/src/ops/math1/` needed at Phase 31.
+- **`HpError::Canceled` variant (D-28.9):** distinct from `HpError::Domain("DATA ERROR")` — cancellation is user-initiated, not a numerical failure; `Display` impl returns `"CANCELED"`; never serialized (save-file forward-compat unaffected).
+- **5 new `CalcState` fields** (`xrom_modules`, `complex_mode`, `matrix_dim`, `matrix_active_reg`, `modal_prompt`, `modal_program`, `integ_state`, `solve_state`, `cancel_requested`) carry `#[serde(default)]` or `#[serde(skip)]` per the v2.2 backward-compat invariant. v1.0–v2.2 save files continue to load without migration.
+- **~40 new `Op` variants** in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), AND both `prgm_display.rs` copies — 4-way exhaustive-match invariant preserved per the "Op variants land before consumers" pattern documented above.
+
+#### Phase 29 (CLI Integration, shipped 2026-05-17)
+
+- **`xeq_by_name_local_resolve` → `xrom_resolve` (D-29.1 / C-28.4):** the CLI-local resolver in `hp41-cli/src/keys.rs` gains a final fallback into `hp41_core::ops::math1::xrom::xrom_resolve`, closing the third call site deferred by Phase 28; resolver-chain ordering (built-in card-op names win over xrom names) preserved.
+- **`hp41-cli/src/help_data.rs` second `OnceLock<Vec<HelpEntry>>`:** mirrors the v2.2 D-25.16 hard-build-blocker pattern — `MATH1_HELP_ENTRIES` static, `help_entries_math1()` accessor, merged `help_entries_all()` iterator; malformed JSON panics with a distinct message; existing `phase25_help_data` tests unaffected.
+- **`docs/hp41-math1-functions.json` authored in Phase 29 (D-29.1):** pulled forward from Phase 30 / DOC-01 because Phase 29 SC-2 (`?` overlay) and SC-4 (`KEY_REF_TABLE` discoverability) need real entries. ~55 entries with C-28.3 `xrom` block per entry. Phase 30 consumes the file read-only as input to the matrix-renderer.
+- **~40 new `op_display_name` arms in `hp41-cli/src/prgm_display.rs`:** all Math Pac I `Op` variants added; exhaustive match maintained; no `_ =>` catch-all per FN-CLI-04 invariant. (Corresponding arms in `hp41-gui/src-tauri/src/prgm_display.rs` shipped in Phase 28 plans 28-02..28-10.)
+- **`KEY_REF_TABLE` derived from JSON (D-25.18 pattern continues):** Math Pac I entries surface in the right-panel discoverability listing automatically via `help_entries_all()` filtered by non-null `key_path`; no parallel hand-curated table.
+- **Modal-prompt rendering via `pending_prompt()` (D-29.3):** signature widened to accept `state.modal_prompt`; renders on the existing status-bar line when `modal_program.is_some()`; LCD continues showing live X-register / `entry_buf` (D-29.4 — mirrors v2.2 RegisterPrompt UX).
+- **R/S + Esc interception in `handle_key` (D-29.5, D-29.6):** R/S calls `submit_modal(state)`, Esc calls `cancel_modal(state)` (both `pub fn` in `hp41-core`) when `modal_program.is_some()`; interception happens BEFORE the v2.1 `run_stop` path; `pending_input` routing block remains ABOVE these interceptors (D-07 never-discard invariant).
+- **No core/GUI changes in Phase 29:** SC-4 invariant trivially preserved; v2.2 surface unchanged.
+
+#### Phase 30 (Documentation & ADRs, shipped 2026-05-17 — in this plan)
+
+- **`scripts/docs-matrix` two-input extension (D-30.1, D-30.2, D-30.3):** justfile `docs-matrix` and `docs-matrix-check` recipes each gain a second `cargo run` invocation; binary signature stays 1-in/1-out; `Entry.xrom: Option<XromRef>` field added with `#[serde(default)]`; conditional XROM column emitted when `entries.iter().any(|e| e.xrom.is_some())` — hp41cv matrix output bit-for-bit unchanged (D-30.2 invariant).
+- **`docs/hp41-math1-function-matrix.md` generated (~55 entries, D-30.2):** new sibling file; carries XROM column `Math 1 / 7-N` per entry; reachable via README v3.0 soft-claim link; `just docs-matrix-check` CI gate covers both matrices.
+- **Three new ADRs (D-30.6, D-30.7):** `docs/adr/v3.0-001-op-strategy.md` (Op-strategy A vs B — A locked), `docs/adr/v3.0-002-user-callback-policy.md` (strict-reject nested INTG/SOLVE/DIFEQ; Pitfall 19 Free42 disclaim verbatim, 4 occurrences), `docs/adr/v3.0-005-json-pipeline.md` (separate `hp41-math1-functions.json` — locked); each ~6–7 KB long-form; `## Alternatives Considered` quotes Phase 28 CONTEXT.md verbatim per D-30.7.
+- **`docs/hp41-math1-divergences.md` expanded (D-30.4, D-30.5):** three-bucket numbered catalog — OM Divergences (D-30-01..04), Emulator Extensions (D-30-05), Behavioral Policies (D-30-06..07); 7 entries total; 5-field shape per entry (OM citation / Our behavior / OM behavior / Rationale / See); every entry cites HP 00041-90034 or explicit "N/A — emulator extension" marker.
+- **README v3.0 soft-claim (D-30.9):** `- Math Pac I behavioral emulation (10 top-level programs, ~55 XEQ entry points, documented divergences)` under `## Features`. The hard "completeness" claim is deferred to Phase 32 conditional on QUAL-01 coverage gate ≥ 95% — same gating discipline as the v2.2 HP-41CV claim.
+- **PROJECT.md milestone progress lines (D-30.8 (b)):** Shipped block gains Phase 28 + Phase 29 + Phase 30 IN PROGRESS entries; Active block date refreshed to 2026-05-17.
+- **Free42 contamination guard policy documented (Pitfall 19):** ADR-002 carries the verbatim disclaim sentence "Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied." The CI enforcement script `scripts/check-free42-contamination.sh` is deferred to Phase 32 / QUAL-05.
+
+#### Phase 31 (GUI Integration) — (in progress)
+
+#### Phase 32 (Test Hardening & Quality Gates) — (in progress)
+
+**Frozen invariants preserved across v3.0 (so far):**
+- SC-4 invariant: every Phase 28–30 change respects the stricter grep `grep -rn "fn op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)" hp41-gui/src-tauri/src/` (returns nothing). Math Pac I math lives in `hp41-core/src/ops/math1/`.
+- 4-exhaustive-match invariant: every new `Op` variant landed in `dispatch()` + `execute_op()` + both `prgm_display.rs` copies before any caller could compile.
+- `#![deny(clippy::unwrap_used)]` continues to apply in `hp41-core`; new test files in v3.0 carry `#[allow]` at file scope per the established pattern.
+- Save-file backward compat: every new `CalcState` field added in Phase 28 carries `#[serde(default)]`; transient fields (`integ_state`, `solve_state`, `modal_program`, `modal_prompt`, `cancel_requested`) additionally carry `#[serde(skip)]`. v1.0–v2.2 save files continue to load without migration.
+- MSRV 1.88 unchanged through Phase 28–30. Phase 32 plans to add `approx 0.5.1` as the only new dev-dep (relative-tolerance assertion macros) — not landed yet.
+
 ## Tech Stack
 
 **Core / CLI (v1.0 + v1.1):**

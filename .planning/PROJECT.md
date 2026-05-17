@@ -39,6 +39,10 @@
 - v2.0 Tauri GUI (2026-05-10) — Phases 13–18, pixel-perfect HP-41C desktop app
 - v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks (no Phase 19 GSD directory); 50 commits since `v2.0` tag
 - v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27, 26 plans; ROM-built-in set komplett (≈130 ops); coverage gate atomically auf 95 % gehoben; WebdriverIO E2E-Smoke auf Ubuntu; tag `v2.2` auf `main`
+- v3.0 Math Pac I Emulation — IN PROGRESS (Phases 28–32)
+  - Phase 28 XROM Framework + Math Pac I Core Ops (2026-05-16) — `hp41-core` only; 10 plans; ~40 new Op variants; XROM resolver chain fires LAST; modal-workflow state machine; user-callback re-entrancy infrastructure; 5 irreversible decisions locked (ADR-001 through ADR-005)
+  - Phase 29 CLI Integration (2026-05-17) — `hp41-cli` only; 3 plans; `xeq_by_name_local_resolve` wired to `xrom_resolve`; second `OnceLock<Vec<HelpEntry>>` for Math Pac I JSON; ~40 new `op_display_name` arms; modal-prompt routing through `print_buffer`
+  - Phase 30 Documentation & ADRs — IN PROGRESS — `docs/` + tooling only; 3 plans; matrix-renderer two-input extension; 3 new ADRs; divergence catalog expansion; v3.0 narrative across README/PROJECT.md/CLAUDE.md
 
 ## What This Is
 
@@ -162,7 +166,7 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 ### Active (v3.0 — Math 1 Pac Emulation)
 
-*Requirements werden in dieser Milestone-Phase via Research → REQUIREMENTS.md generiert. Stand 2026-05-16: Scope ist Math 1 Pac only; XROM-Framework + Math-1-Funktionsbibliothek (Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
+*Stand 2026-05-17: Phase 28 + Phase 29 shipped (13/13 plans, 13/13 success criteria verified). Phase 30 (Documentation & ADRs) IN PROGRESS — landing now. Phase 31 (GUI Integration) and Phase 32 (Test Hardening) planned. Scope is Math 1 Pac only; XROM-Framework + Math-1-Funktionsbibliothek (Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
 
 ### Out of Scope
 
