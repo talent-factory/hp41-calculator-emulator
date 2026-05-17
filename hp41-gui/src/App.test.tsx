@@ -557,7 +557,7 @@ describe('H — Phase 31 Plan 05: R/S 3-way state-routed (D-31.1) + Esc cascade 
     mockInvoke.mockResolvedValue(
       makeEmptyView({ modal_program_active: true }),
     );
-    const { container } = await renderAppAndWait();
+    await renderAppAndWait();
 
     mockInvoke.mockResolvedValueOnce(makeEmptyView()); // cancel_modal response
     await pressKey('Escape');
