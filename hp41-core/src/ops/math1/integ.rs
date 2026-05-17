@@ -435,10 +435,11 @@ fn run_user_function(state: &mut CalcState, program: &[Op]) -> Result<(), HpErro
     // pops us back to the integ loop level.
     let entry_depth = state.call_stack.len();
     let mut steps: u64 = 0;
-    const MAX_SUB_STEPS: u64 = 100_000;
+    // WR-07: shared cap in crate::ops::math1::USER_CALLBACK_MAX_STEPS
+    use crate::ops::math1::USER_CALLBACK_MAX_STEPS;
 
     loop {
-        if steps >= MAX_SUB_STEPS {
+        if steps >= USER_CALLBACK_MAX_STEPS {
             return Err(HpError::Overflow); // infinite-loop guard
         }
         steps += 1;

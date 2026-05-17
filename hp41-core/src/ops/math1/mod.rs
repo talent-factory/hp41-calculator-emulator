@@ -28,6 +28,16 @@ pub use modal::ModalProgram;
 use crate::error::HpError;
 use crate::state::CalcState;
 
+/// WR-07 fix: single-point-of-truth for the user-callback step budget.
+///
+/// `integ.rs`, `solve.rs`, and `difeq.rs` each run a private
+/// `run_user_function(state, program)` sub-loop that evaluates a
+/// user-supplied LBL function. The infinite-loop guard cap was previously
+/// duplicated in all three files as `const MAX_SUB_STEPS: u64 = 100_000`;
+/// silent drift between the three copies was a latent maintenance risk.
+/// All three callers now import this constant.
+pub const USER_CALLBACK_MAX_STEPS: u64 = 100_000;
+
 // ── Phase 29 / CLI-05 additive public surface — D-29.5 / D-29.6 / D-29.7 ────
 
 /// Submit a numeric R/S input to the currently active modal workflow.
