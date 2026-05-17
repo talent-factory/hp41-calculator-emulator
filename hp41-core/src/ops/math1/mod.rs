@@ -44,13 +44,20 @@ use crate::state::CalcState;
 pub fn submit_modal(state: &mut CalcState) -> Result<(), HpError> {
     use modal::ModalProgram;
 
-    // Flush entry_buf to X register first (so submit_step reads the numeric input)
-    crate::ops::flush_entry_buf(state)?;
-
+    // WR-01 fix: verify a modal is active BEFORE mutating state via
+    // flush_entry_buf. Previously the flush ran unconditionally — if a
+    // non-CLI caller (e.g., a future GUI binding) invoked submit_modal
+    // without an open modal, the user's typed digits got pushed onto the
+    // stack with lift enabled and only THEN did the function return
+    // InvalidOp, leaving the stack visibly mutated for no semantic gain.
     let modal = match state.modal_program.clone() {
         Some(m) => m,
         None => return Err(HpError::InvalidOp),
     };
+
+    // Flush entry_buf to X register so submit_step reads the numeric input.
+    // Only executed after the modal-active guard above passes.
+    crate::ops::flush_entry_buf(state)?;
 
     match modal {
         ModalProgram::Matrix(step) => matrix::submit_step(state, step),
@@ -92,13 +99,19 @@ pub fn cancel_modal(state: &mut CalcState) {
 pub fn submit_modal_with_label(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     use modal::{DifeqInputStep, IntegInputStep, ModalProgram, SolveInputStep};
 
-    let upper = label.trim().to_ascii_uppercase();
-    state.alpha_reg = upper.clone();
-
+    // WR-02 fix: verify the modal is in a label-accepting state BEFORE
+    // mutating state.alpha_reg. Previously alpha_reg was overwritten with
+    // `upper` unconditionally, even when no modal was active or when the
+    // current step was not one of the three FunctionNamePrompt variants —
+    // silently clobbering the user's ALPHA register contents.
     let modal = match state.modal_program.clone() {
-        Some(m) => m,
+        Some(m) if m.requires_alpha_label() => m,
+        Some(_) => return Err(HpError::InvalidOp),
         None => return Err(HpError::InvalidOp),
     };
+
+    let upper = label.trim().to_ascii_uppercase();
+    state.alpha_reg = upper;
 
     match modal {
         ModalProgram::Solve(SolveInputStep::FunctionNamePrompt) => {
@@ -110,7 +123,9 @@ pub fn submit_modal_with_label(state: &mut CalcState, label: &str) -> Result<(),
         ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt) => {
             difeq::submit_label_step(state)
         }
-        // Any other variant: unreachable in well-formed flow per D-29.9 gate
+        // Unreachable: requires_alpha_label() guarantees one of the three
+        // FunctionNamePrompt variants above (D-29.7 / D-29.9). Defensive arm
+        // preserved to satisfy match exhaustiveness without `_ =>` weakening.
         _ => Err(HpError::InvalidOp),
     }
 }
