@@ -10,7 +10,8 @@
     "verifier": true,
     "nyquist_validation": true,
     "auto_advance": false,
-    "ai_integration_phase": true
+    "ai_integration_phase": true,
+    "_auto_chain_active": false
   },
   "graphify": {
     "enabled": true

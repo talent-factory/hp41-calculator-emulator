@@ -138,8 +138,8 @@
   5. `CLAUDE.md` gains the `### v3.0 additions (Math Pac I Emulation, Phases 28–30 — 31–32 IN PROGRESS)` block immediately after the `### v2.2 additions (Test Hardening, Phase 27)` section and before `## Tech Stack`. Phase 28 + Phase 29 + Phase 30 subsections fully populated; Phase 31 + Phase 32 carry `(in progress)` stub headers. `.planning/PROJECT.md` gains concise milestone-progress lines per D-30.8 Claude's Discretion recommendation (b).
 
 **Plans**: 3 plans
-  - [ ] 30-01-PLAN.md — `scripts/docs-matrix` two-input extension (surgical `Entry` widening + conditional XROM column) + `just docs-matrix` + `just docs-matrix-check` CI gate + generate `docs/hp41-math1-function-matrix.md`; DOC-02, DOC-03
-  - [ ] 30-02-PLAN.md — `docs/hp41-math1-divergences.md` three-bucket expansion + 3 new ADR documents (`docs/adr/v3.0-{001,002,005}-*.md` with verbatim Free42 disclaim in ADR-002); DOC-04, DOC-07
+  - [x] 30-01-PLAN.md — `scripts/docs-matrix` two-input extension (surgical `Entry` widening + conditional XROM column) + `just docs-matrix` + `just docs-matrix-check` CI gate + generate `docs/hp41-math1-function-matrix.md`; DOC-02, DOC-03
+  - [x] 30-02-PLAN.md — `docs/hp41-math1-divergences.md` three-bucket expansion + 3 new ADR documents (`docs/adr/v3.0-{001,002,005}-*.md` with verbatim Free42 disclaim in ADR-002); DOC-04, DOC-07
   - [ ] 30-03-PLAN.md — README v3.0 soft-claim + PROJECT.md milestone progress lines + CLAUDE.md `### v3.0 additions` block; DOC-05, DOC-06
 
 **Notable risks/decisions**:
@@ -256,7 +256,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 |-------|-----------|----------------|--------|-----------|
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
-| 30. Documentation & ADRs | v3.0 | 0/3 | Planned | |
+| 30. Documentation & ADRs | v3.0 | 2/3 | In Progress|  |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
