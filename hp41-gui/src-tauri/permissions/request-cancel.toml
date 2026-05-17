@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
+[[permission]]
+identifier = "allow-request-cancel"
+description = "Allows the request_cancel command."
+commands.allow = ["request_cancel"]
