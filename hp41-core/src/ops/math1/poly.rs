@@ -454,7 +454,7 @@ fn format_root_component(val: f64, mode: &DisplayMode) -> String {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    
+
     use crate::state::DisplayMode;
 
     fn make_state() -> CalcState {
