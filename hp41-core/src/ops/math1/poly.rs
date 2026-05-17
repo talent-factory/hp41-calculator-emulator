@@ -505,7 +505,18 @@ pub fn submit_step(
                 state.modal_program = Some(ModalProgram::Poly(PolyInputStep::CoefficientPrompt(degree, next_idx)));
                 state.modal_prompt = Some(format!("{coeff_name}=?"));
             } else {
-                // All coefficients entered — Ready
+                // All coefficients entered — Ready.
+                // WR-04 fix: zero stale coefficient registers above the
+                // user's degree so op_roots' "infer degree from leading
+                // non-zero coefficient" heuristic does not pick up leaked
+                // values from a previous POLY session. `degree` is the
+                // total polynomial degree (e.g. 3); coefficients live in
+                // R00..R{degree}, so R{degree+1}..R5 must be zeroed.
+                for i in (degree as usize + 1)..=5 {
+                    if i < state.regs.len() {
+                        state.regs[i] = crate::num::HpNum::zero();
+                    }
+                }
                 state.modal_program = Some(ModalProgram::Poly(PolyInputStep::Ready));
                 state.modal_prompt = None;
             }
