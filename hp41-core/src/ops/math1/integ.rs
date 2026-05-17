@@ -256,8 +256,20 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     // Use at least 2 subdivisions for a meaningful integral
     let n = n_val.max(2);
 
-    // Simpson requires even number of subdivisions
-    let n_even = if n % 2 == 1 { n + 1 } else { n };
+    // Simpson requires even number of subdivisions.
+    // WR-09 fix: surface the rounding to the user via print_buffer instead of
+    // silently coercing N → N+1. The accuracy claim "exact tolerance per
+    // integ_threshold" silently degraded for users who entered an odd N and
+    // expected exactly that many sub-intervals.
+    let n_even = if n % 2 == 1 {
+        let bumped = n + 1;
+        state
+            .print_buffer
+            .push(format!("N rounded to {bumped} (Simpson requires even)"));
+        bumped
+    } else {
+        n
+    };
 
     // ── Commit: set integ_state after all pre-mutation guards pass ────────────
     let integ = IntegState {
