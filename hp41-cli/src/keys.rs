@@ -400,7 +400,7 @@ pub fn xeq_by_name_local_resolve(name: &str, xrom_modules: u8) -> Option<Op> {
 /// op such as STO, RCL, STO+, etc.) into a single discoverability row.
 pub fn key_ref_entries() -> Vec<(String, String)> {
     let mut seen: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    for entry in crate::help_data::help_entries() {
+    for entry in crate::help_data::help_entries_all() {
         if entry.status != "implemented" {
             continue;
         }

@@ -9,7 +9,7 @@
 
 use std::collections::HashSet;
 
-use hp41_cli::help_data::{help_entries, help_overlay_rows};
+use hp41_cli::help_data::{help_entries, help_entries_all, help_overlay_rows};
 
 #[test]
 fn help_entries_loads_at_runtime() {
@@ -105,13 +105,16 @@ fn help_overlay_rows_contain_category_headers() {
     // The ? overlay consumes help_overlay_rows() which interleaves synthetic
     // === <category> === header rows between groups. Verify each distinct
     // category produces exactly one header row.
+    //
+    // D-29.2: help_overlay_rows() now reads from help_entries_all() (merged
+    // v2.2 + Math Pac I pool), so the expected category count is derived from
+    // help_entries_all() to stay in sync with the merged accessor.
     let rows = help_overlay_rows();
-    let entries = help_entries();
 
-    let mut distinct_categories: Vec<&str> = Vec::new();
-    for e in entries {
-        if !distinct_categories.iter().any(|c| *c == e.category) {
-            distinct_categories.push(&e.category);
+    let mut distinct_categories: Vec<String> = Vec::new();
+    for e in help_entries_all() {
+        if !distinct_categories.iter().any(|c| c == &e.category) {
+            distinct_categories.push(e.category.clone());
         }
     }
 
