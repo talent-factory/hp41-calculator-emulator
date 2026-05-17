@@ -461,41 +461,100 @@ pub fn submit_step(
 ) -> Result<(), HpError> {
     match step {
         TransInputStep::Init2dPrompt => {
-            // Phase 29 simplified: read x₀ from X, advance to ForwardPrompt.
-            // Full multi-step 2D init (x₀, y₀, θ) deferred to Phase 31 enhanced CLI.
+            // BL-01 fix: capture ALL three 2D-init params (x₀, y₀, θ) from the
+            // stack — previously only x₀ (R00) was captured and y₀, θ were
+            // silently discarded. The user enters them as `x₀ ENTER y₀ ENTER θ`,
+            // so on entry: X=θ, Y=y₀, Z=x₀ (HP-41 stack convention).
+            // Store via the existing helper to keep the layout consistent with
+            // do_trans2d_forward / do_trans2d_inverse which read R00=x₀,
+            // R01=y₀, R02=θ.
             if state.regs.len() < 3 {
                 return Err(HpError::InvalidOp);
             }
-            state.regs[0] = state.stack.x.clone();
+            let theta_raw = state.stack.x.inner().to_f64().unwrap_or(0.0);
+            let y0 = state.stack.y.inner().to_f64().unwrap_or(0.0);
+            let x0 = state.stack.z.inner().to_f64().unwrap_or(0.0);
+            store_trans2d_params(state, x0, y0, theta_raw);
             state.modal_program = Some(ModalProgram::Trans(TransInputStep::ForwardPrompt));
             state.modal_prompt = Some("FWD?".to_string());
             Ok(())
         }
         TransInputStep::Init3dOriginPrompt => {
+            // Capture 3D origin (x₀, y₀, z₀) from the stack: X=z₀, Y=y₀, Z=x₀
+            // (user enters `x₀ ENTER y₀ ENTER z₀`). do_trans3d_forward reads
+            // R00=x₀, R01=y₀, R02=z₀.
             if state.regs.len() < 4 {
                 return Err(HpError::InvalidOp);
             }
-            state.regs[0] = state.stack.x.clone();
+            let z0 = state.stack.x.inner().to_f64().unwrap_or(0.0);
+            let y0 = state.stack.y.inner().to_f64().unwrap_or(0.0);
+            let x0 = state.stack.z.inner().to_f64().unwrap_or(0.0);
+            if state.regs.len() > 2 {
+                state.regs[0] = f64_to_hpnum(x0).unwrap_or_else(|_| HpNum::zero());
+                state.regs[1] = f64_to_hpnum(y0).unwrap_or_else(|_| HpNum::zero());
+                state.regs[2] = f64_to_hpnum(z0).unwrap_or_else(|_| HpNum::zero());
+            }
             state.modal_program = Some(ModalProgram::Trans(TransInputStep::Init3dAxisPrompt));
             state.modal_prompt = Some("AXIS+\u{03B8}?".to_string());
             Ok(())
         }
         TransInputStep::Init3dAxisPrompt => {
+            // Capture 3D axis (a, b, c) + θ from the stack. The 4-tuple input
+            // (a, b, c, θ) means on entry X=θ, Y=c, Z=b, T=a. do_trans3d_forward
+            // reads R03=a, R04=b, R05=c, R06=θ.
             if state.regs.len() < 7 {
                 return Err(HpError::InvalidOp);
             }
-            state.regs[3] = state.stack.x.clone();
+            let theta_raw = state.stack.x.inner().to_f64().unwrap_or(0.0);
+            let c = state.stack.y.inner().to_f64().unwrap_or(0.0);
+            let b = state.stack.z.inner().to_f64().unwrap_or(0.0);
+            let a = state.stack.t.inner().to_f64().unwrap_or(0.0);
+            state.regs[3] = f64_to_hpnum(a).unwrap_or_else(|_| HpNum::zero());
+            state.regs[4] = f64_to_hpnum(b).unwrap_or_else(|_| HpNum::zero());
+            state.regs[5] = f64_to_hpnum(c).unwrap_or_else(|_| HpNum::zero());
+            state.regs[6] = f64_to_hpnum(theta_raw).unwrap_or_else(|_| HpNum::zero());
             state.modal_program = Some(ModalProgram::Trans(TransInputStep::ForwardPrompt));
             state.modal_prompt = Some("FWD?".to_string());
             Ok(())
         }
-        TransInputStep::ForwardPrompt | TransInputStep::InversePrompt => {
-            // Forward/inverse prompts stay in their respective state (repeated use).
-            // Actual computation is deferred to full Phase 31 wiring with the
-            // op_trans2d_forward / op_trans3d_forward helpers.
-            // For Phase 29 CLI: just acknowledge and clear prompt.
-            state.modal_program = Some(ModalProgram::Trans(TransInputStep::Ready));
-            state.modal_prompt = None;
+        TransInputStep::ForwardPrompt => {
+            // BL-02 fix: actually run the forward transform. Previously this
+            // arm only cleared the prompt and the user's input went nowhere.
+            // We dispatch to do_trans2d_forward if the modal originated from
+            // Op::Trans2d (R00..R02 populated; R03..R06 untouched), or to
+            // do_trans3d_forward if R03..R06 are non-default. Heuristic:
+            // R06 != 0 (θ for 3D) → 3D. This matches the param-storage
+            // contract above (3D writes R03..R06, 2D leaves them at zero).
+            let is_3d = state
+                .regs
+                .get(6)
+                .map(|r| r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
+                    || state.regs.get(3).map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON).unwrap_or(false))
+                .unwrap_or(false);
+            if is_3d {
+                do_trans3d_forward(state)?;
+            } else {
+                do_trans2d_forward(state)?;
+            }
+            // Stay in ForwardPrompt for repeated FWD queries (per OM convention).
+            state.modal_prompt = Some("FWD?".to_string());
+            Ok(())
+        }
+        TransInputStep::InversePrompt => {
+            // BL-02 fix: actually run the inverse transform. Same 2D/3D
+            // heuristic as ForwardPrompt above.
+            let is_3d = state
+                .regs
+                .get(6)
+                .map(|r| r.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON
+                    || state.regs.get(3).map(|r3| r3.inner().to_f64().unwrap_or(0.0).abs() > f64::EPSILON).unwrap_or(false))
+                .unwrap_or(false);
+            if is_3d {
+                do_trans3d_inverse(state)?;
+            } else {
+                do_trans2d_inverse(state)?;
+            }
+            state.modal_prompt = Some("INV?".to_string());
             Ok(())
         }
         TransInputStep::Ready => Err(HpError::InvalidOp),
