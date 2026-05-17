@@ -26,7 +26,7 @@
 
 - [x] **Phase 28: XROM Framework + Math Pac I Core Ops** — Land XROM registry, ~40 new `Op` variants, modal-workflow state machine, user-program callback infrastructure for INTG/SOLVE/DIFEQ, and all 10 Math Pac I top-level programs (`MATRIX`, `SOLVE`, `POLY`, `INTG`, `DIFEQ`, `FOUR`, complex stack, hyperbolics, triangle solvers, `TRANS`) in `hp41-core` (completed 2026-05-16)
 - [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17). DOC-01 absorbed into Plan 29-01 per D-29.1 (file `docs/hp41-math1-functions.json` authored here)
-- [ ] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block
+- [x] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block (completed 2026-05-17)
 - [ ] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ)
 - [ ] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI
 
@@ -140,7 +140,7 @@
 **Plans**: 3 plans
   - [x] 30-01-PLAN.md — `scripts/docs-matrix` two-input extension (surgical `Entry` widening + conditional XROM column) + `just docs-matrix` + `just docs-matrix-check` CI gate + generate `docs/hp41-math1-function-matrix.md`; DOC-02, DOC-03
   - [x] 30-02-PLAN.md — `docs/hp41-math1-divergences.md` three-bucket expansion + 3 new ADR documents (`docs/adr/v3.0-{001,002,005}-*.md` with verbatim Free42 disclaim in ADR-002); DOC-04, DOC-07
-  - [ ] 30-03-PLAN.md — README v3.0 soft-claim + PROJECT.md milestone progress lines + CLAUDE.md `### v3.0 additions` block; DOC-05, DOC-06
+  - [x] 30-03-PLAN.md — README v3.0 soft-claim + PROJECT.md milestone progress lines + CLAUDE.md `### v3.0 additions` block; DOC-05, DOC-06
 
 **Notable risks/decisions**:
   - **Pitfall 18 (citation provenance)**: every divergence-doc entry and ADR must cite OM page-and-example, MoHPC URL, or Mike Sebastian forensic page; no uncited assertions
@@ -256,7 +256,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 |-------|-----------|----------------|--------|-----------|
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
-| 30. Documentation & ADRs | v3.0 | 2/3 | In Progress|  |
+| 30. Documentation & ADRs | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
