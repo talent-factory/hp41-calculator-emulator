@@ -772,13 +772,13 @@ pub fn submit_step(
     use crate::ops::math1::modal::{DifeqInputStep, ModalProgram};
     match step {
         DifeqInputStep::OrderPrompt => {
-            let order = state
-                .stack
-                .x
-                .inner()
-                .to_u8()
-                .unwrap_or(1)
-                .clamp(1, 2);
+            // WR-03 fix: do NOT silently clamp the raw value to {1, 2}. Let
+            // out-of-range values reach op_difeq_run_loop which reports
+            // "ORDER MUST BE 1 OR 2" via modal_prompt — explicit feedback
+            // beats silent coercion. A user typing `3` for a 3rd-order ODE
+            // previously got a 2nd-order run with no warning; now they get
+            // a clear rejection at solver-start.
+            let order = state.stack.x.inner().to_u8().unwrap_or(0);
             if state.regs.is_empty() {
                 return Err(HpError::InvalidOp);
             }
