@@ -5,7 +5,7 @@
 
 **Phase numbering:** continued from v2.2 (last shipped Phase 27). v3.0 phases start at **Phase 28**.
 
-**Granularity:** standard (config.json). Phase count: 5 (28–32). Plans per phase: 10 / 3–4 / 4 / 4–5 / 3.
+**Granularity:** standard (config.json). Phase count: 5 (28–32). Plans per phase: 10 / 3–4 / 3 (Phase 30 absorbed DOC-01 into Phase 29 via D-29.1) / 4–5 / 3.
 
 ---
 
@@ -25,8 +25,8 @@
 ### v3.0 — Math Pac I Emulation (Phases 28–32)
 
 - [x] **Phase 28: XROM Framework + Math Pac I Core Ops** — Land XROM registry, ~40 new `Op` variants, modal-workflow state machine, user-program callback infrastructure for INTG/SOLVE/DIFEQ, and all 10 Math Pac I top-level programs (`MATRIX`, `SOLVE`, `POLY`, `INTG`, `DIFEQ`, `FOUR`, complex stack, hyperbolics, triangle solvers, `TRANS`) in `hp41-core` (completed 2026-05-16)
-- [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17)
-- [ ] **Phase 30: Documentation & ADRs** — Publish `docs/hp41-math1-functions.json` (~55 entries), regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 5 ADRs for Phase 28 irreversible decisions, README v3.0 soft-claim
+- [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17). DOC-01 absorbed into Plan 29-01 per D-29.1 (file `docs/hp41-math1-functions.json` authored here)
+- [ ] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block
 - [ ] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ)
 - [ ] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI
 
@@ -98,7 +98,7 @@
 
 **Build stage**: `hp41-cli`
 
-**Requirements (5 mapped)**: CLI-01..05.
+**Requirements (5 mapped)**: CLI-01..05. (DOC-01 absorbed via D-29.1 — `docs/hp41-math1-functions.json` authored in Plan 29-01.)
 
 **Success Criteria** (what must be TRUE):
   1. `xeq_by_name_local_resolve("SINH")` in `hp41-cli/src/keys.rs` invokes `hp41_core::ops::math1::xrom_resolve` and returns `Op::Sinh`; pressing `X / S / I / N / H / Enter` in the XEQ-by-name modal executes `Op::Sinh` correctly; identical resolver path used inside `op_xeq`, `run_program`, and `run_loop` (D-25.6 CLI ↔ GUI parity preserved through shared hp41-core code)
@@ -108,7 +108,7 @@
   5. Modal-prompt routing for `MATRIX` / `SOLVE` / `POLY` / `INTG` / `DIFEQ` / `FOUR` / `TRANS` workflows: pressing the corresponding XEQ-by-name target triggers the `ModalProgram` state machine from Phase 28; prompt text (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) appears in the TUI status bar / print panel; user input flows through the existing number-entry pipeline; ALPHA-text prompts for `FUNCTION NAME?` integrate with the v2.2 XEQ-by-name modal
 
 **Plans**: 3 plans
-  - [x] 29-01-PLAN.md — XEQ-by-name resolver chain extension + help_data second OnceLock + JSON wiring; CLI-01, CLI-02
+  - [x] 29-01-PLAN.md — XEQ-by-name resolver chain extension + help_data second OnceLock + JSON wiring + `docs/hp41-math1-functions.json` authored (D-29.1 lock; DOC-01 pulled forward); CLI-01, CLI-02, DOC-01
   - [x] 29-02-PLAN.md — prgm_display.rs ~40 new arms + KEY_REF_TABLE derivation from JSON; CLI-03, CLI-04
   - [x] 29-03-PLAN.md — Modal-prompt routing for Math Pac I workflows (re-uses Phase 28's `ModalProgram` infrastructure); CLI-05
 
@@ -122,30 +122,30 @@
 
 ### Phase 30: Documentation & ADRs
 
-**Goal**: `docs/hp41-math1-functions.json` ships as the second authoritative source-of-truth alongside `hp41cv-functions.json`; `scripts/docs-matrix` regenerates `docs/hp41-math1-function-matrix.md` from both inputs; 5 ADRs document the Phase 28 irreversible decisions; README claims "Math Pac I behavioral emulation included"; `docs/hp41-math1-divergences.md` documents OM-Abweichungen (multiplicity-as-cluster for POLY, INTG-threshold-tying, FACT-extension-policy).
+**Goal**: `scripts/docs-matrix` regenerates `docs/hp41-math1-function-matrix.md` from the Phase-29-authored `docs/hp41-math1-functions.json` via a two-input recipe; 3 new ADRs (001/002/005) document the Phase 28 irreversible decisions in long-form mirroring ADR-003/004; `docs/hp41-math1-divergences.md` expands to a three-bucket numbered catalog (OM Divergences / Emulator Extensions / Behavioral Policies); README claims "Math Pac I behavioral emulation included" with link to the matrix file; CLAUDE.md gains a `### v3.0 additions (Phases 28–30 — 31–32 IN PROGRESS)` block.
 
-**Depends on**: Phase 29 (CLI integration validates JSON entries against actual `Op` variants via `tests/function_matrix_parity.rs`).
+**Depends on**: Phase 29 (DOC-01 absorbed via D-29.1 — `docs/hp41-math1-functions.json` already ships from Plan 29-01; Phase 30 consumes it read-only as matrix-renderer input).
 
 **Build stage**: `docs`
 
-**Requirements (7 mapped)**: DOC-01..07.
+**Requirements (6 mapped)**: DOC-02..07. (DOC-01 absorbed into Phase 29 / Plan 29-01 per D-29.1.)
 
 **Success Criteria** (what must be TRUE):
-  1. `docs/hp41-math1-functions.json` exists with ~55 entries; identical schema to `hp41cv-functions.json` plus `xrom: { module: "Math 1", module_id: 7, function_id: <n> }` object per entry; loads via `include_str!` + `OnceLock` from both `hp41-cli/src/help_data.rs` and (Phase 31) `hp41-gui/src/help_data.ts`; bidirectional parity test in `hp41-cli/tests/function_matrix_parity.rs` asserts every JSON entry has a matching `Op::*` variant and every `xrom_resolve` mnemonic has a JSON entry
-  2. `scripts/docs-matrix/` (standalone non-workspace crate from v2.2 Plan 25-04) extended to two-input mode: reads both JSON files, regenerates `docs/hp41cv-function-matrix.md` (130 entries) AND `docs/hp41-math1-function-matrix.md` (~55 entries); `just docs-matrix` regenerates both; `just docs-matrix-check` is the CI drift-catch (mirror of v2.2 Pitfall 8 mitigation)
-  3. `docs/hp41-math1-divergences.md` documents every Math Pac I behavior where the emulator's answer differs from the OM's quoted example by more than 1 ULP at 10-digit precision: multiplicity-as-cluster for POLY (Pitfall 5), INTG-threshold tied to DisplayMode (Pitfall 2), FACT-extension policy (kept v2.2 integer-only; new `GAMMA` not added — Pitfall 9 decision), strict-reject nested INTG/SOLVE per XROM-08
-  4. `docs/adr/` directory carries 5 new ADR documents — ADR-001 (Op-Strategy A vs B), ADR-002 (User-Callback Re-entrancy Policy: strict-reject nested), ADR-003 (INV-EPSILON value post-OM-transcription), ADR-004 (INTG-Threshold Formula post-OM-transcription), ADR-005 (JSON-Pipeline Shape: separate `hp41-math1-functions.json`); each ADR cites Owner's Manual page / community source per Pitfall 18
-  5. `README.md` carries the v3.0 soft-claim "Math Pac I behavioral emulation included (10 top-level programs, ~55 XEQ entry points, documented divergences)" + link to `docs/hp41-math1-function-matrix.md`; `PROJECT.md` and `CLAUDE.md` gain a "v3.0 additions" block analog to the v2.2 additions block
+  1. `scripts/docs-matrix/` (standalone non-workspace crate from v2.2 Plan 25-04) extended to two-input invocation: `just docs-matrix` runs the binary twice — once for `hp41cv-functions.json → hp41cv-function-matrix.md` (unchanged) and once for `hp41-math1-functions.json → hp41-math1-function-matrix.md` (new ~55-entry file with an XROM column). `just docs-matrix-check` is the CI drift-catch covering both inputs (mirror of v2.2 Pitfall 8 mitigation). Binary signature stays 1-in/1-out per D-30.1; the surgical exception is the `Entry` struct widening (`xrom: Option<XromRef>` with `#[serde(default)]`) + conditional column emission. hp41cv path bit-for-bit unchanged per D-30.2 invariant.
+  2. `docs/hp41-math1-divergences.md` documents every Math Pac I behavior where the emulator differs from the OM or extends it — three-bucket numbered catalog (D-30-NN IDs) covering OM divergences (POLY multiplicity-as-cluster per Pitfall 5, INTG threshold tied to DisplayMode per ADR-004, FACT integer-only extension policy), emulator extensions (XEQ "REAL" per D-28.3), and behavioral policies (strict-reject nested INTG/SOLVE per XROM-08/ADR-002, modal R/S submit per D-28.5/OM p.13). Five-field shape per entry: OM citation / Our behavior / OM behavior / Rationale / See.
+  3. `docs/adr/` directory carries 3 new ADR documents — `v3.0-001-op-strategy.md` (Op-Strategy A vs B chosen A), `v3.0-002-user-callback-policy.md` (strict-reject nested with Pitfall 19 Free42 disclaim verbatim), `v3.0-005-json-pipeline.md` (separate `hp41-math1-functions.json` shape). Each ~6–7 KB long-form per D-30.6, mirroring `v3.0-003-inv-epsilon.md` / `v3.0-004-intg-threshold.md` template (`## Context` / `## Decision` / `## Consequences` / `## Alternatives Considered` / `## Footnotes`). `## Alternatives Considered` quotes Phase 28 CONTEXT.md verbatim per D-30.7; OM page-and-example cited per Pitfall 18.
+  4. `README.md` carries the verbatim D-30.9 soft-claim line `- Math Pac I behavioral emulation (10 top-level programs, ~55 XEQ entry points, documented divergences)` under `## Features` + a matrix link `docs/hp41-math1-function-matrix.md` in the `## Documentation` table. Hard claim "feature-complete Math Pac I" deferred to Phase 32 conditional on QUAL-01 coverage gate ≥ 95 %.
+  5. `CLAUDE.md` gains the `### v3.0 additions (Math Pac I Emulation, Phases 28–30 — 31–32 IN PROGRESS)` block immediately after the `### v2.2 additions (Test Hardening, Phase 27)` section and before `## Tech Stack`. Phase 28 + Phase 29 + Phase 30 subsections fully populated; Phase 31 + Phase 32 carry `(in progress)` stub headers. `.planning/PROJECT.md` gains concise milestone-progress lines per D-30.8 Claude's Discretion recommendation (b).
 
-**Plans**: 4 plans
-  - [ ] 30-01-PLAN.md — `docs/hp41-math1-functions.json` authoring (~55 entries) + JSON schema parity with `hp41cv-functions.json`; DOC-01
-  - [ ] 30-02-PLAN.md — `scripts/docs-matrix` two-input extension + `just docs-matrix` + `just docs-matrix-check` CI gate; DOC-02, DOC-03
-  - [ ] 30-03-PLAN.md — `docs/hp41-math1-divergences.md` authoring + 5 ADR documents (`docs/adr/v3.0-001-op-strategy.md` etc.); DOC-04, DOC-07
-  - [ ] 30-04-PLAN.md — README soft-claim + PROJECT.md / CLAUDE.md v3.0 additions block; DOC-05, DOC-06
+**Plans**: 3 plans
+  - [ ] 30-01-PLAN.md — `scripts/docs-matrix` two-input extension (surgical `Entry` widening + conditional XROM column) + `just docs-matrix` + `just docs-matrix-check` CI gate + generate `docs/hp41-math1-function-matrix.md`; DOC-02, DOC-03
+  - [ ] 30-02-PLAN.md — `docs/hp41-math1-divergences.md` three-bucket expansion + 3 new ADR documents (`docs/adr/v3.0-{001,002,005}-*.md` with verbatim Free42 disclaim in ADR-002); DOC-04, DOC-07
+  - [ ] 30-03-PLAN.md — README v3.0 soft-claim + PROJECT.md milestone progress lines + CLAUDE.md `### v3.0 additions` block; DOC-05, DOC-06
 
 **Notable risks/decisions**:
   - **Pitfall 18 (citation provenance)**: every divergence-doc entry and ADR must cite OM page-and-example, MoHPC URL, or Mike Sebastian forensic page; no uncited assertions
-  - **Pitfall 19 (Free42 GPL contamination)**: ADR-002 (user-callback policy) explicitly disclaims Free42; per-file header comment + audit script `scripts/check-free42-contamination.sh` documented here, enforced in CI from Phase 32
+  - **Pitfall 19 (Free42 GPL contamination)**: ADR-002 (user-callback policy) explicitly disclaims Free42 with the verbatim sentence `Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied.`; per-file header comment policy documented; CI enforcement script `scripts/check-free42-contamination.sh` deferred to Phase 32 / QUAL-05
+  - **D-30.1 surgical exception**: `scripts/docs-matrix/src/main.rs` is widened to accept an optional `xrom: Option<XromRef>` field (`#[serde(default)]`) and emit a conditional XROM column based on `entries.iter().any(|e| e.xrom.is_some())`. The CLI signature stays 1-in/1-out per the spirit of D-30.1; the struct widening is the documented minimum-blast-radius alternative to a frozen binary + post-processing.
 
 **UI hint**: no (documentation-only)
 
@@ -256,7 +256,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 |-------|-----------|----------------|--------|-----------|
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
-| 30. Documentation & ADRs | v3.0 | 0/4 | Planned | |
+| 30. Documentation & ADRs | v3.0 | 0/3 | Planned | |
 | 31. GUI Integration | v3.0 | 0/5 | Planned | |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
@@ -271,4 +271,4 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 
 ---
 
-*Last updated: 2026-05-16 — v3.0 ROADMAP drafted by `/gsd:roadmapper`; 5 phases (28–32), 25 plans, 110 requirements mapped 1:1; Phase 28 carries 5 irreversible decisions; awaiting `/gsd:plan-phase 28`.*
+*Last updated: 2026-05-17 — Phase 30 planned by `/gsd-plan-phase`; 3 plans (30-01/02/03) covering DOC-02..07 (DOC-01 absorbed into Phase 29 / Plan 29-01 per D-29.1). Phase 30 is documentation-only with the surgical `scripts/docs-matrix/src/main.rs` exception per D-30.1.*

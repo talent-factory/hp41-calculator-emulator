@@ -307,7 +307,7 @@ Filled 2026-05-16 by `/gsd:roadmapper`. Every v3.0 requirement maps to exactly o
 | CLI-03 | CLI integration | 29 | 29-02 | planned |
 | CLI-04 | CLI integration | 29 | 29-02 | planned |
 | CLI-05 | CLI integration | 29 | 29-03 | planned |
-| DOC-01 | Documentation | 30 | 30-01 | planned |
+| DOC-01 | Documentation | 29 | 29-01 | shipped |
 | DOC-02 | Documentation | 30 | 30-02 | planned |
 | DOC-03 | Documentation | 30 | 30-02 | planned |
 | DOC-04 | Documentation | 30 | 30-03 | planned |
