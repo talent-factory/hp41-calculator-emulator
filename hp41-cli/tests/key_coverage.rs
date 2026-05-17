@@ -16,7 +16,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 
 use hp41_cli::app::App;
-use hp41_cli::help_data::help_entries;
+use hp41_cli::help_data::{help_entries_all, HelpEntry};
 use hp41_cli::keys::{self, xeq_by_name_local_resolve};
 use hp41_core::ops::Op;
 use hp41_core::state::CalcState;
@@ -117,11 +117,17 @@ fn parse_key_path(s: &str) -> Option<KeyPath> {
 
 #[test]
 fn key_coverage_implemented_entries_dispatch() {
-    let entries = help_entries();
+    // BL-04 fix: iterate the MERGED pool (v2.2 built-ins + Math Pac I) — the
+    // narrow help_entries() accessor skipped the 45 Math1 XEQ entries, so a
+    // future JSON typo in the Math1 file (e.g. SHIN instead of SINH) would
+    // not be caught by this closure test. The D-25.18 invariant ("every
+    // implemented JSON entry with non-null key_path dispatches to a known
+    // Op:: variant") explicitly extends across both pools per D-29.2.
+    let entries: Vec<&HelpEntry> = help_entries_all().collect();
     let mut probed = 0usize;
     let mut skipped: Vec<(&str, &str)> = Vec::new();
 
-    for entry in entries {
+    for entry in entries.iter() {
         if entry.status != "implemented" {
             continue;
         }
@@ -229,15 +235,66 @@ fn key_coverage_implemented_entries_dispatch() {
     }
 
     // Pitfall 7 belt-and-braces: an empty JSON or wrong filter would let the
-    // probe loop pass vacuously. The Plan-04 spec estimated >= 80 entries
-    // (RESEARCH §"key_coverage.rs"), but the as-shipped JSON has 62
-    // implemented rows with non-null key_path (27 single-char primary + 2
-    // tokens + 21 f-shifted + 12 XEQ-by-name). The threshold is set at 50
-    // — well below the actual 62 to absorb minor JSON-authoring churn but
-    // well above the empty-JSON failure mode (0 probes).
+    // probe loop pass vacuously. BL-04 fix: now that we iterate the MERGED
+    // pool (v2.2 + Math Pac I), the floor goes from 50 → 95 to absorb the
+    // ~45 new Math1 XEQ-by-name entries. As-shipped pools: v2.2 has 62
+    // implemented rows with non-null key_path, Math1 adds ~45 → total ~107.
+    // The 95 threshold leaves headroom for minor JSON-authoring churn but
+    // catches any regression where Math1 entries are silently filtered out.
     assert!(
-        probed >= 50,
-        "key_coverage probed only {probed} entries — JSON is empty, the \
-         filter is wrong, or parse_key_path is over-eager about skipping"
+        probed >= 95,
+        "key_coverage probed only {probed} entries — JSON pool is empty, \
+         the Math1 file failed to load, the filter is wrong, or \
+         parse_key_path is over-eager about skipping"
+    );
+
+    // BL-04 fix sub-loop: every Math1 XEQ-by-name entry (xrom.is_some())
+    // must resolve via xeq_by_name_local_resolve(name, 0b0000_0001).
+    // This is the D-25.18 closure for the new pool: a typo in
+    // docs/hp41-math1-functions.json (e.g. SHIN instead of SINH) that
+    // happens to keep the JSON parseable will fail here even if the typo
+    // is invisible to the v2.2-only probe above.
+    let mut math1_probed = 0usize;
+    for entry in entries.iter() {
+        if entry.status != "implemented" {
+            continue;
+        }
+        let Some(xrom) = entry.xrom.as_ref() else {
+            continue;
+        };
+        // xrom.module_id is the HARDWARE module ID (7 for HP Math Pac I,
+        // "MATH 1A"), NOT the `xrom_modules` BIT. The corresponding bit
+        // passed to xeq_by_name_local_resolve is 0b0000_0001 (bit 0).
+        if xrom.module_id != 7 {
+            continue;
+        }
+        let Some(key_path) = entry.key_path.as_deref() else {
+            continue;
+        };
+        // Only XEQ-by-name shapes here (Math1 entries with this
+        // signature). Primary / shifted / modal keystrokes for Math1
+        // are exercised by the main loop above.
+        let Some(rest) = key_path.strip_prefix("XEQ \"") else {
+            continue;
+        };
+        let Some(name) = rest.strip_suffix('"') else {
+            continue;
+        };
+        math1_probed += 1;
+        let resolved = xeq_by_name_local_resolve(name, 0b0000_0001);
+        assert!(
+            resolved.is_some(),
+            "{} via XEQ \"{}\": xeq_by_name_local_resolve with Math1 \
+             module loaded (0b0000_0001) returned None — JSON typo or \
+             missing MATH_1.ops entry?",
+            entry.op_variant,
+            name
+        );
+    }
+    assert!(
+        math1_probed >= 40,
+        "Math1 sub-loop probed only {math1_probed} entries — \
+         help_entries_all is missing the Math1 pool, or every Math1 \
+         entry lost its xrom field"
     );
 }
