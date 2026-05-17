@@ -150,16 +150,22 @@ fn simpson_coeff(k: u32, n: u32) -> u32 {
 pub fn op_integ(state: &mut CalcState) -> Result<(), HpError> {
     // Phase 29 / CLI-07 — additive completion of Phase 28 stub.
     // The Phase 28 stub anticipated this wiring (symmetric with op_solve pattern).
+    //
+    // CR-04 fix: open at ModeChoice (the documented OM-faithful entry point),
+    // not at FunctionNamePrompt. Previously the dispatch arm skipped ModeChoice
+    // entirely, making `IntegInputStep::ModeChoice` and `submit_step(ModeChoice)`
+    // unreachable on every interactive path. The submit_step(ModeChoice) arm
+    // (Explicit-mode default) advances the modal to FunctionNamePrompt on the
+    // first R/S, matching the previous behavior end-to-end for Explicit users.
+    // Full Discrete-mode dispatch (split inside submit_step(ModeChoice) based on
+    // user choice) ships in a later plan per Phase 28-07-SUMMARY:245.
     if !state.is_running {
-        // Interactive: open the INTG modal at ModeChoice first,
-        // then FunctionNamePrompt after mode selection.
-        // For CLI simplicity: open at FunctionNamePrompt directly (Explicit mode default).
         state.modal_program = Some(
             crate::ops::math1::modal::ModalProgram::Integ(
-                crate::ops::math1::modal::IntegInputStep::FunctionNamePrompt,
+                crate::ops::math1::modal::IntegInputStep::ModeChoice,
             ),
         );
-        state.modal_prompt = Some("FUNCTION NAME?".to_string());
+        state.modal_prompt = Some("INTG MODE?".to_string());
         return Ok(());
     }
     // Op::Integ inside run_loop: real implementation in op_integ_run_loop.
@@ -665,9 +671,11 @@ mod tests {
     // ── op_integ (dispatch stub) ──────────────────────────────────────────────
 
     // Catches: op_integ interactive branch (Phase 29 completion) not opening modal at
-    // FunctionNamePrompt when called interactively (!is_running).
-    // Phase 29 / CLI-07: op_integ now opens a modal when !is_running, per the documented
-    // Phase 28 stub design (symmetric with op_solve completion pattern).
+    // ModeChoice when called interactively (!is_running).
+    // CR-04 fix: op_integ opens at ModeChoice (the OM-faithful documented entry).
+    // The submit_step(ModeChoice) arm advances to FunctionNamePrompt on first R/S
+    // (Explicit-mode default). Previously op_integ opened directly at
+    // FunctionNamePrompt, making the ModeChoice variant unreachable.
     #[test]
     fn op_integ_dispatch_opens_modal_when_interactive() {
         let mut state = CalcState::new();
@@ -683,8 +691,8 @@ mod tests {
         );
         assert_eq!(
             state.modal_prompt,
-            Some("FUNCTION NAME?".to_string()),
-            "op_integ must set modal_prompt to 'FUNCTION NAME?' when !is_running"
+            Some("INTG MODE?".to_string()),
+            "op_integ must set modal_prompt to 'INTG MODE?' when !is_running (CR-04)"
         );
     }
 
