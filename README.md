@@ -47,6 +47,8 @@ Implements the full **feature-complete HP-41CV ROM built-in function set** (~130
 - Print emulation: PRX / PRA / PRSTK push to an in-memory `print_buffer` — `hp41-core` stays I/O-free
 - Synthetic programming: GETKEY, NULL, hidden registers M/N/O, 2-digit HexModal over a curated 23-entry safe subset
 - Persistent state via JSON at `~/.hp41/autosave.json` — human-readable, version-stable, shared between CLI and GUI
+- Math Pac I behavioral emulation (10 top-level programs, ~55 XEQ entry
+  points, documented divergences) — see [Math Pac I Function Matrix](docs/hp41-math1-function-matrix.md)
 
 **Terminal UI (`hp41-cli`)**
 
@@ -114,6 +116,7 @@ The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every
 | [HP-41 Overview](docs/hp41-overview.md) | History, variants, RPN introduction |
 | [Operations Reference](docs/operations-reference.md) | All ~130 operations by category |
 | [Function Matrix](docs/hp41cv-function-matrix.md) | Per-op status, keyboard path, divergences |
+| [Math Pac I Function Matrix](docs/hp41-math1-function-matrix.md) | Math Pac I XROM entries with module/function IDs |
 | [Keyboard Layout](docs/keyboard-layout.md) | Key layout and shifted functions |
 | [Programming Guide](docs/programming-guide.md) | Stack model, programs, flags, loops |
 | [Architecture](docs/architecture.md) | Emulator internals for contributors |
