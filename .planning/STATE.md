@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Math Pac I Emulation
-status: completed
-last_updated: "2026-05-17T00:03:47.747Z"
-last_activity: 2026-05-17 -- Phase 28 marked complete
+status: in_progress
+last_updated: "2026-05-17T08:20:20.422Z"
+last_activity: 2026-05-17 -- Phase 29 context gathered (D-29.1..D-29.9)
 progress:
   total_phases: 5
   completed_phases: 1
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
 **Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green
-**Current focus:** Phase 28 — xrom-framework-math-pac-i-core-ops
+**Current focus:** Phase 29 — cli-integration (context gathered)
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -35,10 +35,11 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 
 ## Current Position
 
-Phase: 28 — COMPLETE
-Plan: 10 of 10
-Status: Phase 28 complete
-Last activity: 2026-05-17 -- Phase 28 marked complete
+Phase: 29 — context gathered
+Plan: 0 of 3
+Status: 29-CONTEXT.md written; ready for /gsd:plan-phase 29
+Last activity: 2026-05-17 -- Phase 29 context gathered (9 decisions, D-29.1..D-29.9)
+Resume from: .planning/phases/29-cli-integration/29-CONTEXT.md
 
 ---
 
