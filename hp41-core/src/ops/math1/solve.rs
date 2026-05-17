@@ -114,8 +114,21 @@ pub struct SolveState {
 /// XROM resolver routes `XEQ "SOLVE"` through `dispatch()` which calls here.
 /// Only when SOLVE appears inside a *running program* is it routed through
 /// `run_loop`'s match arm → `op_solve_run_loop`.
-pub fn op_solve(_state: &mut CalcState) -> Result<(), HpError> {
-    // Op::Solve can only run inside run_loop; real implementation in op_solve_run_loop.
+pub fn op_solve(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 29 / CLI-07 — additive completion of Phase 28 stub per the inline cross-reference
+    // comment at solve.rs:188 (op_solve_run_loop). The Phase 28 stub anticipated this wiring.
+    if !state.is_running {
+        // Interactive: open the SOLVE modal at FunctionNamePrompt.
+        // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
+        state.modal_program = Some(
+            crate::ops::math1::modal::ModalProgram::Solve(
+                crate::ops::math1::modal::SolveInputStep::FunctionNamePrompt,
+            ),
+        );
+        state.modal_prompt = Some("FUNCTION NAME?".to_string());
+        return Ok(());
+    }
+    // Op::Solve inside run_loop: real implementation in op_solve_run_loop.
     Err(HpError::InvalidOp)
 }
 
@@ -527,6 +540,75 @@ fn run_user_function(state: &mut CalcState, program: &[Op]) -> Result<(), HpErro
     Ok(())
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the SOLVE modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the SOLVE
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions:
+/// - `Guess1Prompt` → reads X into R00 (first guess), advances to Guess2Prompt.
+/// - `Guess2Prompt` → reads X into R01 (second guess), advances to Ready.
+///   Ready means the solver parameters are staged; the actual op_solve_run_loop
+///   must be invoked separately (Phase 31 GUI wiring / programmatic use).
+/// - All other steps → `Err(HpError::InvalidOp)`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: crate::ops::math1::modal::SolveInputStep,
+) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{ModalProgram, SolveInputStep};
+    match step {
+        SolveInputStep::Guess1Prompt => {
+            // Store X as first guess in R00 (SOLV-05 scratch register convention)
+            if state.regs.is_empty() {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[0] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Solve(SolveInputStep::Guess2Prompt));
+            state.modal_prompt = Some("GUESS 2=?".to_string());
+            Ok(())
+        }
+        SolveInputStep::Guess2Prompt => {
+            // Store X as second guess in R01 (SOLV-05 scratch register convention)
+            if state.regs.len() < 2 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[1] = state.stack.x.clone();
+            // Advance to Ready — parameters staged; caller may invoke op_solve_run_loop
+            state.modal_program = Some(ModalProgram::Solve(SolveInputStep::Ready));
+            state.modal_prompt = None;
+            Ok(())
+        }
+        SolveInputStep::FunctionNamePrompt | SolveInputStep::Ready => {
+            // FunctionNamePrompt is handled by submit_label_step, not submit_step.
+            // Ready has no numeric submission.
+            Err(HpError::InvalidOp)
+        }
+    }
+}
+
+/// Submit the function label step for the SOLVE modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal_with_label` when the modal is
+/// at `SolveInputStep::FunctionNamePrompt`. The label has already been written to
+/// `state.alpha_reg` by `submit_modal_with_label` before this is called.
+///
+/// Advances the modal from `FunctionNamePrompt` to `Guess1Prompt` and sets the
+/// corresponding `modal_prompt = Some("GUESS 1=?")`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_label_step(state: &mut CalcState) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{ModalProgram, SolveInputStep};
+    // alpha_reg is already written by submit_modal_with_label
+    state.modal_program = Some(ModalProgram::Solve(SolveInputStep::Guess1Prompt));
+    state.modal_prompt = Some("GUESS 1=?".to_string());
+    Ok(())
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -605,15 +687,27 @@ mod tests {
 
     // ── op_solve / op_sol dispatch stubs ─────────────────────────────────────
 
-    // Catches: dispatch arm not returning InvalidOp (must reject when called outside run_loop)
+    // Catches: op_solve interactive branch (Phase 29 completion) not opening modal at
+    // FunctionNamePrompt when called interactively (!is_running).
+    // Phase 29 / CLI-07: op_solve now opens a modal when !is_running, per the inline
+    // cross-reference comment at solve.rs:188 (Phase 28 stub designed for this completion).
     #[test]
-    fn master_op_dispatch_returns_invalid_op() {
+    fn master_op_dispatch_opens_modal_when_interactive() {
         let mut state = CalcState::new();
+        // is_running = false by default (interactive mode)
         let result = op_solve(&mut state);
+        assert!(
+            result.is_ok(),
+            "op_solve must return Ok(()) when !is_running (opens modal)"
+        );
+        assert!(
+            state.modal_program.is_some(),
+            "op_solve must set modal_program when !is_running"
+        );
         assert_eq!(
-            result,
-            Err(HpError::InvalidOp),
-            "op_solve dispatch stub must return InvalidOp (only runs in run_loop)"
+            state.modal_prompt,
+            Some("FUNCTION NAME?".to_string()),
+            "op_solve must set modal_prompt to 'FUNCTION NAME?' when !is_running"
         );
     }
 

@@ -305,6 +305,110 @@ pub fn op_four_eval_at_t(state: &CalcState, t: HpNum, period: HpNum) -> Result<H
     f64_to_hpnum(sum)
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the FOUR modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the FOUR
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions:
+/// - `NumSamplesPrompt` → reads X as N (sample count), stores in R23,
+///   advances to NumFreqPrompt.
+/// - `NumFreqPrompt` → reads X as L (frequency count, capped at MAX_FOURIER_PAIRS),
+///   stores in R24, advances to FirstCoeffPrompt.
+/// - `FirstCoeffPrompt` → reads X as starting coefficient index, stores in R25,
+///   advances to RectTogglePrompt.
+/// - `RectTogglePrompt` → reads X (non-zero = rectangular, zero = polar),
+///   advances to SamplePrompt(0).
+/// - `SamplePrompt(idx)` → stores X in scratch sample register, advances to
+///   next sample or Ready when all N samples collected.
+/// - `Ready` → `Err(HpError::InvalidOp)`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: FourInputStep,
+) -> Result<(), HpError> {
+    match step {
+        FourInputStep::NumSamplesPrompt => {
+            let n = state.stack.x.inner().to_u8().unwrap_or(0).max(1);
+            // Store N in R23 (beyond typical use registers, per FOUR-05 layout reference)
+            if state.regs.len() < 25 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[23] = HpNum::from(n as i32);
+            state.modal_program = Some(ModalProgram::Four(FourInputStep::NumFreqPrompt));
+            state.modal_prompt = Some("NO. FREQ=?".to_string());
+            Ok(())
+        }
+        FourInputStep::NumFreqPrompt => {
+            let l = state
+                .stack
+                .x
+                .inner()
+                .to_u8()
+                .unwrap_or(1)
+                .min(MAX_FOURIER_PAIRS);
+            if state.regs.len() < 26 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[24] = HpNum::from(l as i32);
+            state.modal_program = Some(ModalProgram::Four(FourInputStep::FirstCoeffPrompt));
+            state.modal_prompt = Some("1ST COEFF=?".to_string());
+            Ok(())
+        }
+        FourInputStep::FirstCoeffPrompt => {
+            let start_idx = state.stack.x.inner().to_u8().unwrap_or(0);
+            if state.regs.len() < 27 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[25] = HpNum::from(start_idx as i32);
+            state.modal_program = Some(ModalProgram::Four(FourInputStep::RectTogglePrompt));
+            state.modal_prompt = Some("RECT?".to_string());
+            Ok(())
+        }
+        FourInputStep::RectTogglePrompt => {
+            // Non-zero = rectangular output; zero = polar output
+            // Store the choice in R26
+            if state.regs.len() < 27 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[26] = state.stack.x.clone();
+            // Advance to first sample collection
+            state.modal_program = Some(ModalProgram::Four(FourInputStep::SamplePrompt(0)));
+            state.modal_prompt = Some("Y1=?".to_string());
+            Ok(())
+        }
+        FourInputStep::SamplePrompt(idx) => {
+            // Number of samples N is stored in R23
+            let n = if state.regs.len() > 23 {
+                state.regs[23].inner().to_u8().unwrap_or(1)
+            } else {
+                1
+            };
+            // Store sample in scratch registers starting at R00
+            // (FOUR uses R00..R{N-1} as sample scratch, per FOUR-05 sketch)
+            if idx as usize >= state.regs.len() {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[idx as usize] = state.stack.x.clone();
+            let next_idx = idx + 1;
+            if next_idx < n {
+                state.modal_program = Some(ModalProgram::Four(FourInputStep::SamplePrompt(next_idx)));
+                state.modal_prompt = Some(format!("Y{}=?", next_idx + 1));
+            } else {
+                // All samples entered — Ready
+                state.modal_program = Some(ModalProgram::Four(FourInputStep::Ready));
+                state.modal_prompt = None;
+            }
+            Ok(())
+        }
+        FourInputStep::Ready => Err(HpError::InvalidOp),
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

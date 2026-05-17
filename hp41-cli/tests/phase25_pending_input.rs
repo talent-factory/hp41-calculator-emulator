@@ -71,7 +71,7 @@ fn pending_input_variants_compile() {
     let v3 = PendingInput::ClpLabel("HELLO".to_string());
     let v4 = PendingInput::DelCount("123".to_string());
     let v5 = PendingInput::TonePrompt;
-    let v6 = PendingInput::XeqByName("FOO".to_string());
+    let v6 = PendingInput::XeqByName { acc: "FOO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal };
 
     assert!(matches!(
         v1,
@@ -92,7 +92,7 @@ fn pending_input_variants_compile() {
     assert!(matches!(v3, PendingInput::ClpLabel(_)));
     assert!(matches!(v4, PendingInput::DelCount(_)));
     assert!(matches!(v5, PendingInput::TonePrompt));
-    assert!(matches!(v6, PendingInput::XeqByName(_)));
+    assert!(matches!(v6, PendingInput::XeqByName { .. }));
 }
 
 /// pending_prompt() must render every new variant with the right mnemonic
@@ -109,28 +109,28 @@ fn pending_prompt_exhaustive() {
         acc: String::new(),
     };
     assert!(
-        pending_prompt(&p).starts_with("SF "),
+        pending_prompt(Some(&p), None).starts_with("SF "),
         "got: {:?}",
-        pending_prompt(&p)
+        pending_prompt(Some(&p), None)
     );
     let p = PendingInput::FlagPrompt {
         kind: FlagPromptKind::ClearFlag,
         ind: false,
         acc: "1".to_string(),
     };
-    assert!(pending_prompt(&p).starts_with("CF "));
+    assert!(pending_prompt(Some(&p), None).starts_with("CF "));
     let p = PendingInput::FlagPrompt {
         kind: FlagPromptKind::Test(FlagTestKind::IsSet),
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("FS?"));
+    assert!(pending_prompt(Some(&p), None).starts_with("FS?"));
     let p = PendingInput::FlagPrompt {
         kind: FlagPromptKind::Test(FlagTestKind::IsSetThenClear),
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("FS?C"));
+    assert!(pending_prompt(Some(&p), None).starts_with("FS?C"));
 
     // IND-indication in the status text
     let p = PendingInput::FlagPrompt {
@@ -139,9 +139,9 @@ fn pending_prompt_exhaustive() {
         acc: "1".to_string(),
     };
     assert!(
-        pending_prompt(&p).contains("IND"),
+        pending_prompt(Some(&p), None).contains("IND"),
         "ind: true must produce 'IND' in status — got {:?}",
-        pending_prompt(&p)
+        pending_prompt(Some(&p), None)
     );
 
     // RegisterPrompt
@@ -150,71 +150,71 @@ fn pending_prompt_exhaustive() {
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("STO "));
+    assert!(pending_prompt(Some(&p), None).starts_with("STO "));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Sto,
         ind: true,
         acc: "0".to_string(),
     };
-    assert!(pending_prompt(&p).contains("STO IND"));
+    assert!(pending_prompt(Some(&p), None).contains("STO IND"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Rcl,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("RCL "));
+    assert!(pending_prompt(Some(&p), None).starts_with("RCL "));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::StoArith(StoArithKind::Add),
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("STO+"));
+    assert!(pending_prompt(Some(&p), None).starts_with("STO+"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::StoArith(StoArithKind::Mul),
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("STO\u{00D7}"));
+    assert!(pending_prompt(Some(&p), None).starts_with("STO\u{00D7}"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::View,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("VIEW"));
+    assert!(pending_prompt(Some(&p), None).starts_with("VIEW"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Arcl,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("ARCL"));
+    assert!(pending_prompt(Some(&p), None).starts_with("ARCL"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Asto,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("ASTO"));
+    assert!(pending_prompt(Some(&p), None).starts_with("ASTO"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Isg,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("ISG"));
+    assert!(pending_prompt(Some(&p), None).starts_with("ISG"));
     let p = PendingInput::RegisterPrompt {
         op: RegisterOpKind::Dse,
         ind: false,
         acc: String::new(),
     };
-    assert!(pending_prompt(&p).starts_with("DSE"));
+    assert!(pending_prompt(Some(&p), None).starts_with("DSE"));
 
     // Specialty variants
     let p = PendingInput::ClpLabel("AB".to_string());
-    assert!(pending_prompt(&p).starts_with("CLP"));
+    assert!(pending_prompt(Some(&p), None).starts_with("CLP"));
     let p = PendingInput::DelCount("12".to_string());
-    assert!(pending_prompt(&p).starts_with("DEL"));
+    assert!(pending_prompt(Some(&p), None).starts_with("DEL"));
     let p = PendingInput::TonePrompt;
-    assert!(pending_prompt(&p).starts_with("TONE"));
-    let p = PendingInput::XeqByName("HELLO".to_string());
-    assert!(pending_prompt(&p).starts_with("XEQ"));
+    assert!(pending_prompt(Some(&p), None).starts_with("TONE"));
+    let p = PendingInput::XeqByName { acc: "HELLO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal };
+    assert!(pending_prompt(Some(&p), None).starts_with("XEQ"));
 }
 
 // ── Task 2: handle_pending_input IND-toggle + dispatch correctness ──────────
@@ -439,12 +439,12 @@ fn test_tone_prompt_auto_dispatch() {
 #[test]
 fn test_xeq_by_name_modal_scaffold() {
     let (mut app, _tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName(String::new()));
+    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
     for c in ['H', 'E', 'L', 'L', 'O'] {
         app.handle_key(key(c));
     }
     match &app.pending_input {
-        Some(PendingInput::XeqByName(acc)) => {
+        Some(PendingInput::XeqByName { acc, .. }) => {
             assert_eq!(acc, "HELLO", "5 chars accumulated");
         }
         other => panic!("expected XeqByName open; got {other:?}"),
@@ -474,7 +474,7 @@ fn test_esc_cancels_all_new_variants() {
         PendingInput::ClpLabel("AB".to_string()),
         PendingInput::DelCount("12".to_string()),
         PendingInput::TonePrompt,
-        PendingInput::XeqByName("FOO".to_string()),
+        PendingInput::XeqByName { acc: "FOO".to_string(), mode: hp41_cli::app::XeqByNameMode::Normal },
     ];
 
     for v in variants {

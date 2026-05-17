@@ -316,7 +316,10 @@ pub fn shifted_key_to_op(key: KeyEvent, app: &mut App) -> Option<Op> {
             None
         }
         KeyCode::Char('N') => {
-            app.pending_input = Some(PendingInput::XeqByName(String::new()));
+            app.pending_input = Some(PendingInput::XeqByName {
+                acc: String::new(),
+                mode: crate::app::XeqByNameMode::Normal,
+            });
             None
         }
         // Everything else: unmapped. Caller clears shift_armed regardless

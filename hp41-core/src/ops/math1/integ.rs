@@ -147,8 +147,22 @@ fn simpson_coeff(k: u32, n: u32) -> u32 {
 /// XROM resolver routes `XEQ "INTG"` through `dispatch()` which calls here.
 /// Only when INTG appears inside a *running program* is it routed through
 /// `run_loop`'s match arm → `op_integ_run_loop`.
-pub fn op_integ(_state: &mut CalcState) -> Result<(), HpError> {
-    // Op::Integ can only run inside run_loop; real implementation in op_integ_run_loop.
+pub fn op_integ(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 29 / CLI-07 — additive completion of Phase 28 stub.
+    // The Phase 28 stub anticipated this wiring (symmetric with op_solve pattern).
+    if !state.is_running {
+        // Interactive: open the INTG modal at ModeChoice first,
+        // then FunctionNamePrompt after mode selection.
+        // For CLI simplicity: open at FunctionNamePrompt directly (Explicit mode default).
+        state.modal_program = Some(
+            crate::ops::math1::modal::ModalProgram::Integ(
+                crate::ops::math1::modal::IntegInputStep::FunctionNamePrompt,
+            ),
+        );
+        state.modal_prompt = Some("FUNCTION NAME?".to_string());
+        return Ok(());
+    }
+    // Op::Integ inside run_loop: real implementation in op_integ_run_loop.
     Err(HpError::InvalidOp)
 }
 
@@ -421,6 +435,88 @@ fn run_user_function(state: &mut CalcState, program: &[Op]) -> Result<(), HpErro
     Ok(())
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the INTG modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the INTG
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions:
+/// - `ModeChoice` → advances to `FunctionNamePrompt` (Explicit mode).
+/// - `IntervalPrompt` → reads X as lower bound (Y = upper bound);
+///   stores in R02 (lower=a) / R03 (upper=b), advances to SubdivisionPrompt.
+/// - `SubdivisionPrompt` → reads X as N (subdivision count, capped at INTG_MAX_EVALS),
+///   stores in R04, advances to Ready.
+/// - All other steps → `Err(HpError::InvalidOp)`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: crate::ops::math1::modal::IntegInputStep,
+) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{IntegInputStep, ModalProgram};
+    match step {
+        IntegInputStep::ModeChoice => {
+            // Advance to FunctionNamePrompt (Explicit mode — default per plan)
+            state.modal_program = Some(ModalProgram::Integ(IntegInputStep::FunctionNamePrompt));
+            state.modal_prompt = Some("FUNCTION NAME?".to_string());
+            Ok(())
+        }
+        IntegInputStep::IntervalPrompt => {
+            // X = lower bound a; Y = upper bound b (OM: enter a first, then b)
+            // Store in scratch registers R02 (a) and R03 (b)
+            if state.regs.len() < 4 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[2] = state.stack.x.clone();
+            state.regs[3] = state.stack.y.clone();
+            state.modal_program = Some(ModalProgram::Integ(IntegInputStep::SubdivisionPrompt));
+            state.modal_prompt = Some("N=?".to_string());
+            Ok(())
+        }
+        IntegInputStep::SubdivisionPrompt => {
+            // X = N (subdivision count); cap at INTG_MAX_EVALS
+            let n_raw = state
+                .stack
+                .x
+                .inner()
+                .to_u32()
+                .unwrap_or(INTG_MAX_EVALS)
+                .min(INTG_MAX_EVALS);
+            if state.regs.len() < 5 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[4] = HpNum::from(n_raw as i32);
+            state.modal_program = Some(ModalProgram::Integ(IntegInputStep::Ready));
+            state.modal_prompt = None;
+            Ok(())
+        }
+        IntegInputStep::FunctionNamePrompt | IntegInputStep::Ready => {
+            // FunctionNamePrompt handled by submit_label_step; Ready has no submission.
+            Err(HpError::InvalidOp)
+        }
+    }
+}
+
+/// Submit the function label step for the INTG modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal_with_label` when the modal is
+/// at `IntegInputStep::FunctionNamePrompt`. The label has already been written to
+/// `state.alpha_reg` before this is called.
+///
+/// Advances the modal from `FunctionNamePrompt` to `IntervalPrompt` and sets
+/// `modal_prompt = Some("(A,B)=?")`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_label_step(state: &mut CalcState) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{IntegInputStep, ModalProgram};
+    state.modal_program = Some(ModalProgram::Integ(IntegInputStep::IntervalPrompt));
+    state.modal_prompt = Some("(A,B)=?".to_string());
+    Ok(())
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -509,15 +605,27 @@ mod tests {
 
     // ── op_integ (dispatch stub) ──────────────────────────────────────────────
 
-    // Catches: dispatch arm not returning InvalidOp (must reject when called outside run_loop)
+    // Catches: op_integ interactive branch (Phase 29 completion) not opening modal at
+    // FunctionNamePrompt when called interactively (!is_running).
+    // Phase 29 / CLI-07: op_integ now opens a modal when !is_running, per the documented
+    // Phase 28 stub design (symmetric with op_solve completion pattern).
     #[test]
-    fn op_integ_dispatch_returns_invalid_op() {
+    fn op_integ_dispatch_opens_modal_when_interactive() {
         let mut state = CalcState::new();
+        // is_running = false by default (interactive mode)
         let result = op_integ(&mut state);
+        assert!(
+            result.is_ok(),
+            "op_integ must return Ok(()) when !is_running (opens modal)"
+        );
+        assert!(
+            state.modal_program.is_some(),
+            "op_integ must set modal_program when !is_running"
+        );
         assert_eq!(
-            result,
-            Err(HpError::InvalidOp),
-            "op_integ dispatch stub must return InvalidOp (only runs in run_loop)"
+            state.modal_prompt,
+            Some("FUNCTION NAME?".to_string()),
+            "op_integ must set modal_prompt to 'FUNCTION NAME?' when !is_running"
         );
     }
 

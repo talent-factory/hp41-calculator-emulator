@@ -60,6 +60,27 @@ impl ModalProgram {
             ModalProgram::Trans(step) => step.current_prompt(),
         }
     }
+
+    /// Returns `true` if the current modal step expects an alpha label name input
+    /// (i.e., the user must type a function label via the XeqByName{CollectForModal}
+    /// pending-input flow before numeric R/S submission can advance the modal).
+    ///
+    /// Only the three FunctionNamePrompt variants return `true` — one per user-callback
+    /// program (Integ, Solve, Difeq). All numeric-input steps and all non-callback
+    /// programs (Matrix, Poly, Four, Trans) return `false`.
+    ///
+    /// Used by the auto-open hook (`maybe_auto_open_collect_for_modal`) in hp41-cli
+    /// (D-29.9) and by hp41-gui Phase 31 via the same function call (D-25.6 parity).
+    ///
+    /// Phase 29 / CLI-05 additive public surface — D-29.7 / D-29.9 / D-25.6.
+    pub fn requires_alpha_label(&self) -> bool {
+        matches!(
+            self,
+            ModalProgram::Integ(IntegInputStep::FunctionNamePrompt)
+                | ModalProgram::Solve(SolveInputStep::FunctionNamePrompt)
+                | ModalProgram::Difeq(DifeqInputStep::FunctionNamePrompt)
+        )
+    }
 }
 
 // ── MatrixInputStep ────────────────────────────────────────────────────────────

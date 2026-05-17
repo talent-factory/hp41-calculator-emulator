@@ -123,8 +123,21 @@ pub struct DifeqState {
 /// XROM resolver routes `XEQ "DIFEQ"` through `dispatch()` which calls here.
 /// Only when DIFEQ appears inside a *running program* is it routed through
 /// `run_loop`'s match arm → `op_difeq_run_loop`.
-pub fn op_difeq(_state: &mut CalcState) -> Result<(), HpError> {
-    // Op::Difeq can only run inside run_loop; real implementation in op_difeq_run_loop.
+pub fn op_difeq(state: &mut CalcState) -> Result<(), HpError> {
+    // Phase 29 / CLI-07 — additive completion of Phase 28 stub.
+    // The Phase 28 stub anticipated this wiring (symmetric with op_solve/op_integ pattern).
+    if !state.is_running {
+        // Interactive: open the DIFEQ modal at FunctionNamePrompt.
+        // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
+        state.modal_program = Some(
+            crate::ops::math1::modal::ModalProgram::Difeq(
+                crate::ops::math1::modal::DifeqInputStep::FunctionNamePrompt,
+            ),
+        );
+        state.modal_prompt = Some("FUNCTION NAME?".to_string());
+        return Ok(());
+    }
+    // Op::Difeq inside run_loop: real implementation in op_difeq_run_loop.
     Err(HpError::InvalidOp)
 }
 
@@ -718,6 +731,118 @@ fn push_three_args(
     Ok(())
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the DIFEQ modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the DIFEQ
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions (DIFEQ prompt sequence per HP-41C Math Pac I OM, Chapter 7):
+/// - `OrderPrompt` → reads X as ODE order (1 or 2), stores in R00,
+///   advances to StepSizePrompt.
+/// - `StepSizePrompt` → reads X as step size h, stores in R01,
+///   advances to X0Prompt.
+/// - `X0Prompt` → reads X as initial x0, stores in R02, advances to Y0Prompt.
+/// - `Y0Prompt` → reads X as initial y0, stores in R03. If order=2, advances to
+///   Y1PrimePrompt; else advances to Ready.
+/// - `Y1PrimePrompt` → reads X as y'0, stores in R04, advances to Ready.
+/// - All other steps → `Err(HpError::InvalidOp)`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: crate::ops::math1::modal::DifeqInputStep,
+) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{DifeqInputStep, ModalProgram};
+    match step {
+        DifeqInputStep::OrderPrompt => {
+            let order = state
+                .stack
+                .x
+                .inner()
+                .to_u8()
+                .unwrap_or(1)
+                .clamp(1, 2);
+            if state.regs.is_empty() {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[0] = crate::num::HpNum::from(order as i32);
+            state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::StepSizePrompt));
+            state.modal_prompt = Some("STEP SIZE=?".to_string());
+            Ok(())
+        }
+        DifeqInputStep::StepSizePrompt => {
+            if state.regs.len() < 2 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[1] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::X0Prompt));
+            state.modal_prompt = Some("X0=?".to_string());
+            Ok(())
+        }
+        DifeqInputStep::X0Prompt => {
+            if state.regs.len() < 3 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[2] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::Y0Prompt));
+            state.modal_prompt = Some("Y0=?".to_string());
+            Ok(())
+        }
+        DifeqInputStep::Y0Prompt => {
+            if state.regs.len() < 4 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[3] = state.stack.x.clone();
+            // Check order from R00 to decide if Y'0 is needed
+            let order = state.regs[0]
+                .inner()
+                .to_u8()
+                .unwrap_or(1);
+            if order == 2 {
+                state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::Y1PrimePrompt));
+                state.modal_prompt = Some("Y'0=?".to_string());
+            } else {
+                state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::Ready));
+                state.modal_prompt = None;
+            }
+            Ok(())
+        }
+        DifeqInputStep::Y1PrimePrompt => {
+            if state.regs.len() < 5 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[4] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::Ready));
+            state.modal_prompt = None;
+            Ok(())
+        }
+        DifeqInputStep::FunctionNamePrompt | DifeqInputStep::Ready => {
+            // FunctionNamePrompt handled by submit_label_step; Ready has no submission.
+            Err(HpError::InvalidOp)
+        }
+    }
+}
+
+/// Submit the function label step for the DIFEQ modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal_with_label` when the modal is
+/// at `DifeqInputStep::FunctionNamePrompt`. The label has already been written to
+/// `state.alpha_reg` before this is called.
+///
+/// Advances the modal from `FunctionNamePrompt` to `OrderPrompt` and sets
+/// `modal_prompt = Some("ORDER=?")`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_label_step(state: &mut CalcState) -> Result<(), HpError> {
+    use crate::ops::math1::modal::{DifeqInputStep, ModalProgram};
+    state.modal_program = Some(ModalProgram::Difeq(DifeqInputStep::OrderPrompt));
+    state.modal_prompt = Some("ORDER=?".to_string());
+    Ok(())
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -809,15 +934,27 @@ mod tests {
 
     // ── op_difeq dispatch stub test ───────────────────────────────────────────
 
-    // Catches: dispatch arm not returning InvalidOp (must reject when called outside run_loop)
+    // Catches: op_difeq interactive branch (Phase 29 completion) not opening modal at
+    // FunctionNamePrompt when called interactively (!is_running).
+    // Phase 29 / CLI-08: op_difeq now opens a modal when !is_running, per the documented
+    // Phase 28 stub design (symmetric with op_solve and op_integ completion pattern).
     #[test]
-    fn op_difeq_dispatch_returns_invalid_op() {
+    fn op_difeq_dispatch_opens_modal_when_interactive() {
         let mut state = CalcState::new();
+        // is_running = false by default (interactive mode)
         let result = op_difeq(&mut state);
+        assert!(
+            result.is_ok(),
+            "op_difeq must return Ok(()) when !is_running (opens modal)"
+        );
+        assert!(
+            state.modal_program.is_some(),
+            "op_difeq must set modal_program when !is_running"
+        );
         assert_eq!(
-            result,
-            Err(HpError::InvalidOp),
-            "op_difeq dispatch stub must return InvalidOp (only runs in run_loop)"
+            state.modal_prompt,
+            Some("FUNCTION NAME?".to_string()),
+            "op_difeq must set modal_prompt to 'FUNCTION NAME?' when !is_running"
         );
     }
 

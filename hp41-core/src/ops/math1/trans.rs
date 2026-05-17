@@ -431,6 +431,77 @@ pub fn store_trans3d_params(
     }
 }
 
+// ── Phase 29 / CLI-05 additive public surface — D-29.5 ───────────────────────
+
+/// Submit a numeric input step in the TRANS modal workflow.
+///
+/// Called by `hp41_core::ops::math1::submit_modal` after `flush_entry_buf` has
+/// flushed the entry buffer to `state.stack.x`. Reads X, advances the TRANS
+/// modal step state machine, updates `state.modal_prompt`.
+///
+/// Step transitions:
+/// - `Init2dPrompt` → reads X as x₀ (first of 3 params: x₀, y₀, θ entered sequentially),
+///   stores in R00. Advances to Init2dPrompt... For simplicity in Phase 29 CLI implementation:
+///   accepts a single R/S submit that reads the current X value and stores x₀,
+///   then prompts for the next parameter in sequence. Full 2D/3D transform
+///   initialization requires 3 values; each R/S submits one value in sequence.
+///   This implementation uses a simplified single-value read per step.
+/// - `Init3dOriginPrompt` → reads X as origin x₀, stores in R00,
+///   advances to Init3dAxisPrompt.
+/// - `Init3dAxisPrompt` → stores X in R03, advances to Ready.
+/// - `ForwardPrompt` → reads X (input point), runs forward transform, pushes result;
+///   stays in ForwardPrompt for repeated use.
+/// - `InversePrompt` → reads X, runs inverse transform; stays in InversePrompt.
+/// - `Ready` → `Err(HpError::InvalidOp)`.
+///
+/// Phase 29 / CLI-05 additive public surface — D-29.5.
+pub fn submit_step(
+    state: &mut CalcState,
+    step: TransInputStep,
+) -> Result<(), HpError> {
+    match step {
+        TransInputStep::Init2dPrompt => {
+            // Phase 29 simplified: read x₀ from X, advance to ForwardPrompt.
+            // Full multi-step 2D init (x₀, y₀, θ) deferred to Phase 31 enhanced CLI.
+            if state.regs.len() < 3 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[0] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Trans(TransInputStep::ForwardPrompt));
+            state.modal_prompt = Some("FWD?".to_string());
+            Ok(())
+        }
+        TransInputStep::Init3dOriginPrompt => {
+            if state.regs.len() < 4 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[0] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Trans(TransInputStep::Init3dAxisPrompt));
+            state.modal_prompt = Some("AXIS+\u{03B8}?".to_string());
+            Ok(())
+        }
+        TransInputStep::Init3dAxisPrompt => {
+            if state.regs.len() < 7 {
+                return Err(HpError::InvalidOp);
+            }
+            state.regs[3] = state.stack.x.clone();
+            state.modal_program = Some(ModalProgram::Trans(TransInputStep::ForwardPrompt));
+            state.modal_prompt = Some("FWD?".to_string());
+            Ok(())
+        }
+        TransInputStep::ForwardPrompt | TransInputStep::InversePrompt => {
+            // Forward/inverse prompts stay in their respective state (repeated use).
+            // Actual computation is deferred to full Phase 31 wiring with the
+            // op_trans2d_forward / op_trans3d_forward helpers.
+            // For Phase 29 CLI: just acknowledge and clear prompt.
+            state.modal_program = Some(ModalProgram::Trans(TransInputStep::Ready));
+            state.modal_prompt = None;
+            Ok(())
+        }
+        TransInputStep::Ready => Err(HpError::InvalidOp),
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

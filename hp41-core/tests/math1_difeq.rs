@@ -41,16 +41,20 @@ fn make_difeq_exp_growth(max_steps: u32) -> (CalcState, Vec<Op>) {
 
 // ── Op::Difeq dispatch arm test ───────────────────────────────────────────────
 
-// Catches: Op::Difeq dispatch arm not returning InvalidOp when called outside run_loop
-// Op::Difeq runs only inside run_loop, not from interactive dispatch.
+// Catches: Op::Difeq dispatch arm not opening modal when called interactively (!is_running).
+// Phase 29 / CLI-08: Op::Difeq now opens a modal at FunctionNamePrompt when !is_running.
 #[test]
-fn difeq_dispatch_arm_returns_invalid_op() {
+fn difeq_dispatch_arm_opens_modal_when_interactive() {
     let mut state = CalcState::new();
+    // is_running = false by default (interactive mode)
     let result = hp41_core::ops::dispatch(&mut state, Op::Difeq);
-    assert_eq!(
-        result,
-        Err(HpError::InvalidOp),
-        "Op::Difeq dispatch must return InvalidOp (runs only in run_loop, not interactively)"
+    assert!(
+        result.is_ok(),
+        "Op::Difeq must return Ok(()) when !is_running (opens modal for CLI-08)"
+    );
+    assert!(
+        state.modal_program.is_some(),
+        "Op::Difeq must set modal_program when !is_running"
     );
 }
 
@@ -103,21 +107,21 @@ fn difeq_state_populated_correctly() {
     );
 }
 
-// Catches: Op::Difeq execute_op arm wrong (must return InvalidOp, not forward to dispatch)
-// The execute_op arm for Op::Difeq must explicitly return InvalidOp per RESEARCH lines 769-775.
+// Catches: Op::Difeq interactive modal not opening when dispatched.
+// Phase 29 / CLI-08: Op::Difeq now opens FunctionNamePrompt modal when !is_running.
+// The execute_op arm forwards to op_difeq which now handles interactive mode.
 #[test]
-fn difeq_execute_op_arm_returns_invalid_op() {
-    // execute_op_pub is callable via a program run (run_program) when Op::Difeq
-    // appears in a program but OUTSIDE a running program context (i.e., the program
-    // calls Op::Difeq without Op::Difeq being in the outer run_loop arm).
-    // This test verifies the execute_op path separately from the run_loop path.
-    // We use the dispatch arm (which calls execute_op internally) to verify.
+fn difeq_execute_op_arm_opens_modal_when_interactive() {
     let mut state = CalcState::new();
+    // is_running = false by default — interactive dispatch should open modal
     let result = hp41_core::ops::dispatch(&mut state, Op::Difeq);
-    assert_eq!(
-        result,
-        Err(HpError::InvalidOp),
-        "Op::Difeq execute path must return InvalidOp (not callable outside run_loop)"
+    assert!(
+        result.is_ok(),
+        "Op::Difeq dispatch in interactive mode must return Ok(()) (Phase 29 modal open)"
+    );
+    assert!(
+        state.modal_program.is_some(),
+        "Op::Difeq must set modal_program to FunctionNamePrompt when !is_running"
     );
 }
 
