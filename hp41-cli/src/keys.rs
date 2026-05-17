@@ -344,7 +344,15 @@ pub fn shifted_key_to_op(key: KeyEvent, app: &mut App) -> Option<Op> {
 /// resolvers (T-25-09 mitigation).
 ///
 /// Case-sensitive — HP-41 ROM names are uppercase.
-pub fn xeq_by_name_local_resolve(name: &str) -> Option<Op> {
+///
+/// **Resolver chain contract (C-28.4):** the 8 conditional-test mnemonic arms
+/// fire FIRST; `xrom_resolve` fires LAST — after all built-in arms but before
+/// returning `None`. This ordering matches `op_xeq` and `run_program::execute_op`
+/// in `hp41-core` (Phase 29 closes the third call site per 28-01-SUMMARY:173).
+///
+/// Pass `state.xrom_modules` at every call site so tests can simulate XROM-unloaded
+/// state (`0b0000_0000`) and verify that Math Pac I names do NOT resolve.
+pub fn xeq_by_name_local_resolve(name: &str, xrom_modules: u8) -> Option<Op> {
     match name {
         // X ≠ Y — three accepted spellings.
         "X<>Y?" | "X\u{2260}Y?" | "X#Y?" => Some(Op::Test(TestKind::XNeY)),
@@ -362,10 +370,13 @@ pub fn xeq_by_name_local_resolve(name: &str) -> Option<Op> {
         "X<=0?" | "X\u{2264}0?" => Some(Op::Test(TestKind::XLeZero)),
         // X ≥ 0 — two spellings.
         "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
-        // The four v2.1 card-reader names + everything else: defer to
-        // `hp41_core::ops::program::builtin_card_op` via the `Op::Xeq`
-        // fallback chain in the modal Enter-arm.
-        _ => None,
+        // Final fallback: XROM resolver (C-28.4 — fires LAST).
+        // For Math Pac I, this resolves ~45 XEQ-by-name entries when
+        // `xrom_modules & 0b0000_0001 != 0` (Math Pac I loaded).
+        // Card-reader names (WPRGM/RDPRGM/WDTA/RDTA) and user LBLs still fall
+        // through `xrom_resolve` to `None` and are handled by `Op::Xeq(acc)`
+        // in the modal Enter-arm.
+        _ => hp41_core::ops::math1::xrom::xrom_resolve(name, xrom_modules),
     }
 }
 

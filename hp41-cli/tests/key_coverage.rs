@@ -197,7 +197,7 @@ fn key_coverage_implemented_entries_dispatch() {
                 // the CLI-local path returns Some; for the 4 card-reader
                 // names it returns None and dispatch falls through to
                 // Op::Xeq(name) which builtin_card_op resolves.
-                let cli_local = xeq_by_name_local_resolve(&name);
+                let cli_local = xeq_by_name_local_resolve(&name, 0b0000_0001);
                 if cli_local.is_some() {
                     // Direct fast-path hit — accept and move on.
                     continue;
