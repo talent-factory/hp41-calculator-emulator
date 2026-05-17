@@ -18,7 +18,7 @@
 use crate::cards;
 use crate::key_map;
 use crate::types::{CalcStateView, GuiError};
-use crate::AppState;
+use crate::{AppState, CancelFlag};
 use hp41_core::ops::dispatch;
 use hp41_core::CalcState;
 use tauri::State;
@@ -257,6 +257,29 @@ pub fn bst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
 pub fn run_stop(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
     handle_run_stop(&mut calc)
+}
+
+/// Tauri command: flip the cancellation flag for long-running Math Pac I ops.
+///
+/// ## CRITICAL — no AppState lock (Pitfall 1 / deadlock avoidance)
+///
+/// `request_cancel` takes `State<'_, CancelFlag>` (a separate managed state),
+/// NOT `State<'_, AppState>`. This is intentional and MUST NOT be changed:
+/// `dispatch_op` holds the AppState Mutex for the entire duration of
+/// `op_integ` / `op_solve` / `op_difeq`. If this thunk tried to lock AppState,
+/// it would deadlock (RESEARCH.md §"AppState Mutex + AtomicBool interleaving",
+/// lines 927-1029).
+///
+/// The `CancelFlag` Arc is the SAME `Arc<AtomicBool>` as `CalcState.cancel_requested`
+/// — cloned out at setup() time (lib.rs) before the CalcState was wrapped in the Mutex.
+/// The solver loops read it via Relaxed loads every 64 samples (D-28.7 / D-28.8).
+///
+/// Idempotent: safe to call when no long op is running — the next INTG/SOLVE/DIFEQ
+/// entry resets the flag to false (Plan 31-02 Task 3 surgical hp41-core exception).
+#[tauri::command]
+pub fn request_cancel(cancel: State<'_, CancelFlag>) -> Result<(), GuiError> {
+    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
 }
 
 /// Pure-Rust helper for sst_step — unit-testable without a Tauri runtime.

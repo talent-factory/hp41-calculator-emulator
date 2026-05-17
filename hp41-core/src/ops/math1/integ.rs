@@ -160,6 +160,13 @@ pub fn op_integ(state: &mut CalcState) -> Result<(), HpError> {
     // Full Discrete-mode dispatch (split inside submit_step(ModeChoice) based on
     // user choice) ships in a later plan per Phase 28-07-SUMMARY:245.
     if !state.is_running {
+        // Plan 31-02 surgical hp41-core exception — idempotency invariant (T-31-W1-sticky-cancel):
+        // Reset cancel_requested to false at workflow-open time so a prior cancel does not
+        // immediately abort the next INTG run. The user has just pressed the INTG key
+        // interactively — the previous run (if any) is complete or canceled; any sticky
+        // cancel_requested = true from the GUI's request_cancel would prevent the new run.
+        // The Tauri command cannot race here: the AppState Mutex is free (user is interactive).
+        state.cancel_requested.store(false, std::sync::atomic::Ordering::Relaxed);
         state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Integ(
             crate::ops::math1::modal::IntegInputStep::ModeChoice,
         ));
@@ -219,12 +226,6 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     if state.call_stack.len() >= 4 {
         return Err(HpError::CallDepth);
     }
-
-    // Note: cancel_requested is NOT reset here — the workflow opener (Phase 29 / CLI-07)
-    // resets it when the user first initiates INTG. In run_loop context, the flag may
-    // already be set by a GUI cancel request (Phase 31 / GUI-05 wiring).
-    // The per-64-samples check inside the sample loop (D-28.7 / D-28.8) will fire
-    // if cancel_requested is set, returning HpError::Canceled.
 
     // Read integration parameters from the modal state that was set up before
     // run_loop dispatched Op::Integ. For now (Plan 28-07), we read directly from
