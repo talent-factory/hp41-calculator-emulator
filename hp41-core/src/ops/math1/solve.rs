@@ -118,6 +118,11 @@ pub fn op_solve(state: &mut CalcState) -> Result<(), HpError> {
     // Phase 29 / CLI-07 — additive completion of Phase 28 stub per the inline cross-reference
     // comment at solve.rs:188 (op_solve_run_loop). The Phase 28 stub anticipated this wiring.
     if !state.is_running {
+        // Plan 31-02 surgical hp41-core exception — idempotency invariant (T-31-W1-sticky-cancel):
+        // Reset cancel_requested to false at workflow-open time. Symmetric with op_integ.
+        // The user has just pressed the SOLVE key interactively — the previous run (if any)
+        // is complete or canceled; sticky cancel_requested = true would abort the new run.
+        state.cancel_requested.store(false, std::sync::atomic::Ordering::Relaxed);
         // Interactive: open the SOLVE modal at FunctionNamePrompt.
         // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
         state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Solve(
