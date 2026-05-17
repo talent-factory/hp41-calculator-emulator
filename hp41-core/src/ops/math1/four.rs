@@ -490,8 +490,7 @@ mod tests {
         // f(0) = 0/2 + 1·cos(0) + 0·sin(0) = 1.0
         assert!(
             approx_eq(&result, 1.0, TOLERANCE),
-            "f(0) should be 1.0, got {:?}",
-            result
+            "f(0) should be 1.0, got {result:?}"
         );
     }
 
@@ -512,8 +511,7 @@ mod tests {
         // f(2) = cos(2π·1·2/8) = cos(π/2) ≈ 0
         assert!(
             approx_eq(&result, 0.0, 1e-5),
-            "f(2) = cos(π/2) ≈ 0, got {:?}",
-            result
+            "f(2) = cos(π/2) ≈ 0, got {result:?}"
         );
     }
 
@@ -534,8 +532,7 @@ mod tests {
         // f(4) = cos(2π·1·4/8) = cos(π) = -1
         assert!(
             approx_eq(&result, -1.0, 1e-5),
-            "f(4) = cos(π) = -1, got {:?}",
-            result
+            "f(4) = cos(π) = -1, got {result:?}"
         );
     }
 
@@ -554,8 +551,7 @@ mod tests {
         // f(t) = a₀/2 = 4/2 = 2.0
         assert!(
             approx_eq(&result, 2.0, TOLERANCE),
-            "DC-only f(t) = a₀/2 = 2, got {:?}",
-            result
+            "DC-only f(t) = a₀/2 = 2, got {result:?}"
         );
     }
 
@@ -575,8 +571,7 @@ mod tests {
         // f(1) = cos(2π·1·1/4) = cos(π/2) ≈ 0
         assert!(
             approx_eq(&result, 0.0, 1e-5),
-            "f(1) with T=4: cos(π/2) ≈ 0, got {:?}",
-            result
+            "f(1) with T=4: cos(π/2) ≈ 0, got {result:?}"
         );
     }
 }

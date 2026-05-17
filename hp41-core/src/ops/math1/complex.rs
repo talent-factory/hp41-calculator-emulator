@@ -1750,8 +1750,7 @@ mod tests {
         let result = op_tan_z(&mut s);
         assert!(
             matches!(result, Err(HpError::Domain)),
-            "tan(pi/2 + 0i) must return Domain (singularity); got {:?}",
-            result
+            "tan(pi/2 + 0i) must return Domain (singularity); got {result:?}"
         );
     }
 
@@ -1969,8 +1968,7 @@ mod tests {
         let result = op_z_pow_w(&mut s);
         assert!(
             matches!(result, Err(HpError::Domain)),
-            "(0+0i)^(-1+0i) must return Domain (CMPLX-17); got {:?}",
-            result
+            "(0+0i)^(-1+0i) must return Domain (CMPLX-17); got {result:?}"
         );
         assert!(!s.complex_mode, "complex_mode must not be set on Domain");
     }

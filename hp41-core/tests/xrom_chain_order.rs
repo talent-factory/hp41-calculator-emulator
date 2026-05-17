@@ -83,8 +83,7 @@ fn math1_sinh_resolves_via_xrom() {
     let result = op_xeq(&mut state, "SINH");
     assert!(
         result.is_ok(),
-        "XEQ 'SINH' with Math 1 loaded must dispatch successfully (not InvalidOp): {:?}",
-        result
+        "XEQ 'SINH' with Math 1 loaded must dispatch successfully (not InvalidOp): {result:?}"
     );
 }
 
