@@ -1,4 +1,4 @@
-//! Generates `docs/hp41cv-function-matrix.md` from `docs/hp41cv-functions.json`.
+//! Generates function matrix markdown files from canonical JSON sources.
 //!
 //! Usage: `docs-matrix <input.json> <output.md>`
 //!
@@ -16,6 +16,16 @@
 use serde::Deserialize;
 use std::{env, fs};
 
+/// XROM module identity for Math Pac I entries (D-30.3 / C-28.3).
+/// Absent on hp41cv-functions.json entries; present on hp41-math1-functions.json.
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct XromRef {
+    module: String,
+    module_id: u32,
+    function_id: u32,
+}
+
 #[derive(Debug, Deserialize)]
 struct Entry {
     op_variant: String,
@@ -28,6 +38,9 @@ struct Entry {
     #[serde(default)]
     #[allow(dead_code)]
     divergences: Vec<String>,
+    /// Optional XROM ref — `#[serde(default)]` keeps hp41cv JSON compatible (D-30.1 / D-30.3).
+    #[serde(default)]
+    xrom: Option<XromRef>,
 }
 
 fn main() {
@@ -43,14 +56,29 @@ fn main() {
     let entries: Vec<Entry> =
         serde_json::from_str(&json).unwrap_or_else(|e| panic!("parse {json_path}: {e}"));
 
-    let md = render_markdown(&entries);
+    let md = render_markdown(&entries, json_path);
     fs::write(md_path, md).unwrap_or_else(|e| panic!("write {md_path}: {e}"));
 }
 
-fn render_markdown(entries: &[Entry]) -> String {
+// Title dispatch uses the input JSON basename — keeps the binary 1-in/1-out per D-30.1.
+// String-match is intentional: avoids a new CLI argument while supporting both JSON sources.
+fn render_markdown(entries: &[Entry], json_path: &str) -> String {
+    let basename = std::path::Path::new(json_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(json_path);
+    let (title, src) = if basename.ends_with("hp41cv-functions.json") {
+        ("# HP-41CV ROM Function Matrix", "`docs/hp41cv-functions.json`")
+    } else if basename.ends_with("hp41-math1-functions.json") {
+        ("# HP-41C Math Pac I Function Matrix", "`docs/hp41-math1-functions.json`")
+    } else {
+        ("# Function Matrix", "`{json_path}`")
+    };
+
     let mut out = String::new();
-    out.push_str("# HP-41CV ROM Function Matrix\n\n");
-    out.push_str("> Generated from `docs/hp41cv-functions.json` via `just docs-matrix`.\n");
+    out.push_str(title);
+    out.push_str("\n\n");
+    out.push_str(&format!("> Generated from {} via `just docs-matrix`.\n", src));
     out.push_str("> Edit the JSON, regenerate this file, commit both.\n\n");
 
     let (implemented, deferred): (Vec<&Entry>, Vec<&Entry>) =
@@ -70,8 +98,17 @@ fn render_markdown(entries: &[Entry]) -> String {
 }
 
 fn render_table(out: &mut String, entries: &[&Entry]) {
-    out.push_str("| Op | Display | Category | Status | Phase | Key Path | Description |\n");
-    out.push_str("|----|---------|----------|--------|-------|----------|-------------|\n");
+    // Emit XROM column only when any entry carries an xrom field (D-30.3).
+    // When has_xrom is false (hp41cv case), output is byte-identical — D-30.2 invariant.
+    let has_xrom = entries.iter().any(|e| e.xrom.is_some());
+
+    if has_xrom {
+        out.push_str("| Op | Display | XROM | Category | Status | Phase | Key Path | Description |\n");
+        out.push_str("|----|---------|------|----------|--------|-------|----------|-------------|\n");
+    } else {
+        out.push_str("| Op | Display | Category | Status | Phase | Key Path | Description |\n");
+        out.push_str("|----|---------|----------|--------|-------|----------|-------------|\n");
+    }
 
     let mut sorted: Vec<&&Entry> = entries.iter().collect();
     sorted.sort_by(|a, b| {
@@ -92,16 +129,33 @@ fn render_table(out: &mut String, entries: &[&Entry]) {
             Some(k) => format!("`{}`", escape_pipe(k)),
             None => "—".to_string(),
         };
-        out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} |\n",
-            escape_pipe(&e.op_variant),
-            escape_pipe(&e.display_name),
-            escape_pipe(&e.category),
-            status,
-            escape_pipe(phase),
-            key,
-            escape_pipe(&e.description),
-        ));
+        if has_xrom {
+            let xrom_cell = e.xrom.as_ref()
+                .map(|x| format!("{} / {}-{}", x.module, x.module_id, x.function_id))
+                .unwrap_or_else(|| "\u{2014}".to_string());
+            out.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                escape_pipe(&e.op_variant),
+                escape_pipe(&e.display_name),
+                xrom_cell,
+                escape_pipe(&e.category),
+                status,
+                escape_pipe(phase),
+                key,
+                escape_pipe(&e.description),
+            ));
+        } else {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                escape_pipe(&e.op_variant),
+                escape_pipe(&e.display_name),
+                escape_pipe(&e.category),
+                status,
+                escape_pipe(phase),
+                key,
+                escape_pipe(&e.description),
+            ));
+        }
     }
 }
 
