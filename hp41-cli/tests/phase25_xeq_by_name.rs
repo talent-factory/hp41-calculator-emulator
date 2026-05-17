@@ -448,10 +448,14 @@ fn cli_resolver_matches_core_resolver() {
 
 #[test]
 fn cli_resolver_returns_none_for_card_reader_names() {
-    // CLI-local intentionally returns None for the 4 v2.1 names — they fall
-    // through to `Op::Xeq` → core builtin_card_op. This split is deliberate:
-    // the CLI-local resolver covers ONLY the 8 conditional tests; everything
-    // else defers to the core resolver.
+    // CLI-local resolver covers ONLY the 8 conditional tests and the 45
+    // Math Pac I XROM ops via `xrom_resolve`. For the 4 v2.1 card-reader
+    // names (WPRGM/RDPRGM/WDTA/RDTA), BOTH the conditional-test arms AND
+    // `xrom_resolve(name, 0b0000_0001)` return None — the card-reader
+    // names are not part of MATH_1.ops. The fall-through to `Op::Xeq` →
+    // `builtin_card_op` happens at the call site (`xeq_by_name` modal
+    // Enter handler), not inside xeq_by_name_local_resolve itself.
+    // (WR-08: doc-comment updated for the Phase 29 resolver chain.)
     for name in &["WPRGM", "RDPRGM", "WDTA", "RDTA"] {
         assert_eq!(
             xeq_by_name_local_resolve(name, 0b0000_0001),
