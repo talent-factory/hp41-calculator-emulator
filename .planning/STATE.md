@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Math Pac I Emulation
 status: executing
-last_updated: "2026-05-17T10:43:41.622Z"
-last_activity: 2026-05-17 -- Phase 29 execution started
+last_updated: "2026-05-17T15:45:00Z"
+last_activity: 2026-05-17 -- Phase 29 verified (5/5) + UAT 7/7 passed; pushed develop, updated PR #12
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 10
-  percent: 20
+  completed_plans: 13
+  percent: 40
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -27,7 +27,8 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 **Shipped:** v2.0 Tauri GUI (2026-05-10) — Phases 13–18 complete
 **Shipped:** v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks, no Phase 19 GSD directory
 **Shipped:** v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27 complete; 8/8 phases, 26/26 plans, 95.25 % core coverage, CI fully green
-**Current focus:** Phase 29 — cli-integration
+**Phase 29 — CLI Integration:** VERIFIED + UAT-passed 2026-05-17 (5/5 must-haves, 7/7 UAT, PR #12 updated)
+**Current focus:** Phase 30 — Documentation & ADRs (next)
 **Repo:** hp41-calculator-emulator
 **Architecture:** Cargo workspace — `hp41-core` (library) + `hp41-cli` (binary) + `hp41-gui` (nested standalone Tauri workspace); `hp41-core` has zero UI/CLI dependencies enforced at compile time.
 
@@ -35,11 +36,11 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 
 ## Current Position
 
-Phase: 29 (cli-integration) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 29
-Last activity: 2026-05-17 -- Phase 29 execution started
-Resume from: .planning/phases/29-cli-integration/29-CONTEXT.md
+Phase: 29 (cli-integration) — VERIFIED & SHIPPED (PR #12)
+Plan: 3 of 3 complete
+Status: Phase 29 complete — verifier re-run flipped status: gaps_found → verified after BL-04 fix landed via /gsd-code-review --fix (commit ce19010). UAT 7/7 passed. STATE updated; PR #12 body refreshed with Phase 29 section.
+Last activity: 2026-05-17 -- Phase 29 verified (5/5) + UAT 7/7 passed; pushed develop, updated PR #12
+Resume from: .planning/ROADMAP.md (Phase 30 — Documentation & ADRs)
 
 ---
 
