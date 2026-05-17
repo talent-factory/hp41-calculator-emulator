@@ -171,8 +171,8 @@
 **Plans**: 5 plans
   - [x] 31-01-PLAN.md — `hp41-gui/src-tauri/src/prgm_display.rs` ~40 new arms; SC-4 verification grep test extends to cover new files; GUI-01
   - [x] 31-02-PLAN.md — Cancellation channel: `cancel_requested: Arc<AtomicBool>` field + `request_cancel` Tauri command + permissions TOML + `op_integ` / `op_solve` / `op_difeq` integration (every-64-samples check + lock release); GUI-05
-  - [ ] 31-03-PLAN.md — XEQ modal resolves Math Pac I functions through shared `xrom_resolve`; D-25.6 CLI ↔ GUI parity verification test; GUI-02
-  - [ ] 31-04-PLAN.md — `?`-overlay parallel-loads Math Pac I JSON via Vite JSON-import; categorized section rendering; CATALOG 2 implementation; GUI-03, GUI-04
+  - [x] 31-03-PLAN.md — XEQ modal resolves Math Pac I functions through shared `xrom_resolve`; D-25.6 CLI ↔ GUI parity verification test; GUI-02
+  - [x] 31-04-PLAN.md — `?`-overlay parallel-loads Math Pac I JSON via Vite JSON-import; categorized section rendering; CATALOG 2 implementation; GUI-03, GUI-04
   - [ ] 31-05-PLAN.md — Modal-prompt rendering: re-uses existing print-panel channel; user-input via Number-Entry pipeline; ESC cancellation; GUI-06, GUI-07 (stub-arm policy preserved)
 
 **Notable risks/decisions**:
@@ -257,7 +257,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
-| 31. GUI Integration | v3.0 | 2/5 | In Progress|  |
+| 31. GUI Integration | v3.0 | 4/5 | In Progress|  |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
 ---
