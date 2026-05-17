@@ -32,6 +32,23 @@ enum IndToggleAction {
     Continue,
 }
 
+/// Discriminator for `PendingInput::XeqByName` — distinguishes the normal
+/// XEQ-by-Name flow from the CollectForModal auto-open hook (D-29.8 / D-29.9).
+///
+/// `Normal`: the user explicitly opened XEQ-by-Name via `f-N` (keys.rs:319).
+/// `CollectForModal`: auto-opened by `maybe_auto_open_collect_for_modal` after
+///   a Math Pac I op opened a modal at FunctionNamePrompt. Enter dispatches
+///   `submit_modal_with_label` instead of `Op::Xeq`.
+///
+/// Phase 29 / CLI-05 additive surface — D-29.8.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XeqByNameMode {
+    /// Standard XEQ-by-Name: Enter dispatches `Op::Xeq(acc)` or the local resolver.
+    Normal,
+    /// CollectForModal: Enter dispatches `submit_modal_with_label(state, &acc)`.
+    CollectForModal,
+}
+
 /// Transient UI state for multi-key input (D-08). NOT serialized to disk.
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
 //
@@ -39,6 +56,8 @@ enum IndToggleAction {
 // variants (FlagPrompt, RegisterPrompt, ClpLabel, DelCount, TonePrompt,
 // XeqByName) per D-25.11. Task 1 landed the variants + exhaustive
 // `pending_prompt()`; Task 2 wired the modal openers and dispatch.
+// Plan 29-03 migrated XeqByName from a tuple variant to a struct variant
+// with a `mode: XeqByNameMode` discriminator per D-29.8.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
     /// Legacy v1.1 STO-register modal. Plan 02 routes `S` to
@@ -110,7 +129,9 @@ pub enum PendingInput {
     /// the 8 conditional-test mnemonics land via Plan 03's
     /// `builtin_card_op` extension). Accumulator capped at 24 chars
     /// (HP-41 ALPHA register width per RESEARCH §Security V5).
-    XeqByName(String),
+    /// Plan 29-03 (D-29.8): migrated from tuple variant to struct variant
+    /// with `mode: XeqByNameMode` discriminator for the CollectForModal flow.
+    XeqByName { acc: String, mode: XeqByNameMode },
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -306,7 +327,7 @@ impl App {
         if key.code == KeyCode::Char('?')
             && !matches!(
                 self.pending_input,
-                Some(PendingInput::XeqByName(_)) | Some(PendingInput::ClpLabel(_))
+                Some(PendingInput::XeqByName { .. }) | Some(PendingInput::ClpLabel(_))
             )
         {
             self.show_help = !self.show_help;
@@ -630,6 +651,39 @@ impl App {
         // D-15: BST (back-step) — F8, decrements pc without executing
         if key.code == KeyCode::F(8) {
             self.state.pc = self.state.pc.saturating_sub(1);
+            return;
+        }
+
+        // Phase 29 (D-29.5): R/S submits modal numeric input.
+        // MUST be below the pending_input.is_some() return at line ~327 (D-07 invariant)
+        // and below the shift_armed block (§7.2). The pending_input.is_none() defensive
+        // guard prevents future code-shape changes from breaking D-07.
+        if key.code == KeyCode::F(5)
+            && self.state.modal_program.is_some()
+            && self.pending_input.is_none()
+        {
+            match hp41_core::ops::math1::submit_modal(&mut self.state) {
+                Ok(()) => {
+                    self.message = None;
+                    self.drain_and_show_print_output(None);
+                }
+                Err(e) => self.message = Some(format!("{e}")),
+            }
+            return;
+        }
+
+        // Phase 29 (D-29.6): Esc cancels open math1 modal (no pending_input active).
+        // MUST be below the shift_armed Esc block (§7.2 two-step convention): the
+        // shift_armed block at ~line 438-451 fires first when shift_armed=true, clears
+        // shift_armed, and returns. Only when shift_armed=false does this block fire.
+        // The defensive && self.pending_input.is_none() guard preserves D-07 even if
+        // future refactors change the ordering above.
+        if key.code == KeyCode::Esc
+            && self.state.modal_program.is_some()
+            && self.pending_input.is_none()
+        {
+            hp41_core::ops::math1::cancel_modal(&mut self.state);
+            self.message = Some("Cancelled".to_string());
             return;
         }
 
@@ -1069,8 +1123,8 @@ impl App {
             Some(PendingInput::TonePrompt) => {
                 self.handle_tone_prompt(key);
             }
-            Some(PendingInput::XeqByName(acc)) => {
-                self.handle_xeq_by_name(key, acc);
+            Some(PendingInput::XeqByName { acc, mode }) => {
+                self.handle_xeq_by_name(key, acc, mode);
             }
             None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
         }
@@ -1404,26 +1458,42 @@ impl App {
     /// (T-25-05 mitigation; matches the ALPHA register size).
     const XEQ_NAME_CAP: usize = 24;
 
-    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String) {
+    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String, mode: XeqByNameMode) {
         match key.code {
             KeyCode::Esc => {
                 self.pending_input = None;
             }
             KeyCode::Enter => {
                 if !acc.is_empty() {
-                    // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
-                    // resolves the 8 non-keyboard conditional-test mnemonics
-                    // directly to Op::Test(TestKind::*) without round-tripping
-                    // through Op::Xeq + run_program. Falls through to
-                    // Op::Xeq(acc) for the 4 v2.1 card-reader names
-                    // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
-                    // builtin_card_op) and for user LBLs. Unknown names
-                    // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
-                    // no "did you mean…?" hint until Phase 26).
-                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc, self.state.xrom_modules) {
-                        self.call_dispatch(op);
-                    } else {
-                        self.call_dispatch(Op::Xeq(acc));
+                    match mode {
+                        XeqByNameMode::CollectForModal => {
+                            // Phase 29 (D-29.8): CollectForModal Enter → submit_modal_with_label
+                            match hp41_core::ops::math1::submit_modal_with_label(
+                                &mut self.state,
+                                &acc,
+                            ) {
+                                Ok(()) => self.message = None,
+                                Err(e) => self.message = Some(format!("{e}")),
+                            }
+                        }
+                        XeqByNameMode::Normal => {
+                            // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
+                            // resolves the 8 non-keyboard conditional-test mnemonics
+                            // directly to Op::Test(TestKind::*) without round-tripping
+                            // through Op::Xeq + run_program. Falls through to
+                            // Op::Xeq(acc) for the 4 v2.1 card-reader names
+                            // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
+                            // builtin_card_op) and for user LBLs. Unknown names
+                            // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
+                            // no "did you mean…?" hint until Phase 26).
+                            if let Some(op) =
+                                keys::xeq_by_name_local_resolve(&acc, self.state.xrom_modules)
+                            {
+                                self.call_dispatch(op);
+                            } else {
+                                self.call_dispatch(Op::Xeq(acc));
+                            }
+                        }
                     }
                 }
                 self.pending_input = None;
@@ -1431,17 +1501,17 @@ impl App {
             KeyCode::Backspace => {
                 let mut new_acc = acc;
                 new_acc.pop();
-                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc: new_acc, mode });
             }
             KeyCode::Char(ch) => {
                 let mut new_acc = acc;
                 if new_acc.len() < Self::XEQ_NAME_CAP {
                     new_acc.push(ch);
                 }
-                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc: new_acc, mode });
             }
             _ => {
-                self.pending_input = Some(PendingInput::XeqByName(acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc, mode });
             }
         }
     }
@@ -1637,11 +1707,14 @@ impl App {
     }
 
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
-    fn call_dispatch(&mut self, op: Op) {
+    pub fn call_dispatch(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => self.message = None,
             Err(e) => self.message = Some(format!("{e}")),
         }
+        // Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal
+        // when modal needs alpha label.
+        self.maybe_auto_open_collect_for_modal();
     }
 
     /// Call hp41_core::ops::dispatch, then drain card op and print_buffer.
@@ -1678,6 +1751,36 @@ impl App {
                 // that clears stale messages on Ok.
             }
             Err(e) => self.message = Some(format!("{e}")),
+        }
+        // Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal
+        // when modal needs alpha label.
+        self.maybe_auto_open_collect_for_modal();
+    }
+
+    /// Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal.
+    ///
+    /// Called at the tail of `call_dispatch` and `call_dispatch_and_drain` after
+    /// every hp41-core dispatch. If the current `modal_program` requires an alpha
+    /// label (i.e., it's at a FunctionNamePrompt step for Integ, Solve, or Difeq),
+    /// auto-opens `PendingInput::XeqByName { mode: CollectForModal }` so the CLI
+    /// immediately prompts the user to type the function label name.
+    ///
+    /// Depth bound: `requires_alpha_label()` returns false for ALL steps except
+    /// the three FunctionNamePrompt variants (per D-29.9 / RESEARCH §7.8). After
+    /// `submit_modal_with_label` advances the step, the next dispatch will NOT
+    /// re-trigger this hook. Bound = 1.
+    fn maybe_auto_open_collect_for_modal(&mut self) {
+        if self.pending_input.is_some() {
+            return;
+        }
+        let Some(ref mp) = self.state.modal_program else {
+            return;
+        };
+        if mp.requires_alpha_label() {
+            self.pending_input = Some(PendingInput::XeqByName {
+                acc: String::new(),
+                mode: XeqByNameMode::CollectForModal,
+            });
         }
     }
 }

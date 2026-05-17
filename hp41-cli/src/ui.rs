@@ -225,13 +225,18 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
 fn render_status(app: &App, frame: &mut Frame, area: Rect) {
     // D-11: pending_input prompts override normal status message
     // D-14: ALPHA mode has a standard status message
-    let base: String = if let Some(ref pending) = app.pending_input {
-        pending_prompt(pending)
-    } else if app.state.alpha_mode {
-        "ALPHA mode — Enter or A to exit".to_string()
-    } else {
-        app.message.as_deref().unwrap_or("Ready").to_string()
-    };
+    // Phase 29 (D-29.3): modal_prompt renders via widened pending_prompt signature.
+    let base: String =
+        if app.pending_input.is_some() || app.state.modal_prompt.is_some() {
+            pending_prompt(
+                app.pending_input.as_ref(),
+                app.state.modal_prompt.as_deref(),
+            )
+        } else if app.state.alpha_mode {
+            "ALPHA mode — Enter or A to exit".to_string()
+        } else {
+            app.message.as_deref().unwrap_or("Ready").to_string()
+        };
     // Phase 25 (D-25.4 / Plan 01 / RESEARCH Open Q 5): prepend an "f→"
     // indicator when the prefix is armed AND no modal/ALPHA is active —
     // doubles the SHIFT annunciator with an inline cue right next to the
@@ -248,20 +253,43 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 /// Format the status bar text for each PendingInput variant (D-11).
 /// Uses {:_<2} to show placeholder underscores for accumulator length.
 ///
-/// **FN-CLI-04 hard rule (D-25.14):** this match is **exhaustive** — no
-/// `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput`
-/// variant forces the compiler to flag this match at build time. That is
-/// the runtime guarantee that no `PendingInput` slips through silently.
+/// **FN-CLI-04 hard rule (D-25.14):** the inner match over PendingInput is **exhaustive** —
+/// no `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput` variant forces
+/// the compiler to flag this match at build time.
 ///
-/// `pub` so integration tests under `hp41-cli/tests/` can verify status-
-/// bar formatting per Phase 25 Plan 02.
-pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
-    use crate::app::PendingInput;
+/// **Widened signature (Phase 29 / D-29.3):**
+/// - `pending: Option<&PendingInput>` — `None` when no modal is active.
+/// - `modal_prompt: Option<&str>` — set by hp41-core when a Math Pac I modal is open.
+///
+/// **Precedence rules (RESEARCH §3.3 / §7.3):**
+/// - If `pending.is_none() && modal_prompt.is_some()` → return `modal_prompt` directly.
+/// - If `pending == Some(XeqByName{CollectForModal})` AND `modal_prompt.is_some()` →
+///   modal_prompt wins (shows the user the Math Pac I prompt, not the XEQ UI indicator).
+/// - Otherwise: render the PendingInput (existing exhaustive match).
+/// - If both are None: return empty string (caller falls through to alpha/message/Ready).
+///
+/// `pub` so integration tests under `hp41-cli/tests/` can verify status-bar formatting.
+pub fn pending_prompt(pending: Option<&crate::app::PendingInput>, modal_prompt: Option<&str>) -> String {
+    use crate::app::{PendingInput, XeqByNameMode};
     use hp41_core::ops::{FlagTestKind, StoArithKind};
 
     use crate::keys::{FlagPromptKind, RegisterOpKind};
 
+    // Phase 29 (D-29.3): precedence rules
+    if pending.is_none() && modal_prompt.is_some() {
+        return modal_prompt.unwrap_or("").to_string();
+    }
+    // CollectForModal: modal_prompt wins when both are Some
+    if let Some(PendingInput::XeqByName { mode: XeqByNameMode::CollectForModal, .. }) = pending {
+        if let Some(mp) = modal_prompt {
+            return mp.to_string();
+        }
+    }
+
+    // Standard exhaustive match over pending (FN-CLI-04 invariant preserved)
     match pending {
+        None => String::new(),
+        Some(pending) => match pending {
         PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
         PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
         PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
@@ -326,8 +354,17 @@ pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
         PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
         PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
         PendingInput::TonePrompt => "TONE [_]".to_string(),
-        PendingInput::XeqByName(acc) => format!("XEQ \"{acc}\"_"),
-    }
+        // Phase 29 (D-29.8): XeqByName is now a struct variant with XeqByNameMode.
+        // Two explicit arms per FN-CLI-04 (no `_ =>`).
+        PendingInput::XeqByName { acc, mode: XeqByNameMode::Normal } => {
+            format!("XEQ \"{acc}\"_")
+        }
+        PendingInput::XeqByName { acc, mode: XeqByNameMode::CollectForModal } => {
+            // CollectForModal: modal_prompt should have won above; this is fallback.
+            format!("NAME: {acc}_")
+        }
+        } // end Some(pending) => match pending
+    } // end match pending (outer)
 }
 
 // ── Phase 5 overlays ─────────────────────────────────────────────────────────

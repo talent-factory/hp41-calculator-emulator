@@ -63,13 +63,13 @@ fn make_app() -> (App, tempfile::TempDir) {
 /// Returns the post-Enter `app.message` for inspection.
 fn type_name_and_enter(name: &str) -> (App, tempfile::TempDir, Option<String>) {
     let (mut app, tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName(String::new()));
+    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
     for c in name.chars() {
         app.handle_key(key(c));
     }
     // Confirm accumulator captured the full name before pressing Enter.
     match &app.pending_input {
-        Some(PendingInput::XeqByName(acc)) => {
+        Some(PendingInput::XeqByName { acc, .. }) => {
             assert_eq!(
                 acc, name,
                 "accumulator must hold the full mnemonic before Enter"
@@ -246,13 +246,13 @@ fn xeq_by_name_unicode_form_works() {
     );
 
     let (mut app, _tmp) = make_app();
-    app.pending_input = Some(PendingInput::XeqByName(String::new()));
+    app.pending_input = Some(PendingInput::XeqByName { acc: String::new(), mode: hp41_cli::app::XeqByNameMode::Normal });
     app.handle_key(key('X'));
     app.handle_key(key('\u{2260}'));
     app.handle_key(key('Y'));
     app.handle_key(key('?'));
     match &app.pending_input {
-        Some(PendingInput::XeqByName(acc)) => {
+        Some(PendingInput::XeqByName { acc, .. }) => {
             assert_eq!(acc, "X\u{2260}Y?");
         }
         other => panic!("expected XeqByName open after typing Unicode mnemonic; got {other:?}"),

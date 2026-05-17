@@ -23,8 +23,8 @@ are deferred to Phase 29 (CLI) and Phase 31 (GUI).
 | POLY (ROOTS sub-entry) | 1 of 2 | ROOTS directly; POLY modal deferred | §6 |
 | MATRIX kernels (DET/INV/SIMEQ) | 3 of 8 | Programmatic preset only | §7 |
 | INTG / SOLVE / DIFEQ | 4 of 4 | Program-wrapper required | §8 |
-| FOUR | 1 of 1 | Deferred to Phase 29/31 | §9 |
-| TRANS / T3D | 0 of 2 | Deferred to Phase 29/31 | §9 |
+| FOUR | 1 of 1 | ✅ CLI (Phase 29); GUI Phase 31 | §9 |
+| TRANS / T3D | 0 of 2 | ✅ CLI simplified routing (Phase 29); GUI Phase 31 | §9 |
 
 A complete Tier 1 walk-through (sections 2 through 5) takes ≈ 20 minutes.
 Tier 2 (sections 6 through 8) adds another ≈ 30 minutes.
@@ -365,34 +365,41 @@ not user-reachable. The cancellation **infrastructure** (per-64-samples
 lock release, clean unwinding of `integ_state`/`solve_state`/`difeq_state`)
 is covered by `cargo test -p hp41-core --test math1_user_callback`.
 
-## 9. Deferred to Phase 29 (CLI) / Phase 31 (GUI)
+## 9. Modal-Workflow CLI Status (Phase 29) / GUI Deferred to Phase 31
 
-The following Math Pac I user-facing flows require modal-prompt **display**
-and modal-input **routing** that are intentionally not in Phase 28's scope:
+Phase 29 (Plan 29-03 / CLI-05) wires modal-prompt routing for all 7 Math Pac I
+workflows on the CLI. The following table shows current status:
 
-| Op | Behavior in Phase 28 | What's missing |
-|----|----------------------|----------------|
-| `XEQ POLY` | sets `state.modal_prompt = Some("DEGREE=?")` | CLI/GUI does not render `modal_prompt` to the status line; user cannot advance through DEGREE → A=? → … → F=? prompts |
-| `XEQ MATRIX` | sets `modal_prompt = Some("ROWS=?")` | same — operator cannot enter dimensions, choose enter/edit, or kick off DET/INV/SIMEQ |
-| `XEQ FOUR` | sets `modal_prompt = Some("NO. SAMPLES=?")` | same — operator cannot enter sample count or invoke the USER-mode E-key DFT evaluator |
-| `XEQ TRANS` | sets `modal_prompt = Some("X0,Y0,θ?")` | same — 2D origin and rotation cannot be entered |
-| `XEQ T3D` | sets `modal_prompt = Some("ORIGIN?")` | same — 3D origin + axis + θ cannot be entered |
-| Modal R/S submit | `Op::RunStop` would advance the modal one step | not wired into CLI input handler nor GUI key dispatch |
+| Op | CLI (Phase 29) | GUI (Phase 31) |
+|----|----------------|----------------|
+| `XEQ MATRIX` | ✅ Interactive — `ORDER=?` → `Ai,j=?` loop → DET/INV/SIMEQ via separate XEQ | ❌ Deferred to Phase 31 |
+| `XEQ SOLVE` | ✅ Interactive — `FUNCTION NAME?` → `GUESS 1=?` → `GUESS 2=?` → result in print buffer | ❌ Deferred to Phase 31 |
+| `XEQ POLY` | ✅ Interactive — `DEGREE=?` → `A=?` → … → `F=?` → roots in print buffer | ❌ Deferred to Phase 31 |
+| `XEQ INTG` | ✅ Interactive — `FUNCTION NAME?` → `(A,B)=?` → `N=?` → result in print buffer | ❌ Deferred to Phase 31 |
+| `XEQ DIFEQ` | ✅ Interactive — `FUNCTION NAME?` → `ORDER=?` → `STEP SIZE=?` → `X0=?` → `Y0=?` | ❌ Deferred to Phase 31 |
+| `XEQ FOUR` | ✅ Interactive — `NO. SAMPLES=?` → `NO. FREQ=?` → `1ST COEFF=?` → `RECT?` → `Y1=?`…`YN=?` | ❌ Deferred to Phase 31 |
+| `XEQ TRANS` | ✅ Interactive — `X0,Y0,θ?` → `FWD?`/`INV?` (simplified Phase 29 routing) | ❌ Deferred to Phase 31 |
 
-**Workaround today:** call the sub-entry op directly with preset registers (as
-in §6 ROOTS), or run the master entry inside a wrapper program that
-provides parameters via scratch registers (as in §8). Phase 29/31 will close
-this gap.
+**CLI workflow protocol (Phase 29):**
+- Press R/S (F5) to submit each numeric input step
+- Press Esc to cancel the open modal (message: "Cancelled")
+- For `FUNCTION NAME?` steps (SOLVE/INTG/DIFEQ): the XEQ-by-Name prompt opens automatically — type the label name and press Enter
+- The status bar displays `modal_prompt` (e.g., `ORDER=?`) at all times during the workflow
+- With shift-prefix (f) armed: first Esc clears the prefix, second Esc cancels the modal
 
-**Verification that the modal-opener side IS correct** — to confirm that
-`XEQ POLY` (etc.) does set the modal state without crashing:
+**Cancellation note**: long-running INTG/SOLVE/DIFEQ computations are not
+yet cancellable via a keyboard shortcut — use Ctrl+C to terminate. GUI
+wiring for cancellation ships Phase 31 (GUI-05).
 
-| # | Setup → XEQ | Expected | How to verify (today) |
-|---|-------------|----------|-----------------------|
-| 9.1 | `XEQ POLY ENTER` | No error; `state.modal_program = Some(ModalProgram::Poly(DegreePrompt))` | `cargo test -p hp41-core --test math1_poly dispatch_poly_workflow_succeeds` |
-| 9.2 | `XEQ MATRIX ENTER` | No error; modal state set | `cargo test -p hp41-core --test math1_matrix dispatch_matrix_workflow_*` |
-| 9.3 | `XEQ FOUR ENTER` | No error; modal state set | `cargo test -p hp41-core --test math1_four_tri_trans four_workflow_*` |
-| 9.4 | `XEQ TRANS ENTER` | No error; modal state set | same test file, `trans_workflow_*` |
+**Verification (Phase 29 CLI integration tests):**
+
+| # | Setup → XEQ | Expected | How to verify |
+|---|-------------|----------|---------------|
+| 9.1 | `XEQ MATRIX ENTER` → `2 R/S 1 R/S 2 R/S 3 R/S 4 R/S` → `XEQ DET ENTER` | X = `-2.0000` | `cargo test -p hp41-cli --test phase29_modal_flow matrix_workflow_order_prompt_advances_on_r_s` |
+| 9.2 | `XEQ SOLVE ENTER` → type `F` Enter → `1 R/S 2 R/S` (with LBL "F" in program) | "ROOT IS …" in status | `cargo test -p hp41-cli --test phase29_modal_flow solve_workflow_label_submission_advances_to_guess1` |
+| 9.3 | `XEQ POLY ENTER` → `2 R/S 1 R/S 0 R/S 1 R/S` | roots in print buffer | Manual: `just run`, XEQ POLY |
+| 9.4 | `XEQ FOUR ENTER` → `NO. SAMPLES=?` → … | DFT coefficients in print buffer | Manual: `just run`, XEQ FOUR |
+| 9.5 | Esc on open MATRIX modal | "Cancelled", modal cleared | `cargo test -p hp41-cli --test phase29_modal_flow esc_cancels_open_modal` |
 
 ## 10. Error Path Summary
 
@@ -447,11 +454,10 @@ release blocker.
 
 ## Known Limitations
 
-- All 22 modal-opener flows (POLY, MATRIX, FOUR, TRANS, T3D — plus their
-  multi-step prompt sequences) are not interactively reachable in Phase 28.
-  Tested via Rust integration tests and via the §8 wrapper-program pattern
-  for the user-callback subset (INTG/SOLVE/DIFEQ). Tracked for Phase 29
-  (CLI) and Phase 31 (GUI).
+- Phase 29 (Plan 29-03 / CLI-05) ships CLI modal routing for all 7 Math Pac I
+  workflows: MATRIX ✅, SOLVE ✅, POLY ✅, INTG ✅, DIFEQ ✅, FOUR ✅, TRANS ✅.
+  GUI modal routing remains deferred to Phase 31 (GUI-05). Phase 30 covers
+  documentation matrix regeneration for the Math Pac I function set.
 - The `state.print_buffer` content (SSA dual-solution output, POLY roots,
   Triangle solver outputs in textual form) requires CLI today; GUI display
   lands in Phase 31.
