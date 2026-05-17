@@ -777,7 +777,7 @@ End-to-end driver for the R/S → submit_modal → next-step pipeline. ~5 tests:
 |----------|-------|
 | Framework | Rust integration tests (`#[test]` + `cargo test`); MSRV 1.88 |
 | Config file | None (Cargo built-in) |
-| Quick run command | `just test -p hp41-cli --tests` or `cargo test -p hp41-cli --tests --no-fail-fast` |
+| Quick run command | `cargo test -p hp41-cli --tests --no-fail-fast` |
 | Full suite command | `just ci` (lint + test + coverage) |
 
 ### Phase Requirements → Test Map
@@ -936,11 +936,11 @@ When `submit_modal` advances Matrix's `Ready` state and dispatches `Op::MatVmat`
 
 `modal_program`, `modal_prompt` are both `#[serde(default, skip)]` `[VERIFIED: state.rs:185, 193]`. Save files don't persist them. Loading a v2.2 save into a v3.0 binary works; the modals never leak across persistence. No new field added in Phase 29. **Save-file backward compat preserved.**
 
-## §8 Open Questions / Claude's-Discretion Items the Planner Resolves
+## §8 Open Questions / Claude's-Discretion Items (RESOLVED)
 
-1. **`op_solve` / `op_integ` / `op_difeq` interactive dispatch arm.** Phase 29 MUST modify these to open the modal in `!state.is_running` mode (Option A in §7.4) — OR find an alternative wiring. **Discuss-phase or plan-checker should escalate.** Without this, the user can never reach INTG/SOLVE/DIFEQ interactively. Recommendation: Phase 29 plan 03 carries a small additive `hp41-core` change for these three functions, justified as "the additive-public-surface clause covers this — the bodies were stubs designed to be filled in Phase 29".
+1. **`op_solve` / `op_integ` / `op_difeq` interactive dispatch arm.** Phase 29 MUST modify these to open the modal in `!state.is_running` mode (Option A in §7.4) — OR find an alternative wiring. **Discuss-phase or plan-checker should escalate.** Without this, the user can never reach INTG/SOLVE/DIFEQ interactively. Recommendation: Phase 29 plan 03 carries a small additive `hp41-core` change for these three functions, justified as "the additive-public-surface clause covers this — the bodies were stubs designed to be filled in Phase 29". **RESOLVED — see Plan 29-03 Task 1 step 4.**
 
-2. **Where do `submit_step` per-program functions live?** §3.4 above recommends adding `pub fn submit_step(state, step)` to each `hp41-core/src/ops/math1/<program>.rs` file. Frozen-source review: this is additive (new pub functions), not a modification of existing logic. Confirm at plan-time.
+2. **Where do `submit_step` per-program functions live?** §3.4 above recommends adding `pub fn submit_step(state, step)` to each `hp41-core/src/ops/math1/<program>.rs` file. Frozen-source review: this is additive (new pub functions), not a modification of existing logic. Confirm at plan-time. **RESOLVED — see Plan 29-03 Task 1 steps 3 + 5.**
 
 3. **`submit_modal_with_label` API shape.** Free function vs. method on `ModalProgram`? Recommend free function in `hp41-core/src/ops/math1/mod.rs` matching `submit_modal` symmetrically:
 
@@ -948,11 +948,11 @@ When `submit_modal` advances Matrix's `Ready` state and dispatches `Op::MatVmat`
 pub fn submit_modal_with_label(state: &mut CalcState, label: &str) -> Result<(), HpError>;
 ```
 
-Internally trims+uppercases the label per HP-41 convention before staging into `state.alpha_reg`.
+Internally trims+uppercases the label per HP-41 convention before staging into `state.alpha_reg`. **RESOLVED — see Plan 29-03 Task 1 steps 3 + 5.**
 
-4. **JSON `xrom.function_id` numbering.** 1-indexed (HP convention) vs 0-indexed (Rust convention)? Recommend 1-indexed to match HP-41 user-facing CATALOG 2 listing. Document in JSON file header comment.
+4. **JSON `xrom.function_id` numbering.** 1-indexed (HP convention) vs 0-indexed (Rust convention)? Recommend 1-indexed to match HP-41 user-facing CATALOG 2 listing. Document in JSON file header comment. **RESOLVED — see Plan 29-01 Task 1.**
 
-5. **JSON authoring — where does the `description` text come from?** Phase 30 nominally owns this; Phase 29 authors the JSON shortcut per D-29.1. Recommend short OM-cited descriptions (e.g. `"Hyperbolic sine: X <- sinh(X)"`) — same style as v2.2 entries. Author at plan-time; ADRs/divergences DOC-04 expand in Phase 30.
+5. **JSON authoring — where does the `description` text come from?** Phase 30 nominally owns this; Phase 29 authors the JSON shortcut per D-29.1. Recommend short OM-cited descriptions (e.g. `"Hyperbolic sine: X <- sinh(X)"`) — same style as v2.2 entries. Author at plan-time; ADRs/divergences DOC-04 expand in Phase 30. **RESOLVED — see Plan 29-01 Task 1.**
 
 6. **Category names per program.** Suggested taxonomy:
    - `Math1 Hyperbolics` (6 entries)
@@ -967,9 +967,11 @@ Internally trims+uppercases the label per HP-41 convention before staging into `
    - `Math1 Triangle Solvers` (5)
    - `Math1 Coordinate Transform` (2)
 
-7. **Should the `XeqByName` `pending_prompt` arm for `CollectForModal` mode use a distinct visual marker?** Recommend showing only `state.modal_prompt` (which IS `"FUNCTION NAME?"`) — the auto-open relationship is invisible to the user. Tests assert this.
+   **RESOLVED — see Plan 29-01 Task 1.**
 
-8. **`verifying-math-pac-1.md §9 update** — CONTEXT §"Specific Ideas" suggests Phase 29 plan 03 (or 04) updates §9's table to mark each Math Pac I modal flow as ✅ available on CLI. Plan 29-03 final task. Low-effort doc edit.
+7. **Should the `XeqByName` `pending_prompt` arm for `CollectForModal` mode use a distinct visual marker?** Recommend showing only `state.modal_prompt` (which IS `"FUNCTION NAME?"`) — the auto-open relationship is invisible to the user. Tests assert this. **RESOLVED — see Plan 29-03 Task 2 step 3.**
+
+8. **`verifying-math-pac-1.md §9 update** — CONTEXT §"Specific Ideas" suggests Phase 29 plan 03 (or 04) updates §9's table to mark each Math Pac I modal flow as ✅ available on CLI. Plan 29-03 final task. Low-effort doc edit. **RESOLVED — see Plan 29-03 Task 2 step 6.**
 
 ## Environment Availability
 

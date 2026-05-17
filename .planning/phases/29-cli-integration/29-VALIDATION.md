@@ -20,7 +20,7 @@ created: 2026-05-17
 |----------|-------|
 | **Framework** | Rust integration tests (`#[test]` + `cargo test`) — MSRV 1.88 |
 | **Config file** | None (Cargo built-in) |
-| **Quick run command** | `just test -p hp41-cli --tests` |
+| **Quick run command** | `cargo test -p hp41-cli --tests` |
 | **Full suite command** | `just ci` (lint + test + coverage gate) |
 | **Estimated runtime** | ~25 seconds for `hp41-cli` test suite; `just ci` ~3 minutes |
 
@@ -28,7 +28,7 @@ created: 2026-05-17
 
 ## Sampling Rate
 
-- **After every task commit:** Run `just test -p hp41-cli --tests`
+- **After every task commit:** Run `cargo test -p hp41-cli --tests`
 - **After every plan wave:** Run `just ci`
 - **Before `/gsd:verify-work`:** `just ci` must be green AND one Matrix workflow walked end-to-end on a live `cargo run -p hp41-cli` against OM p.14 example
 - **Max feedback latency:** ~25 seconds (per-task), ~3 minutes (full)
