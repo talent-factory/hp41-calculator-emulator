@@ -27,7 +27,7 @@
 - [x] **Phase 28: XROM Framework + Math Pac I Core Ops** — Land XROM registry, ~40 new `Op` variants, modal-workflow state machine, user-program callback infrastructure for INTG/SOLVE/DIFEQ, and all 10 Math Pac I top-level programs (`MATRIX`, `SOLVE`, `POLY`, `INTG`, `DIFEQ`, `FOUR`, complex stack, hyperbolics, triangle solvers, `TRANS`) in `hp41-core` (completed 2026-05-16)
 - [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17). DOC-01 absorbed into Plan 29-01 per D-29.1 (file `docs/hp41-math1-functions.json` authored here)
 - [x] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block (completed 2026-05-17)
-- [ ] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ)
+- [x] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ) (completed 2026-05-17)
 - [ ] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI
 
 ---
@@ -173,7 +173,7 @@
   - [x] 31-02-PLAN.md — Cancellation channel: `cancel_requested: Arc<AtomicBool>` field + `request_cancel` Tauri command + permissions TOML + `op_integ` / `op_solve` / `op_difeq` integration (every-64-samples check + lock release); GUI-05
   - [x] 31-03-PLAN.md — XEQ modal resolves Math Pac I functions through shared `xrom_resolve`; D-25.6 CLI ↔ GUI parity verification test; GUI-02
   - [x] 31-04-PLAN.md — `?`-overlay parallel-loads Math Pac I JSON via Vite JSON-import; categorized section rendering; CATALOG 2 implementation; GUI-03, GUI-04
-  - [ ] 31-05-PLAN.md — Modal-prompt rendering: re-uses existing print-panel channel; user-input via Number-Entry pipeline; ESC cancellation; GUI-06, GUI-07 (stub-arm policy preserved)
+  - [x] 31-05-PLAN.md — Modal-prompt rendering: re-uses existing print-panel channel; user-input via Number-Entry pipeline; ESC cancellation; GUI-06, GUI-07 (stub-arm policy preserved)
 
 **Notable risks/decisions**:
   - **Pitfall 11 (GUI freeze on long INTG)**: cancellation channel is the structural fix; Plan 31-02 research-prep specifies the lock-release strategy (every 64 samples) and verifies the auto-save thread + `request_cancel` can interleave without deadlock
@@ -257,7 +257,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
-| 31. GUI Integration | v3.0 | 4/5 | In Progress|  |
+| 31. GUI Integration | v3.0 | 5/5 | Complete   | 2026-05-17 |
 | 32. Test Hardening | v3.0 | 0/3 | Planned | |
 
 ---
