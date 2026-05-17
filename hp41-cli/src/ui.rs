@@ -275,9 +275,15 @@ pub fn pending_prompt(pending: Option<&crate::app::PendingInput>, modal_prompt: 
 
     use crate::keys::{FlagPromptKind, RegisterOpKind};
 
-    // Phase 29 (D-29.3): precedence rules
-    if pending.is_none() && modal_prompt.is_some() {
-        return modal_prompt.unwrap_or("").to_string();
+    // Phase 29 (D-29.3): precedence rules.
+    // WR-05 fix: `if let Some(mp)` is structurally identical to the previous
+    // `is_some() ... unwrap_or("")` pair but makes the invariant explicit —
+    // no defensive `""` fallback that clippy::unwrap_used would flag and that
+    // could only be reached if the surrounding guard was wrong.
+    if pending.is_none() {
+        if let Some(mp) = modal_prompt {
+            return mp.to_string();
+        }
     }
     // CollectForModal: modal_prompt wins when both are Some
     if let Some(PendingInput::XeqByName { mode: XeqByNameMode::CollectForModal, .. }) = pending {
