@@ -275,8 +275,27 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
     // ── Simpson composite rule ────────────────────────────────────────────────
     // h = (b - a) / n_even
     // integral ≈ (h/3) * Σ_{k=0}^{n_even} coeff(k) * f(x_k)
-    let a_f64 = a.inner().to_f64().ok_or(HpError::Overflow)?;
-    let b_f64 = b.inner().to_f64().ok_or(HpError::Overflow)?;
+    //
+    // CR-01 fix: every `?`-conversion between `state.integ_state = Some(...)`
+    // above and `state.integ_state = None` at the success cleanup below MUST
+    // clear `integ_state` on the Err path. If we leak `Some(_)` here, the next
+    // INTG call hits the XROM-08 nested-rejection guard at the top of this
+    // function and returns InvalidOp — INTG is permanently broken until the
+    // user finds a way to manually reset state.
+    let a_f64 = match a.inner().to_f64() {
+        Some(v) => v,
+        None => {
+            state.integ_state = None;
+            return Err(HpError::Overflow);
+        }
+    };
+    let b_f64 = match b.inner().to_f64() {
+        Some(v) => v,
+        None => {
+            state.integ_state = None;
+            return Err(HpError::Overflow);
+        }
+    };
     let n_f64 = n_even as f64;
     let h_f64 = (b_f64 - a_f64) / n_f64;
 
@@ -298,10 +317,17 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
 
                 // Push x_k to stack with lift enabled
                 state.stack.lift_enabled = true;
-                enter_number(
-                    state,
-                    HpNum::from(Decimal::from_f64(x_k).ok_or(HpError::Overflow)?),
-                );
+                // CR-01 fix: clear integ_state on Overflow path so the next
+                // INTG call is not poisoned by the XROM-08 nested guard.
+                let x_k_decimal = match Decimal::from_f64(x_k) {
+                    Some(d) => d,
+                    None => {
+                        state.integ_state = None;
+                        state.pc = save_pc;
+                        return Err(HpError::Overflow);
+                    }
+                };
+                enter_number(state, HpNum::from(x_k_decimal));
                 apply_lift_effect(state, LiftEffect::Enable);
 
                 // Re-enter run_loop with the user function (C-28.5 / Pitfall 4)
@@ -335,8 +361,17 @@ pub fn op_integ_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), Hp
                     }
                 }
 
-                // After sub-loop returns, X = f(x_k)
-                let fx_k = state.stack.x.inner().to_f64().ok_or(HpError::Overflow)?;
+                // After sub-loop returns, X = f(x_k).
+                // CR-01 fix: clear integ_state on Overflow path so the next
+                // INTG call is not poisoned by the XROM-08 nested guard.
+                let fx_k = match state.stack.x.inner().to_f64() {
+                    Some(v) => v,
+                    None => {
+                        state.integ_state = None;
+                        state.pc = save_pc;
+                        return Err(HpError::Overflow);
+                    }
+                };
                 sum_f64 += coeff * fx_k;
 
                 // Update running accumulator for Canceled-path diagnostic
