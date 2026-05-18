@@ -12,13 +12,14 @@
 //!    how many `#[test]` functions mention each variant name.
 //! 3. Assert ≥ 5 mentions per variant.
 //!
-//! **At Plan 28-01:** No Math Pac I Op variants exist yet in `ops/mod.rs`.
-//! The Op enum scan returns an empty list. The test runs over an empty set and
-//! passes vacuously. This is intentional and documented (Pitfall 16).
-//!
-//! **Plans 28-02..28-10** grow the Op enum and the math1_*.rs test files.
-//! Once a variant like `Op::Sinh` appears in `ops/mod.rs` and Plans 28-02..28-10
-//! have added test functions mentioning it, this gate becomes non-trivial.
+//! **Plan 32-01 (graduation, 2026-05-18):** gate graduated to non-vacuous —
+//! all 45 Math Pac I variants meet the ≥ 5 mentions threshold per the Per-Op
+//! Test Count Audit in `.planning/phases/32-test-hardening/32-RESEARCH.md`.
+//! The minimum-count baseline is **TriSaa=6, TriSas=6**; any drop below the
+//! baseline in a future commit is immediately visible in diff review per the
+//! T-32-04 meta-test-gaming threat mitigation. Plans 28-02..28-10 grew the
+//! Op enum and the `math1_*.rs` test files; this gate now actively counts
+//! variant mentions across the 14 `math1_*.rs` files.
 //!
 //! **Scan scope:**
 //! - Source file: `hp41-core/src/ops/mod.rs` (Op enum definition)
@@ -120,13 +121,6 @@ fn count_test_mentions(variant_name: &str, tests_dir: &Path) -> usize {
 fn each_math1_op_has_at_least_5_tests() {
     let variants = collect_math1_variant_names();
 
-    // At Plan 28-01: variants is empty — test passes vacuously.
-    // Plans 28-02..28-10 grow this list.
-    if variants.is_empty() {
-        // Explicitly document the vacuous-pass state.
-        return;
-    }
-
     // Find the tests directory using CARGO_MANIFEST_DIR (set at compile time to the
     // hp41-core package directory). This is robust across workspace root / package root
     // CWD differences when running tests via `cargo test -p hp41-core`.
@@ -144,6 +138,10 @@ fn each_math1_op_has_at_least_5_tests() {
         }
     }
 
+    // Catches: Pitfall 16 — Op variants with insufficient test coverage risk
+    // missing edge cases that the Phase 32 coverage gate would otherwise catch.
+    // T-32-04: per-Op count baseline (TriSaa=6, TriSas=6 minimum); a drop below
+    // this floor in a future commit is visible in diff review.
     assert!(
         failures.is_empty(),
         "Pitfall 16 violation — Math Pac I variants with insufficient test coverage:\n{}",
