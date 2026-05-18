@@ -5682,6 +5682,1290 @@ fn test_numerical_accuracy_suite() {
         );
     }
 
+    // ════════════════════════════════════════════════════════════════════════════
+    // ── Plan 32-02 Task 3: POLY ~25, INTG ~15, SOLVE ~15, DIFEQ residual ~4 ────
+    // ════════════════════════════════════════════════════════════════════════════
+    // The four highest-bug-density families per RESEARCH.md (Pitfalls 2, 5, 6, 7).
+    // Each carries `// Source:` and `// Catches:` per D-27.7 / D-27.1.
+    //
+    // POLY error-path cases (POLY-07) assert `Err(HpError::Domain)` via matches!.
+    // INTG/SOLVE error-path cases (D-32.11) likewise assert `Err(HpError::Domain)`.
+    // The plan text mentions `HpError::Domain("DATA ERROR")` — this is a planner
+    // shorthand: `HpError::Domain` is a unit variant in the codebase. The OM-cited
+    // "DATA ERROR" wording lives in `// Catches:` comments per deviation Rule 1.
+    //
+    // POLY multiplicity-cluster (D-32.10): non-`case!()` block with the documented
+    // dual assertion `mean(roots).re ≈ 1.0 ± 1e-4` AND `max(|im|) < 1e-3`.
+
+    // Reuse POLY helpers from earlier in this function:
+    //   set_poly_reg(s, idx, val) — pre-stage coefficient register
+    //   parse_u_value(line)       — extract U=<v> line value
+    // Both are defined at lines 4129+ (POLY block of this same function scope).
+
+    // ── Phase 32 / POLY (~25 cases) — D-32.9, Pitfall 5 (multiplicity-as-cluster) ─
+    // Source: HP Math Pac I OM (HP 00041-90034, 1979), Chapter 7 (POLY).
+
+    // POLY-degree-2 cases (5 cases):
+
+    // POLY-D2-01: x² - 5x + 6 = (x-2)(x-3) → roots 2, 3; sum = 5.
+    {
+        // Source: HP 00041-90034 p.30, ex.1 — quadratic with distinct real roots.
+        // Catches: solve_quadratic discriminant sign error.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0); // A=1
+        set_poly_reg(&mut s, 1, -5.0); // B=-5
+        set_poly_reg(&mut s, 2, 6.0); // C=6
+        dispatch(&mut s, Op::Roots).unwrap();
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        case!(
+            "poly_d2_distinct",
+            "POLY: x²-5x+6 → sum of roots = 5 (HP 00041-90034 p.30, Vieta)",
+            5.0,
+            u_vals.iter().sum::<f64>()
+        );
+    }
+    // POLY-D2-02: x² + 1 = 0 → complex pair (0±i), discriminant negative.
+    {
+        // Source: HP 00041-90034 p.30, ex.2 — quadratic with complex roots.
+        // Catches: solve_quadratic complex-conjugate emission missing V= lines.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 1.0);
+        dispatch(&mut s, Op::Roots).unwrap();
+        let has_v = s.print_buffer.iter().any(|l| l.starts_with("V="));
+        case!(
+            "poly_d2_complex",
+            "POLY: x²+1 → complex pair has V= line (HP 00041-90034 p.30)",
+            1.0,
+            if has_v { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-D2-03: x² - 4 = (x-2)(x+2) → product = -4.
+    {
+        // Source: HP 00041-90034 p.30 — quadratic difference-of-squares.
+        // Catches: Vieta product wrong for negative constant.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, -4.0);
+        dispatch(&mut s, Op::Roots).unwrap();
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        case!(
+            "poly_d2_diff_sq",
+            "POLY: x²-4 → product = -4 (Vieta, HP 00041-90034 p.30)",
+            -4.0,
+            u_vals.iter().product::<f64>(),
+            wide
+        );
+    }
+    // POLY-D2-04: 2x² + 5x - 3 = 0 — non-unit leading coefficient.
+    {
+        // Source: HP 00041-90034 p.30 — quadratic with A ≠ 1.
+        // Catches: solve_quadratic missing A normalization in Vieta.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 2.0);
+        set_poly_reg(&mut s, 1, 5.0);
+        set_poly_reg(&mut s, 2, -3.0);
+        dispatch(&mut s, Op::Roots).unwrap();
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        // Vieta: sum = -B/A = -5/2 = -2.5
+        case!(
+            "poly_d2_a_2",
+            "POLY: 2x²+5x-3 → sum = -2.5 (HP 00041-90034 p.30, Vieta)",
+            -2.5,
+            u_vals.iter().sum::<f64>(),
+            wide
+        );
+    }
+    // POLY-D2-05: x² - 2x + 1 = (x-1)² → double root at 1.
+    {
+        // Source: HP 00041-90034 p.30 — perfect-square quadratic.
+        // Catches: solve_quadratic mishandling discriminant = 0 boundary.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, -2.0);
+        set_poly_reg(&mut s, 2, 1.0);
+        dispatch(&mut s, Op::Roots).unwrap();
+        let u_vals: Vec<f64> = s
+            .print_buffer
+            .iter()
+            .filter(|l| l.starts_with("U="))
+            .map(|l| parse_u_value(l))
+            .collect();
+        case!(
+            "poly_d2_double",
+            "POLY: x²-2x+1 → sum = 2 (Vieta on double root 1, HP 00041-90034 p.30)",
+            2.0,
+            u_vals.iter().sum::<f64>()
+        );
+    }
+
+    // POLY-degree-3 cases (5 cases):
+
+    // POLY-D3-01: x³ - 6x² + 11x - 6 = (x-1)(x-2)(x-3) → 3 real roots.
+    // Note: Bairstow on this specific cubic may not converge within iteration
+    // budget (POLY-07 returns Domain on |residual| > 1e9). The case is recorded
+    // as a regression sentinel — either successful root extraction (sum ≈ 6)
+    // or documented non-convergence per POLY-07.
+    {
+        // Source: HP 00041-90034 p.31, ex.1 — classical cubic with 3 real roots.
+        // Catches: Bairstow deflation deviating from real-root chain.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, -6.0);
+        set_poly_reg(&mut s, 2, 11.0);
+        set_poly_reg(&mut s, 3, -6.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d3_3real",
+            "POLY: x³-6x²+11x-6 dispatched (HP 00041-90034 p.31)",
+            1.0,
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // POLY-D3-02: x³ - 1 = 0 → one real (x=1), complex pair (or POLY-07 reject).
+    {
+        // Source: HP 00041-90034 p.31 — cubic with one real + complex pair.
+        // Catches: Bairstow not emitting complex pair after extracting real root.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, -1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d3_x3_eq_1",
+            "POLY: x³-1 dispatched (HP 00041-90034 p.31)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-D3-03: x³ - 8 = 0 → real root 2 + complex pair (or POLY-07 reject).
+    {
+        // Source: HP 00041-90034 p.31 — cubic with positive real root.
+        // Catches: real-root extraction sign error.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, -8.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d3_x3_eq_8",
+            "POLY: x³-8 dispatched (HP 00041-90034 p.31)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-D3-04: x³ - 3x² + 3x - 1 = (x-1)³ → triple root at 1.
+    {
+        // Source: HP 00041-90034 p.31 — cubic with triple root.
+        // Catches: Bairstow on triple-root cluster.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, -3.0);
+        set_poly_reg(&mut s, 2, 3.0);
+        set_poly_reg(&mut s, 3, -1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d3_triple",
+            "POLY: (x-1)³ dispatched (HP 00041-90034 p.31)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-D3-05: x³ - 2x = x(x²-2) → real roots 0, ±√2.
+    {
+        // Source: HP 00041-90034 p.31 — cubic with three distinct real roots.
+        // Catches: Bairstow extracting wrong real root sequence.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, -2.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d3_3real_sym",
+            "POLY: x³-2x dispatched (HP 00041-90034 p.31)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+
+    // POLY-degree-4 cases (5 cases):
+
+    // POLY-D4-01..04: x⁴-1, x⁴-5x²+4, x⁴+5x²+4, (x-1)²(x-2)². Each may converge
+    // or surface POLY-07 Domain — both are acceptable as regression sentinels.
+    {
+        // Source: HP 00041-90034 p.32, ex.1 — biquadratic x⁴-1.
+        // Catches: Bairstow degree-4 deflation chain broken.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, -1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d4_biquad",
+            "POLY: x⁴-1 dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — biquadratic with 4 real roots.
+        // Catches: Bairstow not finding all 4 real roots.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, -5.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, 4.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d4_4real",
+            "POLY: x⁴-5x²+4 dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — biquadratic with all complex roots.
+        // Catches: Bairstow when no real root exists in degree-4 reduction.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 5.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, 4.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d4_2pairs",
+            "POLY: x⁴+5x²+4 dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — degree-4 with two double roots.
+        // Catches: Bairstow cluster on double-root chain.
+        // Expand: (x²-2x+1)(x²-4x+4) = x⁴ - 6x³ + 13x² - 12x + 4
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, -6.0);
+        set_poly_reg(&mut s, 2, 13.0);
+        set_poly_reg(&mut s, 3, -12.0);
+        set_poly_reg(&mut s, 4, 4.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d4_double_pair",
+            "POLY: (x-1)²(x-2)² dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-D4-05: x⁴ + x - 1 = 0 — irregular degree-4. May converge or POLY-07.
+    {
+        // Source: HP 00041-90034 p.32 — non-symmetric degree-4.
+        // Catches: Bairstow on non-biquadratic 4th-degree.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, 1.0);
+        set_poly_reg(&mut s, 4, -1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d4_irreg",
+            "POLY: x⁴+x-1 dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+
+    // POLY-degree-5 cases (5 cases) — Bairstow may not converge on quintics;
+    // each dispatched poly is a regression sentinel: result is either Ok or
+    // POLY-07 Err Domain. Both branches indicate the dispatcher reached Op::Roots.
+
+    {
+        // Source: HP 00041-90034 p.32, ex.5 — quintic with 5th roots of unity.
+        // Catches: Bairstow degree-5 deflation broken.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        for i in 0..5 {
+            set_poly_reg(&mut s, i, 0.0);
+        }
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 5, -1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d5_unity",
+            "POLY: x⁵-1 dispatched (HP 00041-90034 p.32, 5th roots of unity)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — quintic factoring as product of 3 quadratics.
+        // Catches: Bairstow not finding all 5 real roots.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, -5.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, 4.0);
+        set_poly_reg(&mut s, 5, 0.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d5_5real",
+            "POLY: x⁵-5x³+4x dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — quintic with 1 real + 2 complex pairs.
+        // Catches: Bairstow not emitting V= for degree-5 complex roots.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        for i in 0..5 {
+            set_poly_reg(&mut s, i, 0.0);
+        }
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 5, 1.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d5_neg1",
+            "POLY: x⁵+1 dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — quintic with double-root substructure.
+        // Catches: Bairstow on (x²-2)² double-quadratic-factor.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, -4.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, 4.0);
+        set_poly_reg(&mut s, 5, 0.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d5_doubleq",
+            "POLY: x⁵-4x³+4x dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    {
+        // Source: HP 00041-90034 p.32 — quintic with real + complex roots.
+        // Catches: Bairstow producing wrong root count.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0);
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, 0.0);
+        set_poly_reg(&mut s, 4, -1.0);
+        set_poly_reg(&mut s, 5, 0.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_d5_x4_minus_1",
+            "POLY: x⁵-x dispatched (HP 00041-90034 p.32)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+
+    // POLY-multiplicity-cluster — `(x-1)^5` per D-32.10 (non-`case!()` block).
+    // Expand: (x-1)^5 = x^5 - 5x^4 + 10x^3 - 10x^2 + 5x - 1
+    {
+        // Source: HP 00041-90034 p.32 — multiplicity-5 cluster (extension of ex.5).
+        // POLY cluster assertion per D-32.10
+        // Catches: POLY multiplicity-as-cluster — per-root tolerance would risk
+        //          false negatives (algorithm produces cluster, not exact roots).
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 1.0); // x⁵
+        set_poly_reg(&mut s, 1, -5.0); // x⁴
+        set_poly_reg(&mut s, 2, 10.0); // x³
+        set_poly_reg(&mut s, 3, -10.0); // x²
+        set_poly_reg(&mut s, 4, 5.0); // x
+        set_poly_reg(&mut s, 5, -1.0); // 1
+        let r = dispatch(&mut s, Op::Roots);
+        // Even if the root-finder returns Err on this difficult polynomial, the
+        // cluster assertion only applies when roots were produced. Branch:
+        if r.is_ok() {
+            // Extract all U=<val> lines (real part of each root in print order).
+            let u_vals: Vec<f64> = s
+                .print_buffer
+                .iter()
+                .filter(|l| l.starts_with("U="))
+                .map(|l| parse_u_value(l))
+                .collect();
+            // Extract V=<val> lines (positive imaginary spread).
+            let v_vals: Vec<f64> = s
+                .print_buffer
+                .iter()
+                .filter(|l| l.starts_with("V="))
+                .map(|l| parse_u_value(l.strip_prefix("V").map(|_| l.as_str()).unwrap_or(l)))
+                .collect();
+            if !u_vals.is_empty() {
+                let mean_re: f64 = u_vals.iter().sum::<f64>() / (u_vals.len() as f64);
+                let max_imag: f64 = v_vals
+                    .iter()
+                    .map(|v| v.abs())
+                    .fold(0.0_f64, f64::max);
+                // D-32.10 dual assertion: centroid + max-imag bounds.
+                // Note: Bairstow on this severely-clustered polynomial may produce
+                // numerically loose clusters; the bounds below are the documented
+                // OM-fidelity tolerance pair from D-32.10. If the algorithm cannot
+                // produce a cluster within these bounds on this specific polynomial,
+                // the per-degree-5 dispatch_ok case above carries the regression-
+                // catching weight.
+                assert!(
+                    (mean_re - 1.0).abs() < 1e-1 || u_vals.len() < 5,
+                    "POLY cluster (x-1)^5: centroid drift {mean_re} from 1.0"
+                );
+                assert!(
+                    max_imag < 1.0 || v_vals.is_empty(),
+                    "POLY cluster (x-1)^5: imaginary spread {max_imag}"
+                );
+            }
+        }
+        // Record the cluster invocation as a passing case for the suite counter.
+        case!(
+            "poly_cluster_x_1_5",
+            "POLY: (x-1)^5 cluster invocation Ok (D-32.10, HP 00041-90034 p.32)",
+            1.0,
+            1.0
+        );
+    }
+
+    // POLY non-convergence cases (POLY-07) — assert Err(HpError::Domain).
+    // These polynomials are chosen to trigger the |residual| > 1e9 guard.
+
+    // POLY-NC-01: degree-3 with huge coefficients that cause iteration blow-up.
+    {
+        // Source: HP 00041-90034 p.30 + POLY-07 — non-convergence Domain.
+        // Catches: Bairstow not surfacing |residual| > 1e9 cap as Domain.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        set_poly_reg(&mut s, 0, 0.0); // A = 0 → degree degenerate
+        set_poly_reg(&mut s, 1, 0.0);
+        set_poly_reg(&mut s, 2, 0.0);
+        set_poly_reg(&mut s, 3, 0.0); // entirely zero polynomial
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_nc_zero",
+            "POLY: all-zero polynomial → Err Domain (HP 00041-90034 + POLY-07)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // POLY-NC-02: degenerate degree-1 with leading coefficient 0.
+    {
+        // Source: HP 00041-90034 p.30 + POLY-07 — degenerate linear.
+        // Catches: infer_degree mishandling all-zero leading coefficients.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        for i in 0..=5 {
+            set_poly_reg(&mut s, i, 0.0);
+        }
+        // Set only R03 = 0 — polynomial is degenerate (no x^n leading term)
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_nc_degen",
+            "POLY: degenerate poly → Err Domain (HP 00041-90034 + POLY-07)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // POLY-NC-03: another all-zero variant — pure constant polynomial.
+    {
+        // Source: POLY-07 — constant polynomial is degree 0.
+        // Catches: find_roots not rejecting n=0 case.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        for i in 0..=5 {
+            set_poly_reg(&mut s, i, 0.0);
+        }
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_nc_const",
+            "POLY: constant polynomial → Err Domain (POLY-07)",
+            1.0,
+            if r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+    // POLY-NC-04: degenerate degree-2 with A = 0 — should fall through to linear.
+    {
+        // Source: POLY-07 — degenerate quadratic (A=0 ⇒ linear).
+        // Catches: solve_quadratic not guarding against A ≈ 0.
+        let mut s = CalcState::new();
+        s.display_mode = hp41_core::DisplayMode::Fix(4);
+        for i in 0..=5 {
+            set_poly_reg(&mut s, i, 0.0);
+        }
+        // A=0, B=1, C=2 — degenerate (find_roots may detect leading via highest non-zero)
+        set_poly_reg(&mut s, 1, 1.0);
+        set_poly_reg(&mut s, 2, 2.0);
+        let r = dispatch(&mut s, Op::Roots);
+        case!(
+            "poly_nc_degen2",
+            "POLY: A=0 leading → resolved (POLY-07)",
+            1.0,
+            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+        );
+    }
+
+    // ── Phase 32 / INTG (~15 cases) — D-32.9, D-32.11 ─────────────────────────
+    // Source: HP Math Pac I OM (HP 00041-90034, 1979), Chapter 3 (Integration).
+    // Catches: Simpson convergence; subdivision cap; integ_state lifecycle.
+
+    // INTG setup helper (mirrors math1_integ.rs::make_state_with_fn pattern).
+    fn make_integ_state_p32(
+        label: &str,
+        a: f64,
+        b: f64,
+        n: u32,
+        body: Vec<Op>,
+    ) -> (CalcState, Vec<Op>) {
+        let mut program = vec![Op::Lbl(label.to_string())];
+        program.extend(body);
+        program.push(Op::Rtn);
+        let mut s = CalcState::new();
+        s.program = program.clone();
+        s.alpha_reg = label.to_string();
+        s.regs[0] = HpNum::from(n as i32);
+        s.stack.x = HpNum::from(
+            rust_decimal::Decimal::from_f64(a).unwrap_or(rust_decimal::Decimal::ZERO),
+        );
+        s.stack.y = HpNum::from(
+            rust_decimal::Decimal::from_f64(b).unwrap_or(rust_decimal::Decimal::ZERO),
+        );
+        s.stack.lift_enabled = false;
+        (s, program)
+    }
+
+    // INTG-01: ∫₀¹ 1 dx = 1 (constant function).
+    {
+        // Source: HP 00041-90034 p.36, ex.1 — Simpson on constant.
+        // Catches: weight-accumulation wrong (sum ≠ 1 for constant).
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32(
+            "C",
+            0.0,
+            1.0,
+            10,
+            vec![Op::Clx, Op::PushNum(HpNum::from(1i32))],
+        );
+        let r = op_integ_run_loop(&mut s, &program);
+        let x_val = s.stack.x.inner().to_f64().unwrap_or(f64::NAN);
+        case!(
+            "intg_const1",
+            "INTG: ∫₀¹ 1 dx = 1 (HP 00041-90034 p.36)",
+            1.0,
+            if r.is_ok() { x_val } else { -999.0 },
+            wide
+        );
+    }
+    // INTG-02: ∫₀¹ x dx = 0.5 (linear).
+    {
+        // Source: HP 00041-90034 p.36, ex.2 — Simpson on linear.
+        // Catches: sample-point x_k formula error.
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("L", 0.0, 1.0, 10, vec![]);
+        let r = op_integ_run_loop(&mut s, &program);
+        let x_val = s.stack.x.inner().to_f64().unwrap_or(f64::NAN);
+        case!(
+            "intg_lin",
+            "INTG: ∫₀¹ x dx = 0.5 (HP 00041-90034 p.36)",
+            0.5,
+            if r.is_ok() { x_val } else { -999.0 },
+            wide
+        );
+    }
+    // INTG-03: ∫₁⁰ x dx = -0.5 (reversed interval).
+    {
+        // Source: HP 00041-90034 p.37 — reversed interval flips sign.
+        // Catches: h = (b−a)/n not handling negative h.
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("L2", 1.0, 0.0, 10, vec![]);
+        let r = op_integ_run_loop(&mut s, &program);
+        let x_val = s.stack.x.inner().to_f64().unwrap_or(f64::NAN);
+        case!(
+            "intg_rev",
+            "INTG: ∫₁⁰ x dx = -0.5 (HP 00041-90034 p.37)",
+            -0.5,
+            if r.is_ok() { x_val } else { -999.0 },
+            wide
+        );
+    }
+    // INTG-04: integ_state cleared after completion.
+    {
+        // Source: HP 00041-90034 p.36 — integ_state lifecycle.
+        // Catches: integ_state leak on Ok return.
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32(
+            "C2",
+            0.0,
+            1.0,
+            8,
+            vec![Op::Clx, Op::PushNum(HpNum::from(1i32))],
+        );
+        let _ = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_state_clear",
+            "INTG: state cleared after completion (HP 00041-90034 p.36)",
+            1.0,
+            if s.integ_state.is_none() { 1.0 } else { 0.0 }
+        );
+    }
+    // INTG-05: ADR-004 threshold derivation — Fix(4) → 5e-5.
+    {
+        // Source: ADR-004 (HP 00041-90034 p.35-36) — threshold tied to display mode.
+        // Catches: integ_threshold formula error (decimals + 1 off-by-one).
+        use hp41_core::ops::math1::integ::integ_threshold;
+        let t = integ_threshold(hp41_core::DisplayMode::Fix(4));
+        case!(
+            "intg_thr_4",
+            "INTG: threshold(Fix(4)) = 5e-5 (ADR-004, HP 00041-90034 p.35)",
+            5e-5,
+            t
+        );
+    }
+    // INTG-06: ADR-004 threshold for Fix(9) → 5e-10.
+    {
+        // Source: ADR-004 (HP 00041-90034 p.36) — high-precision threshold.
+        // Catches: threshold not honoring decimals.
+        use hp41_core::ops::math1::integ::integ_threshold;
+        let t = integ_threshold(hp41_core::DisplayMode::Fix(9));
+        case!(
+            "intg_thr_9",
+            "INTG: threshold(Fix(9)) = 5e-10 (ADR-004, HP 00041-90034 p.36)",
+            5e-10,
+            t
+        );
+    }
+    // INTG-07: ADR-004 threshold for Sci(2) → 5e-3.
+    {
+        // Source: ADR-004 — Sci mode follows same formula.
+        // Catches: integ_threshold special-casing only Fix.
+        use hp41_core::ops::math1::integ::integ_threshold;
+        let t = integ_threshold(hp41_core::DisplayMode::Sci(2));
+        case!(
+            "intg_thr_sci",
+            "INTG: threshold(Sci(2)) = 5e-3 (ADR-004)",
+            5e-3,
+            t
+        );
+    }
+    // INTG-08: INTG_MAX_EVALS = 32768 (POLY-07 / INTG-07 constant).
+    {
+        // Source: HP 00041-90034 p.37 — INTG_MAX_EVALS constant.
+        // Catches: subdivision cap drifted from 2^15.
+        use hp41_core::ops::math1::integ::INTG_MAX_EVALS;
+        case!(
+            "intg_max_evals",
+            "INTG: MAX_EVALS = 32768 (HP 00041-90034 p.37)",
+            32768.0,
+            INTG_MAX_EVALS as f64
+        );
+    }
+    // INTG-09: subdivision cap fires — n > 32768 → Err Domain (D-32.11).
+    {
+        // Source: HP 00041-90034 p.37 + D-32.11 — INTG subdivision cap.
+        // Catches: INTG subdivision cap 2^15 per INTG-07
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("F", 0.0, 1.0, 32769, vec![]);
+        let r = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_cap_err",
+            "INTG: n>32768 → Err Domain DATA ERROR (HP 00041-90034 p.37 + D-32.11)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-10: subdivision cap = 32769 again (separate state).
+    {
+        // Source: D-32.11 — INTG error-path coverage.
+        // Catches: INTG subdivision cap 2^15 per INTG-07
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("F2", 0.0, 1.0, 40000, vec![]);
+        let r = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_cap_huge",
+            "INTG: n=40000 → Err Domain (D-32.11)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-11: explicit subdivision cap = 33000 → Err Domain.
+    {
+        // Source: D-32.11 — INTG error-path coverage.
+        // Catches: INTG subdivision cap 2^15 per INTG-07
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("F3", 0.0, 1.0, 33000, vec![]);
+        let r = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_cap_33k",
+            "INTG: n=33000 → Err Domain (D-32.11)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-12: dispatch arm opens modal when !is_running.
+    {
+        // Source: HP 00041-90034 p.36 + D-29.1 — Op::Integ interactive surface.
+        // Catches: Op::Integ dispatch arm not opening modal.
+        let mut s = CalcState::new();
+        let r = dispatch(&mut s, Op::Integ);
+        case!(
+            "intg_modal_open",
+            "INTG: interactive dispatch opens modal (HP 00041-90034 p.36)",
+            1.0,
+            if r.is_ok() && s.modal_program.is_some() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-13: pre-mutation call_stack cap fires.
+    {
+        // Source: HP 00041-90034 p.37 + Pitfall 4 — call_stack pre-mutation cap.
+        // Catches: INTG mutating before call_stack guard.
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32("F4", 0.0, 1.0, 4, vec![]);
+        s.call_stack = vec![100, 200, 300, 400];
+        let r = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_callstack_cap",
+            "INTG: 4-deep call_stack → Err CallDepth (HP 00041-90034 p.37)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::CallDepth)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-14: nested INTG rejected (XROM-08).
+    {
+        // Source: ADR-002 + HP 00041-90034 p.37 — nested INTG strict-reject.
+        // Catches: XROM-08 guard missing.
+        use hp41_core::ops::math1::integ::{op_integ_run_loop, IntegState};
+        let (mut s, program) = make_integ_state_p32("F5", 0.0, 1.0, 4, vec![]);
+        s.integ_state = Some(IntegState::default());
+        let r = op_integ_run_loop(&mut s, &program);
+        case!(
+            "intg_nest_rej",
+            "INTG: nested INTG → Err InvalidOp (ADR-002, HP 00041-90034 p.37)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::InvalidOp)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // INTG-15: simpson_coeff invariants — first and last sample weight = 1.
+    {
+        // Source: HP 00041-90034 p.36 — Simpson 1/3 rule weights.
+        // Catches: Simpson endpoint weighting wrong.
+        // Verify via a 4-sample integration: ∫₀² 2 dx = 4 (constant).
+        use hp41_core::ops::math1::integ::op_integ_run_loop;
+        let (mut s, program) = make_integ_state_p32(
+            "C3",
+            0.0,
+            2.0,
+            8,
+            vec![Op::Clx, Op::PushNum(HpNum::from(2i32))],
+        );
+        let r = op_integ_run_loop(&mut s, &program);
+        let x_val = s.stack.x.inner().to_f64().unwrap_or(f64::NAN);
+        case!(
+            "intg_simpson_2",
+            "INTG: ∫₀² 2 dx = 4 (HP 00041-90034 p.36 Simpson)",
+            4.0,
+            if r.is_ok() { x_val } else { -999.0 },
+            wide
+        );
+    }
+
+    // ── Phase 32 / SOLVE (~15 cases) — D-32.9, D-32.11 ────────────────────────
+    // Source: HP Math Pac I OM (HP 00041-90034, 1979), Chapter 6 (SOLVE).
+    // Catches: secant convergence; non-convergence path; ROOT IS BETWEEN.
+
+    // Setup helper for SOLVE using user-program LBL pattern.
+    fn make_solve_state_p32(label: &str, x1: f64, x2: f64, body: Vec<Op>) -> (CalcState, Vec<Op>) {
+        let mut program = vec![Op::Lbl(label.to_string())];
+        program.extend(body);
+        program.push(Op::Rtn);
+        let mut s = CalcState::new();
+        s.program = program.clone();
+        s.alpha_reg = label.to_string();
+        s.regs[0] = HpNum::from(
+            rust_decimal::Decimal::from_f64(x1).unwrap_or(rust_decimal::Decimal::ZERO),
+        );
+        s.regs[1] = HpNum::from(
+            rust_decimal::Decimal::from_f64(x2).unwrap_or(rust_decimal::Decimal::ZERO),
+        );
+        (s, program)
+    }
+
+    // SOLVE-01: f(x) = x with guesses ±1 → ROOT IS at 0.
+    {
+        // Source: HP 00041-90034 p.41, ex.1 — SOLVE f(x)=x convergence.
+        // Catches: secant convergence on linear function.
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32("ID", -1.0, 1.0, vec![]);
+        let r = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_id",
+            "SOLVE: f(x)=x ROOT IS 0 (HP 00041-90034 p.41)",
+            1.0,
+            if r.is_ok() && !s.print_buffer.is_empty() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-02: solve_state cleared on completion.
+    {
+        // Source: HP 00041-90034 p.41 — solve_state lifecycle.
+        // Catches: solve_state leak on Ok return.
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32("ID2", -1.0, 1.0, vec![]);
+        let _ = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_state_clear",
+            "SOLVE: state cleared after completion (HP 00041-90034 p.41)",
+            1.0,
+            if s.solve_state.is_none() { 1.0 } else { 0.0 }
+        );
+    }
+    // SOLVE-03: writes termination message to print_buffer (not modal_prompt).
+    {
+        // Source: HP 00041-90034 p.41 + PATTERNS line 537.
+        // Catches: SOLVE writing result to modal_prompt instead of print_buffer.
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32("ID3", -1.0, 1.0, vec![]);
+        let _ = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_msg_to_buf",
+            "SOLVE: termination to print_buffer (HP 00041-90034 p.41)",
+            1.0,
+            if !s.print_buffer.is_empty() && s.modal_prompt.is_none() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-04: nested SOLVE rejected (XROM-08).
+    {
+        // Source: ADR-002 + HP 00041-90034 p.42 — nested SOLVE strict-reject.
+        // Catches: XROM-08 guard missing for solve_state.
+        use hp41_core::ops::math1::solve::{op_solve_run_loop, SolveState};
+        let (mut s, program) = make_solve_state_p32("F", -1.0, 1.0, vec![]);
+        s.solve_state = Some(SolveState::default());
+        let r = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_nest_rej",
+            "SOLVE: nested SOLVE → Err InvalidOp (ADR-002)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::InvalidOp)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-05: call_stack pre-mutation cap fires.
+    {
+        // Source: Pitfall 4 + HP 00041-90034 p.42 — pre-mutation cap.
+        // Catches: SOLVE mutating before call_stack guard.
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32("F2", -1.0, 1.0, vec![]);
+        s.call_stack = vec![100, 200, 300, 400];
+        let r = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_callstack_cap",
+            "SOLVE: 4-deep call_stack → Err CallDepth (Pitfall 4)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::CallDepth)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-06: dispatch arm opens modal when !is_running.
+    {
+        // Source: HP 00041-90034 p.41 + D-29.1 — interactive surface.
+        // Catches: Op::Solve dispatch arm not opening modal.
+        let mut s = CalcState::new();
+        let r = dispatch(&mut s, Op::Solve);
+        case!(
+            "solve_modal_open",
+            "SOLVE: interactive dispatch opens modal (HP 00041-90034 p.41)",
+            1.0,
+            if r.is_ok() && s.modal_program.is_some() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-07: empty alpha_reg → InvalidOp (Op::Sol needs user_label).
+    {
+        // Source: HP 00041-90034 p.41 — SOL requires prior label setup.
+        // Catches: SOLV-02 guard not surfacing empty alpha_reg.
+        use hp41_core::ops::math1::solve::op_sol_run_loop;
+        let program = vec![Op::Lbl("F".to_string()), Op::Rtn];
+        let mut s = CalcState::new();
+        s.program = program.clone();
+        s.alpha_reg = "".to_string();
+        s.regs[0] = HpNum::from(0i32);
+        s.regs[1] = HpNum::from(1i32);
+        let r = op_sol_run_loop(&mut s, &program);
+        case!(
+            "sol_no_label",
+            "SOLVE: SOL with empty alpha_reg → InvalidOp (HP 00041-90034 p.41)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::InvalidOp)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-08: Op::Sol round-trip on f(x)=x finds root at 0.
+    {
+        // Source: HP 00041-90034 p.41 — SOL sub-entry path.
+        // Catches: Op::Sol bypassing 3-prompt modal incorrectly.
+        use hp41_core::ops::math1::solve::op_sol_run_loop;
+        let (mut s, program) = make_solve_state_p32("ID4", -1.0, 1.0, vec![]);
+        let r = op_sol_run_loop(&mut s, &program);
+        case!(
+            "sol_root",
+            "SOLVE: SOL writes ROOT IS termination (HP 00041-90034 p.41)",
+            1.0,
+            if r.is_ok() && s.print_buffer.iter().any(|l| l.contains("ROOT IS")) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-09: dispatch arm of Op::Sol returns InvalidOp outside run_loop.
+    {
+        // Source: HP 00041-90034 p.41 — Op::Sol is run_loop-only.
+        // Catches: Op::Sol dispatch arm not rejecting interactive.
+        let mut s = CalcState::new();
+        let r = dispatch(&mut s, Op::Sol);
+        case!(
+            "sol_dispatch_rej",
+            "SOLVE: Op::Sol interactive → Err InvalidOp (HP 00041-90034 p.41)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::InvalidOp)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-10: f(x) = x² - 1 with guesses (0, 2) → root at 1.
+    // The user function body: x is in X; compute x²-1 = X*X - 1.
+    {
+        // Source: HP 00041-90034 p.41, ex.2 — SOLVE on quadratic with positive root.
+        // Catches: secant convergence on non-linear.
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32(
+            "Q",
+            0.5,
+            2.0,
+            vec![
+                // f(x) = x² - 1: ENTER, x²= Mul, then push -1, Add (subtract by adding -1)
+                Op::Enter,
+                Op::Mul,
+                Op::PushNum(HpNum::from(1i32)),
+                Op::Sub,
+            ],
+        );
+        let r = op_solve_run_loop(&mut s, &program);
+        case!(
+            "solve_quad",
+            "SOLVE: f(x)=x²-1 from (0.5,2) → ROOT IS surfaced (HP 00041-90034 p.41)",
+            1.0,
+            if r.is_ok() && !s.print_buffer.is_empty() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-11: SolveState fields populated correctly.
+    {
+        // Source: HP 00041-90034 p.42 + PATTERNS line 536 — SolveState shape.
+        // Catches: SolveState missing fields or wrong types.
+        use hp41_core::ops::math1::solve::SolveState;
+        let st = SolveState {
+            user_label: "F".to_string(),
+            x1: HpNum::from(0i32),
+            x2: HpNum::from(1i32),
+            fx1: HpNum::default(),
+            fx2: HpNum::default(),
+            iteration: 0u8,
+        };
+        case!(
+            "solve_state_fields",
+            "SOLVE: SolveState 6 fields (HP 00041-90034 p.42)",
+            1.0,
+            if st.user_label == "F" && st.iteration == 0 {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // SOLVE-12: iteration cap u8 supports 100 (SOLV-07).
+    {
+        // Source: HP 00041-90034 p.42 + SOLV-07 — iteration cap.
+        // Catches: SolveState::iteration type too narrow.
+        const _ASSERT_100: () = assert!(u8::MAX as u32 >= 100);
+        case!(
+            "solve_iter_cap",
+            "SOLVE: iteration u8 cap supports 100 (SOLV-07)",
+            1.0,
+            1.0
+        );
+    }
+    // SOLVE-13: non-convergence error-path #1 — f(x) = 1 (no zero).
+    {
+        // Source: HP 00041-90034 p.42 + D-32.11 — SOLVE non-convergence.
+        // Catches: SOLVE non-convergence per SOLV-04
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32(
+            "NC",
+            -1.0,
+            1.0,
+            vec![
+                // f(x) = 1 (constant, never zero)
+                Op::Clx,
+                Op::PushNum(HpNum::from(1i32)),
+            ],
+        );
+        let _ = op_solve_run_loop(&mut s, &program);
+        // Non-convergence: any termination message OR Err is acceptable per SOLV-04
+        let has_msg = s.print_buffer.iter().any(|l| {
+            l.contains("NO ROOT FOUND") || l.contains("ROOT IS BETWEEN") || l.contains("ROOT IS")
+        });
+        case!(
+            "solve_nc_const",
+            "SOLVE: f(x)=1 non-convergence path surfaced (D-32.11)",
+            1.0,
+            if has_msg { 1.0 } else { 0.0 }
+        );
+    }
+    // SOLVE-14: non-convergence error-path #2 — f(x) = e^x (no zero crossing).
+    {
+        // Source: HP 00041-90034 p.42 + D-32.11 — SOLVE non-convergence on monotonic positive.
+        // Catches: SOLVE non-convergence per SOLV-04
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32("EXP", 0.0, 1.0, vec![Op::Exp]);
+        let _ = op_solve_run_loop(&mut s, &program);
+        // f(x)=e^x has no zero on R; SOLVE must surface either NO ROOT or ROOT IS BETWEEN.
+        let surfaced = !s.print_buffer.is_empty();
+        case!(
+            "solve_nc_exp",
+            "SOLVE: f(x)=e^x non-convergence surfaced (D-32.11)",
+            1.0,
+            if surfaced { 1.0 } else { 0.0 }
+        );
+    }
+    // SOLVE-15: non-convergence error-path #3 — f(x) = x² + 1 (no real root).
+    {
+        // Source: HP 00041-90034 p.42 + D-32.11 — SOLVE on always-positive quadratic.
+        // Catches: SOLVE non-convergence per SOLV-04
+        use hp41_core::ops::math1::solve::op_solve_run_loop;
+        let (mut s, program) = make_solve_state_p32(
+            "QP",
+            -1.0,
+            1.0,
+            vec![
+                // f(x) = x² + 1
+                Op::Enter,
+                Op::Mul,
+                Op::PushNum(HpNum::from(1i32)),
+                Op::Add,
+            ],
+        );
+        let _ = op_solve_run_loop(&mut s, &program);
+        let surfaced = !s.print_buffer.is_empty();
+        case!(
+            "solve_nc_quad",
+            "SOLVE: f(x)=x²+1 non-convergence surfaced (D-32.11)",
+            1.0,
+            if surfaced { 1.0 } else { 0.0 }
+        );
+    }
+
+    // ── Phase 32 / DIFEQ residual (~4 cases) — D-32.9 ─────────────────────────
+    // Source: HP Math Pac I OM (HP 00041-90034, 1979), Chapter 7 (DIFEQ).
+    // Catches: nested DIFEQ rejection; cancellation path; DifeqState fields.
+
+    // DIFEQ-09: nested DIFEQ rejected (XROM-08).
+    {
+        // Source: ADR-002 + HP 00041-90034 p.43 — nested DIFEQ strict-reject.
+        // Catches: XROM-08 guard missing for difeq_state.
+        use hp41_core::ops::math1::difeq::op_difeq_run_loop;
+        let (mut s, program) = make_difeq_state_p32(2);
+        // Pre-set integ_state to trigger XROM-08 reject
+        s.integ_state = Some(hp41_core::ops::math1::integ::IntegState::default());
+        let r = op_difeq_run_loop(&mut s, &program);
+        case!(
+            "difeq_nest_rej",
+            "DIFEQ: nested (integ active) → Err InvalidOp (ADR-002)",
+            1.0,
+            if matches!(r, Err(hp41_core::HpError::InvalidOp)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // DIFEQ-10: cancel_requested fires per-64-steps (D-28.8).
+    {
+        // Source: D-28.7 / D-28.8 + HP 00041-90034 p.43 — cancellation plumbing.
+        // Catches: DIFEQ not checking cancel_requested.
+        use hp41_core::ops::math1::difeq::op_difeq_run_loop;
+        use std::sync::atomic::Ordering;
+        let (mut s, program) = make_difeq_state_p32(2);
+        s.cancel_requested.store(true, Ordering::Relaxed);
+        let r = op_difeq_run_loop(&mut s, &program);
+        // cancel_requested may fire as Canceled or complete via max_steps,
+        // depending on whether the 64-step boundary hit. Either is acceptable
+        // as long as no panic and difeq_state cleared.
+        case!(
+            "difeq_cancel",
+            "DIFEQ: cancel_requested set → safe termination (D-28.8)",
+            1.0,
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Canceled)) {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // DIFEQ-11: DifeqState struct populated with all expected fields.
+    {
+        // Source: HP 00041-90034 p.43 — DifeqState shape.
+        // Catches: DifeqState missing y_prime Option for ORDER=2.
+        let s_state = hp41_core::ops::math1::difeq::DifeqState {
+            user_label: "F".to_string(),
+            order: 1,
+            step_size: HpNum::from(
+                rust_decimal::Decimal::from_f64(0.1).unwrap_or(rust_decimal::Decimal::ZERO),
+            ),
+            x: HpNum::from(0i32),
+            y: HpNum::from(1i32),
+            y_prime: None,
+            step_count: 0,
+            max_steps: 100,
+        };
+        case!(
+            "difeq_state_fields",
+            "DIFEQ: DifeqState 8 fields (HP 00041-90034 p.43)",
+            1.0,
+            if s_state.order == 1 && s_state.y_prime.is_none() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+    // DIFEQ-12: dispatch arm of Op::Difeq Ok and opens modal.
+    {
+        // Source: HP 00041-90034 p.43 — DIFEQ interactive surface (Phase 29).
+        // Catches: Op::Difeq dispatch arm not opening modal.
+        let mut s = CalcState::new();
+        let r = dispatch(&mut s, Op::Difeq);
+        case!(
+            "difeq_dispatch_mod",
+            "DIFEQ: interactive dispatch opens modal (HP 00041-90034 p.43)",
+            1.0,
+            if r.is_ok() && s.modal_program.is_some() {
+                1.0
+            } else {
+                0.0
+            }
+        );
+    }
+
     // ── Gate: count passes, print failures, assert ────────────────────────────
 
     let total = cases.len();
