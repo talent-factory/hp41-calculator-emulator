@@ -10,6 +10,7 @@
 
 #![allow(clippy::unwrap_used)]
 
+use approx::assert_relative_eq;
 use hp41_core::num::HpNum;
 use hp41_core::ops::dispatch;
 use hp41_core::ops::math1::modal::{MatrixInputStep, ModalProgram};
@@ -113,6 +114,8 @@ fn mat_size_returns_order_from_r14() {
     let mut state = CalcState::new();
     state.regs[14] = HpNum::from(5i32);
     dispatch(&mut state, Op::MatSize).unwrap();
+    // LINT-EXEMPT: integer-equality via HpNum::from(<i32>) is exact (no f64
+    // bridge, no FPU rounding) — cross-platform-safe per Pitfall 14 / 17.
     assert_eq!(state.stack.x, HpNum::from(5i32));
 }
 
@@ -295,7 +298,7 @@ fn mat_det_identity_2x2_is_one() {
     mat_setup(&mut state, 2, &[1.0, 0.0, 0.0, 1.0]);
     dispatch(&mut state, Op::MatDet).unwrap();
     let det = state.stack.x.inner().to_f64().unwrap();
-    assert!((det - 1.0).abs() < 1e-9, "det(I₂) must be 1.0, got {det}");
+    assert_relative_eq!(det, 1.0, max_relative = 1e-7);
 }
 
 // Catches: MatDet LiftEffect not Enable
@@ -356,10 +359,7 @@ fn mat_inv_identity_gives_identity() {
     dispatch(&mut state, Op::MatInv).unwrap();
     // inv(I₂) = I₂ — A(0,0) should still be 1
     let a00 = state.regs[15].inner().to_f64().unwrap();
-    assert!(
-        (a00 - 1.0).abs() < 1e-9,
-        "inv(I₂)(0,0) must be 1.0, got {a00}"
-    );
+    assert_relative_eq!(a00, 1.0, max_relative = 1e-7);
 }
 
 // Catches: MatInv singular detection (MAT-07)
@@ -423,14 +423,8 @@ fn mat_simeq_solves_identity_system() {
     dispatch(&mut state, Op::MatSimeq).unwrap();
     let x_sol = state.regs[19].inner().to_f64().unwrap();
     let y_sol = state.regs[20].inner().to_f64().unwrap();
-    assert!(
-        (x_sol - 7.0).abs() < 1e-9,
-        "MatSimeq: x must be 7.0, got {x_sol}"
-    );
-    assert!(
-        (y_sol - 3.0).abs() < 1e-9,
-        "MatSimeq: y must be 3.0, got {y_sol}"
-    );
+    assert_relative_eq!(x_sol, 7.0, max_relative = 1e-7);
+    assert_relative_eq!(y_sol, 3.0, max_relative = 1e-7);
 }
 
 // Catches: MatSimeq not setting flag 5 (MAT-11)

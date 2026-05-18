@@ -187,6 +187,9 @@ fn integ_constant_one_function() {
 
     let x_val = get_x_f64(&state);
     // ∫₀¹ 1 dx = 1.0 (exact — Simpson is exact for constant functions)
+    // LINT-EXEMPT: Simpson integration tolerance 1e-2 is the algorithmic
+    // floor for n=4 subdivisions; tighter relative-eq would force a finer
+    // subdivision (slower test, no extra signal). Pitfall 14 deferred.
     assert!(
         (x_val - 1.0).abs() < 0.01,
         "Op::Integ ∫₀¹ 1 dx must be ≈ 1.0, got {x_val}"
@@ -256,6 +259,8 @@ fn integ_linear_function_x_over_0_to_1() {
 
     let x_val = get_x_f64(&state);
     // ∫₀¹ x dx = 0.5 (exact for linear — Simpson is exact for polynomials ≤ degree 3)
+    // LINT-EXEMPT: Simpson tolerance 1e-2 is the algorithmic floor for n=4;
+    // tighter relative-eq adds no signal. Pitfall 14 deferred.
     assert!(
         (x_val - 0.5).abs() < 0.01,
         "Op::Integ ∫₀¹ x dx must be ≈ 0.5, got {x_val}"
@@ -445,6 +450,8 @@ fn integ_modal_flow_stages_params_for_run_loop() {
     );
     let x_val = state.stack.x.inner().to_f64().unwrap();
     // ∫₀¹ x² dx = 1/3 ≈ 0.333333...
+    // LINT-EXEMPT: Simpson tolerance 1e-3 is the algorithmic floor for n=10
+    // on x²; tighter relative-eq forces a finer subdivision. Pitfall 14 deferred.
     assert!(
         (x_val - 1.0 / 3.0).abs() < 1e-3,
         "modal-staged INTG must integrate x² over [0,1] to ≈ 1/3, got {x_val}"

@@ -3,8 +3,8 @@
 //
 //! Wave-0 CI gate: asserts no Math Pac I mnemonic shadows an existing v2.2 built-in.
 //!
-//! This test file iterates `MATH_1.ops` (currently `&[]` — empty until Plans 28-02..28-10
-//! populate it) and asserts that no entry collides with a `builtin_card_op` mnemonic.
+//! This test file iterates `MATH_1.ops` and asserts that no entry collides
+//! with a `builtin_card_op` mnemonic.
 //!
 //! **Why this matters (C-28.4 / Pitfall 1):** the XROM resolver fires LAST in the
 //! chain — after `builtin_card_op`, before `Err(InvalidOp)`. If a Math Pac I mnemonic
@@ -13,8 +13,13 @@
 //! The shadowing test catches this at CI time so Plans 28-02..28-10 can't introduce
 //! a shadow without failing this gate.
 //!
-//! **Current state:** MATH_1.ops is `&[]`, so this test is vacuously true at Plan 28-01.
-//! Plans 28-02..28-10 grow MATH_1.ops and the gate becomes non-trivial.
+//! **Plan 32-01 (graduation, 2026-05-18):** gate graduated from vacuous to
+//! active — `MATH_1.ops` now carries 52 entries (Plans 28-02..28-10) and this
+//! file actively cross-checks them against the 18-entry `BUILTIN_CARD_OP_NAMES`
+//! allowlist (4 card-reader + 9 ASCII conditional + 5 Unicode conditional).
+//! Both lists were verified in sync with `builtin_card_op` in
+//! `hp41-core/src/ops/program.rs::builtin_card_op` at L1112-1132 (4 + 8 match
+//! arms producing 18 mnemonics with the ASCII/Unicode duplication).
 
 #![allow(clippy::unwrap_used)]
 

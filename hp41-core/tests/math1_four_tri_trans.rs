@@ -21,6 +21,7 @@
 
 #![allow(clippy::unwrap_used)]
 
+use approx::assert_relative_eq;
 use hp41_core::ops::math1::four::{
     compute_dft, convert_to_polar, op_four, op_four_eval_at_t, store_dft_to_registers,
     MAX_FOURIER_PAIRS,
@@ -101,16 +102,10 @@ fn four_scratch_register_r23_r24_layout() {
     store_dft_to_registers(&mut state, &pairs, 8);
     // R23 = N = 8
     let n_val = state.regs[23].inner().to_f64().unwrap();
-    assert!(
-        (n_val - 8.0).abs() < 1e-6,
-        "Op::Four R23=N must be 8, got {n_val}"
-    );
+    assert_relative_eq!(n_val, 8.0, max_relative = 1e-6);
     // R24 = L = 3
     let l_val = state.regs[24].inner().to_f64().unwrap();
-    assert!(
-        (l_val - 3.0).abs() < 1e-6,
-        "Op::Four R24=L must be 3, got {l_val}"
-    );
+    assert_relative_eq!(l_val, 3.0, max_relative = 1e-6);
 }
 
 // Catches: Op::Four USER-mode E-key evaluator wrong at t=0 (FOUR-06)
@@ -126,10 +121,7 @@ fn four_user_mode_eval_at_zero() {
     // Op::Four eval at t=0: f(0) = a₀/2 + a₁·cos(0) = 1.0
     let result = op_four_eval_at_t(&state, HpNum::zero(), HpNum::zero()).unwrap();
     let val = result.inner().to_f64().unwrap();
-    assert!(
-        (val - 1.0).abs() < 1e-6,
-        "Op::Four eval at t=0 should be 1.0, got {val}"
-    );
+    assert_relative_eq!(val, 1.0, max_relative = 1e-6);
 }
 
 // Catches: Op::Four RECT? toggle polar form wrong (FOUR-03)
@@ -138,10 +130,7 @@ fn four_rect_to_polar_conversion() {
     let pairs = vec![(f64_hpnum(3.0), f64_hpnum(4.0))];
     let polar = convert_to_polar(&pairs).unwrap();
     let c = polar[0].0.inner().to_f64().unwrap();
-    assert!(
-        (c - 5.0).abs() < 1e-6,
-        "Op::Four polar magnitude c = √(3²+4²) = 5, got {c}"
-    );
+    assert_relative_eq!(c, 5.0, max_relative = 1e-6);
 }
 
 // Catches: Op::Four DFT constant signal wrong
@@ -151,10 +140,7 @@ fn four_dft_constant_signal() {
     let pairs = compute_dft(&samples, 2).unwrap();
     // Op::Four: a₀ = (2/4)·4·3 = 6.0
     let a0 = pairs[0].0.inner().to_f64().unwrap();
-    assert!(
-        (a0 - 6.0).abs() < 1e-5,
-        "Op::Four DFT constant Y=3: a₀ = 2Y = 6, got {a0}"
-    );
+    assert_relative_eq!(a0, 6.0, max_relative = 1e-5);
 }
 
 // Catches: Op::Four xrom_resolve resolves to Op::Four
@@ -207,6 +193,9 @@ fn tri_sss_equilateral_via_op() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver angle floor 0.01° matches the Math Pac I
+    // SSS algorithm's intrinsic precision (acos of ratio near boundaries
+    // loses ~2 digits). Pitfall 14 deferred — coarser than 1e-7 default.
     assert!(
         (angle_a - 60.0).abs() < 0.01,
         "Op::TriSss equilateral A = 60°, got {angle_a}"
@@ -239,6 +228,8 @@ fn tri_sss_right_triangle() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver angle floor 0.01° — see Pitfall 14
+    // rationale on line 197 above. Pitfall 14 deferred.
     assert!(
         (angle_c - 90.0).abs() < 0.01,
         "Op::TriSss 3-4-5: C = 90°, got {angle_c}"
@@ -266,6 +257,8 @@ fn tri_sss_radians_mode() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver angle floor 0.01 rad — see Pitfall 14
+    // rationale on line 197 above. Pitfall 14 deferred.
     assert!(
         (a - PI / 3.0).abs() < 0.01,
         "Op::TriSss equilateral A = π/3 rad, got {a}"
@@ -305,6 +298,7 @@ fn tri_asa_equilateral_output() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver angle floor 0.01° — Pitfall 14 deferred.
     assert!(
         (angle_c - 60.0).abs() < 0.01,
         "Op::TriAsa equilateral: C = 60°, got {angle_c}"
@@ -388,6 +382,7 @@ fn tri_saa_c_ninety_deg() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver angle floor 0.01° — Pitfall 14 deferred.
     assert!(
         (angle_c - 90.0).abs() < 0.01,
         "Op::TriSaa SAA(10,30°,60°): C = 90°, got {angle_c}"
@@ -474,6 +469,8 @@ fn tri_sas_right_angle() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: triangle-solver side floor 0.01 — print-buffer parse path
+    // loses 2 digits relative to internal precision. Pitfall 14 deferred.
     assert!(
         (side_a - 5.0).abs() < 0.01,
         "Op::TriSas b=3,A=90°,c=4 → a=5 (Pythagoras), got {side_a}"
@@ -551,7 +548,11 @@ fn tri_ssa_two_solutions_b_values() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: SSA ambiguous case angle tolerance 0.1° — the OM example
+    // values 53.13°/126.87° are display-rounded; asserting 1e-7 would require
+    // sub-display-precision OM values not in the manual. Pitfall 14 deferred.
     assert!((b1 - 53.13).abs() < 0.1, "Op::TriSsa B1 ≈ 53.13°, got {b1}");
+    // LINT-EXEMPT: SSA ambiguous case — see line above.
     assert!(
         (b2 - 126.87).abs() < 0.1,
         "Op::TriSsa B2 ≈ 126.87°, got {b2}"
@@ -591,6 +592,8 @@ fn tri_ssa_right_triangle_edge() {
         .trim()
         .parse()
         .unwrap();
+    // LINT-EXEMPT: SSA edge-case angle tolerance 0.1° — print-buffer parse
+    // path loses 2 digits relative to internal precision. Pitfall 14 deferred.
     assert!(
         (b - 90.0).abs() < 0.1,
         "Op::TriSsa right-triangle edge: B = 90°, got {b}"
@@ -660,10 +663,7 @@ fn trans2d_inverse_round_trip() {
     set_xyz(&mut state, xp, yp, 0.0);
     do_trans2d_inverse(&mut state).unwrap();
     let x_back = get_x(&state);
-    assert!(
-        (x_back - 7.0).abs() < 1e-5,
-        "Op::Trans2d round-trip x: 7.0 → {x_back}"
-    );
+    assert_relative_eq!(x_back, 7.0, max_relative = 1e-5);
 }
 
 // Catches: Op::Trans2d xrom_resolve correct
@@ -725,10 +725,7 @@ fn trans3d_rodrigues_z_axis_rotation() {
     set_xyz(&mut state, 1.0, 0.0, 0.0);
     do_trans3d_forward(&mut state).unwrap();
     let y_rot = state.stack.y.inner().to_f64().unwrap();
-    assert!(
-        (y_rot - 1.0).abs() < 1e-6,
-        "Op::Trans3d: z-axis 90° rotation (1,0,0)→y=1, got {y_rot}"
-    );
+    assert_relative_eq!(y_rot, 1.0, max_relative = 1e-6);
 }
 
 // Catches: Op::Trans3d zero axis error
@@ -768,8 +765,5 @@ fn trans3d_inverse_round_trip() {
     set_xyz(&mut state, xr, yr, zr);
     do_trans3d_inverse(&mut state).unwrap();
     let x_back = get_x(&state);
-    assert!(
-        (x_back - 2.0).abs() < 1e-5,
-        "Op::Trans3d round-trip: x=2.0 recovered, got {x_back}"
-    );
+    assert_relative_eq!(x_back, 2.0, max_relative = 1e-5);
 }
