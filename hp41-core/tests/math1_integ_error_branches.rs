@@ -24,7 +24,7 @@
 
 use hp41_core::error::HpError;
 use hp41_core::num::HpNum;
-use hp41_core::ops::math1::integ::{op_integ_run_loop, submit_step, IntegMode};
+use hp41_core::ops::math1::integ::{op_integ_run_loop, submit_step};
 use hp41_core::ops::math1::modal::{IntegInputStep, ModalProgram};
 use hp41_core::ops::Op;
 use hp41_core::state::CalcState;
