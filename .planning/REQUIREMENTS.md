@@ -173,11 +173,11 @@
 ### Quality Gates (Phase 32)
 
 - [x] **QUAL-01**: `hp41-core` Coverage ≥ 95 % Lines / ≥ 93 % Regions (gehalten vom v2.2-Niveau; KEIN atomic raise)
-- [ ] **QUAL-02**: `numerical_accuracy.rs` erweitert von 566 → ~700+ Cases mit Math-Pac-I-spezifischen Cases pro Programm; OM-Page+Example Citation per Case (D-27.1 Pattern); Pass-Rate ≥ 98 %
-- [ ] **QUAL-03**: GUI E2E Smoke (WebdriverIO) erweitert um einen Math-Pac-I-Workflow (z.B. `XEQ "SINH" 1 → 1.1752` oder ein MATRIX-Mini-Flow); läuft im `e2e-linux` Job
-- [ ] **QUAL-04**: Per-Op Test-Count ≥ 5 (verhindert mid-milestone Coverage-Drop unter 95 % — Pitfall 16)
-- [ ] **QUAL-05**: Free42-GPL-Contamination-Guard: per-File Header-Kommentar "Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied"; Audit-Script `scripts/check-free42-contamination.sh` in CI
-- [ ] **QUAL-06**: Cross-Platform Numerical Drift (x86 vs ARM): Tests nutzen `approx::assert_relative_eq!` mit `max_relative = 1e-7` (Math Pac I Floor — 6 von 10 HP-41-Digits garantiert)
+- [x] **QUAL-02**: `numerical_accuracy.rs` erweitert von 566 → ~700+ Cases mit Math-Pac-I-spezifischen Cases pro Programm; OM-Page+Example Citation per Case (D-27.1 Pattern); Pass-Rate ≥ 98 %
+- [x] **QUAL-03**: GUI E2E Smoke (WebdriverIO) erweitert um einen Math-Pac-I-Workflow (z.B. `XEQ "SINH" 1 → 1.1752` oder ein MATRIX-Mini-Flow); läuft im `e2e-linux` Job
+- [x] **QUAL-04**: Per-Op Test-Count ≥ 5 (verhindert mid-milestone Coverage-Drop unter 95 % — Pitfall 16)
+- [x] **QUAL-05**: Free42-GPL-Contamination-Guard: per-File Header-Kommentar "Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied"; Audit-Script `scripts/check-free42-contamination.sh` in CI
+- [x] **QUAL-06**: Cross-Platform Numerical Drift (x86 vs ARM): Tests nutzen `approx::assert_relative_eq!` mit `max_relative = 1e-7` (Math Pac I Floor — 6 von 10 HP-41-Digits garantiert)
 - [ ] **QUAL-07**: `tests/xrom_shadowing.rs` CI-Gate: keine Math-Pac-I-Funktion shadowing existing built-in mnemonic
 - [ ] **QUAL-08**: `tests/math1_user_callback.rs` — 5 Regression-Tests für User-Callback Re-entrancy (nested INTG/SOLVE rejection, STO-Clobbering, STOP-during-INTG, GTO-out-of-callback, recursion-cap)
 
