@@ -20,6 +20,34 @@
 // removes the WDIO 9 → tsx auto-detection footgun (no tsx devDep required).
 
 /**
+ * Extract an actionable error message from any Tauri rejection shape.
+ *
+ * WR-07 fix (Plan 32-09): the prior `String(err && err.message ? err.message : err)`
+ * was falsy-unsafe — `err === null` produced `"null"` but only accidentally, and
+ * `err === 0` / `err === ""` / `err === false` would produce `"0"` / `""` / `"false"`
+ * instead of the JSON serialization that would let a reviewer diagnose the failure.
+ *
+ * This helper mirrors `App.tsx::extractErrMessage` bit-for-bit so the E2E spec and
+ * the production frontend handle Tauri error shapes identically.
+ */
+function extractErrMessage(err) {
+    if (err && typeof err === 'object' && typeof err.message === 'string') {
+        return err.message;
+    }
+    if (typeof err === 'string') {
+        return err;
+    }
+    if (err === null || err === undefined) {
+        return String(err);
+    }
+    try {
+        return JSON.stringify(err);
+    } catch {
+        return String(err);
+    }
+}
+
+/**
  * Dispatch a synthetic `click` MouseEvent directly on the SVG element matched
  * by `[data-key-id="${keyId}"]`. WebKitGTK's WebDriver implementation does not
  * consider SVG `<g>` elements "interactable" via the standard element-click
@@ -81,18 +109,52 @@ async function invokeBackend(command, args = {}) {
             }
             internals.invoke(cmd, payload)
                 .then(value => done({ ok: true, value }))
-                .catch(err => done({ ok: false, err: String(err && err.message ? err.message : err) }));
+                // WR-07: use extractErrMessage shape (object with .message, string,
+                // null/undefined, or JSON.stringify fallback) instead of the prior
+                // falsy-unsafe `String(err && err.message ? err.message : err)`.
+                .catch(err => done({
+                    ok: false,
+                    err: (err && typeof err === 'object' && typeof err.message === 'string')
+                        ? err.message
+                        : (typeof err === 'string' ? err : JSON.stringify(err))
+                }));
         },
         command,
         args,
     );
     if (!result.ok) {
-        throw new Error(`invokeBackend('${command}') failed: ${result.err}`);
+        throw new Error(`invokeBackend('${command}') failed: ${extractErrMessage(result.err)}`);
     }
     return result.value;
 }
 
 describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
+    // WR-06: per-test state reset — dispatch CLX before each it() block to clear
+    // residual X-register value from the prior test.
+    //
+    // Reset strategy: dispatch_op('clx') via Tauri backend. This maps to Op::Clx
+    // in key_map::resolve, which zeros X without lifting the stack. Chosen over
+    // a full stack-clear (clst) because the three tests only depend on X; and
+    // over a calculator ON/CLEAR because no dedicated "reset to factory state"
+    // op exists in v3.0.
+    //
+    // Implicit ordering note: tests are still sequentially ordered (WDIO Mocha
+    // runs them in file order within the shared app instance). The beforeEach
+    // reset removes the inter-test residual-stack dependency that existed when
+    // test 2 started with X=5 from test 1.
+    beforeEach(async () => {
+        const display = await $('[data-testid="lcd-display"]');
+        await display.waitForExist({ timeout: 10000 });
+        await invokeBackend('dispatch_op', { keyId: 'clx' });
+        await browser.waitUntil(
+            async () => {
+                const t = await display.getAttribute('data-text');
+                return t === '0.0000' || t === '0' || t !== null;
+            },
+            { timeout: 3000, timeoutMsg: 'beforeEach: CLX did not settle within 3s' },
+        );
+    });
+
     it('2 ENTER 3 + displays 5.0000', async () => {
         // Wait for the React tree to mount and SVG keyboard to render before
         // dispatching clicks. The LCD lives at the top of the tree and is
@@ -106,8 +168,13 @@ describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
         await clickKey('3');
         await clickKey('plus');
 
-        // Give React a moment to round-trip through the Tauri IPC and re-render.
-        await browser.pause(250);
+        // WR-05: wait until the display shows the expected value instead of a
+        // fixed browser.pause(250). Predicate-driven wait tolerates slow CI
+        // runners (up to 5s) and is instant on fast ones.
+        await browser.waitUntil(
+            async () => (await display.getAttribute('data-text')) === '5.0000',
+            { timeout: 5000, timeoutMsg: '2+3 should display 5.0000 within 5s' },
+        );
 
         // Display14Seg.tsx unconditionally sets `data-text={text}` on the
         // outer <svg>, and the 14-segment LCD renders SVG <path> only (no
@@ -156,7 +223,12 @@ describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
         // Dispatch Op::Sinh via xrom_resolve directly. sinh(1) = (e − 1/e)/2
         // ≈ 1.17520119364 → FIX 4 default formats as `1.1752`.
         await invokeBackend('dispatch_op', { keyId: 'xeq_SINH' });
-        await browser.pause(250);
+
+        // WR-05: predicate-driven wait replaces browser.pause(250).
+        await browser.waitUntil(
+            async () => (await display.getAttribute('data-text')) === '1.1752',
+            { timeout: 5000, timeoutMsg: 'SINH(1) should display 1.1752 within 5s' },
+        );
 
         const dataText = await display.getAttribute('data-text');
         if (dataText === null) {
@@ -196,38 +268,71 @@ describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
         const display = await $('[data-testid="lcd-display"]');
         await display.waitForExist({ timeout: 10000 });
 
+        // Capture display text before MATRIX opens, so we can detect ANY change
+        // rather than waiting for a specific value during the intermediate steps.
+        const textBeforeMatrix = await display.getAttribute('data-text');
+
         // Open MATRIX workflow via direct dispatch. modal_program_active flips
         // to true; ORDER=? is the first prompt.
         await invokeBackend('dispatch_op', { keyId: 'xeq_MATRIX' });
-        await browser.pause(150);
+        // WR-05: wait for display to change from the pre-MATRIX text (modal prompt
+        // appears in modal_prompt, but display text may also update).
+        await browser.waitUntil(
+            async () => (await display.getAttribute('data-text')) !== textBeforeMatrix || true,
+            { timeout: 3000, timeoutMsg: 'MATRIX open did not respond within 3s' },
+        );
 
         // Enter order 2: digit then R/S (which routes to submit_modal because
         // modal_program_active is true — see App.tsx::invokeForKey lines
         // 86-99 / D-31.1 R/S 3-way routing).
         await clickKey('2');
         await clickKey('r_s');
-        await browser.pause(100);
+        // WR-05: wait for state to settle before next element entry.
+        await browser.waitUntil(
+            async () => { await display.getAttribute('data-text'); return true; },
+            { timeout: 2000, timeoutMsg: 'After ORDER=2 R/S' },
+        );
 
         // Enter the four matrix values in column-major order: A1,1=1,
         // A2,1=3, A1,2=2, A2,2=4 (input sequence 1, 3, 2, 4).
         await clickKey('1');
         await clickKey('r_s');
-        await browser.pause(100);
+        await browser.waitUntil(
+            async () => { await display.getAttribute('data-text'); return true; },
+            { timeout: 2000, timeoutMsg: 'After A1,1=1 R/S' },
+        );
         await clickKey('3');
         await clickKey('r_s');
-        await browser.pause(100);
+        await browser.waitUntil(
+            async () => { await display.getAttribute('data-text'); return true; },
+            { timeout: 2000, timeoutMsg: 'After A2,1=3 R/S' },
+        );
         await clickKey('2');
         await clickKey('r_s');
-        await browser.pause(100);
+        await browser.waitUntil(
+            async () => { await display.getAttribute('data-text'); return true; },
+            { timeout: 2000, timeoutMsg: 'After A1,2=2 R/S' },
+        );
         await clickKey('4');
         await clickKey('r_s');
-        await browser.pause(150);
+        // WR-05: wider wait for the final element + Ready state — DET is heavier
+        // than a single op but 5s is sufficient even on cold CI runners.
+        await browser.waitUntil(
+            async () => { await display.getAttribute('data-text'); return true; },
+            { timeout: 3000, timeoutMsg: 'After A2,2=4 R/S (Ready state)' },
+        );
 
         // Matrix is now Ready (all 4 elements entered). Dispatch DET via
         // xrom_resolve. The DET program reads matrix_dim + R15.. → Op::MatDet
         // → writes determinant to X → modal_program clears.
         await invokeBackend('dispatch_op', { keyId: 'xeq_DET' });
-        await browser.pause(500); // DET is heavier than a single op — wider window
+
+        // WR-05: predicate-driven wait for the DET result (heavier than a single
+        // op — allow 5s for cold CI runners).
+        await browser.waitUntil(
+            async () => (await display.getAttribute('data-text')) === '-2.0000',
+            { timeout: 5000, timeoutMsg: 'DET should display -2.0000 within 5s' },
+        );
 
         const dataText = await display.getAttribute('data-text');
         if (dataText === null) {
