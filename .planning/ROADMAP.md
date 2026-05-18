@@ -202,8 +202,8 @@
   5. **Cross-platform drift (QUAL-06)**: every Math Pac I numerical test uses `approx::assert_relative_eq!(actual, expected, max_relative = 1e-7)` (Math Pac I floor — 6 of HP-41's 10 digits guaranteed per Pitfall 14); zero `assert_eq!(decimal, decimal)` on iterated results in `tests/math1_*.rs` (lint enforced by `tests/lint_math1_assertions.rs` per Pitfall 17); `tests/math1_user_callback.rs` carries 5 regression tests for user-callback re-entrancy (nested INTG/SOLVE rejection, STO clobbering, STOP-during-INTG, GTO-out-of-callback, recursion-cap); `tests/xrom_shadowing.rs` asserts no Math Pac I name shadows an existing built-in mnemonic (Pitfall 1 CI gate)
 
 **Plans**: 3 plans
-  - [ ] 32-01-PLAN.md — Coverage push for Math Pac I ops (per-Op test count ≥ 5; close gaps surfaced by `just coverage`); `tests/xrom_shadowing.rs` + `tests/math1_user_callback.rs` + `tests/lint_math1_assertions.rs`; QUAL-01, QUAL-04, QUAL-07, QUAL-08
-  - [ ] 32-02-PLAN.md — `numerical_accuracy.rs` extension from 566 → ~700+ cases with OM citations; `approx 0.5.1` dev-dep added; relative-tolerance discipline; QUAL-02, QUAL-06
+  - [x] 32-01-PLAN.md — Coverage push for Math Pac I ops (per-Op test count ≥ 5; close gaps surfaced by `just coverage`); `tests/xrom_shadowing.rs` + `tests/math1_user_callback.rs` + `tests/lint_math1_assertions.rs`; QUAL-01, QUAL-04, QUAL-07, QUAL-08
+  - [x] 32-02-PLAN.md — `numerical_accuracy.rs` extension from 566 → ~700+ cases with OM citations; `approx 0.5.1` dev-dep added; relative-tolerance discipline; QUAL-02, QUAL-06
   - [ ] 32-03-PLAN.md — E2E smoke extension (one Math Pac I workflow in `hp41-gui/e2e/smoke.spec.ts`); Free42-contamination guard (`scripts/check-free42-contamination.sh` in CI); `data-testid="lcd-display"` carries Math Pac I-mode output; QUAL-03, QUAL-05
 
 **Notable risks/decisions**:
@@ -258,7 +258,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
 | 31. GUI Integration | v3.0 | 5/5 | Complete    | 2026-05-18 |
-| 32. Test Hardening | v3.0 | 0/3 | Planned | |
+| 32. Test Hardening | v3.0 | 2/3 | In Progress|  |
 
 ---
 
