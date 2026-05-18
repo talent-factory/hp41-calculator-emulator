@@ -28,7 +28,7 @@
 - [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17). DOC-01 absorbed into Plan 29-01 per D-29.1 (file `docs/hp41-math1-functions.json` authored here)
 - [x] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block (completed 2026-05-17)
 - [x] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ) (completed 2026-05-17)
-- [ ] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI
+- [x] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI (completed 2026-05-18)
 
 ---
 
@@ -204,7 +204,7 @@
 **Plans**: 3 plans
   - [x] 32-01-PLAN.md — Coverage push for Math Pac I ops (per-Op test count ≥ 5; close gaps surfaced by `just coverage`); `tests/xrom_shadowing.rs` + `tests/math1_user_callback.rs` + `tests/lint_math1_assertions.rs`; QUAL-01, QUAL-04, QUAL-07, QUAL-08
   - [x] 32-02-PLAN.md — `numerical_accuracy.rs` extension from 566 → ~700+ cases with OM citations; `approx 0.5.1` dev-dep added; relative-tolerance discipline; QUAL-02, QUAL-06
-  - [ ] 32-03-PLAN.md — E2E smoke extension (one Math Pac I workflow in `hp41-gui/e2e/smoke.spec.ts`); Free42-contamination guard (`scripts/check-free42-contamination.sh` in CI); `data-testid="lcd-display"` carries Math Pac I-mode output; QUAL-03, QUAL-05
+  - [x] 32-03-PLAN.md — E2E smoke extension (one Math Pac I workflow in `hp41-gui/e2e/smoke.spec.ts`); Free42-contamination guard (`scripts/check-free42-contamination.sh` in CI); `data-testid="lcd-display"` carries Math Pac I-mode output; QUAL-03, QUAL-05
 
 **Notable risks/decisions**:
   - **Coverage gate NOT raised** in v3.0 — held at v2.2 level (≥ 95 % lines / ≥ 93 % regions) per D-27.2 lessons-learned (atomic raise requires risk-weighted tests, not coverage padding)
@@ -258,7 +258,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
 | 31. GUI Integration | v3.0 | 5/5 | Complete    | 2026-05-18 |
-| 32. Test Hardening | v3.0 | 2/3 | In Progress|  |
+| 32. Test Hardening | v3.0 | 3/3 | Complete   | 2026-05-18 |
 
 ---
 
