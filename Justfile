@@ -62,9 +62,18 @@ coverage:
 	cargo llvm-cov clean --workspace
 	cargo llvm-cov --fail-under-lines 95 -p hp41-core
 
-# Full CI gate: lint → test → coverage
+# Phase 32 Plan 32-03 (D-32.7 + D-32.8 + Pitfall 19). Greps hp41-core/src/ops/math1/
+# for distinctive Free42 identifiers (Intel BID, decNumber, Free42 internals + GPL/AGPL
+# copyright markers) with allowlist for the legitimate per-file disclaim header.
+# The matching CI job in ci.yml is named "License audit (Free42 contamination)" — keep
+# script invocation in sync if the path ever changes.
 [group('ci')]
-ci: lint test coverage
+license-audit:
+	bash scripts/check-free42-contamination.sh
+
+# Full CI gate: lint → test → coverage → license-audit (Phase 32 D-32.8 belt+suspenders)
+[group('ci')]
+ci: lint test coverage license-audit
 
 # CI gate for MSRV jobs: lint → test (NO coverage).
 # Coverage is rustc-version-dependent — different rustc versions instrument llvm-cov
