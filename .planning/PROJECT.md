@@ -166,7 +166,7 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 ### Active (v3.0 — Math 1 Pac Emulation)
 
-*Stand 2026-05-17: Phase 28 + Phase 29 shipped (13/13 plans, 13/13 success criteria verified). Phase 30 (Documentation & ADRs) IN PROGRESS — landing now. Phase 31 (GUI Integration) and Phase 32 (Test Hardening) planned. Scope is Math 1 Pac only; XROM-Framework + Math-1-Funktionsbibliothek (Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
+*Stand 2026-05-18: Phases 28–31 shipped (23/23 plans, 7/7 GUI-01..07 must-haves verified by automated checks; 3 manual GUI smoke items tracked in `31-HUMAN-UAT.md` for follow-up via `/gsd-verify-work`). Phase 32 (Test Hardening) planned next: hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI. Scope remains Math 1 Pac only (XROM-Framework + Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
 
 ### Out of Scope
 
@@ -243,4 +243,4 @@ v2.0 Phase 18 (2026-05-10): Program Listing & CI/CD complete — `format_all_ste
 
 v2.2 HP-41CV Feature Completeness shipped 2026-05-15 (Phases 20–27, 8/8 phases, 26/26 plans) — full ROM built-in set across `hp41-core` + `hp41-cli` + `hp41-gui`; coverage gate atomically raised 80 % → 95 % (D-27.2), achieved 95.25 % lines / 93.75 % regions; 566-case numerical accuracy at 99.1 %; WebdriverIO + tauri-driver E2E smoke green on Ubuntu (`e2e-linux` CI job); Vitest now CI-gated. v1.x 503-case baseline floor 498 preserved per D-27.6. Tag `v2.2` on `main`.
 
-*Last updated: 2026-05-16 — v3.0 Math 1 Pac Emulation milestone started; research first; phase numbering continues from Phase 28*
+*Last updated: 2026-05-18 — v3.0 Phase 31 (GUI Integration) shipped (5/5 plans, 7/7 GUI-01..07 must-haves automated-verified, 3 manual GUI smoke items deferred to UAT); CATALOG 2 XROM enumeration + Math Pac I help overlay + LCD-alternation modal prompts + R/S 3-way + Esc cascade + request_cancel channel all land in this phase. Phase 32 (Test Hardening) next.*
