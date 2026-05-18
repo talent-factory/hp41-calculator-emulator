@@ -347,7 +347,7 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
                     format!("XROM {} {}", MATH_1.id, MATH_1.name)
                 ));
                 for (name, _op) in MATH_1.ops {
-                    state.print_buffer.push(format!("{:<24}", name));
+                    state.print_buffer.push(format!("{name:<24}"));
                 }
             } else {
                 state.print_buffer.push(format!("{:<24}", "NO XROM"));

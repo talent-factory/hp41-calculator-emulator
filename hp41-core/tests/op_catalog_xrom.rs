@@ -42,13 +42,11 @@ fn catalog_2_with_math1_loaded_lists_header_and_functions() {
     let module_header = &new_lines[1];
     assert!(
         module_header.contains("XROM 7"),
-        "Module header should contain 'XROM 7': {:?}",
-        module_header
+        "Module header should contain 'XROM 7': {module_header:?}"
     );
     assert!(
         module_header.contains("MATH 1"),
-        "Module header should contain 'MATH 1A': {:?}",
-        module_header
+        "Module header should contain 'MATH 1A': {module_header:?}"
     );
 
     // Lines 2..N-1 are function names (skip banner + header + END).
@@ -125,8 +123,7 @@ fn catalog_3_and_4_still_not_available() {
     let cat3_lines = &state.print_buffer[len_before..];
     assert!(
         cat3_lines.iter().any(|l| l.contains("NOT AVAILABLE")),
-        "CAT 3 should still emit 'NOT AVAILABLE': {:?}",
-        cat3_lines
+        "CAT 3 should still emit 'NOT AVAILABLE': {cat3_lines:?}"
     );
 
     // CAT 4
@@ -135,7 +132,6 @@ fn catalog_3_and_4_still_not_available() {
     let cat4_lines = &state.print_buffer[len_before..];
     assert!(
         cat4_lines.iter().any(|l| l.contains("NOT AVAILABLE")),
-        "CAT 4 should still emit 'NOT AVAILABLE': {:?}",
-        cat4_lines
+        "CAT 4 should still emit 'NOT AVAILABLE': {cat4_lines:?}"
     );
 }

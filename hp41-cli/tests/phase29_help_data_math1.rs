@@ -202,10 +202,8 @@ fn math1_help_entries_all_returns_both_pools() {
     let all_count = help_entries_all().count();
     assert!(
         all_count >= math1_count,
-        "help_entries_all() returned {} entries but help_entries_math1() alone has {} — \
-         merged accessor must chain both pools",
-        all_count,
-        math1_count
+        "help_entries_all() returned {all_count} entries but help_entries_math1() alone has {math1_count} — \
+         merged accessor must chain both pools"
     );
     // Must also include some v2.2 entries (>= 130 from the first pool)
     assert!(
