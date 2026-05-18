@@ -166,7 +166,9 @@ pub fn op_integ(state: &mut CalcState) -> Result<(), HpError> {
         // interactively — the previous run (if any) is complete or canceled; any sticky
         // cancel_requested = true from the GUI's request_cancel would prevent the new run.
         // The Tauri command cannot race here: the AppState Mutex is free (user is interactive).
-        state.cancel_requested.store(false, std::sync::atomic::Ordering::Relaxed);
+        state
+            .cancel_requested
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Integ(
             crate::ops::math1::modal::IntegInputStep::ModeChoice,
         ));

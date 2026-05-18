@@ -122,7 +122,9 @@ pub fn op_solve(state: &mut CalcState) -> Result<(), HpError> {
         // Reset cancel_requested to false at workflow-open time. Symmetric with op_integ.
         // The user has just pressed the SOLVE key interactively — the previous run (if any)
         // is complete or canceled; sticky cancel_requested = true would abort the new run.
-        state.cancel_requested.store(false, std::sync::atomic::Ordering::Relaxed);
+        state
+            .cancel_requested
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         // Interactive: open the SOLVE modal at FunctionNamePrompt.
         // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
         state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Solve(

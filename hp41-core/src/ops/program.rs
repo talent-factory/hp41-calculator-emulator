@@ -342,9 +342,10 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
             // deferred to v3.1 polish per RESEARCH Open Q2).
             if state.xrom_modules & 0b0000_0001 != 0 {
                 // Math Pac I (bit 0) is loaded.
-                state
-                    .print_buffer
-                    .push(format!("{:<24}", format!("XROM {} {}", MATH_1.id, MATH_1.name)));
+                state.print_buffer.push(format!(
+                    "{:<24}",
+                    format!("XROM {} {}", MATH_1.id, MATH_1.name)
+                ));
                 for (name, _op) in MATH_1.ops {
                     state.print_buffer.push(format!("{:<24}", name));
                 }

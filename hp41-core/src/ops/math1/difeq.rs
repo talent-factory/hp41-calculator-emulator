@@ -145,7 +145,9 @@ pub fn op_difeq(state: &mut CalcState) -> Result<(), HpError> {
         // Reset cancel_requested to false at workflow-open time. Symmetric with op_integ / op_solve.
         // The user has just pressed the DIFEQ key interactively — the previous run (if any)
         // is complete or canceled; sticky cancel_requested = true would abort the new run.
-        state.cancel_requested.store(false, std::sync::atomic::Ordering::Relaxed);
+        state
+            .cancel_requested
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         // Interactive: open the DIFEQ modal at FunctionNamePrompt.
         // CLI auto-open hook will fire CollectForModal after this returns (D-29.9).
         state.modal_program = Some(crate::ops::math1::modal::ModalProgram::Difeq(
