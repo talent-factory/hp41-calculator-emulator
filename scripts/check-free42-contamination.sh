@@ -11,6 +11,16 @@ set -euo pipefail
 MATH1_DIR="hp41-core/src/ops/math1"
 DISCLAIM_LINE='Free42 source consulted only as sanity-check oracle'
 
+# WR-01: explicit directory existence check — if MATH1_DIR is missing (refactor moved
+# files, script invoked from wrong cwd, future module split), the grep pipeline would
+# silently exit 0 ("no contamination") because a missing-path grep returns non-zero,
+# causing the pipeline failure to evaluate as "no matches". That would neutralise the
+# Pitfall 19 / D-32.7 license guard. Exit 2 on missing directory is unambiguous.
+if [[ ! -d "$MATH1_DIR" ]]; then
+    echo "FAIL: $MATH1_DIR does not exist — license guard cannot run." >&2
+    exit 2
+fi
+
 # D-32.7: 12 distinctive symbols verified zero false-positives against current source.
 # The bare string "Free42" is deliberately NOT in this pattern — 122 legitimate
 # "Free42 v3.0.5: <value>" cross-check references exist across the codebase
