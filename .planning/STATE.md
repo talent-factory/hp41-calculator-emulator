@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Math Pac I Emulation
 status: executing
-last_updated: "2026-05-18T12:55:18.108Z"
-last_activity: 2026-05-18 -- Phase 32 re-opened for QUAL-01 gap closure (7 new plans: 32-04..32-10)
+last_updated: "2026-05-18T17:01:32.591Z"
+last_activity: 2026-05-18
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 31
-  completed_plans: 24
-  percent: 77
+  completed_plans: 25
+  percent: 80
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -36,10 +36,10 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 
 ## Current Position
 
-Phase: 32 (test-hardening) — RE-OPENED for QUAL-01 gap closure
-Plan: 4 of 10 (3 shipped: 32-01..32-03; 7 planned: 32-04..32-10)
-Status: Ready to execute Phase 32 gap closure (Wave 1: 32-04..32-08 parallel; Wave 2: 32-09, then 32-10)
-Last activity: 2026-05-18 -- Phase 32 re-opened; 7 gap-closure plans created and verified (override Plan 32-03 Rule 4 deferral)
+Phase: 32 (test-hardening) — EXECUTING
+Plan: 2 of 10
+Status: Ready to execute
+Last activity: 2026-05-18
 Resume from: .planning/phases/32-test-hardening/32-VERIFICATION.md (gaps_found → planned)
 
 ---

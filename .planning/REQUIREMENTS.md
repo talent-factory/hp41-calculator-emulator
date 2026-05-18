@@ -172,7 +172,7 @@
 
 ### Quality Gates (Phase 32)
 
-- [ ] **QUAL-01**: `hp41-core` Coverage ≥ 95 % Lines / ≥ 93 % Regions (gehalten vom v2.2-Niveau; KEIN atomic raise)
+- [x] **QUAL-01**: `hp41-core` Coverage ≥ 95 % Lines / ≥ 93 % Regions (gehalten vom v2.2-Niveau; KEIN atomic raise)
 - [ ] **QUAL-02**: `numerical_accuracy.rs` erweitert von 566 → ~700+ Cases mit Math-Pac-I-spezifischen Cases pro Programm; OM-Page+Example Citation per Case (D-27.1 Pattern); Pass-Rate ≥ 98 %
 - [ ] **QUAL-03**: GUI E2E Smoke (WebdriverIO) erweitert um einen Math-Pac-I-Workflow (z.B. `XEQ "SINH" 1 → 1.1752` oder ein MATRIX-Mini-Flow); läuft im `e2e-linux` Job
 - [ ] **QUAL-04**: Per-Op Test-Count ≥ 5 (verhindert mid-milestone Coverage-Drop unter 95 % — Pitfall 16)
