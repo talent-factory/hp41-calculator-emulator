@@ -44,6 +44,8 @@ fn set_x(state: &mut CalcState, v: f64) {
 /// Set up an n×n matrix in state (column-major storage).
 /// `elements` is provided in row-major order for test convenience.
 fn setup_matrix_inline(state: &mut CalcState, n: u8, elements: &[f64]) {
+    // LINT-EXEMPT: usize-equality (element count) — HpNum in subsequent setup lines is
+    // a false-positive of the multi-line lookahead; no float comparison here.
     assert_eq!(elements.len(), (n as usize) * (n as usize));
     state.matrix_dim = Some((n, n));
     state.matrix_active_reg = Some(15);

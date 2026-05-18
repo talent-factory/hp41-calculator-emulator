@@ -50,6 +50,27 @@
 //! option (a)). Does NOT scan `tests/numerical_accuracy.rs` (the `case!` macro
 //! has its own internal `AccuracyCase.tol` bookkeeping). Future widening
 //! (option (b) — all `tests/`) is a v3.1+ consideration when a gap surfaces.
+//!
+//! ## Multi-line assert_eq detection (WR-02, Plan 32-09)
+//!
+//! The `no_decimal_assert_eq_in_math1_tests` lint detects both single-line and
+//! multi-line `assert_eq!(decimal, decimal)` invocations. The lookahead window
+//! is the `assert_eq!` line plus up to 3 following lines. This closes the
+//! blind spot where a multi-line invocation like:
+//! ```rust
+//! assert_eq!(
+//!     s.stack.x.inner(),  // .inner() was invisible to the old single-line heuristic
+//!     x_before,
+//!     "..."
+//! );
+//! ```
+//! would not be detected by the prior single-line heuristic.
+//!
+//! **Known false-positive class:** `assert_eq!` calls whose COMPARISON ARGUMENTS
+//! are integer-typed (e.g., `HpNum::from(5i32)`, `.to_i32()`) but where the
+//! lookahead window happens to contain decimal tokens in SUBSEQUENT unrelated
+//! lines (e.g., setup code after the assertion). These are annotated with
+//! `// LINT-EXEMPT: integer-equality — <reason>` per the established pattern.
 
 #![allow(clippy::unwrap_used)]
 
@@ -150,8 +171,21 @@ fn preceding_block_has_lint_exempt(lines: &[&str], idx: usize) -> bool {
 
 /// Heuristic for forbidden `assert_eq!(decimal, decimal)` lines per Pitfall 17.
 ///
-/// A line is forbidden iff it contains BOTH `assert_eq!` AND any of:
+/// A line is forbidden iff it contains `assert_eq!` AND the line itself OR up
+/// to 3 following lines (multi-line invocation lookahead) contain any of:
 /// `.to_f64()`, `HpNum`, `Decimal`, `.inner()`.
+///
+/// **Multi-line detection (WR-02):** both single-line and multi-line
+/// `assert_eq!(decimal, decimal)` invocations are detected. The lookahead
+/// window is: current line + 3 following lines joined with `\n`.
+/// Example caught by lookahead:
+/// ```rust
+/// assert_eq!(          // line N   — contains assert_eq!
+///     s.stack.x.inner(), // line N+1 — contains .inner()
+///     x_before,
+///     "...",
+/// );
+/// ```
 ///
 /// Lines bearing `LINT-EXEMPT:` (inline) OR carrying a `LINT-EXEMPT:` in the
 /// preceding contiguous comment block are exempted (e.g., integer equality
@@ -169,10 +203,19 @@ fn line_is_forbidden_assert_eq(line: &str, lines: &[&str], idx: usize) -> bool {
     if !line.contains("assert_eq!") {
         return false;
     }
-    let is_decimal = line.contains(".to_f64()")
-        || line.contains("HpNum")
-        || line.contains("Decimal")
-        || line.contains(".inner()");
+    // Check the line itself AND up to 3 following lines (multi-line invocation
+    // lookahead). take(4) = current line + 3 following.
+    let next_3: String = lines
+        .iter()
+        .skip(idx)
+        .take(4)
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n");
+    let is_decimal = next_3.contains(".to_f64()")
+        || next_3.contains("HpNum")
+        || next_3.contains("Decimal")
+        || next_3.contains(".inner()");
     if !is_decimal {
         return false;
     }

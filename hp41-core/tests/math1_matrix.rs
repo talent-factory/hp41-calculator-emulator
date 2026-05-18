@@ -21,6 +21,8 @@ use rust_decimal::Decimal;
 
 /// Set up an n×n matrix in state for integration tests.
 fn mat_setup(state: &mut CalcState, n: u8, elements: &[f64]) {
+    // LINT-EXEMPT: usize-equality (element count) — HpNum in subsequent setup lines is
+    // a false-positive of the multi-line lookahead; no float comparison here.
     assert_eq!(elements.len(), (n as usize) * (n as usize));
     state.matrix_dim = Some((n, n));
     state.matrix_active_reg = Some(15);
@@ -139,6 +141,8 @@ fn mat_size_updates_lastx() {
     state.regs[14] = HpNum::from(4i32);
     state.stack.x = HpNum::from(99i32);
     dispatch(&mut state, Op::MatSize).unwrap();
+    // LINT-EXEMPT: integer-equality via HpNum::from(99i32) is exact (Decimal from
+    // integer literal has no f64 bridge, no FPU rounding) — cross-platform-safe.
     assert_eq!(
         state.stack.lastx,
         HpNum::from(99i32),
@@ -152,6 +156,8 @@ fn mat_size_returns_zero_when_r14_is_zero() {
     let mut state = CalcState::new();
     state.regs[14] = HpNum::zero();
     dispatch(&mut state, Op::MatSize).unwrap();
+    // LINT-EXEMPT: integer-equality via HpNum::zero() is exact (0 is an integer
+    // sentinel with no FPU rounding) — cross-platform-safe per Pitfall 17.
     assert_eq!(
         state.stack.x,
         HpNum::zero(),

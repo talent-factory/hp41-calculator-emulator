@@ -173,11 +173,15 @@ fn sol_dispatch_arm_returns_invalid_op() {
 fn sol_reads_scratch_registers_r00_r01() {
     let (mut state, program) = make_sol_identity();
     // R00 = -1 (x1), R01 = 1 (x2) — set by make_sol_identity
+    // LINT-EXEMPT: integer-equality via .inner().to_i32() returns Option<i32> —
+    // comparing integer values, no f64 bridge, cross-platform-safe per Pitfall 17.
     assert_eq!(
         state.regs[0].inner().to_i32(),
         Some(-1),
         "Op::Sol: R00 must hold x1"
     );
+    // LINT-EXEMPT: integer-equality via .inner().to_i32() returns Option<i32> —
+    // comparing integer values, no f64 bridge, cross-platform-safe per Pitfall 17.
     assert_eq!(
         state.regs[1].inner().to_i32(),
         Some(1),

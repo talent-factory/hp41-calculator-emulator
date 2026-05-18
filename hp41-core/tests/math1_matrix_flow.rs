@@ -25,6 +25,8 @@ use rust_decimal::Decimal;
 /// Integration-test helper: set up an n×n matrix in state.
 /// Equivalent to the unit-test `setup_matrix` helper in matrix.rs.
 fn setup_matrix(state: &mut CalcState, n: u8, elements: &[f64]) {
+    // LINT-EXEMPT: usize-equality (element count) — HpNum in subsequent setup lines is
+    // a false-positive of the multi-line lookahead; no float comparison here.
     assert_eq!(elements.len(), (n as usize) * (n as usize));
     state.matrix_dim = Some((n, n));
     state.matrix_active_reg = Some(15);
@@ -98,6 +100,8 @@ fn matrix_size_dispatches_via_xeq() {
     // Set R14 = 3 (order register)
     state.regs[14] = hp41_core::num::HpNum::from(3i32);
     dispatch(&mut state, Op::Xeq("SIZE".to_string())).unwrap();
+    // LINT-EXEMPT: integer-equality via HpNum::from(3i32) is exact (Decimal from
+    // integer literal has no f64 bridge, no FPU rounding) — cross-platform-safe.
     assert_eq!(
         state.stack.x,
         hp41_core::num::HpNum::from(3i32),

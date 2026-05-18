@@ -80,6 +80,9 @@ fn dispatch_poly_workflow_does_not_modify_stack() {
     let x_before = Decimal::from(42i32);
     s.stack.x = hp41_core::HpNum::rounded(x_before);
     dispatch(&mut s, Op::PolyWorkflow).unwrap();
+    // LINT-EXEMPT: integer sentinel — x_before is Decimal::from(42i32) which is exact
+    // (no f64 bridge, no FPU rounding); comparing .inner() to an integer Decimal
+    // is cross-platform-safe per Pitfall 17.
     assert_eq!(
         s.stack.x.inner(),
         x_before,
@@ -202,6 +205,9 @@ fn dispatch_roots_lift_effect_neutral() {
     set_reg(&mut s, 1, 0.0);
     set_reg(&mut s, 2, -1.0);
     dispatch(&mut s, Op::Roots).unwrap();
+    // LINT-EXEMPT: integer sentinel — sentinel is Decimal::from(77i32) which is exact
+    // (no f64 bridge, no FPU rounding); comparing .inner() to an integer Decimal
+    // is cross-platform-safe per Pitfall 17.
     assert_eq!(
         s.stack.x.inner(),
         sentinel,
