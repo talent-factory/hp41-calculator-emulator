@@ -4336,14 +4336,6 @@ fn test_numerical_accuracy_suite() {
             matches!(r, Err(hp41_core::HpError::DivideByZero)),
             "Cinv(0,0) must DivideByZero per Pitfall 6"
         );
-        // The assertion above doubles as the case proof; record a sentinel pass
-        // for the suite-counter accounting.
-        case!(
-            "cmplx_cinv_zero",
-            "CMPLX: Cinv(0+0i) → DivideByZero (HP 00041-90034 p.25, Pitfall 6)",
-            1.0,
-            1.0
-        );
     }
     // CMPLX-04: LnZ (0,0) — Domain boundary per Pitfall 6.
     {
@@ -4354,12 +4346,6 @@ fn test_numerical_accuracy_suite() {
         assert!(
             matches!(r, Err(hp41_core::HpError::Domain)),
             "LnZ(0,0) must Domain per Pitfall 6"
-        );
-        case!(
-            "cmplx_lnz_zero",
-            "CMPLX: LnZ(0+0i) → Domain (HP 00041-90034 p.26, Pitfall 6)",
-            1.0,
-            1.0
         );
     }
     // CMPLX-05: ExpZ ↔ LnZ round-trip (1+0i identity).
@@ -4956,12 +4942,6 @@ fn test_numerical_accuracy_suite() {
             matches!(r, Err(hp41_core::HpError::Domain)),
             "Acosh(0.5) must Domain"
         );
-        case!(
-            "hyp_acosh_dom",
-            "HYP: ACOSH(0.5) → Domain (HP 00041-90034 p.45)",
-            1.0,
-            1.0
-        );
     }
     // HYP-02: Atanh(1.0) — domain guard fires (|x| ≥ 1).
     {
@@ -4973,12 +4953,6 @@ fn test_numerical_accuracy_suite() {
         assert!(
             matches!(r, Err(hp41_core::HpError::Domain)),
             "Atanh(1.0) must Domain"
-        );
-        case!(
-            "hyp_atanh_dom",
-            "HYP: ATANH(1.0) → Domain (HP 00041-90034 p.45)",
-            1.0,
-            1.0
         );
     }
     // HYP-03: cosh²(0.5) - sinh²(0.5) = 1 (Pythagorean identity).
@@ -5674,12 +5648,6 @@ fn test_numerical_accuracy_suite() {
         // (the LBL EG2 returns y, not y'' = f(x,y,y')), so we accept any non-panic
         // result — the test surfaces ORDER=2 branch coverage, not numerical correctness.
         let _ = op_difeq_run_loop(&mut s, &program);
-        case!(
-            "difeq_order_2",
-            "DIFEQ: ORDER=2 setup branch reached (HP 00041-90034 p.43)",
-            1.0,
-            1.0
-        );
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -5864,7 +5832,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_x3_eq_1",
             "POLY: x³-1 dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     // POLY-D3-03: x³ - 8 = 0 → real root 2 + complex pair (or POLY-07 reject).
@@ -5882,7 +5850,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_x3_eq_8",
             "POLY: x³-8 dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     // POLY-D3-04: x³ - 3x² + 3x - 1 = (x-1)³ → triple root at 1.
@@ -5900,7 +5868,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_triple",
             "POLY: (x-1)³ dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     // POLY-D3-05: x³ - 2x = x(x²-2) → real roots 0, ±√2.
@@ -5918,7 +5886,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_3real_sym",
             "POLY: x³-2x dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
 
@@ -5941,7 +5909,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_biquad",
             "POLY: x⁴-1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -5959,7 +5927,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_4real",
             "POLY: x⁴-5x²+4 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -5977,7 +5945,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_2pairs",
             "POLY: x⁴+5x²+4 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -5996,7 +5964,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_double_pair",
             "POLY: (x-1)²(x-2)² dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     // POLY-D4-05: x⁴ + x - 1 = 0 — irregular degree-4. May converge or POLY-07.
@@ -6015,7 +5983,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_irreg",
             "POLY: x⁴+x-1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
 
@@ -6038,7 +6006,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_unity",
             "POLY: x⁵-1 dispatched (HP 00041-90034 p.32, 5th roots of unity)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -6057,7 +6025,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_5real",
             "POLY: x⁵-5x³+4x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -6075,7 +6043,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_neg1",
             "POLY: x⁵+1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -6094,7 +6062,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_doubleq",
             "POLY: x⁵-4x³+4x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
     {
@@ -6113,7 +6081,7 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_x4_minus_1",
             "POLY: x⁵-x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
 
@@ -6173,13 +6141,6 @@ fn test_numerical_accuracy_suite() {
                 );
             }
         }
-        // Record the cluster invocation as a passing case for the suite counter.
-        case!(
-            "poly_cluster_x_1_5",
-            "POLY: (x-1)^5 cluster invocation Ok (D-32.10, HP 00041-90034 p.32)",
-            1.0,
-            1.0
-        );
     }
 
     // POLY non-convergence cases (POLY-07) — assert Err(HpError::Domain).
@@ -6263,7 +6224,7 @@ fn test_numerical_accuracy_suite() {
             "poly_nc_degen2",
             "POLY: A=0 leading → resolved (POLY-07)",
             1.0,
-            if r.is_ok() || r.is_err() { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
         );
     }
 
@@ -6793,17 +6754,10 @@ fn test_numerical_accuracy_suite() {
         );
     }
     // SOLVE-12: iteration cap u8 supports 100 (SOLV-07).
-    {
-        // Source: HP 00041-90034 p.42 + SOLV-07 — iteration cap.
-        // Catches: SolveState::iteration type too narrow.
-        const _ASSERT_100: () = assert!(u8::MAX as u32 >= 100);
-        case!(
-            "solve_iter_cap",
-            "SOLVE: iteration u8 cap supports 100 (SOLV-07)",
-            1.0,
-            1.0
-        );
-    }
+    // Catches: SolveState::iteration type too narrow.
+    // Source: HP 00041-90034 p.42 + SOLV-07 — iteration cap.
+    // Compile-time assertion is the verification — no case!() needed.
+    const _ASSERT_SOLVE_ITER_CAP: () = assert!(u8::MAX as u32 >= 100);
     // SOLVE-13: non-convergence error-path #1 — f(x) = 1 (no zero).
     {
         // Source: HP 00041-90034 p.42 + D-32.11 — SOLVE non-convergence.
