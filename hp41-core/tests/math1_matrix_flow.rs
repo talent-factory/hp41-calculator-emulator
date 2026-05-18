@@ -13,6 +13,7 @@
 
 #![allow(clippy::unwrap_used)]
 
+use approx::assert_relative_eq;
 use hp41_core::num::HpNum;
 use hp41_core::ops::dispatch;
 use hp41_core::ops::math1::modal::{MatrixInputStep, ModalProgram};
@@ -74,10 +75,7 @@ fn matrix_det_dispatches_via_xeq() {
     setup_matrix(&mut state, 2, &[1.0, 0.0, 0.0, 1.0]);
     dispatch(&mut state, Op::Xeq("DET".to_string())).unwrap();
     let det = state.stack.x.inner().to_f64().unwrap();
-    assert!(
-        (det - 1.0).abs() < 1e-7,
-        "XEQ DET on identity matrix must return 1.0, got {det}"
-    );
+    assert_relative_eq!(det, 1.0, max_relative = 1e-7);
 }
 
 // Catches: xrom_resolve("INV") not routing to op_mat_inv (MAT-06)
