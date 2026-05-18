@@ -23,13 +23,13 @@
 
 use approx::assert_relative_eq;
 use hp41_core::ops::math1::four::{
-    compute_dft, convert_to_polar, op_four, op_four_eval_at_t, store_dft_to_registers,
+    compute_dft, convert_to_polar, op_four_eval_at_t, store_dft_to_registers,
     MAX_FOURIER_PAIRS,
 };
 use hp41_core::ops::math1::modal::{FourInputStep, ModalProgram, TransInputStep};
 use hp41_core::ops::math1::trans::{
-    do_trans2d_forward, do_trans2d_inverse, do_trans3d_forward, do_trans3d_inverse, op_trans2d,
-    op_trans3d, store_trans2d_params, store_trans3d_params,
+    do_trans2d_forward, do_trans2d_inverse, do_trans3d_forward, do_trans3d_inverse,
+    store_trans2d_params, store_trans3d_params,
 };
 use hp41_core::ops::math1::tri::{op_tri_asa, op_tri_saa, op_tri_sas, op_tri_ssa, op_tri_sss};
 use hp41_core::ops::{dispatch, Op};
