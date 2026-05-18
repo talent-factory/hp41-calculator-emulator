@@ -37,6 +37,13 @@
 //! in `xrom.rs` (which they must — otherwise `xrom_resolve` can't dispatch them)
 //! AND have ≥ 5 test references. It does NOT scan `ops/mod.rs` for ALL Op variants
 //! (which would force ≥ 5 tests on pre-existing v2.2 variants too, which is wrong).
+//!
+//! **Word-boundary matching (WR-03, Plan 32-09):**
+//! `count_test_mentions` uses word-boundary matching to prevent `Op::Sol` from
+//! matching `Op::Solve` (substring inflation). The match token is `Op::VariantName`
+//! anchored such that the character immediately after the variant name must NOT be
+//! alphanumeric or underscore. Counts distinct `#[test]` function blocks whose body
+//! contains at least one such match (not raw line occurrences).
 
 #![allow(clippy::unwrap_used)]
 
@@ -72,15 +79,48 @@ fn collect_math1_variant_names() -> Vec<String> {
     variants
 }
 
-/// Count how many test functions (lines containing `#[test]` followed by `fn`) in
-/// `hp41-core/tests/math1_*.rs` mention the given variant name.
+/// Return true if `line` contains `Op::<variant_name>` as a whole token — i.e., the
+/// character immediately after `variant_name` is NOT alphanumeric or `_`. This
+/// prevents `Op::Sol` from matching lines that contain `Op::Solve`, `Op::Sinh`
+/// matching `Op::Asinh`, etc. (WR-03 word-boundary fix).
+///
+/// Comment lines are pre-filtered before calling this helper.
+fn line_mentions_variant(line: &str, variant_name: &str) -> bool {
+    let token = format!("Op::{variant_name}");
+    let mut search_start = 0;
+    while let Some(pos) = line[search_start..].find(&token) {
+        let abs_pos = search_start + pos;
+        let after_pos = abs_pos + token.len();
+        // Check word boundary: char after variant must not be alphanumeric or '_'
+        let boundary_ok = match line[after_pos..].chars().next() {
+            None => true, // end of line — boundary ok
+            Some(c) => !c.is_alphanumeric() && c != '_',
+        };
+        if boundary_ok {
+            return true;
+        }
+        search_start = abs_pos + 1;
+    }
+    false
+}
+
+/// Count how many distinct `#[test]` function blocks in `hp41-core/tests/math1_*.rs`
+/// contain at least one word-boundary mention of `Op::<variant_name>`.
+///
+/// Strategy: split each file on `#[test]` markers to get per-function slices, then
+/// check each slice for a word-boundary `Op::VariantName` match. This avoids the
+/// line-count inflation of the prior implementation where 5 mentions in 1 test
+/// function could satisfy the "≥ 5 test functions" intent.
+///
+/// Catches: WR-03 substring inflation (`Op::Sol` matching `Op::Solve`) — word-boundary
+/// matching ensures each Op variant is only counted when it appears unambiguously.
 fn count_test_mentions(variant_name: &str, tests_dir: &Path) -> usize {
     let entries = match std::fs::read_dir(tests_dir) {
         Ok(e) => e,
         Err(_) => return 0,
     };
 
-    let mut total_mentions = 0;
+    let mut total_fn_count = 0;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -95,18 +135,25 @@ fn count_test_mentions(variant_name: &str, tests_dir: &Path) -> usize {
             Ok(c) => c,
             Err(_) => continue,
         };
-        // Count test function bodies that mention the variant name.
-        // Simple heuristic: count occurrences of the variant name string
-        // in lines that are NOT comments.
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if !trimmed.starts_with("//") && trimmed.contains(variant_name) {
-                total_mentions += 1;
+
+        // Split on `#[test]` markers to get per-function body slices.
+        // Each slice covers one test function's declaration + body.
+        let test_slices: Vec<&str> = content.split("#[test]").skip(1).collect();
+
+        for slice in test_slices {
+            // Check each non-comment line in this test function's slice for a
+            // word-boundary Op::VariantName mention.
+            let found = slice.lines().any(|line| {
+                let trimmed = line.trim();
+                !trimmed.starts_with("//") && line_mentions_variant(line, variant_name)
+            });
+            if found {
+                total_fn_count += 1;
             }
         }
     }
 
-    total_mentions
+    total_fn_count
 }
 
 /// Meta-test: every Math Pac I Op variant registered in `math1_resolve` must have
@@ -140,6 +187,8 @@ fn each_math1_op_has_at_least_5_tests() {
 
     // Catches: Pitfall 16 — Op variants with insufficient test coverage risk
     // missing edge cases that the Phase 32 coverage gate would otherwise catch.
+    // Catches: WR-03 substring inflation (`Sol` matching `Solve`) — now uses
+    // word-boundary matching; `Op::Sol` no longer borrows count from `Op::Solve`.
     // T-32-04: per-Op count baseline (TriSaa=6, TriSas=6 minimum); a drop below
     // this floor in a future commit is visible in diff review.
     assert!(

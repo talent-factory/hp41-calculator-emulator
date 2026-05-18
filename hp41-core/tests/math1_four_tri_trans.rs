@@ -71,7 +71,7 @@ fn four_dispatch_via_op_enum() {
 #[test]
 fn four_modal_program_variant() {
     let mut state = CalcState::new();
-    op_four(&mut state).unwrap();
+    dispatch(&mut state, Op::Four).unwrap();
     // Verify ModalProgram::Four is set with NumSamplesPrompt
     assert_eq!(
         state.modal_program,
@@ -152,6 +152,20 @@ fn four_xrom_resolve_round_trip() {
         resolved,
         Some(Op::Four),
         "xrom_resolve('FOUR') must return Some(Op::Four)"
+    );
+}
+
+// Catches: Op::Four clears modal_program on second open (idempotent re-trigger)
+#[test]
+fn four_dispatch_is_idempotent_reopen() {
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::Four).unwrap();
+    // Re-open must reset to NumSamplesPrompt
+    dispatch(&mut state, Op::Four).unwrap();
+    assert_eq!(
+        state.modal_program,
+        Some(ModalProgram::Four(FourInputStep::NumSamplesPrompt)),
+        "Op::Four re-open must reset to NumSamplesPrompt"
     );
 }
 
@@ -628,7 +642,7 @@ fn trans2d_dispatch_via_op_enum() {
 #[test]
 fn trans2d_modal_program_init() {
     let mut state = CalcState::new();
-    op_trans2d(&mut state).unwrap();
+    dispatch(&mut state, Op::Trans2d).unwrap();
     assert_eq!(
         state.modal_program,
         Some(ModalProgram::Trans(TransInputStep::Init2dPrompt))
@@ -709,10 +723,24 @@ fn trans3d_dispatch_via_op_enum() {
 #[test]
 fn trans3d_modal_program_init() {
     let mut state = CalcState::new();
-    op_trans3d(&mut state).unwrap();
+    dispatch(&mut state, Op::Trans3d).unwrap();
     assert_eq!(
         state.modal_program,
         Some(ModalProgram::Trans(TransInputStep::Init3dOriginPrompt))
+    );
+}
+
+// Catches: Op::Trans3d is idempotent on re-open (like Op::Trans2d / Op::Four)
+#[test]
+fn trans3d_dispatch_reopen_resets_modal() {
+    let mut state = CalcState::new();
+    dispatch(&mut state, Op::Trans3d).unwrap();
+    // Re-trigger must reset to Init3dOriginPrompt (not a deeper step)
+    dispatch(&mut state, Op::Trans3d).unwrap();
+    assert_eq!(
+        state.modal_program,
+        Some(ModalProgram::Trans(TransInputStep::Init3dOriginPrompt)),
+        "Op::Trans3d re-open must reset modal to Init3dOriginPrompt"
     );
 }
 
