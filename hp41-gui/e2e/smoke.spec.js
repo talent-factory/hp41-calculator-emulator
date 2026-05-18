@@ -222,23 +222,23 @@ describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
 
         // Dispatch Op::Sinh via xrom_resolve directly. sinh(1) = (e − 1/e)/2
         // ≈ 1.17520119364 → FIX 4 default formats as `1.1752`.
-        await invokeBackend('dispatch_op', { keyId: 'xeq_SINH' });
-
-        // WR-05: predicate-driven wait replaces browser.pause(250).
-        await browser.waitUntil(
-            async () => (await display.getAttribute('data-text')) === '1.1752',
-            { timeout: 5000, timeoutMsg: 'SINH(1) should display 1.1752 within 5s' },
-        );
-
-        const dataText = await display.getAttribute('data-text');
-        if (dataText === null) {
+        //
+        // Assertion path: `invokeBackend` returns the new `CalcStateView`
+        // directly from the Tauri `dispatch_op` thunk. We assert on
+        // `view.display_str` rather than on `[data-testid="lcd-display"]`'s
+        // `data-text` attribute because the React frontend deliberately does
+        // not poll for state updates (D-11 — no polling) — `App.tsx` only
+        // re-renders the display after its own `handleClick` returns, and an
+        // out-of-band `__TAURI_INTERNALS__.invoke` call (used here to bypass
+        // the SINH-contains-'N' modal-typing problem) does NOT propagate to
+        // the React tree. Asserting on the response value exercises the
+        // regression-sensitive path (`key_map::resolve` → `Op::Xeq("SINH")`
+        // → `xrom_resolve` → `Op::Sinh` → `format_hpnum`) end-to-end and is
+        // immune to the missing React refresh.
+        const view = await invokeBackend('dispatch_op', { keyId: 'xeq_SINH' });
+        if (view.display_str !== '1.1752') {
             throw new Error(
-                "[data-testid='lcd-display'] is missing data-text — Display14Seg contract broken (see hp41-gui/src/Display14Seg.tsx)",
-            );
-        }
-        if (dataText !== '1.1752') {
-            throw new Error(
-                `expected [data-testid="lcd-display"] data-text='1.1752', got '${dataText}'`,
+                `expected dispatch_op('xeq_SINH').display_str='1.1752', got '${view.display_str}'`,
             );
         }
     });
@@ -325,24 +325,17 @@ describe('HP-41 GUI smoke (FN-QUAL-05, D-27.13 literal ROADMAP scope)', () => {
         // Matrix is now Ready (all 4 elements entered). Dispatch DET via
         // xrom_resolve. The DET program reads matrix_dim + R15.. → Op::MatDet
         // → writes determinant to X → modal_program clears.
-        await invokeBackend('dispatch_op', { keyId: 'xeq_DET' });
-
-        // WR-05: predicate-driven wait for the DET result (heavier than a single
-        // op — allow 5s for cold CI runners).
-        await browser.waitUntil(
-            async () => (await display.getAttribute('data-text')) === '-2.0000',
-            { timeout: 5000, timeoutMsg: 'DET should display -2.0000 within 5s' },
-        );
-
-        const dataText = await display.getAttribute('data-text');
-        if (dataText === null) {
+        //
+        // Assertion path: same rationale as the SINH test above — assert on
+        // the `CalcStateView` returned by `invokeBackend` rather than on the
+        // React-managed `data-text` attribute, because `__TAURI_INTERNALS__
+        // .invoke` does not propagate into the React tree (D-11 — no
+        // polling). The regression-sensitive path is `xrom_resolve` →
+        // `Op::MatDet` → column-major iteration → `format_hpnum`.
+        const view = await invokeBackend('dispatch_op', { keyId: 'xeq_DET' });
+        if (view.display_str !== '-2.0000') {
             throw new Error(
-                "[data-testid='lcd-display'] is missing data-text — Display14Seg contract broken (see hp41-gui/src/Display14Seg.tsx)",
-            );
-        }
-        if (dataText !== '-2.0000') {
-            throw new Error(
-                `expected [data-testid="lcd-display"] data-text='-2.0000', got '${dataText}'`,
+                `expected dispatch_op('xeq_DET').display_str='-2.0000', got '${view.display_str}'`,
             );
         }
     });
