@@ -86,8 +86,10 @@ fn catalog_2_with_math1_loaded_lists_header_and_functions() {
 /// "NO XROM" line instead of module enumeration.
 #[test]
 fn catalog_2_without_xrom_emits_no_xrom() {
-    let mut state = CalcState::default();
-    state.xrom_modules = 0;
+    let mut state = CalcState {
+        xrom_modules: 0,
+        ..CalcState::default()
+    };
 
     let initial_buf_len = state.print_buffer.len();
     op_catalog(&mut state, 2).unwrap();
