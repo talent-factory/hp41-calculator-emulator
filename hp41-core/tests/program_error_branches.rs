@@ -59,10 +59,7 @@ fn op_clp_without_prgm_mode_returns_invalid_op() {
     // Catches: op_clp() prgm_mode guard — calling CLP while NOT in programming
     // mode must return InvalidOp. Regression: if the guard is removed, CLP
     // deletes user program sections during interactive operation.
-    let mut state = state_with_program(vec![
-        Op::Lbl("T".to_string()),
-        Op::Rtn,
-    ]);
+    let mut state = state_with_program(vec![Op::Lbl("T".to_string()), Op::Rtn]);
     state.prgm_mode = false; // NOT in programming mode
     let result = dispatch(&mut state, Op::Clp("T".to_string()));
     assert_eq!(
@@ -79,10 +76,7 @@ fn op_clp_prgm_mode_missing_label_returns_invalid_op() {
     // Catches: op_clp() .ok_or(HpError::InvalidOp)? when label not found in
     // state.program — program.rs line 165. This is a separate path from the
     // prgm_mode guard: the guard passes but the label scan fails.
-    let mut state = state_with_program(vec![
-        Op::Lbl("A".to_string()),
-        Op::Rtn,
-    ]);
+    let mut state = state_with_program(vec![Op::Lbl("A".to_string()), Op::Rtn]);
     state.prgm_mode = true;
     // "MISSING" does not exist in the program
     let result = dispatch(&mut state, Op::Clp("MISSING".to_string()));
@@ -214,10 +208,7 @@ fn resume_program_pc_at_end_returns_invalid_op() {
     // bounds offset and immediately fall to the "ran off end" break, returning
     // Ok(()) — silently ignoring the stale state.
     use hp41_core::ops::program::resume_program;
-    let mut state = state_with_program(vec![
-        Op::Lbl("T".to_string()),
-        Op::Rtn,
-    ]);
+    let mut state = state_with_program(vec![Op::Lbl("T".to_string()), Op::Rtn]);
     // Set pc to exactly program.len() (past the last step)
     state.pc = state.program.len();
     let result = resume_program(&mut state);

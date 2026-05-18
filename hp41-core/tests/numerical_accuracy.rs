@@ -4670,11 +4670,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.11 — DET on 3×3 identity.
         // Catches: MatDet LU-pivot path broken for 3×3.
         let mut s = CalcState::new();
-        mat_setup_p32(
-            &mut s,
-            3,
-            &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-        );
+        mat_setup_p32(&mut s, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
         dispatch(&mut s, Op::MatDet).unwrap();
         case!(
             "mat_det_i3",
@@ -4688,11 +4684,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.11 — diagonal det = product of diagonal.
         // Catches: MatDet not multiplying pivots correctly.
         let mut s = CalcState::new();
-        mat_setup_p32(
-            &mut s,
-            3,
-            &[2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0],
-        );
+        mat_setup_p32(&mut s, 3, &[2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0]);
         dispatch(&mut s, Op::MatDet).unwrap();
         case!(
             "mat_det_diag3",
@@ -4879,11 +4871,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.11, ex.2 — classical 3×3 small det.
         // Catches: MatDet cumulative pivot error on near-singular 3×3.
         let mut s = CalcState::new();
-        mat_setup_p32(
-            &mut s,
-            3,
-            &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0],
-        );
+        mat_setup_p32(&mut s, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0]);
         dispatch(&mut s, Op::MatDet).unwrap();
         case!(
             "mat_det_3x3_ex2",
@@ -4934,9 +4922,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.45 — ACOSH domain x ≥ 1.
         // Catches: Acosh missing domain guard — would return NaN.
         let mut s = CalcState::new();
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.5).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.5).unwrap());
         let r = dispatch(&mut s, Op::Acosh);
         assert!(
             matches!(r, Err(hp41_core::HpError::Domain)),
@@ -4960,15 +4946,11 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.44 — Pythagorean hyperbolic identity.
         // Catches: Sinh/Cosh implementations using inconsistent formulas.
         let mut s1 = CalcState::new();
-        s1.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.5).unwrap(),
-        );
+        s1.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.5).unwrap());
         dispatch(&mut s1, Op::Cosh).unwrap();
         let cosh_v = get_x_p32(&s1);
         let mut s2 = CalcState::new();
-        s2.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.5).unwrap(),
-        );
+        s2.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.5).unwrap());
         dispatch(&mut s2, Op::Sinh).unwrap();
         let sinh_v = get_x_p32(&s2);
         case!(
@@ -5022,9 +5004,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.45 — ASINH inverse of SINH.
         // Catches: ASINH formula error — round-trip residual.
         let mut s = CalcState::new();
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.5).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.5).unwrap());
         dispatch(&mut s, Op::Sinh).unwrap();
         dispatch(&mut s, Op::Asinh).unwrap();
         case!(
@@ -5055,9 +5035,7 @@ fn test_numerical_accuracy_suite() {
         // Source: HP 00041-90034 p.45 — ATANH inverse of TANH.
         // Catches: ATANH formula error — round-trip residual.
         let mut s = CalcState::new();
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.3).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.3).unwrap());
         dispatch(&mut s, Op::Tanh).unwrap();
         dispatch(&mut s, Op::Atanh).unwrap();
         case!(
@@ -5272,9 +5250,7 @@ fn test_numerical_accuracy_suite() {
         // Catches: DFT a₀ formula wrong (should be 2·mean, not mean).
         use hp41_core::ops::math1::four::compute_dft;
         let samples: Vec<HpNum> = (0..4)
-            .map(|_| {
-                hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32))
-            })
+            .map(|_| hp41_core::HpNum::rounded(rust_decimal::Decimal::from(3i32)))
             .collect();
         let pairs = compute_dft(&samples, 2).unwrap();
         let a0 = pairs[0].0.inner().to_f64().unwrap_or(f64::NAN);
@@ -5388,12 +5364,8 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         dispatch(&mut s, Op::SetDeg).unwrap();
         store_trans2d_params(&mut s, 1.0, 2.0, 30.0);
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(4.0).unwrap(),
-        );
-        s.stack.y = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(5.0).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(4.0).unwrap());
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(5.0).unwrap());
         do_trans2d_forward(&mut s).unwrap();
         do_trans2d_inverse(&mut s).unwrap();
         case!(
@@ -5408,21 +5380,13 @@ fn test_numerical_accuracy_suite() {
     {
         // Source: HP 00041-90034 p.52 — TRANS3D Rodrigues z-axis 90°.
         // Catches: Rodrigues coefficient or axis-normalization error.
-        use hp41_core::ops::math1::trans::{
-            do_trans3d_forward, store_trans3d_params,
-        };
+        use hp41_core::ops::math1::trans::{do_trans3d_forward, store_trans3d_params};
         let mut s = CalcState::new();
         dispatch(&mut s, Op::SetDeg).unwrap();
         store_trans3d_params(&mut s, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 90.0);
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(1.0).unwrap(),
-        );
-        s.stack.y = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.0).unwrap(),
-        );
-        s.stack.z = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(0.0).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(1.0).unwrap());
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.0).unwrap());
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(0.0).unwrap());
         do_trans3d_forward(&mut s).unwrap();
         // After 90° around z: x'=0, y'=1, z'=0. Assert y component.
         case!(
@@ -5443,15 +5407,9 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         dispatch(&mut s, Op::SetDeg).unwrap();
         store_trans3d_params(&mut s, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 37.5);
-        s.stack.x = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(2.5).unwrap(),
-        );
-        s.stack.y = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(3.7).unwrap(),
-        );
-        s.stack.z = hp41_core::HpNum::rounded(
-            rust_decimal::Decimal::from_f64(1.2).unwrap(),
-        );
+        s.stack.x = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(2.5).unwrap());
+        s.stack.y = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(3.7).unwrap());
+        s.stack.z = hp41_core::HpNum::rounded(rust_decimal::Decimal::from_f64(1.2).unwrap());
         do_trans3d_forward(&mut s).unwrap();
         do_trans3d_inverse(&mut s).unwrap();
         case!(
@@ -5643,10 +5601,10 @@ fn test_numerical_accuracy_suite() {
         let (mut s, program) = make_difeq_state_p32(2);
         s.regs[0] = HpNum::from(2i32);
         s.regs[4] = HpNum::from(0i32); // y'0 = 0
-        // ORDER=2 setup acceptance is asserted by: no panic on dispatch + (Ok OR ORDER
-        // validation modal). The exponential-growth f isn't well-typed for ORDER=2
-        // (the LBL EG2 returns y, not y'' = f(x,y,y')), so we accept any non-panic
-        // result — the test surfaces ORDER=2 branch coverage, not numerical correctness.
+                                       // ORDER=2 setup acceptance is asserted by: no panic on dispatch + (Ok OR ORDER
+                                       // validation modal). The exponential-growth f isn't well-typed for ORDER=2
+                                       // (the LBL EG2 returns y, not y'' = f(x,y,y')), so we accept any non-panic
+                                       // result — the test surfaces ORDER=2 branch coverage, not numerical correctness.
         let _ = op_difeq_run_loop(&mut s, &program);
     }
 
@@ -5832,7 +5790,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_x3_eq_1",
             "POLY: x³-1 dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     // POLY-D3-03: x³ - 8 = 0 → real root 2 + complex pair (or POLY-07 reject).
@@ -5850,7 +5812,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_x3_eq_8",
             "POLY: x³-8 dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     // POLY-D3-04: x³ - 3x² + 3x - 1 = (x-1)³ → triple root at 1.
@@ -5868,7 +5834,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_triple",
             "POLY: (x-1)³ dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     // POLY-D3-05: x³ - 2x = x(x²-2) → real roots 0, ±√2.
@@ -5886,7 +5856,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d3_3real_sym",
             "POLY: x³-2x dispatched (HP 00041-90034 p.31)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
 
@@ -5909,7 +5883,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_biquad",
             "POLY: x⁴-1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -5927,7 +5905,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_4real",
             "POLY: x⁴-5x²+4 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -5945,7 +5927,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_2pairs",
             "POLY: x⁴+5x²+4 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -5964,7 +5950,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_double_pair",
             "POLY: (x-1)²(x-2)² dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     // POLY-D4-05: x⁴ + x - 1 = 0 — irregular degree-4. May converge or POLY-07.
@@ -5983,7 +5973,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d4_irreg",
             "POLY: x⁴+x-1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
 
@@ -6006,7 +6000,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_unity",
             "POLY: x⁵-1 dispatched (HP 00041-90034 p.32, 5th roots of unity)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -6025,7 +6023,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_5real",
             "POLY: x⁵-5x³+4x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -6043,7 +6045,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_neg1",
             "POLY: x⁵+1 dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -6062,7 +6068,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_doubleq",
             "POLY: x⁵-4x³+4x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
     {
@@ -6081,7 +6091,11 @@ fn test_numerical_accuracy_suite() {
             "poly_d5_x4_minus_1",
             "POLY: x⁵-x dispatched (HP 00041-90034 p.32)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
 
@@ -6120,10 +6134,7 @@ fn test_numerical_accuracy_suite() {
                 .collect();
             if !u_vals.is_empty() {
                 let mean_re: f64 = u_vals.iter().sum::<f64>() / (u_vals.len() as f64);
-                let max_imag: f64 = v_vals
-                    .iter()
-                    .map(|v| v.abs())
-                    .fold(0.0_f64, f64::max);
+                let max_imag: f64 = v_vals.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
                 // D-32.10 dual assertion: centroid + max-imag bounds.
                 // Note: Bairstow on this severely-clustered polynomial may produce
                 // numerically loose clusters; the bounds below are the documented
@@ -6224,7 +6235,11 @@ fn test_numerical_accuracy_suite() {
             "poly_nc_degen2",
             "POLY: A=0 leading → resolved (POLY-07)",
             1.0,
-            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) { 1.0 } else { 0.0 }
+            if r.is_ok() || matches!(r, Err(hp41_core::HpError::Domain)) {
+                1.0
+            } else {
+                0.0
+            }
         );
     }
 
@@ -6247,12 +6262,10 @@ fn test_numerical_accuracy_suite() {
         s.program = program.clone();
         s.alpha_reg = label.to_string();
         s.regs[0] = HpNum::from(n as i32);
-        s.stack.x = HpNum::from(
-            rust_decimal::Decimal::from_f64(a).unwrap_or(rust_decimal::Decimal::ZERO),
-        );
-        s.stack.y = HpNum::from(
-            rust_decimal::Decimal::from_f64(b).unwrap_or(rust_decimal::Decimal::ZERO),
-        );
+        s.stack.x =
+            HpNum::from(rust_decimal::Decimal::from_f64(a).unwrap_or(rust_decimal::Decimal::ZERO));
+        s.stack.y =
+            HpNum::from(rust_decimal::Decimal::from_f64(b).unwrap_or(rust_decimal::Decimal::ZERO));
         s.stack.lift_enabled = false;
         (s, program)
     }
@@ -6527,12 +6540,10 @@ fn test_numerical_accuracy_suite() {
         let mut s = CalcState::new();
         s.program = program.clone();
         s.alpha_reg = label.to_string();
-        s.regs[0] = HpNum::from(
-            rust_decimal::Decimal::from_f64(x1).unwrap_or(rust_decimal::Decimal::ZERO),
-        );
-        s.regs[1] = HpNum::from(
-            rust_decimal::Decimal::from_f64(x2).unwrap_or(rust_decimal::Decimal::ZERO),
-        );
+        s.regs[0] =
+            HpNum::from(rust_decimal::Decimal::from_f64(x1).unwrap_or(rust_decimal::Decimal::ZERO));
+        s.regs[1] =
+            HpNum::from(rust_decimal::Decimal::from_f64(x2).unwrap_or(rust_decimal::Decimal::ZERO));
         (s, program)
     }
 

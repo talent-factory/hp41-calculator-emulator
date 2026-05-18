@@ -204,7 +204,10 @@ fn linear_nonzero_leading_returns_single_root() {
         1,
         "Linear polynomial must produce exactly 1 U= line"
     );
-    assert!(s.print_buffer[0].starts_with("U="), "Output must start with U=");
+    assert!(
+        s.print_buffer[0].starts_with("U="),
+        "Output must start with U="
+    );
 }
 
 // ── op_roots negative-imaginary branch (poly.rs:179–190) ─────────────────────
@@ -316,7 +319,10 @@ fn submit_step_degree_prompt_clamp_to_5() {
     // Set X = 10 (above clamp ceiling of 5)
     s.stack.x = HpNum::from(10i32);
     let r = submit_step(&mut s, PolyInputStep::DegreePrompt);
-    assert!(r.is_ok(), "submit_step(DegreePrompt) with X=10 must succeed");
+    assert!(
+        r.is_ok(),
+        "submit_step(DegreePrompt) with X=10 must succeed"
+    );
     // R06 must hold the clamped degree 5
     let degree_stored = s.regs[6].inner().to_i32().unwrap_or(-1);
     assert_eq!(
@@ -370,9 +376,12 @@ fn submit_step_degree_prompt_clamp_to_2() {
 fn submit_step_coefficient_non_last_advances_to_next_prompt() {
     let mut s = make_state();
     s.stack.x = HpNum::from(7i32); // value for B coefficient
-    // CoefficientPrompt(3, 1): degree=3, idx=1 (B)
+                                   // CoefficientPrompt(3, 1): degree=3, idx=1 (B)
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(3, 1));
-    assert!(r.is_ok(), "submit_step(CoefficientPrompt(3,1)) must succeed");
+    assert!(
+        r.is_ok(),
+        "submit_step(CoefficientPrompt(3,1)) must succeed"
+    );
     // R01 must hold the submitted value (7)
     let r1_val = s.regs[1].inner().to_f64().unwrap_or(f64::NAN);
     assert_relative_eq!(r1_val, 7.0, max_relative = 1e-7);
@@ -402,7 +411,10 @@ fn submit_step_coefficient_idx0_advances_to_b_prompt() {
     let mut s = make_state();
     s.stack.x = HpNum::from(2i32); // A coefficient value
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(5, 0));
-    assert!(r.is_ok(), "submit_step(CoefficientPrompt(5,0)) must succeed");
+    assert!(
+        r.is_ok(),
+        "submit_step(CoefficientPrompt(5,0)) must succeed"
+    );
     assert_eq!(
         s.modal_prompt.as_deref(),
         Some("B=?"),
@@ -419,8 +431,15 @@ fn submit_step_coefficient_idx2_advances_to_d_prompt() {
     let mut s = make_state();
     s.stack.x = HpNum::from(3i32);
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(5, 2));
-    assert!(r.is_ok(), "submit_step(CoefficientPrompt(5,2)) must succeed");
-    assert_eq!(s.modal_prompt.as_deref(), Some("D=?"), "After idx=2 (C), prompt must be 'D=?'");
+    assert!(
+        r.is_ok(),
+        "submit_step(CoefficientPrompt(5,2)) must succeed"
+    );
+    assert_eq!(
+        s.modal_prompt.as_deref(),
+        Some("D=?"),
+        "After idx=2 (C), prompt must be 'D=?'"
+    );
 }
 
 // ── submit_step CoefficientPrompt(5,3) → E=? prompt (poly.rs:500) ────────────
@@ -432,8 +451,15 @@ fn submit_step_coefficient_idx3_advances_to_e_prompt() {
     let mut s = make_state();
     s.stack.x = HpNum::from(4i32);
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(5, 3));
-    assert!(r.is_ok(), "submit_step(CoefficientPrompt(5,3)) must succeed");
-    assert_eq!(s.modal_prompt.as_deref(), Some("E=?"), "After idx=3 (D), prompt must be 'E=?'");
+    assert!(
+        r.is_ok(),
+        "submit_step(CoefficientPrompt(5,3)) must succeed"
+    );
+    assert_eq!(
+        s.modal_prompt.as_deref(),
+        Some("E=?"),
+        "After idx=3 (D), prompt must be 'E=?'"
+    );
 }
 
 // ── submit_step CoefficientPrompt(5,4) → F=? prompt (poly.rs:501) ────────────
@@ -445,8 +471,15 @@ fn submit_step_coefficient_idx4_advances_to_f_prompt() {
     let mut s = make_state();
     s.stack.x = HpNum::from(5i32);
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(5, 4));
-    assert!(r.is_ok(), "submit_step(CoefficientPrompt(5,4)) must succeed");
-    assert_eq!(s.modal_prompt.as_deref(), Some("F=?"), "After idx=4 (E), prompt must be 'F=?'");
+    assert!(
+        r.is_ok(),
+        "submit_step(CoefficientPrompt(5,4)) must succeed"
+    );
+    assert_eq!(
+        s.modal_prompt.as_deref(),
+        Some("F=?"),
+        "After idx=4 (E), prompt must be 'F=?'"
+    );
 }
 
 // ── submit_step last-coefficient → Ready transition (poly.rs:521) ────────────
@@ -461,7 +494,7 @@ fn submit_step_last_coefficient_transitions_to_ready() {
     // Degree-2 polynomial: coefficients A (idx=0), B (idx=1), C (idx=2).
     // We start at the last coefficient: CoefficientPrompt(2, 2) (C=? prompt).
     s.stack.x = HpNum::from(3i32); // value for C
-    // Set R04 and R05 to non-zero to verify WR-04 zeroing.
+                                   // Set R04 and R05 to non-zero to verify WR-04 zeroing.
     set_reg(&mut s, 4, 99.0);
     set_reg(&mut s, 5, 88.0);
     let r = submit_step(&mut s, PolyInputStep::CoefficientPrompt(2, 2));
@@ -499,10 +532,7 @@ fn quadratic_complex_roots_x_squared_plus_2x_plus_5() {
     set_reg(&mut s, 1, 2.0);
     set_reg(&mut s, 2, 5.0);
     let r = dispatch(&mut s, Op::Roots);
-    assert!(
-        r.is_ok(),
-        "x²+2x+5=0 must succeed (complex pair expected)"
-    );
+    assert!(r.is_ok(), "x²+2x+5=0 must succeed (complex pair expected)");
     // Complex pair → exactly 4 print_buffer lines (POLY-04 format)
     assert_eq!(
         s.print_buffer.len(),
@@ -511,7 +541,10 @@ fn quadratic_complex_roots_x_squared_plus_2x_plus_5() {
     );
     assert!(s.print_buffer[0].starts_with("U="), "Line 0: U=<u>");
     assert!(s.print_buffer[1].starts_with("V="), "Line 1: V=<v>");
-    assert!(s.print_buffer[2].starts_with("U="), "Line 2: U=<u> repeated");
+    assert!(
+        s.print_buffer[2].starts_with("U="),
+        "Line 2: U=<u> repeated"
+    );
     assert!(s.print_buffer[3].starts_with("-V=-"), "Line 3: -V=-<v>");
 }
 
@@ -541,7 +574,11 @@ fn quartic_bairstow_disc_ge_0_and_quadratic_residual() {
         "x⁴-3x²+2=0 must converge (initial guess IS the exact factor): poly.rs:403-411, 422-425"
     );
     // 4 real roots → at least 2 U= lines
-    let u_count = s.print_buffer.iter().filter(|l| l.starts_with("U=")).count();
+    let u_count = s
+        .print_buffer
+        .iter()
+        .filter(|l| l.starts_with("U="))
+        .count();
     assert!(
         u_count >= 2,
         "x⁴-3x²+2 must produce at least 2 U= lines (4 real roots)"
@@ -573,7 +610,11 @@ fn quartic_bairstow_disc_lt_0_complex_roots() {
     );
     // Complex pair ±i (4 lines: U=0.0000, V=1.0000, U=0.0000, -V=-1.0000) + 2 real roots
     // Total: should have V= lines (complex pair output)
-    let v_count = s.print_buffer.iter().filter(|l| l.starts_with("V=")).count();
+    let v_count = s
+        .print_buffer
+        .iter()
+        .filter(|l| l.starts_with("V="))
+        .count();
     assert!(
         v_count >= 1,
         "x⁴-1 must produce at least one V= line (complex pair ±i): poly.rs:413-418"
@@ -763,7 +804,10 @@ fn quartic_four_real_roots_bairstow_disc_real() {
             .iter()
             .filter(|l| l.starts_with("U="))
             .count();
-        assert!(u_count >= 1, "Degree-4 real-root polynomial must produce at least 1 root line");
+        assert!(
+            u_count >= 1,
+            "Degree-4 real-root polynomial must produce at least 1 root line"
+        );
     }
     // Err(Domain) acceptable per POLY-07 (non-convergence for some initial guesses).
 }
@@ -821,7 +865,10 @@ fn quartic_remaining_len3_quadratic_residual() {
             .iter()
             .filter(|l| l.starts_with("U="))
             .count();
-        assert!(u_count >= 1, "Must produce at least 1 root line for x⁴-10x²+9");
+        assert!(
+            u_count >= 1,
+            "Must produce at least 1 root line for x⁴-10x²+9"
+        );
     }
 }
 

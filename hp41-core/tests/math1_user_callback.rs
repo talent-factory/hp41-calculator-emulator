@@ -534,11 +534,7 @@ fn user_fn_recursion_cap_via_user_callback_max_steps() {
     // Program: LBL "H" / GTO "H" / RTN — self-looping user callback via GTO.
     // `execute_op_pub` rejects Op::Gto with InvalidOp; the FIRST iteration
     // of the recursion bails out cleanly.
-    let program = vec![
-        Op::Lbl("H".to_string()),
-        Op::Gto("H".to_string()),
-        Op::Rtn,
-    ];
+    let program = vec![Op::Lbl("H".to_string()), Op::Gto("H".to_string()), Op::Rtn];
     let mut state = CalcState::new();
     state.program = program.clone();
     state.alpha_reg = "H".to_string();

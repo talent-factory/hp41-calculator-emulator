@@ -24,7 +24,7 @@ use hp41_core::ops::math1::four::{
 };
 use hp41_core::ops::math1::modal::{FourInputStep, ModalProgram};
 use hp41_core::state::CalcState;
-use hp41_core::{HpNum};
+use hp41_core::HpNum;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 
@@ -188,7 +188,10 @@ fn submit_step_num_samples_prompt_success() {
     let mut state = make_state();
     set_x(&mut state, 4.0); // N=4
     let result = four_submit_step(&mut state, FourInputStep::NumSamplesPrompt);
-    assert!(result.is_ok(), "NumSamplesPrompt success must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "NumSamplesPrompt success must return Ok, got {result:?}"
+    );
     // R23 should store N=4
     let n = state.regs[23].inner().to_f64().unwrap();
     assert_relative_eq!(n, 4.0, max_relative = 1e-7);
@@ -207,7 +210,10 @@ fn submit_step_num_freq_prompt_success_with_cap() {
     let mut state = make_state();
     set_x(&mut state, 15.0); // L=15 (above cap)
     let result = four_submit_step(&mut state, FourInputStep::NumFreqPrompt);
-    assert!(result.is_ok(), "NumFreqPrompt success must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "NumFreqPrompt success must return Ok, got {result:?}"
+    );
     let l = state.regs[24].inner().to_f64().unwrap();
     assert_relative_eq!(l, 10.0, max_relative = 1e-7); // capped at MAX_FOURIER_PAIRS
     assert_eq!(
@@ -224,7 +230,10 @@ fn submit_step_rect_toggle_prompt_success() {
     let mut state = make_state();
     set_x(&mut state, 1.0); // rectangular output (non-zero)
     let result = four_submit_step(&mut state, FourInputStep::RectTogglePrompt);
-    assert!(result.is_ok(), "RectTogglePrompt success must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "RectTogglePrompt success must return Ok, got {result:?}"
+    );
     let rect_flag = state.regs[26].inner().to_f64().unwrap();
     assert_relative_eq!(rect_flag, 1.0, max_relative = 1e-7);
     assert_eq!(
@@ -261,7 +270,10 @@ fn submit_step_last_sample_advances_to_ready() {
         state.modal_program,
         Some(ModalProgram::Four(FourInputStep::Ready))
     );
-    assert!(state.modal_prompt.is_none(), "Ready state must have no prompt");
+    assert!(
+        state.modal_prompt.is_none(),
+        "Ready state must have no prompt"
+    );
     // Sample 1 stored at R{SAMPLE_OFFSET + 1}
     let s1 = state.regs[SAMPLE_OFFSET + 1].inner().to_f64().unwrap();
     assert_relative_eq!(s1, 7.0, max_relative = 1e-7);

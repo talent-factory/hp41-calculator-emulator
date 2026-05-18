@@ -249,7 +249,10 @@ fn mat_size_with_no_setup_returns_ok_zero() {
     );
     let x_val = state.stack.x.inner().to_f64().unwrap_or(-1.0);
     // LINT-EXEMPT: integer-exact equality (R14=0, which is exactly 0.0 in f64).
-    assert!((x_val - 0.0).abs() < 1e-9, "op_mat_size with R14=0 must push 0 to X, got {x_val}");
+    assert!(
+        (x_val - 0.0).abs() < 1e-9,
+        "op_mat_size with R14=0 must push 0 to X, got {x_val}"
+    );
 }
 
 // ── op_mat_edit: no-matrix guard ─────────────────────────────────────────────

@@ -23,8 +23,7 @@
 
 use approx::assert_relative_eq;
 use hp41_core::ops::math1::four::{
-    compute_dft, convert_to_polar, op_four_eval_at_t, store_dft_to_registers,
-    MAX_FOURIER_PAIRS,
+    compute_dft, convert_to_polar, op_four_eval_at_t, store_dft_to_registers, MAX_FOURIER_PAIRS,
 };
 use hp41_core::ops::math1::modal::{FourInputStep, ModalProgram, TransInputStep};
 use hp41_core::ops::math1::trans::{

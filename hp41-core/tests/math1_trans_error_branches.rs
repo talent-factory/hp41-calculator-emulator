@@ -157,7 +157,10 @@ fn submit_step_init2d_success_stores_params() {
     // Stack: X=45.0 (θ), Y=5.0 (y₀), Z=3.0 (x₀)
     set_stack_xyz(&mut state, 45.0, 5.0, 3.0);
     let result = trans_submit_step(&mut state, TransInputStep::Init2dPrompt);
-    assert!(result.is_ok(), "Init2dPrompt success path must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "Init2dPrompt success path must return Ok, got {result:?}"
+    );
     // Verify register layout: R00=3.0 (x₀), R01=5.0 (y₀), R02=45.0 (θ)
     let r00 = state.regs[0].inner().to_f64().unwrap();
     let r01 = state.regs[1].inner().to_f64().unwrap();
@@ -182,7 +185,10 @@ fn submit_step_init3d_origin_success_stores_origin() {
     // Stack: X=3.0 (z₀), Y=2.0 (y₀), Z=1.0 (x₀)
     set_stack_xyz(&mut state, 3.0, 2.0, 1.0);
     let result = trans_submit_step(&mut state, TransInputStep::Init3dOriginPrompt);
-    assert!(result.is_ok(), "Init3dOriginPrompt success path must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "Init3dOriginPrompt success path must return Ok, got {result:?}"
+    );
     let r00 = state.regs[0].inner().to_f64().unwrap();
     let r01 = state.regs[1].inner().to_f64().unwrap();
     let r02 = state.regs[2].inner().to_f64().unwrap();
@@ -205,7 +211,10 @@ fn submit_step_init3d_axis_success_stores_axis_and_theta() {
     // Stack: X=90.0 (θ), Y=1.0 (c), Z=0.0 (b), T=0.0 (a)
     set_stack_xyzt(&mut state, 90.0, 1.0, 0.0, 0.0);
     let result = trans_submit_step(&mut state, TransInputStep::Init3dAxisPrompt);
-    assert!(result.is_ok(), "Init3dAxisPrompt success path must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "Init3dAxisPrompt success path must return Ok, got {result:?}"
+    );
     let r03 = state.regs[3].inner().to_f64().unwrap(); // a
     let r04 = state.regs[4].inner().to_f64().unwrap(); // b
     let r05 = state.regs[5].inner().to_f64().unwrap(); // c
@@ -234,7 +243,10 @@ fn submit_step_forward_prompt_2d_runs_transform() {
     store_trans2d_params(&mut state, 0.0, 0.0, 90.0);
     set_stack_xyz(&mut state, 1.0, 0.0, 0.0);
     let result = trans_submit_step(&mut state, TransInputStep::ForwardPrompt);
-    assert!(result.is_ok(), "ForwardPrompt 2D must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "ForwardPrompt 2D must return Ok, got {result:?}"
+    );
     let (x_prime, y_prime, _) = get_xyz(&state);
     assert_relative_eq!(x_prime, 0.0, max_relative = 1e-6, epsilon = 1e-9);
     assert_relative_eq!(y_prime, -1.0, max_relative = 1e-6);
@@ -254,7 +266,10 @@ fn submit_step_inverse_prompt_2d_runs_transform() {
     store_trans2d_params(&mut state, 0.0, 0.0, 90.0);
     set_stack_xyz(&mut state, 0.0, -1.0, 0.0);
     let result = trans_submit_step(&mut state, TransInputStep::InversePrompt);
-    assert!(result.is_ok(), "InversePrompt 2D must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "InversePrompt 2D must return Ok, got {result:?}"
+    );
     let (x_back, y_back, _) = get_xyz(&state);
     assert_relative_eq!(x_back, 1.0, max_relative = 1e-6);
     assert_relative_eq!(y_back, 0.0, max_relative = 1e-6, epsilon = 1e-9);
@@ -274,7 +289,10 @@ fn submit_step_forward_prompt_3d_runs_rodrigues() {
     store_trans3d_params(&mut state, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 90.0);
     set_stack_xyz(&mut state, 1.0, 0.0, 0.0);
     let result = trans_submit_step(&mut state, TransInputStep::ForwardPrompt);
-    assert!(result.is_ok(), "ForwardPrompt 3D must return Ok, got {result:?}");
+    assert!(
+        result.is_ok(),
+        "ForwardPrompt 3D must return Ok, got {result:?}"
+    );
     let (x_rot, y_rot, z_rot) = get_xyz(&state);
     assert_relative_eq!(x_rot, 0.0, max_relative = 1e-6, epsilon = 1e-9);
     assert_relative_eq!(y_rot, 1.0, max_relative = 1e-6);
