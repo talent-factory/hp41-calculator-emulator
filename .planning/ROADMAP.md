@@ -207,8 +207,8 @@
   - [x] 32-03-PLAN.md — E2E smoke extension (one Math Pac I workflow in `hp41-gui/e2e/smoke.spec.ts`); Free42-contamination guard (`scripts/check-free42-contamination.sh` in CI); `data-testid="lcd-display"` carries Math Pac I-mode output; QUAL-03, QUAL-05
   - [ ] 32-04-PLAN.md — Gap closure: `ops/math1/poly.rs` 76.37% → ≥90% via `math1_poly_error_branches.rs` (POLY-07 reject + Bairstow non-convergence + submit_step Err arms); QUAL-01
   - [x] 32-05-PLAN.md — Gap closure: `ops/math1/{trans,four}.rs` 81% → ≥90% via two new error-branch test files (Rodrigues zero-axis + FOUR no-valid-period + submit_step Err arms); QUAL-01
-  - [ ] 32-06-PLAN.md — Gap closure: `ops/math1/{solve,difeq}.rs` 85% → ≥90% via two new error-branch test files (iteration cap + CallDepth + Canceled + submit_step Err arms); QUAL-01
-  - [ ] 32-07-PLAN.md — Gap closure: `ops/math1/{matrix,mod,integ}.rs` to per-file floor via three new test files (index OOR + singular detection + mod-routing arms + INTG Overflow/Canceled); QUAL-01
+  - [x] 32-06-PLAN.md — Gap closure: `ops/math1/{solve,difeq}.rs` 85% → ≥90% via two new error-branch test files (iteration cap + CallDepth + Canceled + submit_step Err arms); QUAL-01
+  - [x] 32-07-PLAN.md — Gap closure: `ops/math1/{matrix,mod,integ}.rs` to per-file floor via three new test files (index OOR + singular detection + mod-routing arms + INTG Overflow/Canceled); QUAL-01
   - [x] 32-08-PLAN.md — Gap closure: `ops/program.rs` 86.42% → ≥90% via `program_error_branches.rs` (label resolution + SIZE guards + RTN + CallDepth + infinite-loop guard); QUAL-01
   - [ ] 32-09-PLAN.md — Cleanup: CR-01 + WR-01..07 from 32-REVIEW.md (replace 15 tautological cases + delete 7 redundant sentinels + harden contamination guard + widen lint heuristic + word-boundary mention counting + E2E waitUntil/beforeEach/extractErrMessage); QUAL-02..06
   - [ ] 32-10-PLAN.md — Graduation: re-measure coverage gate, blocking human checkpoint, README v3.0 hard-claim graduation per D-32.5/D-32.6, CLAUDE.md + PROJECT.md DEFERRED → MET narrative update; QUAL-01 (final closure)
@@ -265,7 +265,7 @@ Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" s
 | 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
 | 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
 | 31. GUI Integration | v3.0 | 5/5 | Complete    | 2026-05-18 |
-| 32. Test Hardening | v3.0 | 5/10 | In Progress|  |
+| 32. Test Hardening | v3.0 | 7/10 | In Progress|  |
 
 ---
 
