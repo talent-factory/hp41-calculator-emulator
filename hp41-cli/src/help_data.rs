@@ -180,6 +180,43 @@ pub fn help_overlay_rows() -> Vec<HelpRow> {
     rows
 }
 
+/// Filter the help-overlay rows by a case-insensitive substring match against
+/// the row's key, op, or description. Category headers (`=== <name> ===`) are
+/// preserved only when at least one child row in that category matches the
+/// query, so the filtered output is never a category header with no entries.
+///
+/// An empty query returns every row unfiltered, mirroring the closed-search
+/// state in the TUI. This is the data-side counterpart of the GUI's
+/// `?`-overlay search input (v3.0 Phase 31's `HelpOverlay.tsx`); putting the
+/// filter here keeps `ui::render_help_overlay` thin and makes the filter
+/// unit-testable without spinning up a `Frame`.
+pub fn filter_help_rows<'a>(rows: &'a [HelpRow], query: &str) -> Vec<&'a HelpRow> {
+    if query.is_empty() {
+        return rows.iter().collect();
+    }
+    let q = query.to_lowercase();
+    let matches = |row: &HelpRow| {
+        row.key.to_lowercase().contains(&q)
+            || row.op.to_lowercase().contains(&q)
+            || row.desc.to_lowercase().contains(&q)
+    };
+    let mut out: Vec<&HelpRow> = Vec::new();
+    let mut pending_header: Option<&HelpRow> = None;
+    for row in rows {
+        let is_header = row.desc.starts_with("===");
+        if is_header {
+            // Buffer the header — only emit it when (and if) a child matches.
+            pending_header = Some(row);
+        } else if matches(row) {
+            if let Some(h) = pending_header.take() {
+                out.push(h);
+            }
+            out.push(row);
+        }
+    }
+    out
+}
+
 /// One row of the help overlay table, produced by [`help_overlay_rows`].
 /// Category headers carry `desc == "=== <name> ==="` with empty `key`/`op`.
 #[derive(Debug, Clone)]
@@ -187,4 +224,105 @@ pub struct HelpRow {
     pub key: String,
     pub op: String,
     pub desc: String,
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    fn fixture() -> Vec<HelpRow> {
+        vec![
+            HelpRow {
+                key: String::new(),
+                op: String::new(),
+                desc: "=== Arithmetic ===".into(),
+            },
+            HelpRow {
+                key: "+".into(),
+                op: "+".into(),
+                desc: "Add: X <- Y + X, drop stack".into(),
+            },
+            HelpRow {
+                key: "*".into(),
+                op: "*".into(),
+                desc: "Multiply: X <- Y * X, drop stack".into(),
+            },
+            HelpRow {
+                key: String::new(),
+                op: String::new(),
+                desc: "=== Math ===".into(),
+            },
+            HelpRow {
+                key: "PI".into(),
+                op: "PI".into(),
+                desc: "Push pi onto X".into(),
+            },
+            HelpRow {
+                key: String::new(),
+                op: String::new(),
+                desc: "=== Empty ===".into(),
+            },
+        ]
+    }
+
+    #[test]
+    fn empty_query_returns_all_rows() {
+        let rows = fixture();
+        let filtered = filter_help_rows(&rows, "");
+        assert_eq!(filtered.len(), rows.len());
+    }
+
+    #[test]
+    fn substring_match_on_desc_keeps_category_header() {
+        let rows = fixture();
+        let filtered = filter_help_rows(&rows, "stack");
+        // 2 matching rows + 1 header = 3.
+        assert_eq!(filtered.len(), 3);
+        assert!(filtered[0].desc.contains("Arithmetic"));
+        assert_eq!(filtered[1].op, "+");
+        assert_eq!(filtered[2].op, "*");
+    }
+
+    #[test]
+    fn substring_match_is_case_insensitive() {
+        let rows = fixture();
+        let lower = filter_help_rows(&rows, "multiply");
+        let upper = filter_help_rows(&rows, "MULTIPLY");
+        let mixed = filter_help_rows(&rows, "MultiPly");
+        assert_eq!(lower.len(), upper.len());
+        assert_eq!(lower.len(), mixed.len());
+        assert_eq!(lower.len(), 2); // 1 header + 1 row
+    }
+
+    #[test]
+    fn substring_match_on_op_field() {
+        let rows = fixture();
+        let filtered = filter_help_rows(&rows, "PI");
+        assert_eq!(filtered.len(), 2); // Math header + PI row
+        assert!(filtered[0].desc.contains("Math"));
+        assert_eq!(filtered[1].op, "PI");
+    }
+
+    #[test]
+    fn category_header_only_appears_when_child_matches() {
+        // "Empty" category has no children, so its header must never appear
+        // in filter output regardless of query. The "Math" header should not
+        // appear in this query either (no "stack" match in Math category).
+        let rows = fixture();
+        let filtered = filter_help_rows(&rows, "stack");
+        assert!(
+            !filtered
+                .iter()
+                .any(|r| r.desc.contains("Math") || r.desc.contains("Empty")),
+            "category headers without matching children must be filtered out"
+        );
+    }
+
+    #[test]
+    fn no_match_yields_empty_output() {
+        let rows = fixture();
+        let filtered = filter_help_rows(&rows, "this-string-matches-nothing-xyzzy");
+        assert!(filtered.is_empty());
+    }
 }

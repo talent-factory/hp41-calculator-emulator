@@ -390,16 +390,58 @@ pub fn pending_prompt(
 /// Render the HP-41 Function Reference overlay (D-17, UX-01).
 /// Uses ratatui 0.30 Rect::centered() — no manual calculation needed.
 /// RESEARCH Pitfall 1: draw(&self) is immutable; RefCell<TableState> allows borrow_mut here.
+///
+/// v3.0 (post-ship): the overlay gained an incremental substring-search bar
+/// at the top, mirroring hp41-gui's `HelpOverlay.tsx`. Layout splits the
+/// modal into a 3-line search bar + the remaining table area; the table is
+/// driven by `help_data::filter_help_rows(...)` over `app.help_search_query`.
 fn render_help_overlay(app: &App, frame: &mut Frame) {
     let overlay_area = frame
         .area()
         .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
+    // Clear the underlying widgets (right-panel, stack panel, display) before
+    // painting the overlay. Without this `Clear`, ratatui's Table renders
+    // cells with transparent backgrounds — the underlying content bleeds
+    // through in the gaps between columns (visible as e.g. `XEQ "X<Y?"X<Y?`
+    // appearing inside the overlay's Math section). Standard ratatui modal
+    // pattern: render `Clear` to the modal area first, then the modal.
+    frame.render_widget(Clear, overlay_area);
+
+    // Split modal into search-bar (3 lines) + table (rest). The 3-line search
+    // bar gives room for the bordered block + one row of query text.
+    let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(1)]).split(overlay_area);
+    let search_area = chunks[0];
+    let table_area = chunks[1];
+
+    // Search bar — shows the current query with an underscore cursor, or a
+    // hint when empty. The hint text is intentionally compact; the modal
+    // block title carries the close-key reminder so the search bar stays
+    // unambiguous about what counts as "input".
+    let search_display = if app.help_search_query.is_empty() {
+        "(type to filter; ↑↓/PgUp/PgDn scroll; Esc / ? close)".to_string()
+    } else {
+        format!("{}_", app.help_search_query)
+    };
+    let search_paragraph =
+        Paragraph::new(search_display).block(Block::bordered().title_top(" Search "));
+    frame.render_widget(search_paragraph, search_area);
+
     // D-25.16 / D-25.18: rows derive from docs/hp41cv-functions.json via
     // help_data::help_overlay_rows. Category headers are synthesised by the
-    // helper as "=== <category> ===" with empty key/op fields.
+    // helper as "=== <category> ===" with empty key/op fields. The filter
+    // (post-v3.0 search) preserves category headers only when at least one
+    // child row matches the query.
     let overlay_rows = help_data::help_overlay_rows();
-    let rows: Vec<Row> = overlay_rows
+    let filtered = help_data::filter_help_rows(&overlay_rows, &app.help_search_query);
+
+    // Match count for the title — non-header rows only.
+    let match_count = filtered
+        .iter()
+        .filter(|r| !r.desc.starts_with("==="))
+        .count();
+
+    let rows: Vec<Row> = filtered
         .iter()
         .map(|row| {
             if row.desc.starts_with("===") {
@@ -419,6 +461,16 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
         })
         .collect();
 
+    let title = if app.help_search_query.is_empty() {
+        " HP-41 Function Reference  [? or Esc to close] ".to_string()
+    } else {
+        format!(
+            " HP-41 Function Reference  [{} match{}] ",
+            match_count,
+            if match_count == 1 { "" } else { "es" },
+        )
+    };
+
     let table = Table::new(
         rows,
         [
@@ -427,18 +479,11 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
             Constraint::Min(30),
         ],
     )
-    .block(Block::bordered().title_top(" HP-41 Function Reference  [? or Esc to close] "))
+    .block(Block::bordered().title_top(title))
     .row_highlight_style(ratatui::style::Style::new().reversed());
 
-    // Clear the underlying widgets (right-panel, stack panel, display) before
-    // painting the overlay. Without this `Clear`, ratatui's Table renders
-    // cells with transparent backgrounds — the underlying content bleeds
-    // through in the gaps between columns (visible as e.g. `XEQ "X<Y?"X<Y?`
-    // appearing inside the overlay's Math section). Standard ratatui modal
-    // pattern: render `Clear` to the modal area first, then the modal.
-    frame.render_widget(Clear, overlay_area);
     // RefCell::borrow_mut() — safe: draw() is single-threaded and non-reentrant.
-    frame.render_stateful_widget(table, overlay_area, &mut app.help_table_state.borrow_mut());
+    frame.render_stateful_widget(table, table_area, &mut app.help_table_state.borrow_mut());
 }
 
 /// Render the program library overlay (D-22, UX-03).

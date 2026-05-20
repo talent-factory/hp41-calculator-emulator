@@ -162,6 +162,11 @@ pub struct App {
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
     /// Single-threaded, non-reentrant draw — borrow_mut() will never panic at runtime.
     pub help_table_state: RefCell<TableState>,
+    /// Substring-filter query for the `?` overlay (mirrors hp41-gui's
+    /// `HelpOverlay.tsx` search input from v3.0 Phase 31). Accumulated by
+    /// `handle_key` while `show_help == true`; cleared on Esc / `?` toggle
+    /// close. Empty string disables filtering — every row passes through.
+    pub help_search_query: String,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
     /// BufWriter for --print-log, if specified. None = no file logging.
@@ -232,6 +237,7 @@ impl App {
             shift_armed: false,
             show_help: false,
             help_table_state: RefCell::new(TableState::default()),
+            help_search_query: String::new(),
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
             print_log_writer,
@@ -333,6 +339,17 @@ impl App {
                 Some(PendingInput::XeqByName { .. }) | Some(PendingInput::ClpLabel(_))
             )
         {
+            // Toggle help overlay. If we're CLOSING it (was open, now closing),
+            // also clear the search query — the next open should start with a
+            // fresh, empty search. Without this, a user who typed "matrix"
+            // then closed via `?` would see "matrix" still filtered on the
+            // next `?` open. The `show_help`-branch below also clears on Esc /
+            // `?`, but that branch is unreachable for `?` because this early
+            // toggle eats the keypress first.
+            if self.show_help {
+                self.help_search_query.clear();
+                self.help_table_state.borrow_mut().select(None);
+            }
             self.show_help = !self.show_help;
             self.show_programs = false; // close programs overlay if open
             return;
@@ -510,16 +527,48 @@ impl App {
         }
 
         // Phase 5: overlay navigation — help and program library overlays intercept nav keys.
+        // v3.0 (post-ship UX): help overlay now supports incremental substring
+        // search à la hp41-gui's `HelpOverlay.tsx`. Char keys go into the
+        // search query; `q`/`j`/`k` keep their legacy navigation shortcuts
+        // ONLY while the query is empty (so once the user starts typing they
+        // can use those letters as part of a search term). Esc / `?` always
+        // close + clear; Backspace pops the last char.
         if self.show_help {
             match key.code {
-                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => {
+                KeyCode::Esc | KeyCode::Char('?') => {
                     self.show_help = false;
+                    self.help_search_query.clear();
+                    self.help_table_state.borrow_mut().select(None);
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up | KeyCode::PageUp => {
                     self.help_table_state.borrow_mut().select_previous();
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down | KeyCode::PageDown => {
                     self.help_table_state.borrow_mut().select_next();
+                }
+                KeyCode::Backspace => {
+                    self.help_search_query.pop();
+                    self.help_table_state.borrow_mut().select(None);
+                }
+                // Legacy shortcuts — active only while the query is empty so
+                // the user can still type these letters as part of a search
+                // term ("matrix" begins with 'm' but contains 'q'-free chars,
+                // "quaternion" would start with 'q', etc.).
+                KeyCode::Char('q') if self.help_search_query.is_empty() => {
+                    self.show_help = false;
+                    self.help_table_state.borrow_mut().select(None);
+                }
+                KeyCode::Char('k') if self.help_search_query.is_empty() => {
+                    self.help_table_state.borrow_mut().select_previous();
+                }
+                KeyCode::Char('j') if self.help_search_query.is_empty() => {
+                    self.help_table_state.borrow_mut().select_next();
+                }
+                KeyCode::Char(c) => {
+                    self.help_search_query.push(c);
+                    // Reset selection — the old index would point into a
+                    // pre-filter row set that no longer exists.
+                    self.help_table_state.borrow_mut().select(None);
                 }
                 _ => {}
             }
@@ -1946,11 +1995,94 @@ mod tests {
     #[test]
     fn test_q_does_not_quit_when_help_overlay_open() {
         // SC-3 gap closure: 'q' must close the overlay, NOT set exit=true.
+        // Post-v3.0 (help search): this legacy shortcut survives only when
+        // the search query is empty (default state on overlay open).
         let mut app = make_app();
         app.show_help = true;
         app.handle_key(make_key(KeyCode::Char('q')));
         assert!(!app.exit, "'q' must not quit when help overlay is open");
         assert!(!app.show_help, "'q' must close the help overlay");
+    }
+
+    #[test]
+    fn help_search_appends_chars_to_query() {
+        // Post-v3.0 substring-search input: while the help overlay is open,
+        // typing letters accumulates into `help_search_query` and is consumed
+        // by the overlay (the key must not propagate to the calculator).
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('a')));
+        app.handle_key(make_key(KeyCode::Char('t')));
+        assert_eq!(app.help_search_query, "mat");
+        assert!(app.show_help, "overlay must stay open while typing");
+    }
+
+    #[test]
+    fn help_search_q_becomes_text_input_when_query_active() {
+        // While the search query is non-empty, the legacy `q` close shortcut
+        // is suppressed so the user can type words containing 'q'
+        // (e.g. "quadrant"). Only Esc and `?` close in that state.
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.show_help, "first 'q' (empty query) closes overlay");
+
+        // Reopen + type something + try 'q' again.
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(app.show_help, "'q' must NOT close when query is non-empty");
+        assert_eq!(app.help_search_query, "mq");
+    }
+
+    #[test]
+    fn help_search_backspace_pops_last_char() {
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('s')));
+        app.handle_key(make_key(KeyCode::Char('i')));
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.help_search_query, "sin");
+        app.handle_key(make_key(KeyCode::Backspace));
+        assert_eq!(app.help_search_query, "si");
+        // Pop on empty must not panic.
+        app.handle_key(make_key(KeyCode::Backspace));
+        app.handle_key(make_key(KeyCode::Backspace));
+        app.handle_key(make_key(KeyCode::Backspace));
+        assert_eq!(app.help_search_query, "");
+    }
+
+    #[test]
+    fn help_search_esc_closes_and_clears_query() {
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('a')));
+        assert_eq!(app.help_search_query, "ma");
+        app.handle_key(make_key(KeyCode::Esc));
+        assert!(!app.show_help, "Esc must close the overlay");
+        assert_eq!(
+            app.help_search_query, "",
+            "Esc must clear the query so reopen starts fresh"
+        );
+    }
+
+    #[test]
+    fn help_search_question_mark_closes_and_clears() {
+        // `?` is symmetric to the open keypress: open and close both go
+        // through `?`. Closing must wipe the query too (same lifecycle as Esc)
+        // — trade-off: cannot search for `?` literal, but substring match on
+        // `desc` still finds e.g. `X<Y?` via the substring `<y`.
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('x')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert_eq!(app.help_search_query, "xeq");
+        app.handle_key(make_key(KeyCode::Char('?')));
+        assert!(!app.show_help);
+        assert_eq!(app.help_search_query, "");
     }
 
     #[test]
