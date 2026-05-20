@@ -1,0 +1,184 @@
+name: Release CLI Binaries
+
+# Builds hp41-cli for all 3 supported platforms on every v* tag push and
+# uploads tarballs/zip to the GitHub Release that release.yml auto-created.
+#
+# Per Memory "binary-releases-next-milestone" (2026-05-16):
+# - macOS arm64 + x86_64 binaries signed + notarized via Apple Developer cert
+# - Windows: no Authenticode cert; SmartScreen warning documented in README
+# - Linux: no signing needed
+#
+# Why hand-crafted instead of cargo-dist: the existing release.yml already
+# handles tag-to-release auto-creation (annotation → release notes). cargo-dist
+# would generate its own release.yml that conflicts. Hand-crafting keeps the
+# auto-release path intact and adds only the binary-upload layer on top.
+#
+# Workflow injection defense: all tag/ref-derived values are read into env
+# vars before any `run:` step uses them — never interpolated directly into
+# shell commands. Tag inputs from `workflow_dispatch` and `github.ref_name`
+# both arrive as validated git-ref names, but the env-var pattern keeps the
+# discipline uniform across the codebase.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build binaries for (e.g. v3.0.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write   # needed to upload release assets
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build-cli:
+    name: Build hp41-cli — ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+            sign_macos: true
+          - os: macos-13                       # Intel runner for x86_64 build
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+            sign_macos: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+    runs-on: ${{ matrix.os }}
+    env:
+      RESOLVED_TAG: ${{ inputs.tag || github.ref_name }}
+      MATRIX_TARGET: ${{ matrix.target }}
+      MATRIX_OS: ${{ matrix.os }}
+      MATRIX_ARCHIVE_EXT: ${{ matrix.archive_ext }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build hp41-cli (release)
+        shell: bash
+        run: cargo build --release -p hp41-cli --target "$MATRIX_TARGET"
+
+      - name: Determine archive name
+        id: archive
+        shell: bash
+        run: |
+          NAME="hp41-cli-${RESOLVED_TAG}-${MATRIX_TARGET}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "dir=$NAME" >> "$GITHUB_OUTPUT"
+
+      # ── macOS signing + notarization (only on Apple-target jobs) ────────────
+      - name: Import Apple Developer cert (macOS)
+        if: matrix.sign_macos
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Skip silently if secret is not configured — useful for fork builds
+          # or initial setup before secrets are added. Unsigned binary still
+          # ships but with a Gatekeeper warning on first launch.
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "::warning::APPLE_CERTIFICATE not set — shipping unsigned macOS binary"
+            exit 0
+          fi
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Sign + notarize hp41-cli (macOS)
+        if: matrix.sign_macos
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          BIN="target/${MATRIX_TARGET}/release/hp41-cli"
+          if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "::warning::APPLE_SIGNING_IDENTITY not set — skipping codesign"
+            exit 0
+          fi
+          codesign --force --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" "$BIN"
+          codesign --verify --strict --verbose=2 "$BIN"
+          # Notarize a zip wrapper; standalone CLI binaries can't be
+          # stapled directly (no .app bundle), but the notarization ticket
+          # is checked online by Gatekeeper on first launch.
+          ZIP="$RUNNER_TEMP/hp41-cli.zip"
+          ditto -c -k --keepParent "$BIN" "$ZIP"
+          xcrun notarytool submit "$ZIP" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      # ── Package + upload ────────────────────────────────────────────────────
+      - name: Stage artifact directory
+        shell: bash
+        env:
+          ARCHIVE_DIR: ${{ steps.archive.outputs.dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARCHIVE_DIR"
+          if [ "$MATRIX_OS" = "windows-latest" ]; then
+            cp "target/${MATRIX_TARGET}/release/hp41-cli.exe" "$ARCHIVE_DIR/"
+          else
+            cp "target/${MATRIX_TARGET}/release/hp41-cli" "$ARCHIVE_DIR/"
+          fi
+          cp README.md "$ARCHIVE_DIR/" 2>/dev/null || true
+          cp LICENSE "$ARCHIVE_DIR/" 2>/dev/null || true
+
+      - name: Create archive
+        shell: bash
+        env:
+          ARCHIVE_DIR: ${{ steps.archive.outputs.dir }}
+          ARCHIVE_NAME: ${{ steps.archive.outputs.name }}
+        run: |
+          set -euo pipefail
+          OUT="${ARCHIVE_NAME}.${MATRIX_ARCHIVE_EXT}"
+          if [ "$MATRIX_ARCHIVE_EXT" = "zip" ]; then
+            7z a "$OUT" "$ARCHIVE_DIR"
+          else
+            tar czf "$OUT" "$ARCHIVE_DIR"
+          fi
+          ls -la "$OUT"
+          echo "ARTIFACT_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: ${{ env.ARTIFACT_PATH }}
+          fail_on_unmatched_files: true
