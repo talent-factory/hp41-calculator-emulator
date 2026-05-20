@@ -168,7 +168,7 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 
 ### Active (v3.0 — Math 1 Pac Emulation)
 
-*Stand 2026-05-18: v3.0 fully shipped (Phases 28–32, 33/33 plans). Test/CI infrastructure plus README hard-claim graduation closed via post-Phase-32 gap-closure run (Plans 32-04..32-10). Final coverage: 95.39 % lines / 94.26 % regions on `hp41-core`; all `ops/math1/*.rs` files ≥ 90 % per ROADMAP SC-1. README v3.0 line graduated to OM-cited "feature-complete per Owner's Manual 00041-90034" per D-32.5. Scope remains Math 1 Pac only (XROM-Framework + Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
+*Stand 2026-05-20: v3.0 fully shipped (Phases 28–32, 33/33 plans + 6 post-graduation polish commits ship-ready on `develop`). Test/CI infrastructure plus README hard-claim graduation closed via post-Phase-32 gap-closure run (Plans 32-04..32-10). Final coverage: 95.39 % lines / 94.26 % regions on `hp41-core`; all `ops/math1/*.rs` files ≥ 90 % per ROADMAP SC-1. README v3.0 line graduated to OM-cited "feature-complete per Owner's Manual 00041-90034" per D-32.5. Post-graduation polish batch (quick-task pattern à la v2.1): MSRV-CI fix (`uninlined_format_args` on 5 sites), E2E SINH+MATRIX assertion path correction, right-panel XROM-exclusion filter (Phase 29 SC-4 superseded), `?` overlay Clear-widget z-order fix, and `?` overlay incremental substring search (mirroring hp41-gui's HelpOverlay.tsx). Scope remains Math 1 Pac only (XROM-Framework + Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
 
 ### Out of Scope
 
