@@ -25,28 +25,167 @@ six secrets. Without them, the workflows still ship — but the macOS binaries
 will be unsigned and trigger a Gatekeeper warning on first launch
 ("hp41-cli cannot be opened because the developer cannot be verified").
 
-| Secret | Purpose | Value source |
-|--------|---------|--------------|
-| `APPLE_CERTIFICATE` | base64-encoded Developer ID Application .p12 | Export from Keychain Access → File → Export Items → .p12 → `base64 -i cert.p12 \| pbcopy` |
-| `APPLE_CERTIFICATE_PASSWORD` | Password used during the .p12 export | Set during the export above |
-| `APPLE_SIGNING_IDENTITY` | The `Developer ID Application: ...` string | `security find-identity -v -p codesigning` on a Mac with the cert installed |
-| `APPLE_ID` | Apple ID email for notarization | The email you log into developer.apple.com with |
-| `APPLE_PASSWORD` | App-specific password (NOT your Apple ID password) | https://appleid.apple.com → Sign-In and Security → App-Specific Passwords |
-| `APPLE_TEAM_ID` | 10-character team identifier | https://developer.apple.com/account → top-right team name |
+| Secret | Purpose |
+|--------|---------|
+| `APPLE_CERTIFICATE` | base64-encoded Developer ID Application .p12 (cert + private key) |
+| `APPLE_CERTIFICATE_PASSWORD` | Password set during the .p12 export |
+| `APPLE_SIGNING_IDENTITY` | The `Developer ID Application: <Name> (<TeamID>)` string |
+| `APPLE_ID` | Apple ID email used for the Developer Program |
+| `APPLE_PASSWORD` | App-specific password (NOT the Apple ID login password) |
+| `APPLE_TEAM_ID` | 10-character team identifier from the Developer Account |
 
-### Setting the secrets
+### First-time Apple Developer setup
+
+If you have never signed a binary for distribution before, follow these steps
+in order. Skip the steps you've already done.
+
+#### Step 1 — Verify which signing identities are already installed
 
 ```sh
-# One-time setup — replace <…> with real values.
-gh secret set APPLE_CERTIFICATE          -b "$(base64 -i ~/Downloads/cert.p12)"
-gh secret set APPLE_CERTIFICATE_PASSWORD -b '<p12 export password>'
-gh secret set APPLE_SIGNING_IDENTITY     -b 'Developer ID Application: Daniel Senften (XXXXXXXXXX)'
-gh secret set APPLE_ID                   -b 'daniel.senften@talent-factory.ch'
-gh secret set APPLE_PASSWORD             -b '<app-specific password>'
-gh secret set APPLE_TEAM_ID              -b 'XXXXXXXXXX'
+security find-identity -v -p codesigning
 ```
 
-After setting, verify with `gh secret list` — all six should be present.
+You need a row that begins with `"Developer ID Application: <Your Name> (XXXXXXXXXX)"`.
+If you see only `"Apple Development: ..."`, that identity is for local
+development/testing and **cannot** be used for distribution outside the App
+Store — you need to create a Developer ID Application cert (next step).
+
+#### Step 2 — Create a Certificate Signing Request (CSR)
+
+On your Mac:
+
+1. Open **Keychain Access**.
+2. Menu: **Keychain Access → Certificate Assistant → Request a Certificate
+   From a Certificate Authority…**.
+3. Fill in:
+   - **User Email Address**: your Apple Developer Program email.
+   - **Common Name**: your name (e.g. `Daniel Senften`).
+   - **CA Email Address**: leave blank.
+   - Select **"Saved to disk"**.
+4. Save as `CertificateSigningRequest.certSigningRequest` (default name is fine).
+
+#### Step 3 — Create the Developer ID Application certificate
+
+1. Open <https://developer.apple.com/account/resources/certificates/list>.
+2. Click the **"+"** to add a new certificate.
+3. Under **Software**, select **"Developer ID Application"** (NOT "Apple
+   Development" and NOT "Apple Distribution").
+4. Click **Continue**.
+5. Upload the `.certSigningRequest` file from Step 2.
+6. Click **Continue**, then **Download** to get the `.cer` file.
+7. Double-click the downloaded `.cer` — Keychain Access imports it
+   automatically.
+
+Verify the installation:
+
+```sh
+security find-identity -v -p codesigning
+# Should now show two identities:
+#   1) <hash> "Apple Development: ..."
+#   2) <hash> "Developer ID Application: Daniel Senften (XXXXXXXXXX)"
+```
+
+The `(XXXXXXXXXX)` 10-character string in parentheses is your **`APPLE_TEAM_ID`**.
+
+#### Step 4 — Export the certificate + private key as .p12
+
+1. In **Keychain Access**, switch to **Login** keychain + **Certificates**
+   category in the sidebar.
+2. Find the `Developer ID Application: ...` row and click the disclosure
+   triangle to expand it. You should see **two** items: the certificate
+   itself AND a private key with the same Common Name.
+3. **Select BOTH** items (Cmd-click or Shift-click). Exporting only the
+   certificate without the private key produces a .p12 that cannot sign
+   anything.
+4. **File → Export Items…** (or right-click → "Export 2 items…").
+5. **File Format**: `Personal Information Exchange (.p12)`.
+6. Save as e.g. `~/Downloads/developer-id-application.p12`.
+7. Set an **export password** — remember this; it becomes
+   `APPLE_CERTIFICATE_PASSWORD`. (You may also be prompted for your login
+   keychain password — that is a different password, used to authorize the
+   export.)
+
+#### Step 5 — Generate an app-specific password for notarization
+
+The Apple notarization service requires an **app-specific password**, not
+your Apple ID login password.
+
+1. Open <https://appleid.apple.com>.
+2. Sign in with your Apple ID.
+3. Under **Sign-In and Security**, click **App-Specific Passwords**.
+4. Click **Generate Password…** (or the **"+"** button).
+5. Label it descriptively, e.g. `hp41-emulator-notarization`.
+6. Apple shows a password in the format `xxxx-xxxx-xxxx-xxxx` (with dashes).
+   Copy it verbatim — you will not be able to view it again. This is your
+   `APPLE_PASSWORD` secret.
+
+### Setting the six secrets
+
+After all the prerequisites above are in place:
+
+```sh
+# (1) Certificate + private key as base64
+gh secret set APPLE_CERTIFICATE \
+  -b "$(base64 -i ~/Downloads/developer-id-application.p12)"
+
+# (2) The .p12 export password from Step 4
+gh secret set APPLE_CERTIFICATE_PASSWORD -b '<p12 export password>'
+
+# (3) The exact signing identity string from `security find-identity`
+#     (everything between the quotes — include the team ID parentheses)
+gh secret set APPLE_SIGNING_IDENTITY \
+  -b 'Developer ID Application: Daniel Senften (XXXXXXXXXX)'
+
+# (4) The Apple ID email registered with the Developer Program
+gh secret set APPLE_ID -b 'daniel.senften@talent-factory.ch'
+
+# (5) The app-specific password from Step 5 (with dashes)
+gh secret set APPLE_PASSWORD -b 'xxxx-xxxx-xxxx-xxxx'
+
+# (6) The 10-character team ID
+gh secret set APPLE_TEAM_ID -b 'XXXXXXXXXX'
+```
+
+### Verify the setup
+
+```sh
+gh secret list | grep APPLE
+# Expected output (6 lines, names only — values are hidden):
+#   APPLE_CERTIFICATE          Updated YYYY-MM-DD
+#   APPLE_CERTIFICATE_PASSWORD Updated YYYY-MM-DD
+#   APPLE_ID                   Updated YYYY-MM-DD
+#   APPLE_PASSWORD             Updated YYYY-MM-DD
+#   APPLE_SIGNING_IDENTITY     Updated YYYY-MM-DD
+#   APPLE_TEAM_ID              Updated YYYY-MM-DD
+```
+
+Then run a dry-run of the binary workflow against an existing tag to confirm
+the signing flow works before cutting the next real release:
+
+```sh
+gh workflow run release-cli-binaries.yml -f tag=v3.0
+gh run watch   # follow the latest run
+```
+
+A successful run shows green `Sign + notarize hp41-cli (macOS)` steps with no
+`::warning::` annotations about missing secrets.
+
+### Rotating the Apple cert
+
+Developer ID certificates expire after 5 years. To rotate:
+
+1. Repeat Steps 2–4 with a new CSR (the old private key is **not** reused —
+   each Developer ID cert pins to a new keypair).
+2. Re-run the `gh secret set APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD`
+   commands with the new .p12.
+3. `APPLE_SIGNING_IDENTITY` may need updating if the cert's Common Name
+   changes (rare).
+4. `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` stay the same unless you
+   change Apple ID or team membership.
+
+The OLD certificate continues to work until it expires; binaries already
+notarized with it remain valid. The new cert is only required for builds
+**after** the old cert expires.
 
 ## Platform-specific notes
 
