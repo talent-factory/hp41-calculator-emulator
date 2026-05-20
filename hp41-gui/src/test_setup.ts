@@ -10,3 +10,19 @@
 
 // @ts-expect-error — IS_REACT_ACT_ENVIRONMENT is not in the TS lib types.
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+// v2.2.1 / quick-task 260516-c1p — jsdom does not implement
+// Element.scrollIntoView. App.tsx's two auto-scroll useEffects
+// (printEndRef + activeStepRef) call it whenever the print log grows
+// or the program counter changes, which surfaced as unhandled
+// TypeError noise during the existing Phase 26 tests and as a
+// hard test failure for Group G tests that seed prgm=true on the
+// initial mount (the program panel renders, ref captures the div,
+// scrollIntoView throws, the render tree fails to settle, and
+// findKey('shift') no longer locates the SHIFT key). A no-op stub
+// at Element.prototype level fixes both at once.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoViewStub(): void {
+    /* no-op for jsdom */
+  };
+}

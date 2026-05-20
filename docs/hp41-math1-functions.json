@@ -1,0 +1,452 @@
+[
+    {
+        "op_variant": "Sinh",
+        "display_name": "SINH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SINH\"",
+        "description": "Hyperbolic sine: X <- sinh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 1 }
+    },
+    {
+        "op_variant": "Cosh",
+        "display_name": "COSH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"COSH\"",
+        "description": "Hyperbolic cosine: X <- cosh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 2 }
+    },
+    {
+        "op_variant": "Tanh",
+        "display_name": "TANH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"TANH\"",
+        "description": "Hyperbolic tangent: X <- tanh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 3 }
+    },
+    {
+        "op_variant": "Asinh",
+        "display_name": "ASINH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"ASINH\"",
+        "description": "Inverse hyperbolic sine: X <- asinh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 4 }
+    },
+    {
+        "op_variant": "Acosh",
+        "display_name": "ACOSH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"ACOSH\"",
+        "description": "Inverse hyperbolic cosine: X <- acosh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 5 }
+    },
+    {
+        "op_variant": "Atanh",
+        "display_name": "ATANH",
+        "category": "Math1 Hyperbolics",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"ATANH\"",
+        "description": "Inverse hyperbolic tangent: X <- atanh(X)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 6 }
+    },
+    {
+        "op_variant": "CPlus",
+        "display_name": "C+",
+        "category": "Math1 Complex Arithmetic",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"C+\"",
+        "description": "Complex add: (Yre+iYim) + (Xre+iXim) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 7 }
+    },
+    {
+        "op_variant": "CMinus",
+        "display_name": "C-",
+        "category": "Math1 Complex Arithmetic",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"C-\"",
+        "description": "Complex subtract: (Yre+iYim) - (Xre+iXim) -> stack",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 8 }
+    },
+    {
+        "op_variant": "CTimes",
+        "display_name": "C×",
+        "category": "Math1 Complex Arithmetic",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"C×\"",
+        "description": "Complex multiply: (Yre+iYim) * (Xre+iXim) -> stack",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 9 }
+    },
+    {
+        "op_variant": "CDiv",
+        "display_name": "C÷",
+        "category": "Math1 Complex Arithmetic",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"C÷\"",
+        "description": "Complex divide: (Yre+iYim) / (Xre+iXim) -> stack",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 10 }
+    },
+    {
+        "op_variant": "Real",
+        "display_name": "REAL",
+        "category": "Math1 Complex Arithmetic",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"REAL\"",
+        "description": "Convert complex: real part in X, imaginary part in Y",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 11 }
+    },
+    {
+        "op_variant": "Magz",
+        "display_name": "MAGZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"MAGZ\"",
+        "description": "Complex magnitude: |z| = sqrt(re^2+im^2), re in Y, im in X",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 12 }
+    },
+    {
+        "op_variant": "Cinv",
+        "display_name": "CINV",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"CINV\"",
+        "description": "Complex reciprocal: 1/(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 13 }
+    },
+    {
+        "op_variant": "ZpowN",
+        "display_name": "Z↑N",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"Z↑N\"",
+        "description": "Complex power: (Yre+iZre)^N -> stack, N in X (integer exponent)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 14 }
+    },
+    {
+        "op_variant": "Zpow1N",
+        "display_name": "Z↑1/N",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"Z↑1/N\"",
+        "description": "Complex Nth root: (Yre+iZre)^(1/N) -> stack, N in X",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 15 }
+    },
+    {
+        "op_variant": "ExpZ",
+        "display_name": "E↑Z",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"E↑Z\"",
+        "description": "Complex exponential: e^(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 16 }
+    },
+    {
+        "op_variant": "LnZ",
+        "display_name": "LNZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"LNZ\"",
+        "description": "Complex natural log: ln(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 17 }
+    },
+    {
+        "op_variant": "SinZ",
+        "display_name": "SINZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SINZ\"",
+        "description": "Complex sine: sin(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 18 }
+    },
+    {
+        "op_variant": "CosZ",
+        "display_name": "COSZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"COSZ\"",
+        "description": "Complex cosine: cos(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 19 }
+    },
+    {
+        "op_variant": "TanZ",
+        "display_name": "TANZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"TANZ\"",
+        "description": "Complex tangent: tan(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 20 }
+    },
+    {
+        "op_variant": "ApowZ",
+        "display_name": "A↑Z",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"A↑Z\"",
+        "description": "Complex power A^Z: a^(Yre+iXre) with real base a in Z-register",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 21 }
+    },
+    {
+        "op_variant": "LogZ",
+        "display_name": "LOGZ",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"LOGZ\"",
+        "description": "Complex base-10 log: log10(Yre+iXre) -> stack (Y=re, X=im)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 22 }
+    },
+    {
+        "op_variant": "ZpowW",
+        "display_name": "Z↑W",
+        "category": "Math1 Complex Functions",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"Z↑W\"",
+        "description": "Complex power Z^W: (Yre+iXre)^(Wre+iWim) -> stack",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 23 }
+    },
+    {
+        "op_variant": "PolyWorkflow",
+        "display_name": "POLY",
+        "category": "Math1 Polynomial",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"POLY\"",
+        "description": "Polynomial evaluation/root solver workflow (prompts for degree N)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 24 }
+    },
+    {
+        "op_variant": "Roots",
+        "display_name": "ROOTS",
+        "category": "Math1 Polynomial",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"ROOTS\"",
+        "description": "Find polynomial roots after POLY workflow completes coefficient entry",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 25 }
+    },
+    {
+        "op_variant": "MatrixWorkflow",
+        "display_name": "MATRIX",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"MATRIX\"",
+        "description": "Matrix workflow opener: prompts for ORDER=? (rows x cols)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 26 }
+    },
+    {
+        "op_variant": "MatSize",
+        "display_name": "SIZE",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SIZE\"",
+        "description": "Set matrix dimensions: SIZE rows x cols from X (packed: rows*100+cols)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 27 }
+    },
+    {
+        "op_variant": "MatVmat",
+        "display_name": "VMAT",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"VMAT\"",
+        "description": "View matrix: display all elements of the active matrix",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 28 }
+    },
+    {
+        "op_variant": "MatEdit",
+        "display_name": "EDIT",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"EDIT\"",
+        "description": "Edit matrix element A(i,j): prompts for row/col, enter new value",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 29 }
+    },
+    {
+        "op_variant": "MatDet",
+        "display_name": "DET",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"DET\"",
+        "description": "Matrix determinant: det(A) -> X register",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 30 }
+    },
+    {
+        "op_variant": "MatInv",
+        "display_name": "INV",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"INV\"",
+        "description": "Matrix inverse: A^-1 in place (non-singular square matrix required)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 31 }
+    },
+    {
+        "op_variant": "MatSimeq",
+        "display_name": "SIMEQ",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SIMEQ\"",
+        "description": "Solve simultaneous linear equations: Ax=b, solution in x-vector",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 32 }
+    },
+    {
+        "op_variant": "MatVcol",
+        "display_name": "VCOL",
+        "category": "Math1 Matrix",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"VCOL\"",
+        "description": "View matrix column: display all elements in the selected column",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 33 }
+    },
+    {
+        "op_variant": "Integ",
+        "display_name": "INTG",
+        "category": "Math1 Integration",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"INTG\"",
+        "description": "Numerical integration: prompts for function name, lower/upper bounds",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 34 }
+    },
+    {
+        "op_variant": "Solve",
+        "display_name": "SOLVE",
+        "category": "Math1 Root Solver",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SOLVE\"",
+        "description": "Root-find workflow: prompts for function name and two initial guesses",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 35 }
+    },
+    {
+        "op_variant": "Sol",
+        "display_name": "SOL",
+        "category": "Math1 Root Solver",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SOL\"",
+        "description": "Resume root-finding iteration (continue after SOLVE setup)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 36 }
+    },
+    {
+        "op_variant": "Difeq",
+        "display_name": "DIFEQ",
+        "category": "Math1 Differential Eq",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"DIFEQ\"",
+        "description": "Differential equation solver: prompts for function name and step h",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 37 }
+    },
+    {
+        "op_variant": "Four",
+        "display_name": "FOUR",
+        "category": "Math1 Fourier",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"FOUR\"",
+        "description": "Discrete Fourier transform (DFT) workflow on stored data vectors",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 38 }
+    },
+    {
+        "op_variant": "TriSss",
+        "display_name": "SSS",
+        "category": "Math1 Triangle Solvers",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SSS\"",
+        "description": "Triangle solver: side-side-side — computes all angles from 3 sides",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 39 }
+    },
+    {
+        "op_variant": "TriAsa",
+        "display_name": "ASA",
+        "category": "Math1 Triangle Solvers",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"ASA\"",
+        "description": "Triangle solver: angle-side-angle — computes remaining sides and angle",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 40 }
+    },
+    {
+        "op_variant": "TriSaa",
+        "display_name": "SAA",
+        "category": "Math1 Triangle Solvers",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SAA\"",
+        "description": "Triangle solver: side-angle-angle — computes remaining sides and angle",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 41 }
+    },
+    {
+        "op_variant": "TriSas",
+        "display_name": "SAS",
+        "category": "Math1 Triangle Solvers",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SAS\"",
+        "description": "Triangle solver: side-angle-side — computes remaining sides and angles",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 42 }
+    },
+    {
+        "op_variant": "TriSsa",
+        "display_name": "SSA",
+        "category": "Math1 Triangle Solvers",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"SSA\"",
+        "description": "Triangle solver: side-side-angle — ambiguous case handled (two solutions)",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 43 }
+    },
+    {
+        "op_variant": "Trans2d",
+        "display_name": "TRANS",
+        "category": "Math1 Coordinate Transform",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"TRANS\"",
+        "description": "2D coordinate transformation: rotate/translate point (x,y) by angle/offset",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 44 }
+    },
+    {
+        "op_variant": "Trans3d",
+        "display_name": "T3D",
+        "category": "Math1 Coordinate Transform",
+        "status": "implemented",
+        "phase": "28",
+        "key_path": "XEQ \"T3D\"",
+        "description": "3D coordinate transformation: rotate/translate point (x,y,z) in 3-space",
+        "xrom": { "module": "Math 1", "module_id": 7, "function_id": 45 }
+    }
+]

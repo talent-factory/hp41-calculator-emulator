@@ -66,19 +66,9 @@ fn test_catalog_1_empty_program_emits_header_footer_only() {
     assert!(s.print_buffer[1].starts_with("-- END --"));
 }
 
-#[test]
-fn test_catalog_2_not_available() {
-    let mut s = CalcState::new();
-    dispatch(&mut s, Op::Catalog(2)).unwrap();
-    assert_eq!(s.print_buffer.len(), 3, "buf={:?}", s.print_buffer);
-    assert!(s.print_buffer[0].starts_with("-- CATALOG 2 --"));
-    assert!(
-        s.print_buffer[1].starts_with("NOT AVAILABLE"),
-        "payload: {}",
-        s.print_buffer[1]
-    );
-    assert!(s.print_buffer[2].starts_with("-- END --"));
-}
+// test_catalog_2_not_available removed in Phase 31-04 — Op::Catalog(2) now
+// enumerates the Math Pac I XROM module instead of returning "NOT AVAILABLE".
+// New spec coverage lives in hp41-core/tests/op_catalog_xrom.rs.
 
 #[test]
 fn test_catalog_3_not_available() {

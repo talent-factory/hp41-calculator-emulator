@@ -8,6 +8,10 @@
     "allow-get-state",
     "allow-sst-step",
     "allow-bst-step",
-    "allow-run-stop"
+    "allow-run-stop",
+    "allow-request-cancel",
+    "allow-submit-modal",
+    "allow-cancel-modal",
+    "allow-submit-modal-with-label"
   ]
 }

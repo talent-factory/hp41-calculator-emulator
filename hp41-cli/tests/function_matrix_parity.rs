@@ -12,7 +12,7 @@
 
 use std::collections::HashSet;
 
-use hp41_cli::help_data::help_entries;
+use hp41_cli::help_data::{help_entries, help_entries_math1};
 
 /// Hand-curated inventory of all `hp41_core::ops::Op` variants. Drift
 /// between this list and the enum is caught by `test_op_inventory_count_matches_enum`.
@@ -263,5 +263,136 @@ fn test_matrix_has_at_least_130_entries() {
         entries.len() >= 130,
         "function matrix should list >= 130 HP-41CV ROM ops; got {}",
         entries.len()
+    );
+}
+
+// ── Phase 29 Plan 01 Task 3: Math Pac I bidirectional parity tests (CLI-02) ──
+//
+// Three tests guarding the hp41-math1-functions.json ↔ MATH_1.ops ↔ Op::* chain:
+// 1. Inventory drift sentinel (MATH1_OP_VARIANT_NAMES length == 45)
+// 2. Forward parity: every MATH1_OP_VARIANT_NAMES entry has a JSON row
+// 3. Reverse parity: every JSON display_name resolves via xrom_resolve
+//
+// Tests are partitioned by pool (v2.2 vs Math Pac I) so future v3.1 Stat Pac
+// additions don't break v2.2 assertions (Claude's Discretion, CONTEXT §Parity Test).
+
+/// Hand-curated inventory of all Math Pac I `Op` variants shipped in Phase 28.
+/// Drift between this list and the `MATH_1.ops` table in `hp41-core/src/ops/math1/xrom.rs`
+/// is caught by `test_math1_op_inventory_count`.
+///
+/// Maintenance gate: if Phase 30+ adds new Math Pac I `Op` variants, append here
+/// AND add matching JSON rows to `docs/hp41-math1-functions.json`.
+const MATH1_OP_VARIANT_NAMES: &[&str] = &[
+    // Phase 28-02: Hyperbolics (6)
+    "Sinh",
+    "Cosh",
+    "Tanh",
+    "Asinh",
+    "Acosh",
+    "Atanh",
+    // Phase 28-03: Complex Stack Arithmetic (5)
+    "CPlus",
+    "CMinus",
+    "CTimes",
+    "CDiv",
+    "Real",
+    // Phase 28-04: Complex Functions (12)
+    "Magz",
+    "Cinv",
+    "ZpowN",
+    "Zpow1N",
+    "ExpZ",
+    "LnZ",
+    "SinZ",
+    "CosZ",
+    "TanZ",
+    "ApowZ",
+    "LogZ",
+    "ZpowW",
+    // Phase 28-05: Polynomial (2)
+    "PolyWorkflow",
+    "Roots",
+    // Phase 28-06: Matrix (8)
+    "MatrixWorkflow",
+    "MatSize",
+    "MatVmat",
+    "MatEdit",
+    "MatDet",
+    "MatInv",
+    "MatSimeq",
+    "MatVcol",
+    // Phase 28-07: Integration (1)
+    "Integ",
+    // Phase 28-08: Root Solver (2)
+    "Solve",
+    "Sol",
+    // Phase 28-09: Differential Equation (1)
+    "Difeq",
+    // Phase 28-10: Fourier / Triangle Solvers / Coordinate Transform (7)
+    "Four",
+    "TriSss",
+    "TriAsa",
+    "TriSaa",
+    "TriSas",
+    "TriSsa",
+    "Trans2d",
+    "Trans3d",
+];
+
+#[test]
+fn test_math1_op_inventory_count() {
+    // Catches: drift between this hand-curated list and MATH_1.ops in xrom.rs.
+    // If a new Math Pac I Op variant is added without updating this list,
+    // this assertion fires forcing the developer to also add a JSON entry.
+    assert_eq!(
+        MATH1_OP_VARIANT_NAMES.len(),
+        45,
+        "MATH1_OP_VARIANT_NAMES inventory drift — expected 45 unique Math Pac I Op variants \
+         (52 total MATH_1.ops entries minus 7 ASCII aliases). Did a new Phase 28+ plan add \
+         Op variants without updating this inventory and docs/hp41-math1-functions.json?"
+    );
+}
+
+#[test]
+fn test_every_math1_rom_op_has_math1_json_entry() {
+    // Catches: forward parity gap — a Math Pac I Op variant without a JSON entry.
+    // Uses help_entries_math1() (narrow accessor) to assert against only the Math1 pool.
+    // Failure message lists missing variants by name for easy diagnosis.
+    let json_variants: HashSet<&str> = help_entries_math1()
+        .iter()
+        .map(|e| e.op_variant.as_str())
+        .collect();
+
+    let mut missing: Vec<&str> = Vec::new();
+    for name in MATH1_OP_VARIANT_NAMES {
+        if !json_variants.contains(name) {
+            missing.push(name);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "Math Pac I Op::* variants missing from docs/hp41-math1-functions.json: {missing:?}"
+    );
+}
+
+#[test]
+fn test_every_math1_json_entry_has_xrom_resolver_match() {
+    // Catches: reverse parity gap — a JSON entry whose display_name cannot be
+    // resolved by xrom_resolve (C-28.4). Ensures the JSON and MATH_1.ops table
+    // stay in sync — a typo in display_name or a missing math1_resolve arm fails here.
+    let mut orphans: Vec<String> = Vec::new();
+    for entry in help_entries_math1() {
+        let resolved =
+            hp41_core::ops::math1::xrom::xrom_resolve(entry.display_name.as_str(), 0b0000_0001);
+        if resolved.is_none() {
+            orphans.push(format!(
+                "'{}' (display_name='{}') — not found in MATH_1.ops / math1_resolve",
+                entry.op_variant, entry.display_name
+            ));
+        }
+    }
+    assert!(
+        orphans.is_empty(),
+        "Math1 JSON entries whose display_name is NOT resolved by xrom_resolve(_, 0b0000_0001): {orphans:?}"
     );
 }

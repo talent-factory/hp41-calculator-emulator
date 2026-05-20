@@ -7,38 +7,73 @@ set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-cu"]
 default:
 	@just --list
 
+# ─── Build & Run ────────────────────────────────────────────────────────────
+
 # Build all workspace crates
+[group('build')]
 build:
 	cargo build --workspace
 
 # Build release binary (required before bench-startup)
+[group('build')]
 build-release:
 	cargo build --release
 
+# Run the CLI (placeholder until Phase 4)
+[group('build')]
+run:
+	cargo run -p hp41-cli
+
+# ─── Test ───────────────────────────────────────────────────────────────────
+
 # Run all tests
+[group('test')]
 test:
 	cargo test --workspace
 
 # Run hp41-core tests with optional filter args (e.g. `just test-core --test phase21_flags`)
+[group('test')]
 test-core *args:
 	cargo test -p hp41-core {{args}}
 
+# ─── Quality (lint & format) ────────────────────────────────────────────────
+
 # Lint with clippy (warnings treated as errors)
+[group('quality')]
 lint:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-# Run the CLI (placeholder until Phase 4)
-run:
-	cargo run -p hp41-cli
+# Check formatting without modifying files (mirrors CI)
+[group('quality')]
+fmt-check:
+	cargo fmt --all -- --check
+
+# Auto-format all Rust sources
+[group('quality')]
+fmt:
+	cargo fmt --all
+
+# ─── CI & Coverage ──────────────────────────────────────────────────────────
 
 # Check coverage gate — ≥95% line coverage on hp41-core (raised from 80 in Phase 27 / FN-QUAL-01, atomic per D-27.2).
 # The matching CI job in ci.yml is named "Coverage (>=95%)" — keep in sync if the threshold ever changes.
+[group('ci')]
 coverage:
 	cargo llvm-cov clean --workspace
 	cargo llvm-cov --fail-under-lines 95 -p hp41-core
 
-# Full CI gate: lint → test → coverage
-ci: lint test coverage
+# Phase 32 Plan 32-03 (D-32.7 + D-32.8 + Pitfall 19). Greps hp41-core/src/ops/math1/
+# for distinctive Free42 identifiers (Intel BID, decNumber, Free42 internals + GPL/AGPL
+# copyright markers) with allowlist for the legitimate per-file disclaim header.
+# The matching CI job in ci.yml is named "License audit (Free42 contamination)" — keep
+# script invocation in sync if the path ever changes.
+[group('ci')]
+license-audit:
+	bash scripts/check-free42-contamination.sh
+
+# Full CI gate: lint → test → coverage → license-audit (Phase 32 D-32.8 belt+suspenders)
+[group('ci')]
+ci: lint test coverage license-audit
 
 # CI gate for MSRV jobs: lint → test (NO coverage).
 # Coverage is rustc-version-dependent — different rustc versions instrument llvm-cov
@@ -48,37 +83,41 @@ ci: lint test coverage
 # test-padding arms race tied to the lowest measurement-tool baseline. The dedicated
 # `Coverage (>=80%)` job in `ci.yml` runs on stable and enforces the 95 % gate; the
 # MSRV job verifies code still builds and tests still pass on the declared minimum rustc.
+[group('ci')]
 ci-msrv: lint test
 
-# Check formatting without modifying files (mirrors CI)
-fmt-check:
-	cargo fmt --all -- --check
-
-# Auto-format all Rust sources
-fmt:
-	cargo fmt --all
+# ─── Benchmarks ─────────────────────────────────────────────────────────────
 
 # Run criterion benchmarks for hp41-core dispatch latency (advisory — does not gate CI)
+[group('bench')]
 bench:
 	cargo bench -p hp41-core
 
+# Measure cold-start latency with hyperfine (manual pre-release step — not a CI gate)
+# Usage: just bench-startup
+# Prerequisite: just build-release (or cargo build --release) must be run first
+[group('bench')]
+bench-startup:
+	hyperfine --warmup 3 --runs 10 './target/release/hp41 --bench-startup'
+
+# ─── Setup ──────────────────────────────────────────────────────────────────
+
 # Install the pre-push git hook (run once after cloning)
+[group('setup')]
 install-hooks:
 	@printf '#!/usr/bin/env bash\nset -euo pipefail\necho "🔍 pre-push: cargo fmt --check ..."\ncargo fmt --all -- --check || { echo ""; echo "❌ Run: cargo fmt --all"; exit 1; }\necho "🔍 pre-push: just lint ..."\njust lint || { echo ""; echo "❌ Run: just lint"; exit 1; }\necho "✅ pre-push checks passed"\n' > .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo "✅ pre-push hook installed"
 
-# Measure cold-start latency with hyperfine (manual pre-release step — not a CI gate)
-# Usage: just bench-startup
-# Prerequisite: just build-release (or cargo build --release) must be run first
-bench-startup:
-	hyperfine --warmup 3 --runs 10 './target/release/hp41 --bench-startup'
+# ─── GUI (Tauri v2) ─────────────────────────────────────────────────────────
 
 # GUI: install npm dependencies (run once after cloning or after package.json changes)
+[group('gui')]
 gui-install:
 	cd hp41-gui && npm install
 
 # GUI: launch development window (Rust hot-reload + Vite HMR)
+[group('gui')]
 gui-dev:
 	cd hp41-gui && npm run tauri dev
 
@@ -90,11 +129,13 @@ gui-dev:
 # in CI — the 9000-line `package-lock.json` is the authoritative dep set.
 #
 # GUI: production bundle (native app) — installs npm deps then builds via Tauri CLI.
+[group('gui')]
 gui-build:
 	cd hp41-gui && npm ci
 	cd hp41-gui && npm run tauri build
 
 # GUI: Rust type-check (fast CI check without launching dev server)
+[group('gui')]
 gui-check:
 	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
 
@@ -105,7 +146,11 @@ gui-check:
 # control). For developer follow-up, run `cd hp41-gui && npm audit fix` manually.
 #
 # gui-ci: CI gate — TS type-check, Rust tests, release build, Vitest (D-27.14)
+# Phase 31 Plan 31-02: permission-coverage gate fires FIRST so a missing TOML
+# fails fast before any expensive build step (T-31-W1-permission-coverage).
+[group('gui')]
 gui-ci:
+	bash scripts/check-tauri-permissions.sh
 	cd hp41-gui && npm ci
 	cd hp41-gui && npm audit --omit=dev --audit-level=high || true
 	cd hp41-gui && npx tsc --noEmit
@@ -126,21 +171,32 @@ gui-ci:
 # from tauri-driver. The check surfaces the missing step at recipe entry.
 #
 # gui-e2e: WebdriverIO + tauri-driver E2E smoke (Linux only — from ci-gui.yml)
+[group('gui')]
 gui-e2e:
 	test -x hp41-gui/src-tauri/target/release/hp41-gui \
 	  || (echo "ERROR: production binary missing. Run 'just gui-build' first." >&2 && exit 1)
 	cd hp41-gui && npm ci
 	cd hp41-gui && npx wdio run wdio.conf.cjs
 
-# Regenerate the HP-41CV function matrix from canonical JSON (developer-side).
-# Reads docs/hp41cv-functions.json and writes docs/hp41cv-function-matrix.md.
+# ─── Docs ───────────────────────────────────────────────────────────────────
+
+# Regenerate both function matrices from their canonical JSON sources (developer-side).
+# Reads docs/hp41cv-functions.json -> docs/hp41cv-function-matrix.md (unchanged, D-30.2).
+# Reads docs/hp41-math1-functions.json -> docs/hp41-math1-function-matrix.md (new, D-30.1).
+[group('docs')]
 docs-matrix:
 	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
 		docs/hp41cv-functions.json docs/hp41cv-function-matrix.md
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41-math1-functions.json docs/hp41-math1-function-matrix.md
 
-# CI-friendly drift catch (Pitfall 8): regenerate to a temp file and diff
-# against the committed copy. Exits non-zero on mismatch so CI fails fast.
+# CI-friendly drift catch (Pitfall 8): regenerate to temp files and diff both
+# against their committed copies. Exits non-zero on mismatch so CI fails fast.
+[group('docs')]
 docs-matrix-check:
 	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
 		docs/hp41cv-functions.json /tmp/hp41cv-function-matrix-check.md
 	diff -u docs/hp41cv-function-matrix.md /tmp/hp41cv-function-matrix-check.md
+	cargo run --quiet --manifest-path scripts/docs-matrix/Cargo.toml -- \
+		docs/hp41-math1-functions.json /tmp/hp41-math1-function-matrix-check.md
+	diff -u docs/hp41-math1-function-matrix.md /tmp/hp41-math1-function-matrix-check.md

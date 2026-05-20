@@ -57,7 +57,7 @@ covering every non-trivial codec path.
 
 | Step | Keys | Display / Notes |
 |------|------|-----------------|
-| 01 | `PRGM` → `LBL` → `ALPHA Q U A D ALPHA` | `01 LBL "QUAD"` |
+| 01 | CLI: `PRGM` → `f LBL` → `ALPHA Q U A D ALPHA`<br>GUI: `PRGM` → `SHIFT + STO` (LBL) → type `q u a d` → `ENTER` | `01 LBL "QUAD"` |
 | 02 | `RCL 01` | `02 RCL 01` ← b = -5 |
 | 03 | `X²` | `03 X²` ← 25 |
 | 04 | `RCL 04` | `04 RCL 04` ← 4 |
@@ -113,7 +113,9 @@ section 3.
 1.  ALPHA   Q U A D   ALPHA            ; ALPHA register = "QUAD"
 2.  XEQ "WPRGM" + ENTER                ; → ~/.hp41/cards/QUAD.raw exists (~40–50 B)
 3.  $ sha256sum ~/.hp41/cards/QUAD.raw → hash A
-4.  PRGM mode → CLP → confirm          ; listing shows only "000 END"
+4.  PRGM mode → CLP → ALPHA "QUAD" ALPHA → confirm   ; listing shows only "000 END"
+    ; CLI keys:  f→ + C   then type Q U A D + ENTER
+    ; GUI keys:  PRGM → SHIFT + √x  then type q u a d + ENTER
 5.  ALPHA   Q U A D   ALPHA
 6.  XEQ "RDPRGM" + ENTER               ; listing identical to original (28 lines)
 7.  XEQ "QUAD" + ENTER                 ; X=3., R03=1., R06=3., R07=2.  ← behavioural identity
@@ -125,6 +127,14 @@ section 3.
 
 On CLI, steps 2 and 9 can alternatively use the comfort shortcut `Ctrl+W`
 immediately after setting `ALPHA "QUAD"`. Step 6 can use `Ctrl+R`.
+
+**GUI note on CLP (step 4):** `f + √x` is *mode-aware* — outside PRGM mode
+it computes x²; inside PRGM mode it opens the CLP label-input modal. This
+mirrors the real HP-41C/CV hardware behavior (`docs/hp41cv-functions.json`
+key_path `f-C`). Letter keys can be entered into the open CLP/LBL/XEQ/GTO
+modal by clicking the on-screen key whose blue label (`alphaChar`) matches
+the desired letter — e.g. Σ+ (A), 1/x (B), √x (C), LOG (D) — or by typing
+on the physical keyboard.
 
 ## 4. Data Card: WDTA → Clear → RDTA
 
@@ -178,14 +188,26 @@ normal stack view on the next keypress.
 
 ## 6. Same Procedure in the GUI
 
-Mirror sections 3 and 4 exactly. ALPHA entry works via physical-keyboard
-pass-through: `resolveKeyId()` in `App.tsx` checks `state.annunciators.alpha`
-**before** the normal key map. When the ALPHA annunciator is active, A–Z,
-0–9, and Space keys are routed to `alpha_<X>`, which the backend resolves to
-`Op::AlphaAppend`. Activate ALPHA mode by clicking the `ALPHA` button on the
-SVG keyboard; the ALPHA annunciator lights up. Then type `Q U A D` on the
-physical keyboard — the alpha register fills with `QUAD` identically to the
-CLI flow.
+Mirror sections 3 and 4 exactly. Three GUI-specific input paths to be aware of:
+
+**ALPHA-register entry** (sections 3 & 4 step 1, 5, 8): activate ALPHA mode
+by clicking the `ALPHA` top-row button (the ALPHA annunciator lights up).
+`resolveKeyId()` in `App.tsx` checks `state.annunciators.alpha` **before**
+the normal key map; when active, A–Z, 0–9, and Space keystrokes on the
+physical keyboard are routed to `alpha_<X>` → `Op::AlphaAppend`. Letter
+clicks on the SVG keyboard also work (the blue alphaChar under each key
+matches the appended letter).
+
+**LBL inside PRGM mode** (section 2 row 01): clicking `SHIFT + STO` opens
+the `LBL _` modal. The modal accepts letters directly from on-screen clicks
+(via the alphaChar fallback) or from the physical keyboard — no separate
+`ALPHA` toggle is needed. Press `ENTER` to commit.
+
+**CLP** (section 3 step 4): in PRGM mode, clicking `SHIFT + √x` opens the
+`CLP _` modal — this is *mode-aware*: outside PRGM the same combination
+computes x² (`Op::Sq`). The mode-awareness mirrors HP-41C/CV hardware,
+where the `C` letter under √x is the conventional CLP target. Type the
+program label (`q u a d`) and press `ENTER` to clear the LBL-bounded block.
 
 The `sha256sum` (or `shasum -a 256` on macOS) steps remain terminal commands
 in both cases.

@@ -154,6 +154,50 @@ fn key_ref_entries_is_non_empty_after_d25_18_migration() {
     );
 }
 
+#[test]
+fn key_ref_entries_excludes_xrom_module_functions() {
+    // Post-v3.0 right-panel filter: XROM-module functions (Math Pac I and any
+    // future module) belong to the `?` overlay's dedicated module section, NOT
+    // to the right-panel keyboard reference. Without this filter the panel
+    // would crowd with ~45 `XEQ "ACOSH"` / `XEQ "MATRIX"` / etc. rows that
+    // are not physical keys.
+    //
+    // Catches: regression where help_data::help_entries_all() iteration
+    // forgets to filter out entries where xrom.is_some(), causing the
+    // right-panel to balloon with module functions on every new XROM
+    // load (v3.1 Stat, v3.2 Time, v3.3 Advantage, ...).
+    let entries = crate::keys::key_ref_entries();
+    let math1_leak: Vec<_> = entries
+        .iter()
+        .filter(|(_, name)| {
+            // Math Pac I display names that should NOT appear:
+            // SINH, COSH, TANH, ASINH, ACOSH, ATANH, MATRIX, DET, INV, POLY,
+            // ROOTS, INTG, SOLVE, DIFEQ, FOUR, TRANS, A↑Z, E↑Z, SIMEQ, SIZE,
+            // C+, C-, C×, C÷, CINV, MAGZ, COSZ, SINZ, TANZ, LNZ, LOGZ, T3D,
+            // VCOL, VMAT, ASA, SAA, SAS, SSA, SSS, REAL, EDIT, SOL.
+            matches!(
+                name.as_str(),
+                "SINH"
+                    | "COSH"
+                    | "TANH"
+                    | "MATRIX"
+                    | "DET"
+                    | "POLY"
+                    | "INTG"
+                    | "SOLVE"
+                    | "DIFEQ"
+                    | "FOUR"
+                    | "TRANS"
+            )
+        })
+        .collect();
+    assert!(
+        math1_leak.is_empty(),
+        "right-panel must NOT contain Math Pac I XROM-module functions; \
+         leaked rows: {math1_leak:?}"
+    );
+}
+
 // Phase 12: F5/F7/F8 must return None from keycode_to_hp41_code so the caller
 // skips the last_key_code write and GETKEY capture is not corrupted.
 #[test]

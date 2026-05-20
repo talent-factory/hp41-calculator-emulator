@@ -18,7 +18,7 @@
 use crate::cards;
 use crate::key_map;
 use crate::types::{CalcStateView, GuiError};
-use crate::AppState;
+use crate::{AppState, CancelFlag};
 use hp41_core::ops::dispatch;
 use hp41_core::CalcState;
 use tauri::State;
@@ -257,6 +257,82 @@ pub fn bst_step(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
 pub fn run_stop(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
     handle_run_stop(&mut calc)
+}
+
+/// Tauri command: flip the cancellation flag for long-running Math Pac I ops.
+///
+/// ## CRITICAL — no AppState lock (Pitfall 1 / deadlock avoidance)
+///
+/// `request_cancel` takes `State<'_, CancelFlag>` (a separate managed state),
+/// NOT `State<'_, AppState>`. This is intentional and MUST NOT be changed:
+/// `dispatch_op` holds the AppState Mutex for the entire duration of
+/// `op_integ` / `op_solve` / `op_difeq`. If this thunk tried to lock AppState,
+/// it would deadlock (RESEARCH.md §"AppState Mutex + AtomicBool interleaving",
+/// lines 927-1029).
+///
+/// The `CancelFlag` Arc is the SAME `Arc<AtomicBool>` as `CalcState.cancel_requested`
+/// — cloned out at setup() time (lib.rs) before the CalcState was wrapped in the Mutex.
+/// The solver loops read it via Relaxed loads every 64 samples (D-28.7 / D-28.8).
+///
+/// Idempotent: safe to call when no long op is running — the next INTG/SOLVE/DIFEQ
+/// entry resets the flag to false (Plan 31-02 Task 3 surgical hp41-core exception).
+#[tauri::command]
+pub fn request_cancel(cancel: State<'_, CancelFlag>) -> Result<(), GuiError> {
+    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}
+
+/// Tauri command: submit a numeric R/S input to the currently active modal workflow.
+///
+/// Calls `hp41_core::ops::math1::submit_modal` which flushes `entry_buf` then
+/// advances the modal state machine. Returns `GuiError` if no modal is active
+/// (InvalidOp) or on numerical errors during the modal step.
+///
+/// Phase 31 Plan 03 / D-25.6: 4-line glue around shared hp41-core function.
+/// SC-4 invariant: no calculator logic in hp41-gui/src-tauri/src/.
+#[tauri::command]
+pub fn submit_modal(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    hp41_core::ops::math1::submit_modal(&mut calc).map_err(GuiError::from)?;
+    handle_get_state(&mut calc)
+}
+
+/// Tauri command: cancel the currently active modal workflow.
+///
+/// Calls `hp41_core::ops::math1::cancel_modal` which clears modal_program,
+/// modal_prompt, and entry_buf. Always succeeds (no Result from core fn).
+///
+/// Phase 31 Plan 03 / D-25.6: 4-line glue around shared hp41-core function.
+/// SC-4 invariant: no calculator logic in hp41-gui/src-tauri/src/.
+#[tauri::command]
+pub fn cancel_modal(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    hp41_core::ops::math1::cancel_modal(&mut calc); // no Result — always succeeds
+    handle_get_state(&mut calc)
+}
+
+/// Tauri command: submit an alpha label to the currently active modal workflow.
+///
+/// Used for the FUNCTION NAME? prompt step in INTG/SOLVE/DIFEQ workflows (D-29.7).
+/// The `label` parameter contains the XEQ-by-name function name the user typed
+/// (CollectForModal mode in pending_input.ts — D-29.8 / D-29.9 mirror).
+///
+/// ## Parameter ordering: `label` precedes `state`
+/// Tauri v2 convention puts custom params first, State extractor last.
+/// `label` takes owned `String` (not `&str`) to avoid lifetime complications
+/// in command-macro expansion (RESEARCH Assumption A8).
+///
+/// Phase 31 Plan 03 / D-25.6: 4-line glue around shared hp41-core function.
+/// SC-4 invariant: no calculator logic in hp41-gui/src-tauri/src/.
+#[tauri::command]
+pub fn submit_modal_with_label(
+    label: String,
+    state: State<'_, AppState>,
+) -> Result<CalcStateView, GuiError> {
+    let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
+    hp41_core::ops::math1::submit_modal_with_label(&mut calc, &label)
+        .map_err(GuiError::from)?;
+    handle_get_state(&mut calc)
 }
 
 /// Pure-Rust helper for sst_step — unit-testable without a Tauri runtime.

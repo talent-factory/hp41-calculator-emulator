@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
+[[permission]]
+identifier = "allow-submit-modal"
+description = "Allows the submit_modal command."
+commands.allow = ["submit_modal"]

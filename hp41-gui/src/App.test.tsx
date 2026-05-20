@@ -59,6 +59,11 @@ interface CalcStateView {
   flags: number[];
   display_override: string | null;
   event_buffer: string[];
+  // Phase 31 Plan 03: modal workflow state fields
+  is_running: boolean;
+  modal_program_active: boolean;
+  modal_requires_alpha_label: boolean;
+  modal_prompt: string | null;
 }
 
 function makeEmptyView(overrides: Partial<CalcStateView> = {}): CalcStateView {
@@ -84,6 +89,11 @@ function makeEmptyView(overrides: Partial<CalcStateView> = {}): CalcStateView {
     flags: [],
     display_override: null,
     event_buffer: [],
+    // Phase 31 Plan 03: modal defaults
+    is_running: false,
+    modal_program_active: false,
+    modal_requires_alpha_label: false,
+    modal_prompt: null,
     ...overrides,
   };
 }
@@ -389,6 +399,189 @@ describe('USER-mode end-to-end — CR-01 + CR-03 round-trip', () => {
       const stoKey = findKey(container, 'sto_prompt');
       const texts = Array.from(stoKey.querySelectorAll('text')).map(t => t.textContent);
       expect(texts).toContain('TEST');
+    });
+  });
+});
+
+// =====================================================================
+// Group G — v2.2.1 / quick-task 260516-c1p
+// Mode-aware √x shifted (CLP in PRGM, x² outside) + alphaChar fallback
+// for on-screen letter clicks inside text-input modals (xeq_name / clp /
+// assign_label). Closes the GUI-parity gap blocking section 3 step 4 of
+// docs/verifying-card-reader.md.
+// =====================================================================
+
+describe('quick-task 260516-c1p — mode-aware √x shifted', () => {
+  it('G1: PRGM=true, SHIFT + √x → opens CLP modal (no sq dispatch)', async () => {
+    // Seed prgm=true on initial get_state. mockResolvedValueOnce overrides
+    // ONLY the next invoke call (the mount's get_state); subsequent calls
+    // fall back to the beforeEach mockResolvedValue(makeEmptyView()) — but
+    // CLP-modal opening is frontend-only so no further invoke fires here.
+    mockInvoke.mockResolvedValueOnce(
+      makeEmptyView({
+        annunciators: { user: false, prgm: true, alpha: false, rad: false, grad: false },
+      }),
+    );
+    const { container } = await renderAppAndWait();
+
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sqrt');
+
+    expect(getDisplayText(container)).toBe('CLP _');
+    // CLP modal is frontend-only: no dispatch_op fired for sq (or anything else)
+    // beyond the initial get_state.
+    expect(mockInvoke).not.toHaveBeenCalledWith('dispatch_op', { keyId: 'sq' });
+    expect(mockInvoke).not.toHaveBeenCalledWith('dispatch_op', { keyId: 'sqrt' });
+  });
+
+  it('G2: PRGM=false, SHIFT + √x → dispatches sq (x²) — unchanged behavior', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'shift');
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'sqrt');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'sq' });
+    // No CLP modal opened.
+    expect(getDisplayText(container)).not.toContain('CLP');
+  });
+});
+
+describe('quick-task 260516-c1p — alphaChar fallback in label modals', () => {
+  it('G3: LBL modal — click Σ+, 1/x, √x, LOG (alphaChars A/B/C/D) → acc=ABCD; ENTER dispatches lbl_ABCD', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sto_prompt');
+    expect(getDisplayText(container)).toBe('LBL _');
+
+    // alphaChar fallback: the on-screen click on a key carrying alphaChar
+    // is routed as the single uppercase letter into the modal, not the
+    // raw primary op-id (which would be rejected by isPrintableChar).
+    await clickKey(container, 'sigma_plus'); // alphaChar 'A'
+    await clickKey(container, 'recip');      // alphaChar 'B'
+    await clickKey(container, 'sqrt');       // alphaChar 'C'
+    await clickKey(container, 'log');        // alphaChar 'D'
+    expect(getDisplayText(container)).toBe('LBL ABCD_');
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'enter');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'lbl_ABCD' });
+  });
+
+  it('G4: CLP modal — same flow; ENTER dispatches clp_ABCD', async () => {
+    mockInvoke.mockResolvedValueOnce(
+      makeEmptyView({
+        annunciators: { user: false, prgm: true, alpha: false, rad: false, grad: false },
+      }),
+    );
+    const { container } = await renderAppAndWait();
+
+    await clickKey(container, 'shift');
+    await clickKey(container, 'sqrt'); // SHIFT + √x in PRGM → CLP modal
+    expect(getDisplayText(container)).toBe('CLP _');
+
+    await clickKey(container, 'sigma_plus');
+    await clickKey(container, 'recip');
+    await clickKey(container, 'sqrt');
+    await clickKey(container, 'log');
+    expect(getDisplayText(container)).toBe('CLP ABCD_');
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'enter');
+    expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'clp_ABCD' });
+  });
+
+  it('G5: EEX in XEQ-by-name modal types alphaChar P (not the legacy "e" → "E" path)', async () => {
+    const { container } = await renderAppAndWait();
+    await clickKey(container, 'xeq_prompt');
+    expect(getDisplayText(container)).toBe('XEQ _');
+    // Pre-fix: clicking EEX dispatched effectiveId 'e', which passed
+    // isPrintableChar and got appended as 'E' — wrong (blue letter is P).
+    // Post-fix: alphaChar fallback routes 'P' into the modal accumulator.
+    await clickKey(container, 'e');
+    expect(getDisplayText(container)).toBe('XEQ P_');
+  });
+});
+
+// =====================================================================
+// Group H — Phase 31 Plan 05: R/S 3-way + Esc cascade + auto-open
+// =====================================================================
+
+describe('H — Phase 31 Plan 05: R/S 3-way state-routed (D-31.1) + Esc cascade (D-31.2) + auto-open (D-29.9)', () => {
+  it('H1: R/S with modal_program_active calls submit_modal', async () => {
+    // Seed initial state: modal is active (e.g. waiting for matrix order entry).
+    mockInvoke.mockResolvedValue(
+      makeEmptyView({ modal_program_active: true, modal_prompt: 'ORDER=?' }),
+    );
+    const { container } = await renderAppAndWait();
+
+    // R/S should route to submit_modal when modal_program_active is true.
+    mockInvoke.mockResolvedValueOnce(makeEmptyView()); // submit_modal response
+    await clickKey(container, 'r_s');
+
+    expect(mockInvoke).toHaveBeenCalledWith('submit_modal', undefined);
+    // run_stop must NOT be called in this case.
+    const runStopCalls = mockInvoke.mock.calls.filter(([cmd]) => cmd === 'run_stop');
+    expect(runStopCalls.length).toBe(0);
+  });
+
+  it('H2: R/S with is_running calls request_cancel then get_state', async () => {
+    // Seed initial state: long-running op (INTG) in progress.
+    mockInvoke.mockResolvedValue(
+      makeEmptyView({ is_running: true }),
+    );
+    const { container } = await renderAppAndWait();
+
+    // R/S should call request_cancel (void) then get_state.
+    mockInvoke.mockResolvedValueOnce(undefined); // request_cancel returns void
+    mockInvoke.mockResolvedValueOnce(makeEmptyView({ is_running: false })); // get_state response
+    await clickKey(container, 'r_s');
+
+    expect(mockInvoke).toHaveBeenCalledWith('request_cancel', undefined);
+    expect(mockInvoke).toHaveBeenCalledWith('get_state', undefined);
+    // run_stop must NOT be called.
+    const runStopCalls = mockInvoke.mock.calls.filter(([cmd]) => cmd === 'run_stop');
+    expect(runStopCalls.length).toBe(0);
+  });
+
+  it('H3: R/S with neither flag calls run_stop (existing baseline)', async () => {
+    // Default state: no modal, not running.
+    const { container } = await renderAppAndWait();
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView());
+    await clickKey(container, 'r_s');
+
+    expect(mockInvoke).toHaveBeenCalledWith('run_stop', undefined);
+  });
+
+  it('H4: Esc with modal_program_active calls cancel_modal', async () => {
+    // Seed initial state: modal is active.
+    mockInvoke.mockResolvedValue(
+      makeEmptyView({ modal_program_active: true }),
+    );
+    await renderAppAndWait();
+
+    mockInvoke.mockResolvedValueOnce(makeEmptyView()); // cancel_modal response
+    await pressKey('Escape');
+
+    expect(mockInvoke).toHaveBeenCalledWith('cancel_modal', undefined);
+  });
+
+  it('H5: post-dispatch auto-open — when modal_requires_alpha_label is true and no pendingInput, opens XeqByName collect-for-modal', async () => {
+    // When the backend signals modal_requires_alpha_label, the useEffect should
+    // automatically open the XeqByName modal in 'collect-for-modal' mode.
+    // This manifests as the display showing "XEQ _" (the XeqByName LCD preview).
+    mockInvoke.mockResolvedValue(
+      makeEmptyView({
+        modal_program_active: true,
+        modal_requires_alpha_label: true,
+        modal_prompt: 'FUNCTION NAME?',
+      }),
+    );
+    const { container } = await renderAppAndWait();
+
+    // After mount + state update, the useEffect should have fired and set
+    // pendingInput to XeqByName{mode: 'collect-for-modal'}.
+    await waitFor(() => {
+      expect(getDisplayText(container)).toBe('XEQ _');
     });
   });
 });

@@ -88,3 +88,21 @@ jobs:
       # on stable and enforces the gate; this job verifies the MSRV still builds
       # and tests still pass.
       - run: just ci-msrv
+
+  # Phase 32 Plan 32-03 / D-32.7 + D-32.8. Free42 GPL-contamination guard.
+  # Runs in parallel with lint / test / coverage / msrv (no needs:) so the
+  # license audit is independently visible in the GitHub PR checks panel.
+  # The same script also runs as a step inside `just ci` for fast local-dev
+  # feedback (D-32.8 belt + suspenders rationale).
+  # No untrusted input is used in any run: step (the script is checked in;
+  # the just CLI is fetched from a pinned taiki-e action). Workflow-injection
+  # surface is therefore zero.
+  license-audit:
+    name: License audit (Free42 contamination)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - run: just license-audit

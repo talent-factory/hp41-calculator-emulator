@@ -8,6 +8,7 @@ import {
   handleModalKey,
   renderModalLcd,
   makeKeyCodeMagic,
+  SUBMIT_MODAL_WITH_LABEL_PREFIX,
   type PendingInput,
   type ModalKeyResult,
 } from './pending_input';
@@ -37,6 +38,11 @@ interface CalcStateView {
   flags: number[];                         // mirrors Vec<u8> of set-flag indices
   display_override: string | null;         // mirrors Option<String>
   event_buffer: string[];                  // mirrors Vec<String> (drained per IPC)
+  // Phase 31 Plan 03: modal workflow state for D-31.1 / D-31.2 dispatch routing.
+  is_running: boolean;                     // mirrors CalcState.is_running
+  modal_program_active: boolean;           // mirrors state.modal_program.is_some()
+  modal_requires_alpha_label: boolean;     // true when FUNCTION NAME? prompt step is active
+  modal_prompt: string | null;             // mirrors Option<String> (null when no modal)
 }
 
 // Tauri rejects with GuiError { message: string } — String(err) yields
@@ -59,10 +65,38 @@ function extractErrMessage(err: unknown): string {
 
 // Route a resolved op id to the right Tauri command. SST/BST/R-S have
 // dedicated commands; everything else flows through dispatch_op.
-async function invokeForKey(effectiveId: string): Promise<CalcStateView> {
+//
+// Phase 31 Plan 05:
+// - Extended with `state: CalcStateView | null` parameter for R/S 3-way routing.
+// - Magic-prefix route: `__submit_modal_with_label__<label>` → submit_modal_with_label
+// - R/S 3-way (D-31.1): modal_program_active → submit_modal; is_running → request_cancel
+//   + get_state; else → existing run_stop.
+async function invokeForKey(
+  effectiveId: string,
+  state: CalcStateView | null,
+): Promise<CalcStateView> {
+  // Magic-prefix: CollectForModal Enter dispatches __submit_modal_with_label__<label>
+  // (Pitfall 15 — must check BEFORE the 'r_s' branch)
+  if (effectiveId.startsWith(SUBMIT_MODAL_WITH_LABEL_PREFIX)) {
+    const label = effectiveId.slice(SUBMIT_MODAL_WITH_LABEL_PREFIX.length);
+    return invoke<CalcStateView>('submit_modal_with_label', { label });
+  }
   if (effectiveId === 'sst') return invoke<CalcStateView>('sst_step');
   if (effectiveId === 'bst') return invoke<CalcStateView>('bst_step');
-  if (effectiveId === 'r_s') return invoke<CalcStateView>('run_stop');
+  if (effectiveId === 'r_s') {
+    // D-31.1 R/S 3-way state-routed dispatch:
+    //   1. modal_program_active → submit_modal (advances the modal step)
+    //   2. is_running → request_cancel + get_state (cancels long-running op)
+    //   3. else → existing run_stop (R/S key toggle)
+    if (state?.modal_program_active) {
+      return invoke<CalcStateView>('submit_modal');
+    }
+    if (state?.is_running) {
+      await invoke<void>('request_cancel');
+      return invoke<CalcStateView>('get_state');
+    }
+    return invoke<CalcStateView>('run_stop');
+  }
   return invoke<CalcStateView>('dispatch_op', { keyId: effectiveId });
 }
 
@@ -152,6 +186,11 @@ const MODAL_OPENERS: Record<string, () => PendingInput> = {
   xeq_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'xeq' }),
   gto_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'gto' }),
   lbl_prompt: () => ({ kind: 'xeq_name', acc: '', dispatchPrefix: 'lbl' }),
+  // v2.2.1 / quick-task 260516-c1p — CLP modal opener. Backend (Op::Clp +
+  // key_map.rs resolve clp_<name>) and modal shape (pending_input.ts kind:
+  // 'clp') were ready in v2.2 but no opener was wired. Reached via SHIFT +
+  // √x in PRGM mode (mode-aware shiftedInPrgm on KeyDef).
+  clp_prompt: () => ({ kind: 'clp', acc: '' }),
   // BLOCKER B2: catalog + tone share single_digit with op + max discriminator.
   // Phase 26 Plan 04 CR-05 — Catalog max raised from 3 to 4 so XFNS (CAT 4) is
   // reachable from the GUI; matches hp41-core op_catalog (accepts n in 1..=4).
@@ -222,11 +261,11 @@ function App() {
   const dispatchKeyId = useCallback((keyId: string) => {
     if (busyRef.current) return;
     busyRef.current = true;
-    invokeForKey(keyId)
+    invokeForKey(keyId, calcState)
       .then(view => { setCalcState(view); setErrorMessage(null); })
       .catch(err => showToast(extractErrMessage(err)))
       .finally(() => { busyRef.current = false; });
-  }, []);
+  }, [calcState, showToast]);
 
   // Apply a ModalKeyResult — updates state and optionally dispatches.
   // Returns true if a dispatch was issued (caller can short-circuit).
@@ -237,7 +276,7 @@ function App() {
       if (result.dispatchId === null) return false;
       busyRef.current = true;
       try {
-        const view = await invokeForKey(result.dispatchId);
+        const view = await invokeForKey(result.dispatchId, calcState);
         setCalcState(view);
         setErrorMessage(null);
       } catch (err) {
@@ -247,7 +286,7 @@ function App() {
       }
       return true;
     },
-    [showToast],
+    [calcState, showToast],
   );
 
   // On-screen keyboard click router. Resolution order:
@@ -276,13 +315,26 @@ function App() {
 
     // Resolve the effective id per rules 2-4.
     const alphaOn = calcState?.annunciators.alpha ?? false;
+    const prgmOn = calcState?.annunciators.prgm ?? false;
     let effectiveId: string;
     let consumesShift = false;
 
     if (alphaOn && key.alphaChar) {
       effectiveId = `alpha_${key.alphaChar}`;
-    } else if (shiftActive && key.shifted) {
-      effectiveId = key.shifted.id;
+    } else if (shiftActive && (key.shifted || key.shiftedInPrgm)) {
+      // v2.2.1 / quick-task 260516-c1p — mode-aware shifted variant.
+      // When PRGM is active AND the key carries shiftedInPrgm, prefer
+      // that id (e.g. √x → CLP in PRGM; → x² outside). The fall-through
+      // to `key.id` only triggers for a future shiftedInPrgm-only entry
+      // pressed outside PRGM; today's only such entry (sqrt) also has a
+      // regular shifted slot, so the branch stays unreachable for now.
+      if (prgmOn && key.shiftedInPrgm) {
+        effectiveId = key.shiftedInPrgm.id;
+      } else if (key.shifted) {
+        effectiveId = key.shifted.id;
+      } else {
+        effectiveId = key.id;
+      }
       consumesShift = true;
     } else {
       effectiveId = key.id;
@@ -312,7 +364,15 @@ function App() {
       //       inside an open assign_label / clp / xeq_name / gto / lbl
       //       modal does nothing (the modal can only be confirmed by the
       //       physical keyboard).
-      //   (d) default: forward effectiveId verbatim.
+      //   (d) v2.2.1 / quick-task 260516-c1p — text-input modal (xeq_name,
+      //       clp, assign_label) with a key that carries alphaChar: route
+      //       the alphaChar (single uppercase letter) instead of the raw
+      //       op-id. Lets on-screen Σ+ (alphaChar 'A'), 1/x ('B'), √x ('C')
+      //       etc. type letters into a LBL/XEQ/GTO/CLP/ASN-label modal
+      //       without requiring the physical keyboard. Also fixes the
+      //       latent pre-fix EEX-types-'E' bug (effectiveId 'e' was being
+      //       accepted by isPrintableChar; now correctly types 'P').
+      //   (e) default: forward effectiveId verbatim.
       let routedKey: string;
       if (pendingInput.kind === 'assign_key') {
         if (key.keyCode === undefined) {
@@ -328,6 +388,13 @@ function App() {
         routedKey = 'Enter';
       } else if (effectiveId === 'clx_or_a') {
         routedKey = 'Backspace';
+      } else if (
+        (pendingInput.kind === 'xeq_name'
+          || pendingInput.kind === 'clp'
+          || pendingInput.kind === 'assign_label')
+        && key.alphaChar
+      ) {
+        routedKey = key.alphaChar;
       } else {
         routedKey = effectiveId;
       }
@@ -363,7 +430,7 @@ function App() {
         const targetId = alphaOn ? 'alpha_clear' : 'clx';
         view = await invoke<CalcStateView>('dispatch_op', { keyId: targetId });
       } else {
-        view = await invokeForKey(effectiveId);
+        view = await invokeForKey(effectiveId, calcState);
       }
       setCalcState(view);
       setErrorMessage(null);
@@ -393,10 +460,14 @@ function App() {
       return;
     }
 
-    // Esc precedence (D-26.8 + D-26.4):
+    // Esc precedence (D-26.8 + D-26.4 + D-31.2):
     //   1. Help overlay first (closes on Esc; doesn't clear modal/shift).
     //   2. pendingInput second (closes the modal, clears shiftActive).
-    //   3. shiftActive last (clears the one-shot SHIFT prefix).
+    //   3. [NEW Phase 31 Plan 05 — D-31.2] modal_program_active → cancel_modal
+    //      (cancels the active Math Pac I modal workflow).
+    //   4. [NEW Phase 31 Plan 05 — D-31.2] is_running → request_cancel
+    //      (cancels a long-running op like INTG/SOLVE/DIFEQ).
+    //   5. shiftActive last (clears the one-shot SHIFT prefix).
     // This precedence keeps each layer independently dismissable: opening
     // help doesn't lose an in-progress modal; canceling help leaves the
     // modal intact.
@@ -410,6 +481,30 @@ function App() {
         setShiftActive(false);
         return;
       }
+      // D-31.2 branch 1: cancel active modal workflow
+      if (calcState?.modal_program_active) {
+        if (!busyRef.current) {
+          busyRef.current = true;
+          invoke<CalcStateView>('cancel_modal')
+            .then(view => { setCalcState(view); setErrorMessage(null); })
+            .catch(err => showToast(extractErrMessage(err)))
+            .finally(() => { busyRef.current = false; });
+        }
+        return;
+      }
+      // D-31.2 branch 2: cancel long-running op
+      if (calcState?.is_running) {
+        if (!busyRef.current) {
+          busyRef.current = true;
+          invoke<void>('request_cancel')
+            .then(() => invoke<CalcStateView>('get_state'))
+            .then(view => { setCalcState(view); setErrorMessage(null); })
+            .catch(err => showToast(extractErrMessage(err)))
+            .finally(() => { busyRef.current = false; });
+        }
+        return;
+      }
+      // D-31.2 branch 3: clear SHIFT one-shot
       setShiftActive(false);
       return;
     }
@@ -450,7 +545,7 @@ function App() {
     if (keyId === null) return;  // unmapped or modal-trigger key — silent ignore
     e.preventDefault();
     dispatchKeyId(keyId);
-  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult, helpOpen]);
+  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult, helpOpen, showToast]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -484,6 +579,32 @@ function App() {
       }
     }
   }, [calcState, showToast]);
+
+  // Phase 31 Plan 05 — D-29.9 GUI mirror: post-dispatch auto-open CollectForModal.
+  //
+  // After every calcState update, check if a modal_program is active AND requires
+  // an alpha label AND no pendingInput is already open. If so, automatically open
+  // the XeqByName modal in 'collect-for-modal' mode so the user can type the
+  // function label name (e.g. for INTG/SOLVE/DIFEQ's FUNCTION NAME? prompt).
+  //
+  // Verbatim mirror of hp41-cli/src/app.rs::maybe_auto_open_collect_for_modal
+  // (lines 1782-1795). Per D-25.6 CLI ↔ GUI parity invariant.
+  //
+  // Dependencies [calcState, pendingInput]: re-runs on every state update;
+  // early-returns prevent infinite re-fires when pendingInput is already set.
+  useEffect(() => {
+    if (!calcState) return;
+    if (pendingInput !== null) return;
+    if (!calcState.modal_program_active) return;
+    if (!calcState.modal_requires_alpha_label) return;
+    // Auto-open XeqByName in collect-for-modal mode.
+    setPendingInput({
+      kind: 'xeq_name',
+      dispatchPrefix: 'xeq',
+      acc: '',
+      mode: 'collect-for-modal',
+    });
+  }, [calcState, pendingInput]);
 
   // Auto-scroll to bottom whenever the print log grows.
   useEffect(() => {

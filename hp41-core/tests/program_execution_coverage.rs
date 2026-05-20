@@ -373,15 +373,16 @@ fn op_size_in_run_program() {
 #[test]
 fn op_catalog_in_run_program() {
     // Catches: program-context divergence on Op::Catalog — execute_op arm at program.rs.
-    // CAT 1 emits a header line to print_buffer; CAT 2 emits NOT AVAILABLE.
+    // CAT 2 enumerates the Math Pac I XROM module when bit 0 of xrom_modules is set
+    // (default state from Phase 31-04); otherwise it emits "NO XROM".
     let mut state = CalcState::new();
     run_op_in_program(&mut state, Op::Catalog(2)).unwrap();
     assert!(
         state
             .print_buffer
             .iter()
-            .any(|l| l.contains("NOT AVAILABLE")),
-        "CAT 2 must emit NOT AVAILABLE: {:?}",
+            .any(|l| l.contains("XROM") || l.contains("NO XROM")),
+        "CAT 2 must emit XROM enumeration or NO XROM: {:?}",
         state.print_buffer
     );
 }

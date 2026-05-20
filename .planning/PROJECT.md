@@ -1,25 +1,33 @@
 # HP-41 Calculator Emulator
 
-## Current Milestone: v2.2 HP-41CV Feature Completeness
+## Current Milestone: v3.0 Math 1 Pac Emulation
 
-**Status:** planning (started 2026-05-13)
+**Status:** planning (started 2026-05-16)
 
-**Goal:** Schliesse die Lücke zum vollständigen HP-41CV ROM-Built-in-Funktionsumfang (≈ 130 named ops), integriere alle neuen Funktionen in CLI und GUI, vervollständige die Dokumentation und führe die Test-Coverage zurück auf das v1.0-Niveau.
+**Goal:** Behavioral Emulation des HP-41C **Math Pac I** (HP-Teilenummer 00041-90034, Owner's Manual 1979) als erstes XROM-Modul — 10 prompt-getriebene Workflow-Programme mit ~55 XEQ-by-Name Entry Points, nutzbar in CLI + GUI über eine neue Modal-Workflow-Schicht hinaus dem v2.x-Built-in-Pattern, ohne HP-copyrighted ROM-Image-Redistribution.
 
-**Target feature areas:**
-- Core math / conversions: `PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, stack `R↑`
-- Flags & display: 56 User-Flags + System-Flags, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW`, `AVIEW`, `PROMPT`, `AON/AOFF`, `CLD`
-- Program control: `STOP`, `PSE`, `CLP`, `DEL`, `INS`, `GTO/XEQ IND`, `BEEP`, `TONE`
-- ALPHA & indirect addressing: `ARCL`, `ASTO`, `ATOX`, `XTOA`, `AROT`, `POSA`, plus `*_IND`-Varianten von STO/RCL/ISG/DSE/SF/CF/FS?/FC?
-- CLI integration: Modale für Prompt-IDs, restliche bedingte Tests am Skin, `?`-Hilfe-Update
-- Documentation: HP-41CV ROM vs. Emulator Function Matrix
-- GUI integration: alle neuen Key-IDs in `key_map.rs` + `KEY_DEFS`, Modal-Routing für ehemals stub-error-Prompts
-- GUI Polish (aus original v2.1 übernommen): 14-Segment LCD-Font, `?`-Tastatur-Overlay, USER-Mode-Keyboard-Display
-- Test hardening: `hp41-core` Coverage ≥ 95 %, erweitertes 500-Case-Accuracy-Suite, GUI-E2E via Playwright
+**Scope-Korrektur (2026-05-16):** Nach FEATURES-Research wurde klar, dass Math Pac I NICHT die ursprünglich angenommenen Funktionen (`M+`/`MAT*`/`INV`-as-transpose/`PROOT`/`CABS`/`CARG`/`V+`/`VDOT`) enthält — die sind im **Advanced Matrix Pac** und **Advantage Pac** (separate HP-Module). Math Pac I ist user-code in ROM (multi-step Modal-Workflows mit ALPHA-Prompts), nicht Nut-CPU-microcode (one-shot Stack-Ops). v3.0 emuliert den tatsächlichen Math Pac I; Advanced Matrix / Advantage werden separate Milestones.
 
-**Scope boundary (locked 2026-05-13):** v2.x ist strikt auf den ROM-Built-in-Satz der HP-41CV beschränkt. Module-Emulation (Math 1 / Stat 1 / Time / Advantage Pacs, FR-21) ist Scope von v3.x — keine Module-Funktionen in v2.x-Phasen.
+**Target feature areas (Math Pac I per HP 00041-90034, 10 Top-Level Programme):**
+- XROM-Modul-Framework: Slot-Management, XROM 7 (echte Math Pac ID), statisch verlinkter Resolver, vorbereitet für Stat 1 / Time / Advantage in v3.1+
+- `MATRIX`: Determinante, Inverse, lineare Gleichungssysteme; Gauss-Elimination mit partieller Pivotsuche; bis 14×14; Matrix lebt ab R15
+- `SOLVE`: reelle Nullstelle von f(x)=0 via modifizierter Sekanten-Iteration; ruft user-program LBL als Funktions-Callback
+- `POLY`: Polynom-Wurzeln Grad 2–5 + Auswertung
+- `INTG`: numerische Integration via Simpson; user-program LBL als Integrand-Callback
+- `DIFEQ`: 1./2. Ordnung ODE-Solver via Runge-Kutta 4. Ordnung
+- `FOUR`: Fourier-Reihen (rect + polar Koeffizienten)
+- Komplex-Stack: zwei-Komplex-Zahlen-Stack (ζ/τ) überlagert auf X/Y/Z/T; arithmetik C+, C-, C×, C÷ + 13 weitere Funktionen
+- Hyperbolicus: SINH, COSH, TANH, ASINH, ACOSH, ATANH (6 Ops im klassischen v2.2-Stil — einzige Familie mit one-shot UX)
+- Dreiecks-Solver: SSS, ASA, SAA, SAS, SSA (5 Programme)
+- `TRANS`: 2D + 3D Koordinaten-Transformationen (translate/rotate)
+- Modal-Workflow-Schicht: ALPHA-Prompt-driven Mehrschritt-Flows (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`, `GUESS 1=?`) — neue Infrastruktur, parallel zur v2.2 `PendingInput`-Modal-Architektur
+- User-Program-Callback: Re-entrancy in `run_loop` für INTG / SOLVE / DIFEQ; Stack-Tiefen-Cap honoriert
+- CLI- + GUI-Integration: XEQ-by-Name fallback (keine dedizierten Math-Pac-Keys); JSON-canonical pipeline um `docs/hp41-math1-functions.json` erweitert
+- Quality-Gates: `hp41-core` Coverage ≥ 95 %, neue Accuracy-Cases für MATRIX/POLY/INTG/SOLVE/DIFEQ/FOUR/Komplex/Hyperbolicus, GUI-E2E-Smoke erweitert um einen Math-Pac-Workflow
 
-**Build sequence:** core → cli → docs → gui → tests (jede `Op`-Variante muss in `hp41-core` landen, bevor sie in `hp41-cli` und `hp41-gui` gewired werden kann; Documentation läuft synchron mit der CLI-Integration).
+**Scope boundary (locked 2026-05-13, bestätigt 2026-05-16):** v3.0 ist Math 1 Pac only. Stat 1 deferred zu v3.1; Time + Advantage zu v3.2 / v3.3. HP-copyrighted ROM-Image-Redistribution bleibt permanent ausgeschlossen — wir liefern BEHAVIORAL Emulation der dokumentierten Funktionen (Owner's Manual als Verhaltens-Spec), nicht die ROM-Bytes.
+
+**Build sequence:** core (XROM-Framework + Math-1-Ops) → cli (Tastenbelegung + Modal-Erweiterungen) → docs (Function-Matrix v3.0) → gui (key_map + KEY_DEFS + Modal-Routing) → tests (Coverage + Accuracy-Cases).
 
 ---
 
@@ -30,6 +38,13 @@
 - v1.1 CLI Feature Completeness (2026-05-09) — Phases 9–12, EEX/STO-Arith/Print/Synthetic
 - v2.0 Tauri GUI (2026-05-10) — Phases 13–18, pixel-perfect HP-41C desktop app
 - v2.1 Card Reader + Keyboard Authenticity (2026-05-13) — recorded as quick tasks (no Phase 19 GSD directory); 50 commits since `v2.0` tag
+- v2.2 HP-41CV Feature Completeness (2026-05-15) — Phases 20–27, 26 plans; ROM-built-in set komplett (≈130 ops); coverage gate atomically auf 95 % gehoben; WebdriverIO E2E-Smoke auf Ubuntu; tag `v2.2` auf `main`
+- v3.0 Math Pac I Emulation (2026-05-18) — Phases 28–32, 33 plans (26 original + 7 gap-closure); README hard-claim graduated via post-Phase-32 gap-closure run; final coverage 95.39 % lines / 94.26 % regions on `hp41-core`
+  - Phase 28 XROM Framework + Math Pac I Core Ops (2026-05-16) — `hp41-core` only; 10 plans; ~40 new Op variants; XROM resolver chain fires LAST; modal-workflow state machine; user-callback re-entrancy infrastructure; 5 irreversible decisions locked (ADR-001 through ADR-005)
+  - Phase 29 CLI Integration (2026-05-17) — `hp41-cli` only; 3 plans; `xeq_by_name_local_resolve` wired to `xrom_resolve`; second `OnceLock<Vec<HelpEntry>>` for Math Pac I JSON; ~40 new `op_display_name` arms; modal-prompt routing through `print_buffer`
+  - Phase 30 Documentation & ADRs (2026-05-17) — `docs/` + tooling only; 3 plans; matrix-renderer two-input extension; 3 new ADRs; divergence catalog expansion; v3.0 narrative across README/PROJECT.md/CLAUDE.md
+  - Phase 31 GUI Integration (2026-05-18) — `hp41-gui` only; 5 plans; CATALOG 2 XROM enumeration + Math Pac I help overlay + LCD-alternation modal prompts + R/S 3-way + Esc cascade + request_cancel channel
+  - Phase 32 Test Hardening & Quality Gates (2026-05-18) — `tests/` + `scripts/` + `.github/` + `justfile` only; 10 plans (3 original + 7 gap-closure); meta-gate graduation (`math1_op_test_count` + `xrom_shadowing` actively cross-check 45 Op variants × 14 test files + 52 MATH_1.ops × 18-entry allowlist); `lint_math1_assertions.rs` Pitfall 14 + 17 discipline; `numerical_accuracy.rs` 566 → 763 cases (99.3 % pass); E2E smoke extended (`sinh(1)` + `MATRIX DET` Math Pac I workflows on Ubuntu); `scripts/check-free42-contamination.sh` D-32.7 12-symbol guard in `just ci` + `ci.yml::license-audit` parallel job (D-32.8). Gap-closure run (Plans 32-04..32-10) added ~70 error-branch tests across 9 new files, closing the coverage gate from 91.74 % → 95.39 % lines / 92.14 % → 94.26 % regions; README v3.0 line graduated to the OM-cited hard claim per D-32.5.
 
 ## What This Is
 
@@ -102,56 +117,58 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - ✓ INPUT-03: `run_stop` Tauri command (symmetric with sst_step/bst_step); R/S key click-reachable for the first time — v2.1 (PR #10)
 - ✓ UX-04: Stub-error pattern (D-5) — `pi`, `polar_to_rect`, `rect_to_polar`, `beep`, `asn`, `catalog`, `view`, `xeq_prompt`, `gto_prompt`, `lbl_prompt` return `GuiError` surfaced as 2 s toast; never silently discarded — v2.1 (PR #10)
 
-### Active (v2.2 — HP-41CV Feature Completeness, ROM built-ins only)
+### Validated (v2.2 — HP-41CV Feature Completeness, shipped 2026-05-15)
 
 **Core math / conversions (Phase 20):**
-- [ ] FN-MATH-01: `PI` (constant push), `P→R`, `R→P` (polar/rect conversion respecting angle mode)
-- [ ] FN-MATH-02: `RND` (round X to current display setting), `FRC` (fractional part — complement of `INT`)
-- [ ] FN-MATH-03: `MOD` (Y mod X), `ABS`, `FACT` (factorial 0–69), `SIGN` (sign function)
-- [ ] FN-STACK-01: `R↑` (roll up — mirror of `Rdn`)
+- ✓ FN-MATH-01: `PI`, `P→R`, `R→P` (polar/rect conversion respecting angle mode) — v2.2 Phase 20
+- ✓ FN-MATH-02: `RND` (round X to current display setting), `FRC` (fractional part) — v2.2 Phase 20
+- ✓ FN-MATH-03: `MOD` (Y mod X, sign follows Y per HP-41C/CV QRG), `ABS`, `FACT` (factorial 0–69), `SIGN` — v2.2 Phase 20
+- ✓ FN-STACK-01: `R↑` (roll up — mirror of `Rdn`) — v2.2 Phase 20
 
 **Core flags & display (Phase 21):**
-- [ ] FN-FLAG-01: 56 user flags + system flags 00–55 — `flags: u64` on `CalcState`
-- [ ] FN-FLAG-02: `SF n`, `CF n`, `FS? n`, `FC? n`, `FS?C n`, `FC?C n`
-- [ ] FN-DISP-01: `VIEW nn` (display register N until next key), `AVIEW` (display ALPHA until next key)
-- [ ] FN-DISP-02: `PROMPT` (display ALPHA, suspend running program until R/S), `AON` / `AOFF` (auto-on/off in ALPHA), `CLD` (clear display)
+- ✓ FN-FLAG-01: 56 user flags + system flags 00–55 as `flags: u64` on `CalcState` — v2.2 Phase 21
+- ✓ FN-FLAG-02: `SF n`, `CF n`, `FS? n`, `FC? n`, `FS?C n`, `FC?C n` — v2.2 Phase 21
+- ✓ FN-DISP-01: `VIEW nn`, `AVIEW` — v2.2 Phase 21
+- ✓ FN-DISP-02: `PROMPT`, `AON` / `AOFF`, `CLD` — v2.2 Phase 21
+- ✓ FN-SOUND-01: `BEEP` / `TONE n` (CLI silent stubs; GUI real tones via Web Audio) — v2.2 Phase 21
 
 **Core program control (Phase 22):**
-- [ ] FN-PROG-01: `STOP` (R/S in program — pause execution), `PSE` (pause ≈1 s mid-program)
-- [ ] FN-PROG-02: `CLP` (clear program by global label), `DEL nnn` (delete N steps), `INS` (insert blank step)
-- [ ] FN-PROG-03: `GTO IND nn`, `XEQ IND nn` (indirect branch / subroutine call)
-- [ ] FN-SOUND-01: `BEEP` (default beep), `TONE n` (0–9 indexed tone)
+- ✓ FN-PROG-01: `STOP`, `PSE` — v2.2 Phase 22
+- ✓ FN-PROG-02: `CLP`, `DEL nnn`, `INS` — v2.2 Phase 22
+- ✓ FN-PROG-03: `GTO IND nn`, `XEQ IND nn` — v2.2 Phase 22
+- ✓ FN-MEM-01: `SIZE`, `PACK`, `MEM LOST`, `CATALOG 1` — v2.2 Phase 22
+- ✓ FN-USER-01: `ASN`, `CLA`, `CLST` — v2.2 Phase 22
 
-**Core ALPHA & indirection (Phase 23):**
-- [ ] FN-ALPHA-01: `ARCL nn` (append register-N to ALPHA), `ASTO nn` (store first 6 ALPHA chars to register)
-- [ ] FN-ALPHA-02: `ATOX` (first ALPHA char → ASCII in X), `XTOA` (X as ASCII → append to ALPHA)
-- [ ] FN-ALPHA-03: `AROT n` (rotate ALPHA by N chars), `POSA` (substring search position)
-- [ ] FN-IND-01: `STO IND`, `RCL IND`, `ISG IND`, `DSE IND`, `SF IND`, `CF IND`, `FS? IND`, `FC? IND`, `STO+/-/×/÷ IND`
+**Core ALPHA & indirection (Phases 23, 24):**
+- ✓ FN-ALPHA-01: `ARCL nn`, `ASTO nn` — v2.2 Phase 23
+- ✓ FN-ALPHA-02: `ATOX`, `XTOA` — v2.2 Phase 23
+- ✓ FN-ALPHA-03: `AROT n`, `POSA` — v2.2 Phase 23
+- ✓ FN-IND-01: 11-variant `*Ind` family (`STO IND`, `RCL IND`, `ISG IND`, `DSE IND`, `SF IND`, `CF IND`, `FS? IND`, `FC? IND`, `STO+/-/×/÷ IND`) — v2.2 Phase 24
 
-**CLI integration (Phase 24):**
-- [ ] FN-CLI-01: Keyboard modals for the new modal-prompt IDs (`sf_prompt`, `fs_prompt`, `cf_prompt`, etc.)
-- [ ] FN-CLI-02: Remaining conditional tests at the keyboard (`X=Y`, `X≠Y`, `X<Y`, `X>Y`, `X≤Y`, `X=0`, `X≠0`, `X<0`, `X>0`, `X≤0`, `X≥0`)
-- [ ] FN-CLI-03: `?` help overlay updated with all v2.2 ops
+**CLI integration & documentation (Phase 25):**
+- ✓ FN-CLI-01: Keyboard modals for prompt IDs (`sf_prompt`, `fs_prompt`, `cf_prompt`, register prompts) — v2.2 Phase 25
+- ✓ FN-CLI-02: Four conditional tests on f-arith keys (`X=Y`, `X≤Y`, `X>Y`, `X=0`); remaining 8 routed through XEQ-by-name modal — v2.2 Phase 25
+- ✓ FN-CLI-03: `?` help overlay JSON-derived from `docs/hp41cv-functions.json` — v2.2 Phase 25
+- ✓ FN-DOC-01: `docs/hp41cv-function-matrix.md` regenerated from canonical JSON via `scripts/docs-matrix` (`just docs-matrix` / `just docs-matrix-check`) — v2.2 Phase 25
 
-**Documentation (Phase 25):**
-- [ ] FN-DOC-01: Function-matrix HP-41CV ROM vs. emulator coverage table (≥ 130 entries) in `docs/`
-- [ ] FN-DOC-02: PROJECT.md / CLAUDE.md / README.md synchronized via `/gsd-docs-update`
+**GUI integration & polish (Phase 26):**
+- ✓ FN-GUI-01: All v2.2 key IDs in `key_map.rs::resolve` + `KEY_DEFS` with three-label shift/alpha bindings — v2.2 Phase 26
+- ✓ FN-GUI-02: Modal routing for previously-stubbed prompt IDs replaces `unknown key` toast — v2.2 Phase 26
+- ✓ FN-GUI-03: Stub-error arm shrunk to v3.x module-pac functions only — v2.2 Phase 26
+- ✓ SKIN-04: 14-segment SVG font for LCD rendering — v2.2 Phase 26
+- ✓ SKIN-05: `?` keyboard-shortcut overlay (ported from CLI `help_data.rs`) — v2.2 Phase 26
+- ✓ PROG-02: USER-mode keyboard-assignment display — v2.2 Phase 26
+- ✓ PROG-03: `prgm_mode` binding rebound to `p` key — v2.2 Phase 26
 
-**GUI integration (Phase 26):**
-- [ ] FN-GUI-01: All new key IDs registered in `key_map.rs` and `KEY_DEFS` with correct three-label shift/alpha bindings
-- [ ] FN-GUI-02: Modal routing for previously-stubbed prompt IDs — replace `unknown key` toast with actual modal flows
-- [ ] FN-GUI-03: Stub-error arm shrinks to *only* truly v3.x items (module-pac functions)
+**Test hardening (Phase 27):**
+- ✓ FN-QUAL-01: `hp41-core` coverage 95.25 % (gate atomically raised 80 % → 95 %, D-27.2) — v2.2 Phase 27
+- ✓ FN-QUAL-02: 566-case numerical accuracy at 99.1 % (561/566); v1.x 503-case baseline floor 498 preserved — v2.2 Phase 27
+- ✓ FN-QUAL-05: WebdriverIO + tauri-driver E2E smoke on Ubuntu (`e2e-linux` job in `ci-gui.yml`) — v2.2 Phase 27
+- ✓ D-27.14: Vitest CI-gated in `just gui-ci` (142/142 tests) — v2.2 Phase 27
 
-**GUI Polish (Phase 27 — carried over from original v2.1 scope):**
-- [ ] SKIN-04: 14-segment SVG font for authentic LCD rendering
-- [ ] SKIN-05: Keyboard shortcut overlay (port `?` help panel from CLI `help_data.rs`)
-- [ ] PROG-02: Full keyboard assignment display in USER mode
-- [ ] PROG-03: `prgm_mode` binding for 'p' key (currently mapped to `prx`)
+### Active (v3.0 — Math 1 Pac Emulation)
 
-**Test hardening (Phase 28):**
-- [ ] QUAL-07: `hp41-core` coverage back to ≥ 95 % (recover from 92.5 % slip in v1.1/v2.1)
-- [ ] QUAL-08: 500-case numerical accuracy suite extended with new ops; ≥ 98 % gate maintained
-- [ ] QUAL-09: GUI E2E smoke test via Playwright in `ci-gui.yml`
+*Stand 2026-05-20: v3.0 fully shipped (Phases 28–32, 33/33 plans + 6 post-graduation polish commits ship-ready on `develop`). Test/CI infrastructure plus README hard-claim graduation closed via post-Phase-32 gap-closure run (Plans 32-04..32-10). Final coverage: 95.39 % lines / 94.26 % regions on `hp41-core`; all `ops/math1/*.rs` files ≥ 90 % per ROADMAP SC-1. README v3.0 line graduated to OM-cited "feature-complete per Owner's Manual 00041-90034" per D-32.5. Post-graduation polish batch (quick-task pattern à la v2.1): MSRV-CI fix (`uninlined_format_args` on 5 sites), E2E SINH+MATRIX assertion path correction, right-panel XROM-exclusion filter (Phase 29 SC-4 superseded), `?` overlay Clear-widget z-order fix, and `?` overlay incremental substring search (mirroring hp41-gui's HelpOverlay.tsx). Scope remains Math 1 Pac only (XROM-Framework + Matrix/Komplex/Polynom/Integration/Solver/Vektor). Stat 1 → v3.1.*
 
 ### Out of Scope
 
@@ -225,3 +242,9 @@ v2.0 Phase 17 (2026-05-10): Persistence & Print Output complete — `persistence
 v2.0 Phase 18 (2026-05-10): Program Listing & CI/CD complete — `format_all_steps()` + `handle_sst`/`handle_bst` Tauri commands; `CalcStateView.program_steps`+`pc`; conditional PRGM panel in `App.tsx` with F7/F8 bindings and `activeStepRef` auto-scroll; `ci-gui.yml` 3-OS matrix CI independent from `ci.yml`. 5/5 SC verified.
 
 *Last updated: 2026-05-10 — v2.0 Tauri GUI milestone complete (Phases 13–18); next milestone v2.1*
+
+v2.2 HP-41CV Feature Completeness shipped 2026-05-15 (Phases 20–27, 8/8 phases, 26/26 plans) — full ROM built-in set across `hp41-core` + `hp41-cli` + `hp41-gui`; coverage gate atomically raised 80 % → 95 % (D-27.2), achieved 95.25 % lines / 93.75 % regions; 566-case numerical accuracy at 99.1 %; WebdriverIO + tauri-driver E2E smoke green on Ubuntu (`e2e-linux` CI job); Vitest now CI-gated. v1.x 503-case baseline floor 498 preserved per D-27.6. Tag `v2.2` on `main`.
+
+*Last updated: 2026-05-18 — v3.0 Phase 31 (GUI Integration) shipped (5/5 plans, 7/7 GUI-01..07 must-haves automated-verified, 3 manual GUI smoke items deferred to UAT); CATALOG 2 XROM enumeration + Math Pac I help overlay + LCD-alternation modal prompts + R/S 3-way + Esc cascade + request_cancel channel all land in this phase. Phase 32 (Test Hardening) next.*
+
+*Last updated: 2026-05-18 — v3.0 Phase 32 (Test Hardening & Quality Gates) fully shipped (10/10 plans: 3 original + 7 gap-closure). Original Phase 32 ship (Plans 32-01..32-03) delivered the test/CI infrastructure: meta-gate graduation, `lint_math1_assertions.rs`, `numerical_accuracy.rs` 566 → 763 cases at 99.3 % pass rate, E2E smoke extended with `sinh(1)` + `MATRIX DET` Math Pac I workflows on Ubuntu via `ci-gui.yml::e2e-linux`, Free42 GPL-contamination guard (D-32.7 12-symbol policy) in `just ci` + `ci.yml::license-audit` parallel job per D-32.8. Post-ship gap-closure run (Plans 32-04..32-10) added ~70 risk-weighted error-branch tests across 9 new `hp41-core/tests/` files plus the CR-01 + WR-01..07 cleanups, lifting coverage from 91.74 % → 95.39 % lines / 92.14 % → 94.26 % regions and graduating the README v3.0 line to the OM-cited hard claim "feature-complete per Owner's Manual 00041-90034" per D-32.5.*

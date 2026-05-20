@@ -9,7 +9,7 @@
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
+use ratatui::widgets::{Block, Cell, Clear, Paragraph, Row, Table};
 use ratatui::Frame;
 
 use crate::help_data;
@@ -225,8 +225,12 @@ fn render_annunciators(app: &App, frame: &mut Frame, area: Rect) {
 fn render_status(app: &App, frame: &mut Frame, area: Rect) {
     // D-11: pending_input prompts override normal status message
     // D-14: ALPHA mode has a standard status message
-    let base: String = if let Some(ref pending) = app.pending_input {
-        pending_prompt(pending)
+    // Phase 29 (D-29.3): modal_prompt renders via widened pending_prompt signature.
+    let base: String = if app.pending_input.is_some() || app.state.modal_prompt.is_some() {
+        pending_prompt(
+            app.pending_input.as_ref(),
+            app.state.modal_prompt.as_deref(),
+        )
     } else if app.state.alpha_mode {
         "ALPHA mode — Enter or A to exit".to_string()
     } else {
@@ -248,86 +252,137 @@ fn render_status(app: &App, frame: &mut Frame, area: Rect) {
 /// Format the status bar text for each PendingInput variant (D-11).
 /// Uses {:_<2} to show placeholder underscores for accumulator length.
 ///
-/// **FN-CLI-04 hard rule (D-25.14):** this match is **exhaustive** — no
-/// `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput`
-/// variant forces the compiler to flag this match at build time. That is
-/// the runtime guarantee that no `PendingInput` slips through silently.
+/// **FN-CLI-04 hard rule (D-25.14):** the inner match over PendingInput is **exhaustive** —
+/// no `_ =>` catch-all, no `unreachable!()`. Adding a new `PendingInput` variant forces
+/// the compiler to flag this match at build time.
 ///
-/// `pub` so integration tests under `hp41-cli/tests/` can verify status-
-/// bar formatting per Phase 25 Plan 02.
-pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
-    use crate::app::PendingInput;
+/// **Widened signature (Phase 29 / D-29.3):**
+/// - `pending: Option<&PendingInput>` — `None` when no modal is active.
+/// - `modal_prompt: Option<&str>` — set by hp41-core when a Math Pac I modal is open.
+///
+/// **Precedence rules (RESEARCH §3.3 / §7.3):**
+/// - If `pending.is_none() && modal_prompt.is_some()` → return `modal_prompt` directly.
+/// - If `pending == Some(XeqByName{CollectForModal})` AND `modal_prompt.is_some()` →
+///   modal_prompt wins (shows the user the Math Pac I prompt, not the XEQ UI indicator).
+/// - Otherwise: render the PendingInput (existing exhaustive match).
+/// - If both are None: return empty string (caller falls through to alpha/message/Ready).
+///
+/// `pub` so integration tests under `hp41-cli/tests/` can verify status-bar formatting.
+pub fn pending_prompt(
+    pending: Option<&crate::app::PendingInput>,
+    modal_prompt: Option<&str>,
+) -> String {
+    use crate::app::{PendingInput, XeqByNameMode};
     use hp41_core::ops::{FlagTestKind, StoArithKind};
 
     use crate::keys::{FlagPromptKind, RegisterOpKind};
 
-    match pending {
-        PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
-        PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
-        PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
-        PendingInput::StoSub(acc) => format!("STO- [{acc:_<2}]"),
-        PendingInput::StoMul(acc) => format!("STO\u{00D7} [{acc:_<2}]"),
-        PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{acc:_<2}]"),
-        PendingInput::AssignKey => "Assign: press key to assign".to_string(),
-        PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
-        PendingInput::ConfirmLoad(idx) => {
-            let name = crate::programs::sample_programs()
-                .get(*idx)
-                .map(|p| p.name)
-                .unwrap_or("program");
-            format!("Load '{name}'? Current program will be lost. [Y/n]")
+    // Phase 29 (D-29.3): precedence rules.
+    // WR-05 fix: `if let Some(mp)` is structurally identical to the previous
+    // `is_some() ... unwrap_or("")` pair but makes the invariant explicit —
+    // no defensive `""` fallback that clippy::unwrap_used would flag and that
+    // could only be reached if the surrounding guard was wrong.
+    if pending.is_none() {
+        if let Some(mp) = modal_prompt {
+            return mp.to_string();
         }
-        PendingInput::FmtDigits(mode) => {
-            let label = match mode {
-                hp41_core::DisplayMode::Fix(_) => "FIX",
-                hp41_core::DisplayMode::Sci(_) => "SCI",
-                hp41_core::DisplayMode::Eng(_) => "ENG",
-            };
-            format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
-        }
-        PendingInput::PrintModal => "PRNT: _".to_string(),
-        PendingInput::HexModal(acc) => {
-            if acc.is_empty() {
-                "HEX: __".to_string()
-            } else {
-                format!("HEX: {acc}_")
-            }
-        }
-        // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
-        PendingInput::FlagPrompt { kind, ind, acc } => {
-            let mnemonic = match kind {
-                FlagPromptKind::SetFlag => "SF",
-                FlagPromptKind::ClearFlag => "CF",
-                FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
-                FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
-                FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
-                FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
-            };
-            let ind_str = if *ind { " IND" } else { "" };
-            format!("{mnemonic}{ind_str} [{acc:_<2}]")
-        }
-        PendingInput::RegisterPrompt { op, ind, acc } => {
-            let mnemonic = match op {
-                RegisterOpKind::Sto => "STO",
-                RegisterOpKind::Rcl => "RCL",
-                RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
-                RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
-                RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
-                RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
-                RegisterOpKind::View => "VIEW",
-                RegisterOpKind::Arcl => "ARCL",
-                RegisterOpKind::Asto => "ASTO",
-                RegisterOpKind::Isg => "ISG",
-                RegisterOpKind::Dse => "DSE",
-            };
-            let ind_str = if *ind { " IND" } else { "" };
-            format!("{mnemonic}{ind_str} [{acc:_<2}]")
-        }
-        PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
-        PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
-        PendingInput::TonePrompt => "TONE [_]".to_string(),
-        PendingInput::XeqByName(acc) => format!("XEQ \"{acc}\"_"),
     }
+    // CollectForModal: modal_prompt wins when both are Some
+    if let Some(PendingInput::XeqByName {
+        mode: XeqByNameMode::CollectForModal,
+        ..
+    }) = pending
+    {
+        if let Some(mp) = modal_prompt {
+            return mp.to_string();
+        }
+    }
+
+    // Standard exhaustive match over pending (FN-CLI-04 invariant preserved)
+    match pending {
+        None => String::new(),
+        Some(pending) => match pending {
+            PendingInput::StoRegister(acc) => format!("STO [{acc:_<2}]"),
+            PendingInput::RclRegister(acc) => format!("RCL [{acc:_<2}]"),
+            PendingInput::StoAdd(acc) => format!("STO+ [{acc:_<2}]"),
+            PendingInput::StoSub(acc) => format!("STO- [{acc:_<2}]"),
+            PendingInput::StoMul(acc) => format!("STO\u{00D7} [{acc:_<2}]"),
+            PendingInput::StoDiv(acc) => format!("STO\u{00F7} [{acc:_<2}]"),
+            PendingInput::AssignKey => "Assign: press key to assign".to_string(),
+            PendingInput::AssignLabel(c, acc) => format!("Assign '{c}' \u{2192} LBL: [{acc}]"),
+            PendingInput::ConfirmLoad(idx) => {
+                let name = crate::programs::sample_programs()
+                    .get(*idx)
+                    .map(|p| p.name)
+                    .unwrap_or("program");
+                format!("Load '{name}'? Current program will be lost. [Y/n]")
+            }
+            PendingInput::FmtDigits(mode) => {
+                let label = match mode {
+                    hp41_core::DisplayMode::Fix(_) => "FIX",
+                    hp41_core::DisplayMode::Sci(_) => "SCI",
+                    hp41_core::DisplayMode::Eng(_) => "ENG",
+                };
+                format!("{label} [_]  (0\u{2013}9 set digits, f cycles, Esc cancel)")
+            }
+            PendingInput::PrintModal => "PRNT: _".to_string(),
+            PendingInput::HexModal(acc) => {
+                if acc.is_empty() {
+                    "HEX: __".to_string()
+                } else {
+                    format!("HEX: {acc}_")
+                }
+            }
+            // ── Phase 25 Plan 02 — Hybrid PendingInput variants (D-25.11) ────
+            PendingInput::FlagPrompt { kind, ind, acc } => {
+                let mnemonic = match kind {
+                    FlagPromptKind::SetFlag => "SF",
+                    FlagPromptKind::ClearFlag => "CF",
+                    FlagPromptKind::Test(FlagTestKind::IsSet) => "FS?",
+                    FlagPromptKind::Test(FlagTestKind::IsClear) => "FC?",
+                    FlagPromptKind::Test(FlagTestKind::IsSetThenClear) => "FS?C",
+                    FlagPromptKind::Test(FlagTestKind::IsClearThenClear) => "FC?C",
+                };
+                let ind_str = if *ind { " IND" } else { "" };
+                format!("{mnemonic}{ind_str} [{acc:_<2}]")
+            }
+            PendingInput::RegisterPrompt { op, ind, acc } => {
+                let mnemonic = match op {
+                    RegisterOpKind::Sto => "STO",
+                    RegisterOpKind::Rcl => "RCL",
+                    RegisterOpKind::StoArith(StoArithKind::Add) => "STO+",
+                    RegisterOpKind::StoArith(StoArithKind::Sub) => "STO-",
+                    RegisterOpKind::StoArith(StoArithKind::Mul) => "STO\u{00D7}",
+                    RegisterOpKind::StoArith(StoArithKind::Div) => "STO\u{00F7}",
+                    RegisterOpKind::View => "VIEW",
+                    RegisterOpKind::Arcl => "ARCL",
+                    RegisterOpKind::Asto => "ASTO",
+                    RegisterOpKind::Isg => "ISG",
+                    RegisterOpKind::Dse => "DSE",
+                };
+                let ind_str = if *ind { " IND" } else { "" };
+                format!("{mnemonic}{ind_str} [{acc:_<2}]")
+            }
+            PendingInput::ClpLabel(acc) => format!("CLP [{acc}]_"),
+            PendingInput::DelCount(acc) => format!("DEL [{acc:_<3}]"),
+            PendingInput::TonePrompt => "TONE [_]".to_string(),
+            // Phase 29 (D-29.8): XeqByName is now a struct variant with XeqByNameMode.
+            // Two explicit arms per FN-CLI-04 (no `_ =>`).
+            PendingInput::XeqByName {
+                acc,
+                mode: XeqByNameMode::Normal,
+            } => {
+                format!("XEQ \"{acc}\"_")
+            }
+            PendingInput::XeqByName {
+                acc,
+                mode: XeqByNameMode::CollectForModal,
+            } => {
+                // CollectForModal: modal_prompt should have won above; this is fallback.
+                format!("NAME: {acc}_")
+            }
+        }, // end Some(pending) => match pending
+    } // end match pending (outer)
 }
 
 // ── Phase 5 overlays ─────────────────────────────────────────────────────────
@@ -335,16 +390,58 @@ pub fn pending_prompt(pending: &crate::app::PendingInput) -> String {
 /// Render the HP-41 Function Reference overlay (D-17, UX-01).
 /// Uses ratatui 0.30 Rect::centered() — no manual calculation needed.
 /// RESEARCH Pitfall 1: draw(&self) is immutable; RefCell<TableState> allows borrow_mut here.
+///
+/// v3.0 (post-ship): the overlay gained an incremental substring-search bar
+/// at the top, mirroring hp41-gui's `HelpOverlay.tsx`. Layout splits the
+/// modal into a 3-line search bar + the remaining table area; the table is
+/// driven by `help_data::filter_help_rows(...)` over `app.help_search_query`.
 fn render_help_overlay(app: &App, frame: &mut Frame) {
     let overlay_area = frame
         .area()
         .centered(Constraint::Percentage(80), Constraint::Percentage(90));
 
+    // Clear the underlying widgets (right-panel, stack panel, display) before
+    // painting the overlay. Without this `Clear`, ratatui's Table renders
+    // cells with transparent backgrounds — the underlying content bleeds
+    // through in the gaps between columns (visible as e.g. `XEQ "X<Y?"X<Y?`
+    // appearing inside the overlay's Math section). Standard ratatui modal
+    // pattern: render `Clear` to the modal area first, then the modal.
+    frame.render_widget(Clear, overlay_area);
+
+    // Split modal into search-bar (3 lines) + table (rest). The 3-line search
+    // bar gives room for the bordered block + one row of query text.
+    let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(1)]).split(overlay_area);
+    let search_area = chunks[0];
+    let table_area = chunks[1];
+
+    // Search bar — shows the current query with an underscore cursor, or a
+    // hint when empty. The hint text is intentionally compact; the modal
+    // block title carries the close-key reminder so the search bar stays
+    // unambiguous about what counts as "input".
+    let search_display = if app.help_search_query.is_empty() {
+        "(type to filter; ↑↓/PgUp/PgDn scroll; Esc / ? close)".to_string()
+    } else {
+        format!("{}_", app.help_search_query)
+    };
+    let search_paragraph =
+        Paragraph::new(search_display).block(Block::bordered().title_top(" Search "));
+    frame.render_widget(search_paragraph, search_area);
+
     // D-25.16 / D-25.18: rows derive from docs/hp41cv-functions.json via
     // help_data::help_overlay_rows. Category headers are synthesised by the
-    // helper as "=== <category> ===" with empty key/op fields.
+    // helper as "=== <category> ===" with empty key/op fields. The filter
+    // (post-v3.0 search) preserves category headers only when at least one
+    // child row matches the query.
     let overlay_rows = help_data::help_overlay_rows();
-    let rows: Vec<Row> = overlay_rows
+    let filtered = help_data::filter_help_rows(&overlay_rows, &app.help_search_query);
+
+    // Match count for the title — non-header rows only.
+    let match_count = filtered
+        .iter()
+        .filter(|r| !r.desc.starts_with("==="))
+        .count();
+
+    let rows: Vec<Row> = filtered
         .iter()
         .map(|row| {
             if row.desc.starts_with("===") {
@@ -364,6 +461,16 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
         })
         .collect();
 
+    let title = if app.help_search_query.is_empty() {
+        " HP-41 Function Reference  [? or Esc to close] ".to_string()
+    } else {
+        format!(
+            " HP-41 Function Reference  [{} match{}] ",
+            match_count,
+            if match_count == 1 { "" } else { "es" },
+        )
+    };
+
     let table = Table::new(
         rows,
         [
@@ -372,11 +479,11 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
             Constraint::Min(30),
         ],
     )
-    .block(Block::bordered().title_top(" HP-41 Function Reference  [? or Esc to close] "))
+    .block(Block::bordered().title_top(title))
     .row_highlight_style(ratatui::style::Style::new().reversed());
 
     // RefCell::borrow_mut() — safe: draw() is single-threaded and non-reentrant.
-    frame.render_stateful_widget(table, overlay_area, &mut app.help_table_state.borrow_mut());
+    frame.render_stateful_widget(table, table_area, &mut app.help_table_state.borrow_mut());
 }
 
 /// Render the program library overlay (D-22, UX-03).
@@ -395,6 +502,10 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
         .block(Block::bordered().title_top(" Sample Programs  [Enter=load, Esc=close] "))
         .row_highlight_style(ratatui::style::Style::new().reversed());
 
+    // Same `Clear` rationale as `render_help_overlay` — wipe the underlying
+    // widgets before painting the modal to prevent right-panel/stack/display
+    // bleed-through in column gaps.
+    frame.render_widget(Clear, overlay_area);
     frame.render_stateful_widget(
         table,
         overlay_area,

@@ -32,6 +32,23 @@ enum IndToggleAction {
     Continue,
 }
 
+/// Discriminator for `PendingInput::XeqByName` — distinguishes the normal
+/// XEQ-by-Name flow from the CollectForModal auto-open hook (D-29.8 / D-29.9).
+///
+/// `Normal`: the user explicitly opened XEQ-by-Name via `f-N` (keys.rs:319).
+/// `CollectForModal`: auto-opened by `maybe_auto_open_collect_for_modal` after
+///   a Math Pac I op opened a modal at FunctionNamePrompt. Enter dispatches
+///   `submit_modal_with_label` instead of `Op::Xeq`.
+///
+/// Phase 29 / CLI-05 additive surface — D-29.8.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XeqByNameMode {
+    /// Standard XEQ-by-Name: Enter dispatches `Op::Xeq(acc)` or the local resolver.
+    Normal,
+    /// CollectForModal: Enter dispatches `submit_modal_with_label(state, &acc)`.
+    CollectForModal,
+}
+
 /// Transient UI state for multi-key input (D-08). NOT serialized to disk.
 /// Consumed in App::handle_pending_input(). Cleared on Esc or successful dispatch.
 //
@@ -39,6 +56,8 @@ enum IndToggleAction {
 // variants (FlagPrompt, RegisterPrompt, ClpLabel, DelCount, TonePrompt,
 // XeqByName) per D-25.11. Task 1 landed the variants + exhaustive
 // `pending_prompt()`; Task 2 wired the modal openers and dispatch.
+// Plan 29-03 migrated XeqByName from a tuple variant to a struct variant
+// with a `mode: XeqByNameMode` discriminator per D-29.8.
 #[derive(Debug, Clone)]
 pub enum PendingInput {
     /// Legacy v1.1 STO-register modal. Plan 02 routes `S` to
@@ -110,7 +129,12 @@ pub enum PendingInput {
     /// the 8 conditional-test mnemonics land via Plan 03's
     /// `builtin_card_op` extension). Accumulator capped at 24 chars
     /// (HP-41 ALPHA register width per RESEARCH §Security V5).
-    XeqByName(String),
+    /// Plan 29-03 (D-29.8): migrated from tuple variant to struct variant
+    /// with `mode: XeqByNameMode` discriminator for the CollectForModal flow.
+    XeqByName {
+        acc: String,
+        mode: XeqByNameMode,
+    },
 }
 
 /// Top-level application state. Flat struct — no state machine required for Phase 4.
@@ -138,6 +162,11 @@ pub struct App {
     /// RefCell: draw(&self) is immutable but render_stateful_widget needs &mut TableState.
     /// Single-threaded, non-reentrant draw — borrow_mut() will never panic at runtime.
     pub help_table_state: RefCell<TableState>,
+    /// Substring-filter query for the `?` overlay (mirrors hp41-gui's
+    /// `HelpOverlay.tsx` search input from v3.0 Phase 31). Accumulated by
+    /// `handle_key` while `show_help == true`; cleared on Esc / `?` toggle
+    /// close. Empty string disables filtering — every row passes through.
+    pub help_search_query: String,
     pub show_programs: bool,
     pub programs_table_state: RefCell<TableState>,
     /// BufWriter for --print-log, if specified. None = no file logging.
@@ -208,6 +237,7 @@ impl App {
             shift_armed: false,
             show_help: false,
             help_table_state: RefCell::new(TableState::default()),
+            help_search_query: String::new(),
             show_programs: false,
             programs_table_state: RefCell::new(TableState::default()),
             print_log_writer,
@@ -306,9 +336,20 @@ impl App {
         if key.code == KeyCode::Char('?')
             && !matches!(
                 self.pending_input,
-                Some(PendingInput::XeqByName(_)) | Some(PendingInput::ClpLabel(_))
+                Some(PendingInput::XeqByName { .. }) | Some(PendingInput::ClpLabel(_))
             )
         {
+            // Toggle help overlay. If we're CLOSING it (was open, now closing),
+            // also clear the search query — the next open should start with a
+            // fresh, empty search. Without this, a user who typed "matrix"
+            // then closed via `?` would see "matrix" still filtered on the
+            // next `?` open. The `show_help`-branch below also clears on Esc /
+            // `?`, but that branch is unreachable for `?` because this early
+            // toggle eats the keypress first.
+            if self.show_help {
+                self.help_search_query.clear();
+                self.help_table_state.borrow_mut().select(None);
+            }
             self.show_help = !self.show_help;
             self.show_programs = false; // close programs overlay if open
             return;
@@ -486,16 +527,48 @@ impl App {
         }
 
         // Phase 5: overlay navigation — help and program library overlays intercept nav keys.
+        // v3.0 (post-ship UX): help overlay now supports incremental substring
+        // search à la hp41-gui's `HelpOverlay.tsx`. Char keys go into the
+        // search query; `q`/`j`/`k` keep their legacy navigation shortcuts
+        // ONLY while the query is empty (so once the user starts typing they
+        // can use those letters as part of a search term). Esc / `?` always
+        // close + clear; Backspace pops the last char.
         if self.show_help {
             match key.code {
-                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => {
+                KeyCode::Esc | KeyCode::Char('?') => {
                     self.show_help = false;
+                    self.help_search_query.clear();
+                    self.help_table_state.borrow_mut().select(None);
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up | KeyCode::PageUp => {
                     self.help_table_state.borrow_mut().select_previous();
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down | KeyCode::PageDown => {
                     self.help_table_state.borrow_mut().select_next();
+                }
+                KeyCode::Backspace => {
+                    self.help_search_query.pop();
+                    self.help_table_state.borrow_mut().select(None);
+                }
+                // Legacy shortcuts — active only while the query is empty so
+                // the user can still type these letters as part of a search
+                // term ("matrix" begins with 'm' but contains 'q'-free chars,
+                // "quaternion" would start with 'q', etc.).
+                KeyCode::Char('q') if self.help_search_query.is_empty() => {
+                    self.show_help = false;
+                    self.help_table_state.borrow_mut().select(None);
+                }
+                KeyCode::Char('k') if self.help_search_query.is_empty() => {
+                    self.help_table_state.borrow_mut().select_previous();
+                }
+                KeyCode::Char('j') if self.help_search_query.is_empty() => {
+                    self.help_table_state.borrow_mut().select_next();
+                }
+                KeyCode::Char(c) => {
+                    self.help_search_query.push(c);
+                    // Reset selection — the old index would point into a
+                    // pre-filter row set that no longer exists.
+                    self.help_table_state.borrow_mut().select(None);
                 }
                 _ => {}
             }
@@ -630,6 +703,46 @@ impl App {
         // D-15: BST (back-step) — F8, decrements pc without executing
         if key.code == KeyCode::F(8) {
             self.state.pc = self.state.pc.saturating_sub(1);
+            return;
+        }
+
+        // Phase 29 (D-29.5): R/S submits modal numeric input.
+        // MUST be below the pending_input.is_some() return at line ~327 (D-07 invariant)
+        // and below the shift_armed block (§7.2). The pending_input.is_none() defensive
+        // guard prevents future code-shape changes from breaking D-07.
+        if key.code == KeyCode::F(5)
+            && self.state.modal_program.is_some()
+            && self.pending_input.is_none()
+        {
+            match hp41_core::ops::math1::submit_modal(&mut self.state) {
+                Ok(()) => {
+                    self.message = None;
+                    self.drain_and_show_print_output(None);
+                }
+                Err(e) => self.message = Some(format!("{e}")),
+            }
+            // WR-06 fix: maintain the documented "F5 / R / S code paths reset
+            // last_key_code to 0 BEFORE GETKEY runs" invariant (CLAUDE.md v1.1
+            // additions). The Math1 modal-submit path is a new F5 dispatch
+            // route that bypassed this reset — if a user was mid-program with
+            // Op::GetKey waiting on a keypress, the next GetKey would see a
+            // stale code from before the modal opened.
+            self.state.last_key_code = 0;
+            return;
+        }
+
+        // Phase 29 (D-29.6): Esc cancels open math1 modal (no pending_input active).
+        // MUST be below the shift_armed Esc block (§7.2 two-step convention): the
+        // shift_armed block at ~line 438-451 fires first when shift_armed=true, clears
+        // shift_armed, and returns. Only when shift_armed=false does this block fire.
+        // The defensive && self.pending_input.is_none() guard preserves D-07 even if
+        // future refactors change the ordering above.
+        if key.code == KeyCode::Esc
+            && self.state.modal_program.is_some()
+            && self.pending_input.is_none()
+        {
+            hp41_core::ops::math1::cancel_modal(&mut self.state);
+            self.message = Some("Cancelled".to_string());
             return;
         }
 
@@ -1069,8 +1182,8 @@ impl App {
             Some(PendingInput::TonePrompt) => {
                 self.handle_tone_prompt(key);
             }
-            Some(PendingInput::XeqByName(acc)) => {
-                self.handle_xeq_by_name(key, acc);
+            Some(PendingInput::XeqByName { acc, mode }) => {
+                self.handle_xeq_by_name(key, acc, mode);
             }
             None => unreachable!("handle_pending_input called with no pending input — caller must check is_some() first"),
         }
@@ -1404,26 +1517,42 @@ impl App {
     /// (T-25-05 mitigation; matches the ALPHA register size).
     const XEQ_NAME_CAP: usize = 24;
 
-    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String) {
+    fn handle_xeq_by_name(&mut self, key: KeyEvent, acc: String, mode: XeqByNameMode) {
         match key.code {
             KeyCode::Esc => {
                 self.pending_input = None;
             }
             KeyCode::Enter => {
                 if !acc.is_empty() {
-                    // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
-                    // resolves the 8 non-keyboard conditional-test mnemonics
-                    // directly to Op::Test(TestKind::*) without round-tripping
-                    // through Op::Xeq + run_program. Falls through to
-                    // Op::Xeq(acc) for the 4 v2.1 card-reader names
-                    // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
-                    // builtin_card_op) and for user LBLs. Unknown names
-                    // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
-                    // no "did you mean…?" hint until Phase 26).
-                    if let Some(op) = keys::xeq_by_name_local_resolve(&acc) {
-                        self.call_dispatch(op);
-                    } else {
-                        self.call_dispatch(Op::Xeq(acc));
+                    match mode {
+                        XeqByNameMode::CollectForModal => {
+                            // Phase 29 (D-29.8): CollectForModal Enter → submit_modal_with_label
+                            match hp41_core::ops::math1::submit_modal_with_label(
+                                &mut self.state,
+                                &acc,
+                            ) {
+                                Ok(()) => self.message = None,
+                                Err(e) => self.message = Some(format!("{e}")),
+                            }
+                        }
+                        XeqByNameMode::Normal => {
+                            // Plan 03 (D-25.8 + D-25.9): CLI-local fast-path first —
+                            // resolves the 8 non-keyboard conditional-test mnemonics
+                            // directly to Op::Test(TestKind::*) without round-tripping
+                            // through Op::Xeq + run_program. Falls through to
+                            // Op::Xeq(acc) for the 4 v2.1 card-reader names
+                            // (WPRGM/RDPRGM/WDTA/RDTA — resolved by hp41-core::
+                            // builtin_card_op) and for user LBLs. Unknown names
+                            // surface as HpError::InvalidOp via Op::Xeq (Pitfall 9 —
+                            // no "did you mean…?" hint until Phase 26).
+                            if let Some(op) =
+                                keys::xeq_by_name_local_resolve(&acc, self.state.xrom_modules)
+                            {
+                                self.call_dispatch(op);
+                            } else {
+                                self.call_dispatch(Op::Xeq(acc));
+                            }
+                        }
                     }
                 }
                 self.pending_input = None;
@@ -1431,17 +1560,17 @@ impl App {
             KeyCode::Backspace => {
                 let mut new_acc = acc;
                 new_acc.pop();
-                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc: new_acc, mode });
             }
             KeyCode::Char(ch) => {
                 let mut new_acc = acc;
                 if new_acc.len() < Self::XEQ_NAME_CAP {
                     new_acc.push(ch);
                 }
-                self.pending_input = Some(PendingInput::XeqByName(new_acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc: new_acc, mode });
             }
             _ => {
-                self.pending_input = Some(PendingInput::XeqByName(acc));
+                self.pending_input = Some(PendingInput::XeqByName { acc, mode });
             }
         }
     }
@@ -1637,11 +1766,14 @@ impl App {
     }
 
     /// Call hp41_core::ops::dispatch and map any HpError to self.message.
-    fn call_dispatch(&mut self, op: Op) {
+    pub fn call_dispatch(&mut self, op: Op) {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => self.message = None,
             Err(e) => self.message = Some(format!("{e}")),
         }
+        // Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal
+        // when modal needs alpha label.
+        self.maybe_auto_open_collect_for_modal();
     }
 
     /// Call hp41_core::ops::dispatch, then drain card op and print_buffer.
@@ -1678,6 +1810,36 @@ impl App {
                 // that clears stale messages on Ok.
             }
             Err(e) => self.message = Some(format!("{e}")),
+        }
+        // Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal
+        // when modal needs alpha label.
+        self.maybe_auto_open_collect_for_modal();
+    }
+
+    /// Phase 29 (D-29.9): post-dispatch auto-open CollectForModal modal.
+    ///
+    /// Called at the tail of `call_dispatch` and `call_dispatch_and_drain` after
+    /// every hp41-core dispatch. If the current `modal_program` requires an alpha
+    /// label (i.e., it's at a FunctionNamePrompt step for Integ, Solve, or Difeq),
+    /// auto-opens `PendingInput::XeqByName { mode: CollectForModal }` so the CLI
+    /// immediately prompts the user to type the function label name.
+    ///
+    /// Depth bound: `requires_alpha_label()` returns false for ALL steps except
+    /// the three FunctionNamePrompt variants (per D-29.9 / RESEARCH §7.8). After
+    /// `submit_modal_with_label` advances the step, the next dispatch will NOT
+    /// re-trigger this hook. Bound = 1.
+    fn maybe_auto_open_collect_for_modal(&mut self) {
+        if self.pending_input.is_some() {
+            return;
+        }
+        let Some(ref mp) = self.state.modal_program else {
+            return;
+        };
+        if mp.requires_alpha_label() {
+            self.pending_input = Some(PendingInput::XeqByName {
+                acc: String::new(),
+                mode: XeqByNameMode::CollectForModal,
+            });
         }
     }
 }
@@ -1833,11 +1995,94 @@ mod tests {
     #[test]
     fn test_q_does_not_quit_when_help_overlay_open() {
         // SC-3 gap closure: 'q' must close the overlay, NOT set exit=true.
+        // Post-v3.0 (help search): this legacy shortcut survives only when
+        // the search query is empty (default state on overlay open).
         let mut app = make_app();
         app.show_help = true;
         app.handle_key(make_key(KeyCode::Char('q')));
         assert!(!app.exit, "'q' must not quit when help overlay is open");
         assert!(!app.show_help, "'q' must close the help overlay");
+    }
+
+    #[test]
+    fn help_search_appends_chars_to_query() {
+        // Post-v3.0 substring-search input: while the help overlay is open,
+        // typing letters accumulates into `help_search_query` and is consumed
+        // by the overlay (the key must not propagate to the calculator).
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('a')));
+        app.handle_key(make_key(KeyCode::Char('t')));
+        assert_eq!(app.help_search_query, "mat");
+        assert!(app.show_help, "overlay must stay open while typing");
+    }
+
+    #[test]
+    fn help_search_q_becomes_text_input_when_query_active() {
+        // While the search query is non-empty, the legacy `q` close shortcut
+        // is suppressed so the user can type words containing 'q'
+        // (e.g. "quadrant"). Only Esc and `?` close in that state.
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(!app.show_help, "first 'q' (empty query) closes overlay");
+
+        // Reopen + type something + try 'q' again.
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert!(app.show_help, "'q' must NOT close when query is non-empty");
+        assert_eq!(app.help_search_query, "mq");
+    }
+
+    #[test]
+    fn help_search_backspace_pops_last_char() {
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('s')));
+        app.handle_key(make_key(KeyCode::Char('i')));
+        app.handle_key(make_key(KeyCode::Char('n')));
+        assert_eq!(app.help_search_query, "sin");
+        app.handle_key(make_key(KeyCode::Backspace));
+        assert_eq!(app.help_search_query, "si");
+        // Pop on empty must not panic.
+        app.handle_key(make_key(KeyCode::Backspace));
+        app.handle_key(make_key(KeyCode::Backspace));
+        app.handle_key(make_key(KeyCode::Backspace));
+        assert_eq!(app.help_search_query, "");
+    }
+
+    #[test]
+    fn help_search_esc_closes_and_clears_query() {
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('m')));
+        app.handle_key(make_key(KeyCode::Char('a')));
+        assert_eq!(app.help_search_query, "ma");
+        app.handle_key(make_key(KeyCode::Esc));
+        assert!(!app.show_help, "Esc must close the overlay");
+        assert_eq!(
+            app.help_search_query, "",
+            "Esc must clear the query so reopen starts fresh"
+        );
+    }
+
+    #[test]
+    fn help_search_question_mark_closes_and_clears() {
+        // `?` is symmetric to the open keypress: open and close both go
+        // through `?`. Closing must wipe the query too (same lifecycle as Esc)
+        // — trade-off: cannot search for `?` literal, but substring match on
+        // `desc` still finds e.g. `X<Y?` via the substring `<y`.
+        let mut app = make_app();
+        app.show_help = true;
+        app.handle_key(make_key(KeyCode::Char('x')));
+        app.handle_key(make_key(KeyCode::Char('e')));
+        app.handle_key(make_key(KeyCode::Char('q')));
+        assert_eq!(app.help_search_query, "xeq");
+        app.handle_key(make_key(KeyCode::Char('?')));
+        assert!(!app.show_help);
+        assert_eq!(app.help_search_query, "");
     }
 
     #[test]

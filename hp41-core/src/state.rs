@@ -155,6 +155,83 @@ pub struct CalcState {
     /// `print_buffer` drain pattern.
     #[serde(default, skip)]
     pub pending_card_op: Option<crate::cardreader::CardOpRequest>,
+
+    // ── Phase 28 (v3.0): XROM framework + Math Pac I ────────────────────────
+    /// Bitfield of loaded XROM modules. Bit 0 = Math 1 loaded.
+    /// Default: 0b0000_0001 (Math 1 pre-loaded per v3.0 scope).
+    /// Persistent across save/load. `#[serde(default = "default_xrom_modules")]`.
+    #[serde(default = "default_xrom_modules")]
+    pub xrom_modules: u8,
+
+    /// Complex stack overlay mode (D-28.1 / D-28.2). When true, X+iY form
+    /// the complex number ζ and Z+iT form τ. Auto-on at first complex op;
+    /// explicit `XEQ "REAL"` (D-28.3) deactivates. Safe default: false.
+    #[serde(default)]
+    pub complex_mode: bool,
+
+    /// Current matrix dimension (rows, cols) for MATRIX workflow (Plan 28-06).
+    /// None = no matrix active. Persistent (matrix shape survives save/load).
+    #[serde(default)]
+    pub matrix_dim: Option<(u8, u8)>,
+
+    /// Active matrix register index (for MATRIX element-edit mode, Plan 28-06).
+    /// None = not editing a matrix register. Persistent.
+    #[serde(default)]
+    pub matrix_active_reg: Option<u8>,
+
+    /// Active modal program (MATRIX/SOLVE/POLY/INTG/DIFEQ/FOUR/TRANS).
+    /// Transient — set on modal-open, cleared on completion or cancel.
+    /// Never persisted (`#[serde(default, skip)]`).
+    #[serde(default, skip)]
+    pub modal_program: Option<crate::ops::math1::modal::ModalProgram>,
+
+    /// Modal prompt text for active workflow step.
+    /// CLI renders in `pending_prompt()` (Phase 29 wiring).
+    /// GUI renders as overlay banner above LCD (Phase 31 wiring).
+    /// R/S key submits numeric input per D-28.5 (CLI/GUI wiring in Phase 29/31).
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    #[serde(default, skip)]
+    pub modal_prompt: Option<String>,
+
+    /// Mid-iteration state for INTG numerical integration (Plan 28-07).
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    /// Placeholder stub; Plan 28-07 fills fields.
+    #[serde(default, skip)]
+    pub integ_state: Option<crate::ops::math1::integ::IntegState>,
+
+    /// Mid-iteration state for SOLVE root-finding (Plan 28-08).
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    /// Placeholder stub; Plan 28-08 fills fields.
+    #[serde(default, skip)]
+    pub solve_state: Option<crate::ops::math1::solve::SolveState>,
+
+    /// Mid-iteration state for DIFEQ ODE solver (Plan 28-09).
+    /// Transient — never persisted (`#[serde(default, skip)]`).
+    /// RESEARCH Open Q2 recommendation (a): early commitment.
+    /// Placeholder stub; Plan 28-09 fills fields.
+    #[serde(default, skip)]
+    pub difeq_state: Option<crate::ops::math1::difeq::DifeqState>,
+
+    /// Cancellation flag for long-running solvers (INTG/SOLVE/DIFEQ).
+    /// `Arc<AtomicBool>` so Phase 31 `request_cancel` Tauri command can set it
+    /// from the GUI thread without locking the `AppState` Mutex (D-28.7).
+    /// Per-64-samples check: `cancel_requested.load(Relaxed)` inside solver loops
+    /// (D-28.8). Reset to `false` at every op_integ/op_solve/op_difeq entry.
+    /// Transient — never persisted (`#[serde(default = "default_cancel_requested", skip)]`).
+    #[serde(default = "default_cancel_requested", skip)]
+    pub cancel_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+// ── serde-default helpers ────────────────────────────────────────────────────
+
+/// Default value for `xrom_modules`: bit 0 = Math 1 pre-loaded.
+fn default_xrom_modules() -> u8 {
+    0b0000_0001
+}
+
+/// Default value for `cancel_requested`: a new Arc<AtomicBool> initialized to false.
+fn default_cancel_requested() -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false))
 }
 
 impl CalcState {
@@ -185,6 +262,17 @@ impl CalcState {
             display_override: None,
             event_buffer: Vec::new(),
             pending_card_op: None,
+            // Phase 28 (v3.0) fields
+            xrom_modules: default_xrom_modules(),
+            complex_mode: false,
+            matrix_dim: None,
+            matrix_active_reg: None,
+            modal_program: None,
+            modal_prompt: None,
+            integ_state: None,
+            solve_state: None,
+            difeq_state: None,
+            cancel_requested: default_cancel_requested(),
         }
     }
 }
@@ -232,5 +320,186 @@ impl Stack {
 impl Default for Stack {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::Ordering;
+
+    // Catches: default initializer regression for Phase 28 fields
+    #[test]
+    fn default_construction_phase28_fields() {
+        let state = CalcState::default();
+        assert_eq!(
+            state.xrom_modules, 0b0000_0001,
+            "Math 1 must be pre-loaded by default"
+        );
+        assert!(!state.complex_mode, "complex_mode must default to false");
+        assert_eq!(state.matrix_dim, None, "matrix_dim must default to None");
+        assert_eq!(
+            state.matrix_active_reg, None,
+            "matrix_active_reg must default to None"
+        );
+        assert!(
+            state.modal_program.is_none(),
+            "modal_program must default to None"
+        );
+        assert!(
+            state.modal_prompt.is_none(),
+            "modal_prompt must default to None"
+        );
+        assert!(
+            state.integ_state.is_none(),
+            "integ_state must default to None"
+        );
+        assert!(
+            state.solve_state.is_none(),
+            "solve_state must default to None"
+        );
+        assert!(
+            state.difeq_state.is_none(),
+            "difeq_state must default to None"
+        );
+        assert!(
+            !state.cancel_requested.load(Ordering::Relaxed),
+            "cancel_requested must default to false"
+        );
+    }
+
+    // Catches: serde(skip) on transient fields — they must NOT appear in serialized output;
+    //          serde(default) on persistent fields — they must survive round-trip.
+    #[test]
+    fn serde_roundtrip() {
+        let mut state = CalcState::new();
+        // Set some transient fields to non-default values
+        state.modal_prompt = Some("ORDER=?".to_string());
+        state.integ_state = Some(crate::ops::math1::integ::IntegState::default());
+        // Set persistent fields
+        state.xrom_modules = 0b0000_0011; // Math 1 + hypothetical module 2
+        state.complex_mode = true;
+        state.matrix_dim = Some((3, 3));
+        state.matrix_active_reg = Some(5);
+
+        let json = serde_json::to_string(&state).unwrap();
+
+        // Transient fields must NOT appear in serialized output
+        assert!(
+            !json.contains("modal_prompt"),
+            "modal_prompt must be serde(skip)"
+        );
+        assert!(
+            !json.contains("integ_state"),
+            "integ_state must be serde(skip)"
+        );
+        assert!(
+            !json.contains("cancel_requested"),
+            "cancel_requested must be serde(skip)"
+        );
+
+        // Persistent fields must appear in serialized output
+        assert!(
+            json.contains("xrom_modules"),
+            "xrom_modules must be serialized"
+        );
+        assert!(
+            json.contains("complex_mode"),
+            "complex_mode must be serialized"
+        );
+        assert!(json.contains("matrix_dim"), "matrix_dim must be serialized");
+
+        let restored: CalcState = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.xrom_modules, 0b0000_0011);
+        assert!(restored.complex_mode);
+        assert_eq!(restored.matrix_dim, Some((3, 3)));
+        assert_eq!(restored.matrix_active_reg, Some(5));
+
+        // Transient fields reset to defaults after round-trip
+        assert!(
+            restored.modal_prompt.is_none(),
+            "modal_prompt must reset to None after deserialization"
+        );
+        assert!(
+            restored.integ_state.is_none(),
+            "integ_state must reset to None after deserialization"
+        );
+        assert!(
+            !restored.cancel_requested.load(Ordering::Relaxed),
+            "cancel_requested must reset to false after deserialization"
+        );
+    }
+
+    // Catches: v2.2 save-file backward-compat regression (Pitfall 12 mitigation)
+    #[test]
+    fn v22_save_loads_with_defaults() {
+        // A minimal v2.2-shape JSON without any v3.0 fields
+        let v22_json = r#"{
+            "stack": {"x": "0", "y": "0", "z": "0", "t": "0", "lastx": "0", "lift_enabled": false},
+            "regs": ["0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0",
+                     "0","0","0","0","0","0","0","0","0","0"],
+            "alpha_reg": "",
+            "alpha_mode": false,
+            "angle_mode": "Deg",
+            "display_mode": {"Fix": 4},
+            "entry_buf": "",
+            "program": [],
+            "prgm_mode": false,
+            "pc": 0,
+            "call_stack": [],
+            "is_running": false,
+            "user_mode": false,
+            "key_assignments": {},
+            "assignments": {},
+            "text_regs": {},
+            "last_key_code": 0,
+            "reg_m": "0",
+            "reg_n": "0",
+            "reg_o": "0",
+            "flags": 0,
+            "pending_card_op": null
+        }"#;
+
+        let state: CalcState = serde_json::from_str(v22_json).unwrap();
+
+        // Phase 28 fields must default cleanly
+        assert_eq!(
+            state.xrom_modules, 0b0000_0001,
+            "v2.2 save must get default xrom_modules"
+        );
+        assert!(
+            !state.complex_mode,
+            "v2.2 save must get default complex_mode"
+        );
+        assert_eq!(
+            state.matrix_dim, None,
+            "v2.2 save must get default matrix_dim"
+        );
+        assert_eq!(
+            state.matrix_active_reg, None,
+            "v2.2 save must get default matrix_active_reg"
+        );
+    }
+
+    // Catches: cancel_requested not being a real Arc (copy instead of shared reference)
+    #[test]
+    fn cancel_field_present() {
+        let state = CalcState::new();
+        let cloned_arc = std::sync::Arc::clone(&state.cancel_requested);
+        // Set via the clone — must be visible through the original
+        cloned_arc.store(true, Ordering::Relaxed);
+        assert!(
+            state.cancel_requested.load(Ordering::Relaxed),
+            "cancel_requested must be a real Arc<AtomicBool> (not a copy)"
+        );
     }
 }

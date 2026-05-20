@@ -1,311 +1,258 @@
-# Technology Stack
+# Technology Stack — v3.0 Math 1 Pac
 
-**Project:** HP-41 Calculator Emulator — v2.0 GUI Stack (Tauri v2 + React + TypeScript)
-**Researched:** 2026-05-09
-**Scope:** NEW dependencies needed for `hp41-gui` only. The existing v1.0/v1.1 Rust stack is validated and unchanged.
+**Researched:** 2026-05-16
+**Scope:** NEW dependencies (or zero additions, justified) needed to add Math 1 Pac behavioral emulation. The existing v1.0 → v2.2 stack is validated and unchanged.
+
+> **NOTE (2026-05-16):** This document was drafted under the assumption that v3.0 Math 1 covers matrix ops (`M+`, `MAT*`, `INV`, `TRANS`, `DET`), discrete-op complex arithmetic (`CADD`, `CMUL`, `CDIV`, `CABS`, `CARG`, `CCHS`, `CCONJ`), polynomial root-finder `PROOT`, and vector ops (`V+`, `V-`, `VDOT`). After the FEATURES.md research, this inventory turned out to be the **Advanced Matrix Pac + Advantage Pac**, not the actual HP-41 Math Pac I. The true Math Pac I is prompt-driven user-code (MATRIX, SOLVE, POLY, INTG, DIFEQ, FOUR, hyperbolics, triangles, TRANS coord-transform). The crate-level conclusions below (zero runtime deps, hand-coded numerics, optional `approx` dev-dep) remain valid for EITHER scope — Math Pac I shares the same f64-bridge / rust_decimal-everywhere discipline. The PHASE PLAN section below is invalidated and will be reshaped after the scope decision (see REQUIREMENTS.md).
 
 ---
 
 ## Summary
 
-`hp41-gui` is a thin Tauri v2 binary that owns the desktop window, exposes `hp41-core` operations as Tauri commands, and renders an SVG HP-41 skin in a React 19 + TypeScript + Vite 8 frontend. The Rust side is a new Cargo workspace member (`hp41-gui/src-tauri`). The frontend lives in `hp41-gui/` alongside `src-tauri/`. The entire frontend communicates with `hp41-core` exclusively through `invoke()` — no CalcState logic is duplicated in TypeScript.
+**Recommendation: ZERO new runtime dependencies in `hp41-core` for v3.0.**
 
-All version numbers verified against npm and crates.io registries on 2026-05-09.
+Every Math 1 op (whether the user-intended Advanced-Matrix-/Advantage-Pac function set OR the actually-documented Math Pac I prompt-driven programs) is implementable inside `hp41-core` using:
+- The existing `rust_decimal 1.42` `HpNum` discipline (BCD with 10-digit rounding) for every user-visible quantity
+- An internal-only f64 bridge (the established pattern from `num.rs::checked_asin/_acos/_atan`) where rust_decimal lacks the primitive (e.g. `atan2` for complex `CARG`, LU-pivot search inside matrix `INV`, iterative root refinement)
+- Hand-coded textbook algorithms (≤ 50 LOC each) for the small bounded numerical surface
 
----
+Every realistic third-party candidate (`num-complex`, `nalgebra`, `faer`, `ndarray`, `roots`, `peroxide`, `gauss-quad`, `argmin`) either imposes a `T: Float` trait bound that excludes `rust_decimal::Decimal`, panics on bad input violating our `#![deny(clippy::unwrap_used)]` invariant, or adds binary-size cost far in excess of what it replaces. The hand-coded path keeps the type-discipline (`HpNum` everywhere except internal f64 bridges) that already underwrites the 566-case numerical_accuracy harness.
 
-## New Dependencies
-
-### Rust Side (hp41-gui/src-tauri/Cargo.toml)
-
-| Crate | Version | Purpose | Why |
-|-------|---------|---------|-----|
-| `tauri` | `"2.11"` | Desktop shell, webview, IPC runtime | Core Tauri runtime; v2.11.1 is current stable. |
-| `tauri-build` | `"2.6"` | Build-time codegen (`build.rs`) | Required by every Tauri project — generates platform-specific glue at compile time. |
-| `serde` | `{ workspace = true }` | Serialize/Deserialize for command args and return types | Already a workspace dependency; Tauri requires `serde::Serialize` on all command return types. `CalcState` already derives it. |
-| `serde_json` | `{ workspace = true }` | JSON serialization | Already a workspace dependency; Tauri IPC uses JSON internally. |
-
-`hp41-core` is added as a path dependency:
-
-```toml
-hp41-core = { path = "../../hp41-core" }
-```
-
-No additional Rust crates are needed. `std::sync::Mutex` (stdlib) wraps `CalcState` for thread-safe Tauri state management.
-
-**tauri-specta (NOT included):** `tauri-specta = "2.0.0-rc.25"` generates TypeScript bindings from Rust command signatures. It is still in release-candidate status (latest is rc.25 as of 2026-05-09 — no stable release). For an HP-41 emulator with a small, stable command surface (~5 commands), manually maintaining TypeScript interfaces is less risky than depending on an RC crate. Revisit once tauri-specta reaches 2.0.0 stable.
-
-### Frontend (hp41-gui/package.json)
-
-#### Runtime Dependencies
-
-| Package | Version | Purpose | Why |
-|---------|---------|---------|-----|
-| `react` | `^19.2` | UI framework | React 19 is current stable (Dec 2024). Concurrent mode, improved hooks, `use()` API. |
-| `react-dom` | `^19.2` | React DOM renderer | Companion to react; required for web rendering. |
-| `@tauri-apps/api` | `^2.11` | `invoke()`, `listen()`, `emit()` | Official Tauri JavaScript API for IPC. Core module provides `invoke`. Event module provides `listen` for backend-push updates. |
-
-#### Dev Dependencies
-
-| Package | Version | Purpose | Why |
-|---------|---------|---------|-----|
-| `@tauri-apps/cli` | `^2.11` | Tauri CLI (`tauri dev`, `tauri build`) | Orchestrates Vite dev server + Rust compilation. `npm run tauri dev` starts the app. |
-| `vite` | `^8.0` | Frontend build tool | Tauri's recommended bundler. Instant HMR, native ESM, fast production builds. v8.0.11 is current. |
-| `@vitejs/plugin-react` | `^6.0` | React HMR + JSX transform for Vite | Fast Refresh via Babel. v6.0.1 is current. Use `@vitejs/plugin-react` (Babel) rather than `@vitejs/plugin-react-swc` — SWC is faster but has less predictable TypeScript decorator handling; for this project Babel is sufficient and more battle-tested with Tauri templates. |
-| `typescript` | `^6.0` | TypeScript compiler | v6.0.3 is current. Strict mode enabled. |
-| `@types/react` | `^19.2` | React TypeScript types | Required for JSX type checking. |
-| `@types/react-dom` | `^19.2` | React DOM TypeScript types | Required for `render`/`createRoot` type checking. |
-| `tailwindcss` | `^4.3` | CSS utility framework | v4.3.0 is current. For the HP-41 skin, Tailwind handles layout, spacing, and color variables. The CSS-only approach (`@import "tailwindcss"` in index.css) is simpler than v3's PostCSS config. |
-| `@tailwindcss/vite` | `^4.3` | Tailwind v4 Vite plugin | Tailwind v4 dropped PostCSS-first in favor of a Vite plugin. Required when using Tailwind v4 with Vite — no `tailwind.config.js` needed. |
+One **dev-dependency** addition is recommended for test ergonomics: `approx 0.5.1` for matrix/complex relative-tolerance assertion macros. Nothing else.
 
 ---
 
-## Integration Points with Existing Workspace
+## Verified Versions (crates.io, 2026-05-16)
 
-### 1. Cargo Workspace: Add hp41-gui as a Member
+| Crate | Latest | MSRV | Status |
+|-------|--------|------|--------|
+| `rust_decimal` | 1.42.x stable (2.0.0-alpha.0 on master, MSRV 1.85 — do NOT track) | 1.85 | Already used — keep `1.42` workspace pin |
+| `num-complex` | 0.4.6 | 1.60 | **Reject** — `Float` bound on `sqrt`/`exp`/`ln` excludes `HpNum` |
+| `nalgebra` | 0.34.2 | 1.87 | **Reject** — `Field`-trait + f64-centric, overkill for ≤ 14×14 |
+| `faer` | 0.24.0 | 1.84 | **Reject** — production LAPACK, ≤ 14×14 matrices don't justify it |
+| `ndarray` | 0.17.2 | unknown (≥ 1.64) | **Reject** — N-D generic, we need 2-D |
+| `roots` | 0.0.8 (last release 2022-12) | unspecified | **Reject** — abandoned, generic over `FloatType` (Float-only) |
+| `peroxide` | 0.41.2 | edition 2018 | **Reject** — comprehensive science library (ML/plotting/dataframes), footprint mismatched |
+| `gauss-quad` | 0.3.1 | unknown | **Reject** — fixed Gauss nodes, no adaptive refinement; INTG needs adaptive |
+| `argmin` | 0.11.0 | recent | **Reject** — heavy multi-method optimization framework, not single-variable secant |
+| `approx` | 0.5.1 | 1.36+ | **Accept as DEV-dep only** for matrix/complex relative-tolerance assertions |
 
-`Cargo.toml` (root) changes:
+---
 
-```toml
-[workspace]
-resolver = "2"
-members = ["hp41-core", "hp41-cli", "hp41-gui/src-tauri"]
-```
+## The Four Decisions Driving v3.0 Stack
 
-`hp41-gui/src-tauri` is a standard Cargo package. It depends on `hp41-core` via path. All workspace.dependencies (`serde`, `serde_json`, `rust_decimal`, `thiserror`) are inherited as before. Tauri's own crates (`tauri`, `tauri-build`) are NOT added to `[workspace.dependencies]` — they are local to `hp41-gui/src-tauri/Cargo.toml` because no other workspace member needs them.
+### Decision 1: HpNum is the unit of currency for ALL Math 1 ops
 
-### 2. Tauri State: CalcState wrapped in Mutex
+Every Math 1 op signature is `fn op_xxx(state: &mut CalcState) -> Result<(), HpError>`, consuming and producing `HpNum` exactly like the existing ~130 ops. **No exposed f64.**
 
-`hp41-gui/src-tauri/src/lib.rs`:
+**Internal f64 fallback is permitted in three documented cases:**
+
+1. **Complex `sqrt` / `arg`** (for `CABS`/`MAGZ`, `CARG`, polar form). `rust_decimal::MathematicalOps::sqrt` already exists; `atan2` does not. Use the existing f64-bridge pattern from `checked_asin` (num.rs:184–192): `to_f64() → f64::atan2() → from_f64() → HpNum::rounded()`. The 15.9 → 10 digit drop is the same QUAL-06-acceptable trade we made in v1.0.
+
+2. **Matrix LU pivot selection** (for MATRIX `DET`, `SOLVE`-via-matrix). Pivoting needs `|x| > eps` comparisons; rust_decimal handles these natively, but the pivot-row swap and Gauss elimination steps benefit from a single `Vec<f64>` working copy when matrix ≥ 5×5 (perf, not correctness). Result rounded back to `HpNum` per-cell before storing.
+
+3. **Polynomial root iteration** (`POLY` / `PROOT`). Polynomial-root iteration is intrinsically iterative — running it in f64 then `HpNum::rounded()`-ing the final root matches HP-41 hardware behavior where the original 10-digit display masks intermediate-step error.
+
+**Rationale:** The HP-41 Math Pac itself ran on a Nut CPU with 56-bit BCD floats — every Math Pac ROM routine internally used the same BCD that user-visible registers stored. Our `HpNum`/`rust_decimal` model mirrors that. Switching to f64 across the board would (a) violate the unbroken type-discipline from v1.0 (`HpNum` everywhere except inverse-trig + one statistics edge case), (b) break round-trip determinism of saved register files, and (c) break the 566-case numerical_accuracy harness's tolerance model.
+
+### Decision 2: ComplexHp — roll our own, do NOT add `num-complex`
+
+Define `ComplexHp { re: HpNum, im: HpNum }` in a new module `hp41-core/src/ops/complex.rs`.
+
+**Why not `num-complex 0.4.6`:**
+
+- `Complex<T>` arithmetic requires `T: Clone + Num`. `rust_decimal::Decimal` does NOT impl `num_traits::Num`. Even if we adapter-impl `Num` for a `HpNum` newtype, transcendentals (`Complex::sqrt`, `Complex::exp`, `Complex::ln`, `Complex::powc`) ALL require `T: Float`. `Decimal` cannot satisfy `Float` (no `NaN`, no `INFINITY`, no `EPSILON`, no IEEE-754 layout). Verified via docs.rs/num-complex/0.4.6 trait-bound inspection.
+- We would end up forced to use `Complex<f64>`. The HP-41 Math Pac stores complex numbers in stack-register pairs (X/Y or the dedicated ζ/τ overlay per FEATURES.md). Wrapping them in `Complex<f64>` at every entry/exit boundary trashes 5+ digits of precision unnecessarily and inverts our type-discipline.
+- A hand-coded `ComplexHp` lives inside `#![deny(clippy::unwrap_used)]` cleanly — every op returns `Result<ComplexHp, HpError>`, propagating overflow/domain.
+
+**Integration point:** `hp41-core/src/ops/complex.rs` (new). Pattern: mirror `ops/hms.rs` (small self-contained module, no cross-module dispatch needed).
+
+### Decision 3: Matrices — hand-coded `MatrixView` over user register blocks
+
+Define `MatrixView<'a>` in a new module `hp41-core/src/ops/matrix.rs`. The HP-41 Math Pac I stores matrices as contiguous register blocks starting at R15, with order N in R14 (per FEATURES.md). MatrixView borrows the slice, exposes `get(r,c) -> HpNum` / `set(r,c, HpNum)` / `dim() -> (usize, usize)`.
+
+**Why not `nalgebra 0.34` / `faer 0.24` / `ndarray 0.17`:**
+
+- **Float-only generic bounds:** All three rest on `T: Float` / `T: Scalar + Field`. `rust_decimal::Decimal` does not satisfy. We'd be forced to use f64 matrices, lose precision, and write conversion shims at every register I/O boundary.
+- **Binary size:** nalgebra brings 10+ transitive deps (matrixmultiply, simba, num-traits, num-complex, approx, rand, typenum) — ~150 KB compiled, ~1.5–2 MB in the Tauri bundle. For ≤ 14×14 matrices, the BLAS path is never even hit.
+- **Panic-on-error:** All three panic on dimension mismatch / singular matrix. Our `Result<(), HpError>` discipline requires we surface every error as `HpError::Domain`. Defensive try-blocks at every call site defeat the convenience.
+- **MSRV:** nalgebra 0.34.2 declares `rust-version = "1.87.0"` AND `edition = "2024"` — the latter requires 1.85+ but the toolchain semantics are fresh and untested in our workspace.
+
+**Algorithms to hand-code (all textbook, ≤ 50 LOC each):**
+
+- **Multiplication:** triple-loop `O(n³)`. For n ≤ 14, ≤ 2744 ops total — negligible vs. dispatch overhead (~65 ns/op baseline).
+- **Determinant:** LU decomposition with partial pivoting; det = product of diagonal × pivot-sign. ~30 LOC.
+- **Inverse:** Gauss-Jordan on augmented matrix `[A | I]`. ~40 LOC. Returns `HpError::Domain` on singular (pivot below 1e-10 threshold). Hardware-faithful: Math Pac I surfaces `NO SOLUTION`.
+- **Transpose, addition, subtraction:** trivial.
+
+**Integration point:** `hp41-core/src/ops/matrix.rs` (new module). Tests use `approx::assert_relative_eq!` (dev-dep) for matrix-product / inverse-product-identity assertions with tolerance ~1e-9.
+
+### Decision 4: Integration and root-solver — hand-coded Romberg/Simpson and secant
+
+Hand-code `INTG` (Math Pac I uses Simpson per FEATURES.md OM citation) and `SOLVE` (modified secant per OM) directly in `hp41-core/src/ops/numerical.rs` (new). Both take a user-program label callback through `run_loop()` (existing infrastructure from v1.0 — no new IPC needed). The user-callback re-entrancy decision is detailed in ARCHITECTURE.md.
+
+**Why hand-coded, not `gauss-quad` / `quadrature` / `argmin`:**
+
+- **`gauss-quad 0.3.1`:** fixed-order Gauss-Legendre nodes. Math Pac I INTG is adaptive (refines per display setting). Wrong algorithmic shape.
+- **`quadrature 0.1.2`:** Gauss-Kronrod and double-exponential, all f64. Last release 2017 — abandoned.
+- **`argmin 0.11`:** multi-method optimization framework (BFGS, trust regions, conjugate gradient). SOLVE is one-dim secant with bracket — argmin is 100× the surface and panics on trait-mismatch.
+- HP-41 Math Pac I's actual SOLVE/INTG algorithms are well-documented in the 1981 Owner's Manual. We have a **behavioral spec** — re-implementing the exact algorithms makes our outputs match hardware bit-for-bit (within 10-digit rounding). Using a different crate's algorithm guarantees subtle divergence.
+
+**Integration point:** `hp41-core/src/ops/numerical.rs` (new). Connects to existing `ops/program.rs::run_loop()` for the user-program callback path; lift effect per-op (mostly `Neutral`).
+
+---
+
+## Module-Loading / XROM Framework: ZERO new deps
+
+Static-link the Math Pac I op set into `hp41-core` directly. The "XROM framework" is a **dispatch pattern**, not a runtime loader.
 
 ```rust
-use hp41_core::state::CalcState;
-use std::sync::Mutex;
-
-pub struct AppState(pub Mutex<CalcState>);
-```
-
-All commands receive `state: tauri::State<'_, AppState>`, lock the mutex, call `hp41_core::ops::dispatch()`, and return the updated `CalcState` (which already derives `serde::Serialize`):
-
-```rust
-#[tauri::command]
-fn dispatch_op(op_name: String, state: tauri::State<'_, AppState>) -> Result<CalcState, String> {
-    let op = op_name.parse::<hp41_core::ops::Op>().map_err(|e| e.to_string())?;
-    let mut s = state.0.lock().unwrap();
-    hp41_core::ops::dispatch(op, &mut s).map_err(|e| e.to_string())?;
-    Ok(s.clone())
+// hp41-core/src/ops/xrom.rs (new)
+pub struct XromModule {
+    pub id: u8,
+    pub name: &'static str,
+    pub ops: &'static [(&'static str, Op)],
+}
+pub const MATH_1: XromModule = XromModule {
+    id: 7,   // real Math Pac is XROM 7 — honor it
+    name: "MATH 1A",
+    ops: &[
+        ("MATRIX", Op::MatrixWorkflow),
+        ("SOLVE", Op::SolveWorkflow),
+        ("POLY", Op::PolyWorkflow),
+        ("INTG", Op::IntgWorkflow),
+        ("DIFEQ", Op::DifeqWorkflow),
+        ("FOUR", Op::FourWorkflow),
+        ("MAGZ", Op::Magz),
+        // ... 55 named entry points
+    ],
+};
+pub fn resolve_xrom(name: &str) -> Option<Op> {
+    MATH_1.ops.iter().find(|(n, _)| *n == name).map(|(_, op)| *op)
 }
 ```
 
-`CalcState` already derives `Clone + Serialize + Deserialize` (confirmed in `hp41-core/src/state.rs` line 52). Returning the full state snapshot after every op is the correct pattern — the frontend never holds a partial view.
+`hp41-cli` and `hp41-gui` already have the XEQ-by-name infrastructure (`builtin_card_op` resolver pattern from v2.1, extended in v2.2 Plan 25-03 from 4 → 12 names). Math Pac I ops slot into the same resolver chain.
 
-### 3. Command Surface (Minimal — 5 Commands)
+**Why not dynamic `.mod` file parsing:** PROJECT.md:160 locks "HP-copyrighted ROM bytes NEVER redistributed." Dynamic .mod loading invites users to drop HP's copyrighted ROM images into a runtime directory — exactly the legal hazard we excluded permanently in v2.2. Behavioral emulation = compiled Rust, not parsed bytes.
 
-| Command | Signature | Notes |
-|---------|-----------|-------|
-| `dispatch_op` | `(op_name: String) → Result<CalcState, String>` | All HP-41 ops go through this single entry point. Op enum serialized as string. |
-| `get_state` | `() → CalcState` | Initial state load. |
-| `load_state` | `(path: Option<String>) → Result<CalcState, String>` | Load persisted JSON (reuses hp41-core persistence logic). |
-| `save_state` | `(path: Option<String>) → Result<(), String>` | Save state to JSON. |
-| `get_display` | `() → String` | Convenience: formatted display string only (avoids deserializing full CalcState for display-only updates). Optional optimization. |
-
-Keeping the command surface to 5 endpoints is deliberate: all HP-41 logic stays in `hp41-core`. The frontend never implements calculator math.
-
-### 4. Frontend TypeScript Interfaces
-
-Manually maintained TypeScript interfaces mirror `CalcState` struct fields. Since `CalcState` derives `Serialize`, the JSON shape is stable. No codegen needed for 5 commands.
-
-```typescript
-// src/types/CalcState.ts
-export interface CalcState {
-  stack: Stack;
-  regs: string[];       // HpNum serializes as decimal string
-  alpha_reg: string;
-  alpha_mode: boolean;
-  display_mode: DisplayMode;
-  angle_mode: AngleMode;
-  // ... (match hp41-core/src/state.rs fields exactly)
-}
-```
-
-### 5. Tauri Configuration (tauri.conf.json)
-
-Placed at `hp41-gui/src-tauri/tauri.conf.json`:
-
-```json
-{
-  "productName": "HP-41",
-  "identifier": "ch.talent-factory.hp41",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:5173",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "windows": [{
-      "title": "HP-41",
-      "width": 400,
-      "height": 700,
-      "resizable": false,
-      "decorations": true
-    }]
-  }
-}
-```
-
-A fixed `400×700` non-resizable window matches the physical HP-41C form factor. The calculator skin is an SVG that fills this viewport.
-
-### 6. Vite Configuration (vite.config.ts)
-
-```typescript
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    strictPort: true,
-    host: process.env.TAURI_DEV_HOST || 'localhost',
-  },
-  build: {
-    outDir: 'dist',
-  },
-})
-```
-
-`strictPort: true` is required because `tauri.conf.json` hardcodes `http://localhost:5173`. `TAURI_DEV_HOST` allows iOS physical device testing if that is ever needed.
-
-### 7. just Recipes
-
-New recipes added to the root `Justfile`:
-
-```just
-# Run hp41-gui in Tauri dev mode
-gui-dev:
-    cd hp41-gui && npm run tauri dev
-
-# Build hp41-gui for release
-gui-build:
-    cd hp41-gui && npm run tauri build
-
-# Install hp41-gui frontend dependencies
-gui-install:
-    cd hp41-gui && npm install
-```
-
-`just ci` (Rust lint + test + coverage) is unchanged — it targets `--workspace` Rust crates. The Tauri GUI build is not added to the Rust CI gate; it has its own CI job.
+**Future-proofing for v3.1+:** When Stat 1 lands, it becomes another `pub const STAT_1: XromModule = …` constant alongside `MATH_1`. The resolver just searches a longer list. No new deps ever.
 
 ---
 
-## SVG Skin Approach
+## Test Infrastructure: One dev-dep addition
 
-The HP-41C skin is a hand-crafted inline SVG component in React. The SVG contains one `<g>` element per key with an `onClick` handler. React handles pointer events natively on SVG elements.
+### `approx 0.5.1` as dev-dependency (NOT runtime)
 
-**Why inline SVG (not `<img src="...svg">`):** External SVG images cannot receive pointer events. Inline SVG embeds the element in the DOM, so React event delegation works.
-
-**Why not a third-party SVG-to-React converter:** The HP-41 key layout has ~70 keys with precise positions; auto-converted SVG is unmaintainable. A handcrafted component with a typed `KeyLayout` data structure is the right abstraction.
-
-**TypeScript pattern:**
-
-```typescript
-interface HpKey {
-  op: string;          // matches Op enum serialized name
-  label: string;       // visible key label
-  x: number; y: number; width: number; height: number;  // SVG coords
-  color: string;
-}
-
-const HP41_KEYS: HpKey[] = [ /* ~70 entries */ ];
-
-function Calculator({ onKey }: { onKey: (op: string) => void }) {
-  return (
-    <svg viewBox="0 0 400 700" xmlns="http://www.w3.org/2000/svg">
-      {HP41_KEYS.map(key => (
-        <g key={key.op} onClick={() => onKey(key.op)} role="button" aria-label={key.label}>
-          <rect x={key.x} y={key.y} width={key.width} height={key.height} fill={key.color} />
-          <text ...>{key.label}</text>
-        </g>
-      ))}
-    </svg>
-  );
-}
+```toml
+[dev-dependencies]
+approx = "0.5"
 ```
+
+**Purpose:** Matrix and complex-number assertions in test files need relative-tolerance comparators. Today the 566-case `numerical_accuracy.rs` harness implements `passes_with_tol` manually (line 58–67 of the existing file) — that works for scalars. For matrix-inverse-product round-trips and complex-arithmetic identity tests (`e^(iπ) + 1 ≈ 0`), `approx::assert_relative_eq!(actual, expected, max_relative = 1e-9)` is more readable than 10+ hand-rolled per-cell comparisons.
+
+**MSRV impact:** approx 0.5.1 MSRV is 1.36 — well under our 1.88.
+**Zero-panic compatibility:** approx is dev-only, applies only inside `#[cfg(test)]` modules that already carry `#![allow(clippy::unwrap_used)]`.
+
+**Integration points:**
+- `hp41-core/tests/numerical_accuracy.rs` — extend with new sections
+- `hp41-core/tests/matrix_ops.rs` (new) — dedicated matrix-ops suite
+- `hp41-core/tests/complex_ops.rs` (new) — dedicated complex-arithmetic suite
+
+---
+
+## Migration vs Additions
+
+### Runtime additions to `hp41-core` (PRODUCTION dependencies): ZERO
+
+Cargo.toml `[dependencies]` block is **unchanged** from v2.2.
+
+### Dev-dependency additions: ONE
+
+```toml
+[dev-dependencies]
+approx = "0.5"   # NEW — matrix / complex relative-tolerance assertions
+```
+
+### CLI / GUI additions: ZERO
+
+The `hp41-cli` and `hp41-gui` workspaces are pure adapter layers. New Math Pac I ops surface through the existing `Op` enum dispatch in `hp41-cli/src/keys.rs::key_to_op` + `xeq_by_name_local_resolve` and `hp41-gui/src-tauri/src/key_map.rs::resolve`. No new crates.
+
+### New modules in `hp41-core/src/` (approximate LOC, depends on final FEATURES scope)
+
+| File | Purpose |
+|------|---------|
+| `ops/xrom.rs` | XromModule struct + MATH_1 const + resolver |
+| `ops/complex.rs` | ComplexHp struct + complex ops |
+| `ops/matrix.rs` | MatrixView + matrix ops |
+| `ops/numerical.rs` | INTG (Simpson/Romberg) + SOLVE (secant) + POLY |
+| `ops/hyperbolic.rs` | SINH/COSH/TANH/ASINH/ACOSH/ATANH |
 
 ---
 
 ## What NOT to Add
 
-| Package | Reason to Exclude |
-|---------|-------------------|
-| `zustand` / `redux` / `jotai` | Global state stores are unnecessary. All state lives in `hp41-core`'s `CalcState` on the Rust side. The frontend receives a full `CalcState` snapshot after every `invoke()` call — React's `useState` with the returned snapshot is sufficient. Adding a client-side store would duplicate state and create sync bugs. |
-| `react-router` | Single-page app with one view (the calculator). No routing needed. |
-| `axios` / `fetch` wrappers | No HTTP calls. All communication is Tauri IPC via `invoke()`. |
-| `tauri-specta` | Still RC (2.0.0-rc.25). Command surface is small enough (5 commands) that manually written TypeScript interfaces are less risky. Revisit at stable release. |
-| `@tauri-apps/plugin-fs` | hp41-core handles persistence internally. The save/load Tauri commands call hp41-core functions directly — no frontend filesystem access needed. |
-| `vitest` / `@testing-library/react` | Not added in the initial GUI phase. The core arithmetic is tested at 94% coverage in hp41-core. GUI integration testing can be added in a follow-on phase once the skin is stable. |
-| `electron` | Not Tauri — noted only because it is sometimes suggested as an alternative. Tauri produces binaries 10–50x smaller and has a well-audited security model (capability system). |
-| `shadcn/ui` / `radix-ui` | Component libraries optimized for standard web UIs (forms, dialogs, tables). The HP-41 skin is a custom SVG widget — no generic UI component fits. These would add ~100 kB of unused components. |
-| `next.js` / `remix` | Server-side rendering frameworks — incompatible with Tauri's static-file webview model. Vite + React is the correct choice for a local desktop app with no server. |
-| Custom BCD arithmetic in TypeScript | hp41-core already implements all HP-41 arithmetic in Rust. Duplicating any of it in TypeScript violates the core invariant (GUI-05) and introduces divergence risk. |
+| Crate | Reason to Exclude |
+|-------|-------------------|
+| `nalgebra` | Float-only `Scalar` bound rejects `HpNum`; +10 transitive deps; +1.5–2 MB binary; ≤ 14×14 matrices never trip the optimised paths. |
+| `faer` | Same Float bound; production LAPACK is overkill for ≤ 14×14; binary-size cost ditto. |
+| `ndarray` | N-dim generic for 2-D-only HP-41 matrices; same Float constraint. |
+| `num-complex` | `Complex::sqrt`/`exp`/`ln`/`powc` require `T: Float`; `rust_decimal::Decimal` cannot satisfy `Float` (no NaN/INFINITY/EPSILON layout). |
+| `roots` | Abandoned (last release 2022-12); Float-only generic. |
+| `peroxide` | Comprehensive science library — linear algebra + ML + statistics + plotting + dataframes. Footprint catastrophically larger than our need. Edition 2018, suggests stagnation. |
+| `gauss-quad` | Fixed-order Gauss quadrature; HP-41 INTG is adaptive — wrong algorithmic shape. |
+| `quadrature` | Last release 2017, abandoned; f64-only; not adaptive. |
+| `argmin` | Multi-method optimization framework; SOLVE is one-dim secant — 100× our surface. |
+| `scilib` | Broad scientific library; mixes physics, special functions, statistics; same overkill story as peroxide. |
+| `libm` | We already get `libm` transitively through `rust_decimal::MathematicalOps`. Direct addition is duplicate work. |
+| Custom BCD for matrices/complex | Already evaluated and rejected at v1.0 (key decision row in PROJECT.md). `rust_decimal` was the right answer then. |
+| `tauri-plugin-*` | All GUI integration goes through existing `dispatch_op` / `get_state` / `sst_step` / `bst_step` / `run_stop` Tauri commands. Math Pac I ops add string IDs to `key_map.rs`, not new commands. |
+| Dynamic-loading frameworks (`libloading`, `bevy_reflect`) | Static-link only — legal constraint (HP-copyrighted ROM bytes never redistributed) makes dynamic loading actively undesirable. |
 
 ---
 
-## Directory Structure After Adding hp41-gui
+## MSRV Impact: NONE
 
-```
-hp41-calculator-emulator/
-├── Cargo.toml              (workspace — add "hp41-gui/src-tauri" to members)
-├── Justfile                (add gui-dev, gui-build, gui-install recipes)
-├── hp41-core/              (unchanged)
-├── hp41-cli/               (unchanged)
-└── hp41-gui/               (NEW — frontend root)
-    ├── package.json
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── index.html
-    ├── src/
-    │   ├── main.tsx
-    │   ├── App.tsx
-    │   ├── components/
-    │   │   ├── Calculator.tsx    (SVG skin component)
-    │   │   └── Display.tsx       (12-char dot-matrix display)
-    │   ├── types/
-    │   │   └── CalcState.ts      (TypeScript mirror of hp41-core CalcState)
-    │   └── hooks/
-    │       └── useCalc.ts        (invoke() wrapper hook)
-    └── src-tauri/          (NEW — Rust Tauri binary)
-        ├── Cargo.toml
-        ├── tauri.conf.json
-        ├── build.rs
-        ├── capabilities/
-        │   └── default.json
-        └── src/
-            ├── main.rs
-            └── lib.rs            (AppState, #[tauri::command] handlers)
-```
+- `rust_decimal` 1.42: MSRV 1.85 (already on workspace pin)
+- `approx` 0.5.1 (dev-dep): MSRV 1.36
+- All hand-coded modules use stable Rust 1.88 features only.
+
+Workspace MSRV 1.88 is unchanged.
+
+---
+
+## Zero-Panic Compatibility Audit
+
+`#![deny(clippy::unwrap_used)]` in `hp41-core/src/lib.rs` continues to apply. Every new module's API surface returns `Result<_, HpError>`. Per-module panic-risk audit:
+
+| Module | Panic risk | Mitigation |
+|--------|------------|------------|
+| `ops/xrom.rs` | None — pure lookup over `&'static [..]` | n/a |
+| `ops/complex.rs` | `checked_div` on `re² + im²` zero (CDIV by zero) | Returns `HpError::DivideByZero` |
+| `ops/matrix.rs` | Index-out-of-bounds on bad register descriptor; singular matrix in `INV` | `get_checked`/`set_checked` returning `Result`; pivot threshold returns `HpError::Domain` on `|piv| < 1e-10` |
+| `ops/numerical.rs` | Iteration overflow on non-convergent SOLVE/INTG/POLY | Iteration cap (Math 1 OM-cited) → `HpError::Domain` on cap exceeded |
+| `ops/hyperbolic.rs` | Domain errors on `acosh(x<1)`, `atanh(|x|≥1)` | Returns `HpError::Domain` |
+| **`approx` (dev-only)** | `assert_relative_eq!` panics on inequality — that's its purpose | Confined to `#[cfg(test)]` modules with `#![allow(clippy::unwrap_used)]` |
+
+No runtime dependency introduces a new panic class.
+
+---
+
+## Coverage Implications
+
+The v2.2 gate `hp41-core` ≥ 95 % lines / ≥ 93 % regions (D-27.2) must be MAINTAINED for v3.0. The new ~1000–1500 LOC across the new modules will need ~60–80 test cases to reach 95 % — that's the dedicated `matrix_ops.rs` / `complex_ops.rs` / `numerical_ops.rs` / `hyperbolic_ops.rs` suites + ~150 new cases in `numerical_accuracy.rs`. Plus normalcy: the new `Op` variants need exhaustive-match coverage in `ops/program.rs::execute_op`, `prgm_display.rs::op_display_name` (BOTH copies — hp41-cli + hp41-gui — per the v2.0 invariant), and JSON canonical-source extension.
 
 ---
 
 ## Sources
 
-- `@tauri-apps/cli` version: npm registry — 2.11.1 (verified 2026-05-09)
-- `@tauri-apps/api` version: npm registry — 2.11.0 (verified 2026-05-09)
-- `create-tauri-app` version: npm registry — 4.6.2 (verified 2026-05-09)
-- `tauri` crate version: crates.io — 2.11.1 (verified 2026-05-09)
-- `tauri-build` crate version: crates.io — 2.6.1 (verified 2026-05-09)
-- `tauri-specta` crate version: crates.io — 2.0.0-rc.25, RC status confirmed (verified 2026-05-09)
-- `react` version: npm registry — 19.2.6 (verified 2026-05-09)
-- `vite` version: npm registry — 8.0.11 (verified 2026-05-09)
-- `@vitejs/plugin-react` version: npm registry — 6.0.1 (verified 2026-05-09)
-- `typescript` version: npm registry — 6.0.3 (verified 2026-05-09)
-- `tailwindcss` / `@tailwindcss/vite` version: npm registry — 4.3.0 (verified 2026-05-09)
-- Tauri v2 State Management: https://v2.tauri.app/develop/state-management/ (Context7 /tauri-apps/tauri-docs)
-- Tauri v2 Commands: https://v2.tauri.app/develop/calling-rust/ (Context7 /tauri-apps/tauri-docs)
-- Tauri v2 Project Structure: https://v2.tauri.app/start/project-structure/
-- Tauri v2 Vite Frontend: https://v2.tauri.app/start/frontend/vite/
-- Tailwind v4 + Vite setup: https://tailwindcss.com/docs (verified via npm package docs)
-- tauri-specta releases: https://github.com/specta-rs/tauri-specta/releases
-- CalcState derives: hp41-core/src/state.rs line 52 — `#[derive(Debug, Clone, Serialize, Deserialize)]`
+- `rust_decimal`, `num-complex`, `nalgebra`, `faer`, `ndarray`, `roots`, `approx`, `peroxide`, `gauss-quad`, `argmin` — crate metadata verified via crates.io API and github.com manifest inspection on 2026-05-16
+- `num-complex` Float bound on transcendentals: docs.rs/num-complex/0.4.6/num_complex/struct.Complex.html — confirmed `impl<T: Float> Complex<T>` for `sqrt`/`exp`/`ln`/`powc`
+- `Decimal` does NOT impl `Float` (no IEEE-754 layout): direct inspection of `rust_decimal::Decimal` API
+- HP-41C Math Pac I Owner's Manual (00041-90034, 1981) — public-domain behavioral spec (NOT ROM bytes)
+- `hp41-core/Cargo.toml` — current `[dependencies]` block (4 entries: rust_decimal, thiserror, serde, serde_json)
+- `hp41-core/src/num.rs:184–211` — established f64-bridge pattern for `checked_asin`/`checked_acos`/`checked_atan`
+- `hp41-core/src/ops/mod.rs:1–22` — module declaration block
+- `hp41-core/tests/numerical_accuracy.rs:1–120` — existing harness structure
+- `.planning/PROJECT.md:7–22` — v3.0 scope; `.planning/PROJECT.md:155–157` — Math 1 Pac scope locked
+- `CLAUDE.md:46–47` — settled BCD/f64 decision; `CLAUDE.md:65` — `#![deny(clippy::unwrap_used)]` invariant

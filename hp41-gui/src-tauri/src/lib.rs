@@ -8,9 +8,23 @@ mod commands;
 mod key_map;
 mod persistence;
 mod prgm_display; // Phase 18 D-03
-mod types;
+pub mod types; // pub so integration tests (lcd_alternation_modal_prompt.rs) can access CalcStateView::from_state
 
 pub type AppState = Mutex<hp41_core::CalcState>;
+
+/// Separate managed state for the cancellation flag (Phase 31 / GUI-05 / Plan 31-02).
+///
+/// This MUST be a separate `tauri::State` from `AppState` to avoid deadlock:
+/// `request_cancel` must flip the AtomicBool without acquiring the AppState Mutex,
+/// because `dispatch_op` holds the AppState Mutex for the entire duration of a
+/// long-running op (INTG/SOLVE/DIFEQ). If `request_cancel` tried to lock AppState,
+/// it would deadlock (Pitfall 1 / RESEARCH.md §"AppState Mutex + AtomicBool interleaving").
+///
+/// The Arc inside is the SAME Arc as `CalcState.cancel_requested` — cloned at setup
+/// time before the CalcState is wrapped in the Mutex. The solver loops in
+/// `op_integ`/`op_solve`/`op_difeq` read it via `state.cancel_requested.load(Relaxed)`.
+/// `request_cancel` writes it via `cancel_flag.store(true, Relaxed)`.
+pub type CancelFlag = std::sync::Arc<std::sync::atomic::AtomicBool>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -35,7 +49,16 @@ pub fn run() {
                 }
                 Err(_) => hp41_core::CalcState::new(),
             };
+            // Clone the Arc<AtomicBool> out BEFORE wrapping initial_state in the Mutex.
+            // This gives us a separate CancelFlag handle that request_cancel can flip
+            // WITHOUT acquiring the AppState Mutex — the deadlock-avoidance invariant
+            // (Pitfall 1 / RESEARCH.md §"AppState Mutex + AtomicBool interleaving").
+            // The Arc is shared: solver loops read via CalcState.cancel_requested;
+            // request_cancel writes via this cloned Arc.
+            let cancel_flag: CancelFlag =
+                std::sync::Arc::clone(&initial_state.cancel_requested);
             app.manage(Mutex::new(initial_state));
+            app.manage(cancel_flag);
 
             // D-01: spawn auto-save background thread — 30s sleep, then lock, then save.
             // D-02: save failures are logged to stderr; no UI notification.
@@ -60,9 +83,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::dispatch_op,
             commands::get_state,
-            commands::sst_step, // Phase 18 D-05
-            commands::bst_step, // Phase 18 D-05
-            commands::run_stop, // Phase 19 (v2.1) — R/S key toggle
+            commands::sst_step,                 // Phase 18 D-05
+            commands::bst_step,                 // Phase 18 D-05
+            commands::run_stop,                 // Phase 19 (v2.1) — R/S key toggle
+            commands::request_cancel,           // Phase 31 Plan 31-02 — flip cancel_requested AtomicBool
+            commands::submit_modal,             // Phase 31 Plan 31-03 — R/S submit modal step
+            commands::cancel_modal,             // Phase 31 Plan 31-03 — Esc cancel modal
+            commands::submit_modal_with_label,  // Phase 31 Plan 31-03 — XEQ-by-name FUNCTION NAME? step
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

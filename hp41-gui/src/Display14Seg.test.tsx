@@ -201,6 +201,48 @@ describe('Display14Seg rendering', () => {
         expect(svg!.getAttribute('aria-label')).toBe('HP-41 14-segment display');
     });
 
+    it('SEGMENT_MAP contains entry for U+2261 (HP-41 ≡ continuation marker) per D-31.6', () => {
+        // Plan 31-05 / D-31.6: long modal prompts are truncated to 12 chars with
+        // the HP-41 ≡ marker (U+2261) as the 12th character. The glyph must be in
+        // SEGMENT_MAP so it renders as a three-bar shape (top + middle + bottom =
+        // segments 0, 6, 7, 3) rather than falling back to all-off (blank cell).
+        expect(SEGMENT_MAP['\u{2261}']).toBeDefined();
+        // Must light segments 0 (top), 6 (g1 middle-left), 7 (g2 middle-right), 3 (bottom).
+        expect(SEGMENT_MAP['\u{2261}']).toContain(0); // top horizontal
+        expect(SEGMENT_MAP['\u{2261}']).toContain(6); // middle-left horizontal
+        expect(SEGMENT_MAP['\u{2261}']).toContain(7); // middle-right horizontal
+        expect(SEGMENT_MAP['\u{2261}']).toContain(3); // bottom horizontal
+    });
+
+    it('renders ≡ (U+2261) HP-41 continuation marker as three-bar (top + middle + bottom lit)', () => {
+        // Plan 31-05 / D-31.6: truncated modal prompts end with ≡. The glyph must
+        // light segments 0 (top), 6 (g1 middle-left), 7 (g2 middle-right), 3 (bottom).
+        // Use a 12-char string ending in ≡ so the marker appears in cell 11 (0-indexed).
+        // "FUNCTION NA≡" = F(0)U(1)N(2)C(3)T(4)I(5)O(6)N(7) (8)N(9)A(10)≡(11) = 12 chars total.
+        const text12 = 'FUNCTION NA\u{2261}';
+        expect([...text12].length).toBe(12); // verify fixture is exactly 12 chars
+
+        const { container } = render(<Display14Seg text={text12} />);
+        const cells = Array.from(container.querySelectorAll('g'));
+        expect(cells.length).toBe(12);
+
+        // Cell at index 11 is the ≡ character. SEGMENT_MAP['\u{2261}'] = [0, 6, 7, 3]
+        const lastCell = cells[11];
+        const paths = Array.from(lastCell.querySelectorAll('path'));
+        expect(paths.length).toBe(15); // 14 segments + 1 decimal dot per cell
+
+        // Segments that MUST be lit: 0 (top), 3 (bottom), 6 (g1), 7 (g2).
+        const litSegments = [0, 3, 6, 7];
+        for (const segIdx of litSegments) {
+            const opacity = parseFloat(paths[segIdx].getAttribute('opacity') ?? '0');
+            expect(opacity).toBeGreaterThanOrEqual(0.99);
+        }
+
+        // A non-three-bar segment (e.g. index 1, 'b' top-right vertical) must be OFF.
+        const offOpacity = parseFloat(paths[1].getAttribute('opacity') ?? '1');
+        expect(offOpacity).toBeLessThan(0.5);
+    });
+
     it('lowercase letters fall back to all-off (HP-41 ALPHA is uppercase-only)', () => {
         // Display14Seg uppercases char before SEGMENT_MAP lookup. Lowercase 'a'
         // resolves to SEGMENT_MAP['A'] which is defined and lit; this test

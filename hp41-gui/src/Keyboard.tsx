@@ -28,6 +28,14 @@ export type KeyDef = {
   id: string;
   label: string;                               // primary visible label
   shifted?: { id: string; label: string };    // shifted op + orange label above
+  // v2.2.1 / quick-task 260516-c1p — mode-aware shifted variant. When set AND
+  // annunciators.prgm is active, App.tsx::handleClick prefers this over the
+  // regular `shifted` slot. Hardware-faithful: HP-41C/CV's `f √x` is x²
+  // outside PRGM mode but CLP inside PRGM (docs/hp41cv-functions.json
+  // key_path "f-C"). The visible orange label stays the regular `shifted`
+  // one — the real HP-41 doesn't relabel keys either; the mode-aware
+  // behavior is operator muscle memory.
+  shiftedInPrgm?: { id: string; label: string };
   alphaChar?: string;                          // ALPHA-mode character (blue label below)
   row: number;                                 // 0 = top-row band, 1..8 = main grid rows
   col: number;                                 // 0..4 within row
@@ -72,7 +80,7 @@ const MAIN_GRID: KeyDef[] = [
   // Row 1 — math. HP-41 hardware row 1: Σ+(11), 1/x(12), √x(13), LOG(14), LN(15).
   { id: 'sigma_plus', label: 'Σ+',  shifted: { id: 'sigma_minus', label: 'Σ−' },   alphaChar: 'A', row: 1, col: 0, keyCode: 11 },
   { id: 'recip',      label: '1/x', shifted: { id: 'ypow',        label: 'yˣ' },   alphaChar: 'B', row: 1, col: 1, keyCode: 12 },
-  { id: 'sqrt',       label: '√x',  shifted: { id: 'sq',          label: 'x²' },   alphaChar: 'C', row: 1, col: 2, keyCode: 13 },
+  { id: 'sqrt',       label: '√x',  shifted: { id: 'sq',          label: 'x²' },   shiftedInPrgm: { id: 'clp_prompt', label: 'CLP' }, alphaChar: 'C', row: 1, col: 2, keyCode: 13 },
   { id: 'log',        label: 'LOG', shifted: { id: 'tenpow',      label: '10ˣ' }, alphaChar: 'D', row: 1, col: 3, keyCode: 14 },
   { id: 'ln',         label: 'LN',  shifted: { id: 'exp',         label: 'eˣ' },   alphaChar: 'E', row: 1, col: 4, keyCode: 15 },
   // Row 2 — trig + stack. HP-41 hardware row 2: XEQ(21), STO(22), RCL(23), R↓(24), SIN(25).

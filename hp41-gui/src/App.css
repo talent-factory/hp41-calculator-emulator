@@ -364,3 +364,31 @@
   text-align: center;
   color: #888;
 }
+
+/* Phase 31-04 D-31.8 / UI-SPEC §Typography — top-level section headings.
+   Styled as collapsible buttons; broader than category headings (14px vs 13px,
+   bolder, uppercase) to make the section boundary visually distinct. */
+.help-overlay-section-heading {
+  margin: 16px 0 8px 0;
+  color: #f5a423;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid #3a3a3a;
+  padding-bottom: 4px;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.help-overlay-section-heading:hover {
+  color: #ffc107;
+}
+
+/* Phase 31-04 — section body placeholder for future style hooks. */
+.help-overlay-section-body {}

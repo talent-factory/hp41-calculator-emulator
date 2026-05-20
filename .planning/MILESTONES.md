@@ -183,4 +183,49 @@ The work was scoped, planned and executed by Claude Code session-by-session agai
 - FR-21 Module emulation (Math 1 / Stat 1 / Time / Advantage Pacs) — separate milestone family; scope decision 2026-05-13
 
 ---
+
+## v2.2 — HP-41CV Feature Completeness
+
+**Status:** ✅ SHIPPED 2026-05-15
+**Phases:** 8 (Phases 20–27)
+**Plans:** 26 total, all complete
+**Pull requests:** v2.2 milestone PR (8/8 phases merged into `develop`); tag `v2.2` on `main`
+
+### Delivered
+
+The HP-41CV ROM built-in function set (~130 named operations) completed end-to-end across `hp41-core`, `hp41-cli`, and `hp41-gui`, with a JSON-canonical documentation pipeline and a tightened quality gate.
+
+- **Phase 20 — Core Math & Conversions:** ~25 new ops (PI, P↔R, RND, FRC, MOD, ABS, FACT, SIGN, R↑); polar conversions respect angle mode; numerical_accuracy suite extended.
+- **Phase 21 — Flags, Display Control, Sound:** 56 user + system flags as `flags: u64` on `CalcState`; SF/CF/FS?/FC?/FS?C/FC?C; VIEW/AVIEW/PROMPT/AON/AOFF/CLD; BEEP/TONE (CLI-side silent stubs).
+- **Phase 22 — Program Control & Memory Ops:** STOP, PSE, CLP, DEL nnn, INS, GTO/XEQ IND, CATALOG 1, ASN/CLA/CLST, SIZE, PACK, MEM LOST.
+- **Phase 23 — ALPHA Operations:** ARCL, ASTO, ATOX, XTOA, AROT, POSA — full ALPHA-register manipulation.
+- **Phase 24 — Indirect Addressing:** 11-variant `*Ind` family (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/STO+/-/×/÷ IND).
+- **Phase 25 — CLI Integration & JSON Pipeline:** f-prefix one-shot model on CLI (mirrors GUI `shiftActive`); hybrid `PendingInput` struct-variants (FlagPrompt / RegisterPrompt) collapsing 34 logical ops into 2 carriers; IND-toggle via shift-0 inside modals; `docs/hp41cv-functions.json` as single source of truth + scripts/docs-matrix code-generator (`just docs-matrix` / `just docs-matrix-check`).
+- **Phase 26 — GUI Integration & Polish:** ~80 new key-map arms, 12-variant `PendingInput` TS union with modal LCD rendering; 14-seg SVG LCD font; `?` keyboard-shortcut overlay; USER-mode keyboard assignment display; `prgm_mode` rebound to `p`; stub-error arm shrunk to v3.x-only.
+- **Phase 27 — Test Hardening:** coverage gate raised atomically from 80% → 95% (D-27.2); numerical_accuracy extended to 566 cases at 99.1% pass rate (v1.x 503-case floor preserved at ≥498); WebdriverIO + tauri-driver E2E smoke on Ubuntu; Vitest CI gating closed.
+
+### Quality at Ship
+
+| Gate | Target | Achieved |
+|------|--------|---------|
+| hp41-core line coverage | ≥ 95% | 95.25% (regions 93.75% / functions 97.68%) |
+| Numerical accuracy | ≥ 98% (566 cases) | 99.1% (561/566); v1.x baseline floor 498/503 preserved |
+| Panics in hp41-core | 0 | 0 (`#![deny(clippy::unwrap_used)]`) |
+| CI | Win/macOS/Ubuntu | ✅ all green (`ci.yml` + `ci-gui.yml` + `e2e-linux`) |
+| Workspace tests | green | 1202/1202 |
+| Vitest | green | 142/142 |
+| E2E smoke | green | 1/1 (Ubuntu) |
+
+### Archives
+
+- [REQUIREMENTS.md](v2.2-REQUIREMENTS.md)
+- [ROADMAP.md](v2.2-ROADMAP.md)
+- Phase plans: `milestones/v2.2-phases/` (20-27, 26 plan files)
+
+### Known Deferred Items (→ v3.0+)
+
+- FR-21 Module emulation — Math 1 Pac (v3.0), Stat 1 Pac (v3.1), Time + Advantage Pacs (v3.2+)
+- Branch protection wiring for `e2e-linux` required-check (HUMAN-UAT item 2 — manual repo-setting follow-up)
+
+---
 *For current project status, see .planning/STATE.md*

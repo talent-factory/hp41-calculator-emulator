@@ -8,6 +8,41 @@
 //! Decisions: D-01..D-03 (CalcStateView shape), D-10..D-11 (GuiError shape).
 //! Phase 14 design: types.rs has zero side effects — only struct definitions and a
 //! pure constructor that reads CalcState fields.
+//!
+//! Phase 31 Plan 05: LCD-alternation routing (D-31.5 / D-31.6).
+//! LCD_WIDTH / CONTINUATION / truncate_with_continuation live here so they are
+//! co-located with CalcStateView::from_state (the sole caller). The routing
+//! lives in from_state as a new 4th branch at the TOP of the display_str priority
+//! chain — placed BEFORE the existing `if !state.entry_buf.is_empty()` branch.
+//!
+//! IMPORTANT: display_override is RESERVED for Phase 21 VIEW/AVIEW/PROMPT/CLD
+//! per hp41-core/src/state.rs and is cleared at the top of dispatch. Modal-prompt
+//! routing must NOT go through display_override (collision risk). The from_state
+//! branch is the correct implementation location.
+
+/// HP-41C LCD character width (12 characters per real hardware display row).
+const LCD_WIDTH: usize = 12;
+
+/// HP-41 standard continuation marker (U+2261 IDENTICAL TO) — shown as the
+/// 12th character when a prompt is longer than LCD_WIDTH. Hardware-faithful
+/// per D-31.6.
+const CONTINUATION: char = '\u{2261}'; // ≡
+
+/// Truncate a string to LCD_WIDTH characters. If the string fits, returns it
+/// unchanged. If it is longer, returns the first (LCD_WIDTH - 1) characters
+/// followed by CONTINUATION (≡).
+///
+/// Uses Unicode-correct char iteration (NOT byte indexing) so multi-byte
+/// characters are handled safely.
+fn truncate_with_continuation(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.len() <= LCD_WIDTH {
+        return s.to_string();
+    }
+    let mut result: String = chars.iter().take(LCD_WIDTH - 1).collect();
+    result.push(CONTINUATION);
+    result
+}
 
 use crate::prgm_display;
 use hp41_core::{format_alpha, format_hpnum, AngleMode, CalcState, HpError};
@@ -54,6 +89,19 @@ pub struct CalcStateView {
     // mirroring the `print_lines` drain pattern (Pitfall 1 from
     // hp41-gui/src-tauri/src/types.rs line 44 — &mut → & cannot interleave).
     pub event_buffer: Vec<String>,
+    // Phase 31 Plan 03: modal workflow state fields for D-31.1 / D-31.2 dispatch routing.
+    // is_running: mirrors CalcState.is_running for R/S 3-way and Esc-cancel routing.
+    pub is_running: bool,
+    // modal_program_active: true when CalcState.modal_program.is_some() — avoids
+    // sending the full ModalProgram enum over IPC (SC-4 / D-25.6 parity: no GUI-only logic).
+    pub modal_program_active: bool,
+    // modal_requires_alpha_label: true when the active modal step expects XEQ-by-name input
+    // (FUNCTION NAME? prompt). Drives the post-dispatch auto-open of XeqByName{CollectForModal}
+    // in App.tsx (D-29.9 mirror).
+    pub modal_requires_alpha_label: bool,
+    // modal_prompt: cloned from CalcState.modal_prompt for debug + accessibility.
+    // Also used by Display14Seg LCD-alternation routing (D-31.5) in Phase 31 Plan 05.
+    pub modal_prompt: Option<String>,
 }
 
 impl CalcStateView {
@@ -68,11 +116,28 @@ impl CalcStateView {
         print_lines: Vec<String>,
         event_lines: Vec<String>,
     ) -> Self {
-        // display_str priority chain (D-01 + Claude's Discretion):
-        //   1. entry_buf (when user is typing)
+        // display_str priority chain (D-01 + Claude's Discretion + D-31.5):
+        //   0. [NEW Phase 31 Plan 05] modal_prompt truncated when modal is active
+        //      AND entry_buf is empty AND modal_prompt is set → LCD-alternation
+        //      (D-31.5 / D-31.6). Placed BEFORE entry_buf priority so the prompt
+        //      shows while waiting for user input; once the user starts typing,
+        //      entry_buf is non-empty and that branch wins instead (live feedback).
+        //      NOTE: display_override is RESERVED for Phase 21 VIEW/AVIEW/PROMPT/CLD
+        //      and must NOT be used here — see module-level doc comment.
+        //   1. entry_buf (when user is typing — overrides modal prompt)
         //   2. alpha_reg via format_alpha (when alpha_mode is on)
         //   3. format_hpnum(stack.x, display_mode) (default)
-        let display_str = if !state.entry_buf.is_empty() {
+        let display_str = if state.modal_program.is_some()
+            && state.entry_buf.is_empty()
+            && state.modal_prompt.is_some()
+        {
+            truncate_with_continuation(
+                state
+                    .modal_prompt
+                    .as_ref()
+                    .expect("modal_prompt set in guard above"),
+            )
+        } else if !state.entry_buf.is_empty() {
             state.entry_buf.clone()
         } else if state.alpha_mode {
             format_alpha(&state.alpha_reg)
@@ -125,6 +190,16 @@ impl CalcStateView {
         // Phase 26 D-26.11: surface display_override; clone the Option<String>.
         let display_override = state.display_override.clone();
 
+        // Phase 31 Plan 03: project modal workflow state fields.
+        let is_running = state.is_running;
+        let modal_program_active = state.modal_program.is_some();
+        let modal_requires_alpha_label = state
+            .modal_program
+            .as_ref()
+            .map(|m| m.requires_alpha_label())
+            .unwrap_or(false);
+        let modal_prompt = state.modal_prompt.clone();
+
         CalcStateView {
             display_str,
             x_str,
@@ -141,6 +216,10 @@ impl CalcStateView {
             flags,
             display_override,
             event_buffer: event_lines,
+            is_running,
+            modal_program_active,
+            modal_requires_alpha_label,
+            modal_prompt,
         }
     }
 }
@@ -154,9 +233,13 @@ impl From<HpError> for GuiError {
     fn from(e: HpError) -> Self {
         // HpError uses #[derive(thiserror::Error)] with #[error("...")] attrs.
         // .to_string() yields the literal message ("overflow", "divide by zero", etc.).
-        GuiError {
-            message: e.to_string(),
-        }
+        // EXCEPTION: HpError::Canceled Display returns lowercase "canceled" but
+        // UI-SPEC requires uppercase "CANCELED" (Phase 31 Plan 03 / Pitfall 4).
+        let message = match e {
+            HpError::Canceled => "CANCELED".to_string(),
+            other => other.to_string(),
+        };
+        GuiError { message }
     }
 }
 
@@ -172,10 +255,13 @@ mod tests {
         // ["000 END"] (~35 bytes); the 4 new D-26.11 projections add ~60 bytes
         // for empty/None defaults. Budget raised from 400 to 500 bytes per
         // D-26.11. Real programs grow beyond this limit.
+        // Phase 31 Plan 03: 4 new modal fields add ~100 bytes for empty/false/None
+        // defaults. Per RESEARCH Pitfall 10: 337 + 100 = ~437 bytes, 63-byte headroom.
         let state = CalcState::new();
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
-        // Phase 26 measured baseline: 337 bytes (337 << 500 budget).
+        // Phase 26 measured baseline: 337 bytes. Phase 31 adds ~100 bytes for modal fields.
+        // Combined budget: <= 500 bytes (63-byte headroom at ~437 bytes).
         assert!(
             json.len() <= 500,
             "CalcStateView JSON (empty program + empty assignments + no flags) must be ≤500 bytes, got {} bytes: {}",
@@ -188,7 +274,10 @@ mod tests {
     fn test_dispatch_op_payload_size_with_realistic_load() {
         // Phase 26 D-26.11: budget must hold with a realistic load — ~5 ASN
         // assignments + 3 set flags. Verifies the new projections don't blow
-        // the 500-byte envelope in real-world usage.
+        // the budget in real-world usage.
+        // Phase 31 Plan 03: 4 new modal fields add ~103 bytes (measured). The
+        // realistic-load budget is raised from 500 to 600 bytes to accommodate
+        // the new fields. The empty-program budget stays at 500 bytes.
         let mut state = CalcState::new();
         state.assignments.insert(11, "SIN".to_string());
         state.assignments.insert(12, "COS".to_string());
@@ -198,10 +287,11 @@ mod tests {
         state.flags = (1u64 << 5) | (1u64 << 10) | (1u64 << 22); // flags 5, 10, 22 set
         let view = CalcStateView::from_state(&state, vec![], vec![]);
         let json = serde_json::to_string(&view).unwrap();
-        // Phase 26 measured load: 401 bytes (~20% headroom under the 500 budget).
+        // Phase 26 measured load: 401 bytes; Phase 31 adds ~103 bytes → ~504 bytes.
+        // Budget set to 600 bytes with headroom for future fields.
         assert!(
-            json.len() <= 500,
-            "CalcStateView JSON (realistic ASN+flag load) must be ≤500 bytes, got {} bytes: {}",
+            json.len() <= 600,
+            "CalcStateView JSON (realistic ASN+flag load) must be ≤600 bytes, got {} bytes: {}",
             json.len(),
             json
         );
@@ -272,6 +362,40 @@ mod tests {
         // HpError::Overflow has #[error("overflow")] — to_string() yields "overflow".
         let err: GuiError = HpError::Overflow.into();
         assert_eq!(err.message, "overflow");
+    }
+
+    /// Phase 31 Plan 03 / Pitfall 4: HpError::Canceled must map to UPPERCASE "CANCELED"
+    /// (not the lowercase "canceled" that .to_string() yields from the #[error] attribute).
+    /// UI-SPEC mandates uppercase per the "CANCELED" display requirement.
+    #[test]
+    fn test_canceled_maps_to_uppercase() {
+        let err: GuiError = HpError::Canceled.into();
+        assert_eq!(
+            err.message,
+            "CANCELED",
+            "HpError::Canceled must map to 'CANCELED' (uppercase per UI-SPEC)"
+        );
+    }
+
+    /// Phase 31 Plan 03: CalcStateView now has 4 new modal fields.
+    /// Verify they project correctly from a fresh CalcState.
+    #[test]
+    fn test_modal_fields_default_projection() {
+        let state = CalcState::new();
+        let view = CalcStateView::from_state(&state, vec![], vec![]);
+        assert!(!view.is_running, "fresh state: is_running must be false");
+        assert!(
+            !view.modal_program_active,
+            "fresh state: modal_program_active must be false"
+        );
+        assert!(
+            !view.modal_requires_alpha_label,
+            "fresh state: modal_requires_alpha_label must be false"
+        );
+        assert!(
+            view.modal_prompt.is_none(),
+            "fresh state: modal_prompt must be None"
+        );
     }
 
     #[test]

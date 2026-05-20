@@ -15,6 +15,7 @@ use std::str::FromStr;
 
 use crate::error::HpError;
 use crate::num::HpNum;
+use crate::ops::math1::xrom::MATH_1;
 use crate::ops::{Op, TestKind};
 use crate::stack::{apply_lift_effect, enter_number, LiftEffect};
 use crate::state::CalcState;
@@ -66,12 +67,18 @@ pub fn op_gto(state: &mut CalcState, label: &str) -> Result<(), HpError> {
 /// LiftEffect: Neutral.
 pub fn op_xeq(state: &mut CalcState, label: &str) -> Result<(), HpError> {
     if !state.is_running {
-        // Built-in XEQ-by-name fallback for the four Card Reader ops.
+        // Built-in XEQ-by-name fallback for Card Reader ops + conditional tests.
         // No user-label scan here: user-program XEQ goes through run_loop,
         // not op_xeq. If a user wants to call their own LBL interactively
         // they use run_program(state, label) directly, not dispatch.
         if let Some(card_op) = builtin_card_op(label) {
             return crate::ops::dispatch(state, card_op);
+        }
+        // Phase 28 (v3.0) XROM resolver — fires LAST (C-28.4 / Pitfall 1).
+        // Checked after builtin_card_op so built-in names always win.
+        // xeq_by_name_local_resolve (hp41-cli) is the third call site — Phase 29 / CLI-01.
+        if let Some(xrom_op) = crate::ops::math1::xrom::xrom_resolve(label, state.xrom_modules) {
+            return crate::ops::dispatch(state, xrom_op);
         }
         return Err(HpError::InvalidOp);
     }
@@ -326,9 +333,28 @@ pub fn op_catalog(state: &mut CalcState, n: u8) -> Result<(), HpError> {
                 ));
             }
         }
-        2..=4 => {
-            // CATALOG 2 (XROM modules) / 3 (HP-IL) / 4 (peripherals) — none
-            // in this emulator → single payload line.
+        2 => {
+            // CATALOG 2: XROM modules loaded in this emulator.
+            // Surgical Phase 31-04 exception (analogous to v2.2 Plan 25-03
+            // builtin_card_op 4→12 extension). Instant-scroll per W1 fix:
+            // single-pass synchronous push into print_buffer — NO PSE-step,
+            // NO per-line yield (v2.2 CAT 1 shape; D-31.12/D-31.14 PSE-step
+            // deferred to v3.1 polish per RESEARCH Open Q2).
+            if state.xrom_modules & 0b0000_0001 != 0 {
+                // Math Pac I (bit 0) is loaded.
+                state.print_buffer.push(format!(
+                    "{:<24}",
+                    format!("XROM {} {}", MATH_1.id, MATH_1.name)
+                ));
+                for (name, _op) in MATH_1.ops {
+                    state.print_buffer.push(format!("{name:<24}"));
+                }
+            } else {
+                state.print_buffer.push(format!("{:<24}", "NO XROM"));
+            }
+        }
+        3..=4 => {
+            // CATALOG 3 (HP-IL) / 4 (peripherals) — not emulated.
             state.print_buffer.push(format!("{:<24}", "NOT AVAILABLE"));
         }
         _ => return Err(HpError::InvalidOp), // defensive; guarded above
@@ -509,6 +535,17 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                             // single instruction (not a control-flow change), so pc resumes
                             // at the step that follows the XEQ.
                             crate::ops::dispatch(state, card_op)?;
+                        } else if let Some(xrom_op) =
+                            // Phase 28 (v3.0) XROM resolver — fires LAST (C-28.4 / Pitfall 1).
+                            // Checked after builtin_card_op so built-in names always win.
+                            crate::ops::math1::xrom::xrom_resolve(
+                                &label,
+                                state.xrom_modules,
+                            )
+                        {
+                            // No pc adjustment — same rationale as card_op above: XROM ops
+                            // are single instructions dispatched inline, not subroutine calls.
+                            crate::ops::dispatch(state, xrom_op)?;
                         } else {
                             return Err(HpError::InvalidOp);
                         }
@@ -604,6 +641,34 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
                 state.display_override = Some(state.alpha_reg.chars().take(24).collect::<String>());
                 break;
             }
+            // ── Phase 28: DIFEQ (Plan 28-09) ─────────────────────────────────
+            // Op::Difeq must run inside run_loop (not dispatch) to allow re-entrant
+            // run_loop calls for each RK4 sub-step (C-28.5 / Pitfall 4).
+            // The real implementation is in op_difeq_run_loop; the dispatch arm
+            // (execute_op and dispatch()) returns InvalidOp per the Op::Integ / Op::Solve precedents.
+            Op::Difeq => {
+                crate::ops::math1::difeq::op_difeq_run_loop(state, program)?;
+            }
+            // ── Phase 28: INTG (Plan 28-07) ──────────────────────────────────
+            // Op::Integ must run inside run_loop (not dispatch) to allow re-entrant
+            // run_loop calls for each sample point (C-28.5 / Pitfall 4).
+            // The real implementation is in op_integ_run_loop; the dispatch arm
+            // (execute_op and dispatch()) returns InvalidOp per the XeqInd precedent.
+            Op::Integ => {
+                crate::ops::math1::integ::op_integ_run_loop(state, program)?;
+            }
+            // ── Phase 28: SOLVE / SOL (Plan 28-08) ───────────────────────────
+            // Op::Solve and Op::Sol must run inside run_loop (not dispatch) to allow
+            // re-entrant run_loop calls for each secant iteration (C-28.5 / Pitfall 4).
+            // The real implementations are in op_solve_run_loop / op_sol_run_loop;
+            // the dispatch arm (execute_op and dispatch()) returns InvalidOp per the
+            // Op::Integ precedent from Plan 28-07.
+            Op::Solve => {
+                crate::ops::math1::solve::op_solve_run_loop(state, program)?;
+            }
+            Op::Sol => {
+                crate::ops::math1::solve::op_sol_run_loop(state, program)?;
+            }
             other => {
                 // All other ops execute without flush_entry_buf (no digit entry mid-program)
                 // and without prgm_mode check (RESEARCH Pitfall 2)
@@ -620,6 +685,13 @@ fn run_loop(state: &mut CalcState, program: &[Op]) -> Result<(), HpError> {
 ///
 /// MUST NOT call flush_entry_buf (no digit entry mid-program, RESEARCH Pitfall 2).
 /// MUST NOT check prgm_mode (always false when is_running = true).
+///
+/// `pub(crate)` visibility so `ops::math1::integ::run_user_function` can call it
+/// for user-callback re-entry (Plan 28-07 / C-28.5). Do NOT call from outside hp41-core.
+pub(crate) fn execute_op_pub(state: &mut CalcState, op: Op) -> Result<(), HpError> {
+    execute_op(state, op)
+}
+
 fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
     use crate::ops::alpha::{op_alpha_append, op_alpha_backspace, op_alpha_clear, op_alpha_toggle};
     use crate::ops::arithmetic::{op_add, op_div, op_mul, op_sub};
@@ -849,6 +921,44 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         Op::ViewInd(reg) => crate::ops::indirect::op_view_ind(state, reg),
         Op::IsgInd(reg) => crate::ops::indirect::op_isg_ind(state, reg).map(|_| ()),
         Op::DseInd(reg) => crate::ops::indirect::op_dse_ind(state, reg).map(|_| ()),
+        // ── Phase 28: Hyperbolics (Plan 28-02) ────────────────────────────────────
+        Op::Sinh => crate::ops::math1::hyperbolics::op_sinh(state),
+        Op::Cosh => crate::ops::math1::hyperbolics::op_cosh(state),
+        Op::Tanh => crate::ops::math1::hyperbolics::op_tanh(state),
+        Op::Asinh => crate::ops::math1::hyperbolics::op_asinh(state),
+        Op::Acosh => crate::ops::math1::hyperbolics::op_acosh(state),
+        Op::Atanh => crate::ops::math1::hyperbolics::op_atanh(state),
+        // ── Phase 28: Complex Stack Arithmetic (Plan 28-03) ──────────────────────
+        Op::CPlus => crate::ops::math1::complex::op_c_plus(state),
+        Op::CMinus => crate::ops::math1::complex::op_c_minus(state),
+        Op::CTimes => crate::ops::math1::complex::op_c_times(state),
+        Op::CDiv => crate::ops::math1::complex::op_c_div(state),
+        Op::Real => crate::ops::math1::complex::op_real(state),
+        // ── Phase 28: Complex Functions (Plan 28-04) ─────────────────────────────
+        Op::Magz => crate::ops::math1::complex::op_magz(state),
+        Op::Cinv => crate::ops::math1::complex::op_cinv(state),
+        Op::ZpowN => crate::ops::math1::complex::op_z_pow_n(state),
+        Op::Zpow1N => crate::ops::math1::complex::op_z_pow_1_n(state),
+        Op::ExpZ => crate::ops::math1::complex::op_exp_z(state),
+        Op::LnZ => crate::ops::math1::complex::op_ln_z(state),
+        Op::SinZ => crate::ops::math1::complex::op_sin_z(state),
+        Op::CosZ => crate::ops::math1::complex::op_cos_z(state),
+        Op::TanZ => crate::ops::math1::complex::op_tan_z(state),
+        Op::ApowZ => crate::ops::math1::complex::op_a_pow_z(state),
+        Op::LogZ => crate::ops::math1::complex::op_log_z(state),
+        Op::ZpowW => crate::ops::math1::complex::op_z_pow_w(state),
+        // ── Phase 28: POLY / ROOTS (Plan 28-05) ─────────────────────────────
+        Op::PolyWorkflow => crate::ops::math1::poly::op_poly_workflow(state),
+        Op::Roots => crate::ops::math1::poly::op_roots(state),
+        // ── Phase 28: MATRIX (Plan 28-06) ────────────────────────────────────
+        Op::MatrixWorkflow => crate::ops::math1::matrix::op_matrix_workflow(state),
+        Op::MatSize => crate::ops::math1::matrix::op_mat_size(state),
+        Op::MatVmat => crate::ops::math1::matrix::op_mat_vmat(state),
+        Op::MatEdit => crate::ops::math1::matrix::op_mat_edit(state),
+        Op::MatDet => crate::ops::math1::matrix::op_mat_det(state),
+        Op::MatInv => crate::ops::math1::matrix::op_mat_inv(state),
+        Op::MatSimeq => crate::ops::math1::matrix::op_mat_simeq(state),
+        Op::MatVcol => crate::ops::math1::matrix::op_mat_vcol(state),
         // Programming ops handled by run_loop directly — must not reach here
         Op::Lbl(_)
         | Op::Gto(_)
@@ -866,7 +976,22 @@ fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError> {
         | Op::Clp(_)                            // Phase 22: CLP is a PRGM-mode editing primitive
         | Op::Del(_)                            // Phase 22: DEL is a PRGM-mode editing primitive
         | Op::FlagTestInd { .. }              // Phase 24: FlagTestInd has run_loop arm (no execute_op delegate)
-        | Op::Ins => Err(HpError::InvalidOp),   // Phase 22: INS is a PRGM-mode editing primitive
+        | Op::Ins                               // Phase 22: INS is a PRGM-mode editing primitive
+        | Op::Difeq                             // Phase 28: DIFEQ has run_loop arm; dispatch returns InvalidOp (Plan 28-09)
+        | Op::Integ                             // Phase 28: INTG has run_loop arm; dispatch returns InvalidOp
+        | Op::Solve                             // Phase 28: SOLVE has run_loop arm; dispatch returns InvalidOp
+        | Op::Sol => Err(HpError::InvalidOp),   // Phase 28: SOL has run_loop arm; dispatch returns InvalidOp
+        // ── Phase 28: FOUR / Triangle Solvers / TRANS (Plan 28-10) ──────────
+        // Pure-data ops: execute fully from dispatch context (no run_loop re-entry needed).
+        // Mirrors hyperbolics Plan 28-02 pattern (NOT the user-callback Plan 28-07/08 pattern).
+        Op::Four => crate::ops::dispatch(state, Op::Four),
+        Op::TriSss => crate::ops::dispatch(state, Op::TriSss),
+        Op::TriAsa => crate::ops::dispatch(state, Op::TriAsa),
+        Op::TriSaa => crate::ops::dispatch(state, Op::TriSaa),
+        Op::TriSas => crate::ops::dispatch(state, Op::TriSas),
+        Op::TriSsa => crate::ops::dispatch(state, Op::TriSsa),
+        Op::Trans2d => crate::ops::dispatch(state, Op::Trans2d),
+        Op::Trans3d => crate::ops::dispatch(state, Op::Trans3d),
     }
 }
 
@@ -1004,6 +1129,13 @@ pub(super) fn builtin_card_op(name: &str) -> Option<Op> {
         "X>=0?" | "X\u{2265}0?" => Some(Op::Test(TestKind::XGeZero)),
         _ => None,
     }
+}
+
+/// Test-only re-export of `builtin_card_op` for integration tests in `tests/xrom_shadowing.rs`.
+/// Production visibility stays `pub(super)` — this shim keeps prod API narrow.
+#[cfg(test)]
+pub fn __test_builtin_card_op(name: &str) -> Option<Op> {
+    builtin_card_op(name)
 }
 
 #[cfg(test)]
@@ -1687,5 +1819,42 @@ mod phase25_builtin_card_op_tests {
         // preserved.
         assert_eq!(state.stack.x, HpNum(Decimal::from_str("7").unwrap()));
         assert_eq!(state.stack.y, HpNum(Decimal::from_str("5").unwrap()));
+    }
+
+    // ── Phase 28 / Task 6: resolver chain extension tests ──────────────────────
+
+    // Catches: unknown XEQ name must still return InvalidOp (regression from v2.2)
+    #[test]
+    fn xeq_unknown_returns_invalid_op() {
+        use crate::error::HpError;
+        use crate::ops::program::op_xeq;
+        let mut state = CalcState::new();
+        let result = op_xeq(&mut state, "COMPLETELY_UNKNOWN_NAME_XYZZY");
+        assert_eq!(
+            result,
+            Err(HpError::InvalidOp),
+            "XEQ of an unknown name must return HpError::InvalidOp"
+        );
+    }
+
+    // Catches: builtin_card_op must continue to take precedence over xrom (C-28.4)
+    #[test]
+    fn xeq_wprgm_built_in() {
+        use crate::error::HpError;
+        use crate::ops::program::op_xeq;
+        // WPRGM is a builtin_card_op entry — must resolve to Op::Wprgm, not fall through
+        // to the xrom resolver. This ensures built-ins win over XROM (C-28.4 / Pitfall 1).
+        let mut state = CalcState::new();
+        // Dispatch WPRGM — it writes a "WPRGM" line to pending_card_op or errors if
+        // alpha_reg is empty. Either way, it must NOT return InvalidOp.
+        let result = op_xeq(&mut state, "WPRGM");
+        // WPRGM with empty alpha_reg returns HpError::AlphaData — that's fine.
+        // The important thing is it did NOT return InvalidOp (which would mean
+        // builtin_card_op was bypassed).
+        assert_ne!(
+            result,
+            Err(HpError::InvalidOp),
+            "XEQ 'WPRGM' must resolve via builtin_card_op, not fall through to InvalidOp"
+        );
     }
 }

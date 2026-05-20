@@ -55,7 +55,11 @@ export type PendingInput =
   | { kind: 'register'; op: RegisterOpKind; ind: boolean; acc: string }
   | { kind: 'clp'; acc: string }
   | { kind: 'del'; acc: string }
-  | { kind: 'xeq_name'; acc: string; dispatchPrefix: 'xeq' | 'gto' | 'lbl' }
+  // Phase 31 Plan 05 (D-29.9 GUI mirror / Pitfall 15): XeqByName extended with
+  // optional mode field for CollectForModal operation. Existing call sites that
+  // omit `mode` continue to work (treated as 'normal' by default).
+  // FN-GUI-04 exhaustive-match invariant: no `default:` catch-all in any switch.
+  | { kind: 'xeq_name'; acc: string; dispatchPrefix: 'xeq' | 'gto' | 'lbl'; mode?: 'normal' | 'collect-for-modal' }
   | { kind: 'fmt'; mode: FmtMode }
   | { kind: 'assign_key' }
   | { kind: 'assign_label'; keyCode: number; acc: string }
@@ -333,12 +337,30 @@ export function handleModalKey(
     }
 
     case 'xeq_name': {
-      // Text input + Enter. Empty label dispatches the bare prompt id
-      // (consumed by the resolver as `xeq_` → label "" → no-op label match).
+      // Text input + Enter.
+      // Phase 31 Plan 05 (D-29.9 GUI mirror / Pitfall 15): when mode is
+      // 'collect-for-modal', Enter routes to the magic-prefix dispatch id
+      // `__submit_modal_with_label__<acc>` so App.tsx::invokeForKey can
+      // forward to the `submit_modal_with_label` Tauri command.
+      // When mode is 'normal' or undefined (default), Enter dispatches via
+      // the existing `<prefix>_<acc>` pattern.
+      // FN-GUI-04: explicit arms for both mode values, no default.
       if (key === 'Enter') {
         if (pending.acc.length === 0) {
           return { nextPending: pending, dispatchId: null, consumesShift: false };
         }
+        // Determine dispatch id based on mode
+        const currentMode = pending.mode ?? 'normal';
+        if (currentMode === 'collect-for-modal') {
+          // Magic-prefix pattern: App.tsx::invokeForKey recognizes this prefix
+          // and routes to invoke('submit_modal_with_label', { label })
+          return {
+            nextPending: null,
+            dispatchId: `__submit_modal_with_label__${pending.acc}`,
+            consumesShift: false,
+          };
+        }
+        // currentMode === 'normal' — existing behavior
         return {
           nextPending: null,
           dispatchId: `${pending.dispatchPrefix}_${pending.acc}`,
@@ -508,6 +530,12 @@ function isPrintableChar(key: string): boolean {
 export function makeKeyCodeMagic(keyCode: number): string {
   return `__keycode__${keyCode}`;
 }
+
+/// Magic prefix for CollectForModal label submission (Phase 31 Plan 05 / Pitfall 15).
+/// When `handleModalKey` returns a `dispatchId` with this prefix, App.tsx::invokeForKey
+/// extracts the label suffix and routes to `invoke('submit_modal_with_label', { label })`.
+/// The double-underscore convention matches `__keycode__` (existing pattern).
+export const SUBMIT_MODAL_WITH_LABEL_PREFIX = '__submit_modal_with_label__';
 
 function parseKeyCodeMagic(key: string): number | null {
   const match = key.match(/^__keycode__(\d+)$/);

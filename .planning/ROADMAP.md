@@ -1,214 +1,259 @@
-# Roadmap: HP-41 Calculator Emulator
+# Roadmap — v3.0 Math Pac I Emulation
 
 **Project:** HP-41 Calculator Emulator
-**Current milestone:** v2.2 HP-41CV Feature Completeness — 8/8 phases shipped, CI green, milestone complete
+**Milestone goal:** Behavioral Emulation des HP-41C Math Pac I (HP-Teilenummer 00041-90034, Owner's Manual 1979) als erstes XROM-Modul — 10 prompt-getriebene Workflow-Programme mit ~55 XEQ-by-Name Entry Points, nutzbar in CLI + GUI über eine neue Modal-Workflow-Schicht hinaus dem v2.x-Built-in-Pattern, ohne HP-copyrighted ROM-Image-Redistribution.
+
+**Phase numbering:** continued from v2.2 (last shipped Phase 27). v3.0 phases start at **Phase 28**.
+
+**Granularity:** standard (config.json). Phase count: 5 (28–32). Plans per phase: 10 / 3–4 / 3 (Phase 30 absorbed DOC-01 into Phase 29 via D-29.1) / 4–5 / 3.
 
 ---
 
 ## Milestones
 
 - ✅ **v1.0 CLI** — Phases 1–8, shipped 2026-05-08 · [Archive](milestones/v1.0-ROADMAP.md)
-- ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix, STO modals, print emulation, synthetic programming — SHIPPED 2026-05-09 · [Archive](milestones/v1.1-ROADMAP.md)
+- ✅ **v1.1 CLI Feature Completeness** — Phases 9–12, EEX fix / STO modals / print / synthetic — SHIPPED 2026-05-09 · [Archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v2.0 Tauri GUI** — Phases 13–18, pixel-perfect HP-41C desktop app — SHIPPED 2026-05-10 · [Archive](milestones/v2.0-ROADMAP.md)
-- ✅ **v2.1 Card Reader + Keyboard Authenticity** — recorded as two quick tasks (no Phase 19 GSD directory); SHIPPED 2026-05-13 · see MILESTONES.md
-- ✅ **v2.2 HP-41CV Feature Completeness** — Phases 20–27, ROM built-in 130-function set + docs + GUI integration + polish + test hardening — SHIPPED 2026-05-15
+- ✅ **v2.1 Card Reader + Keyboard Authenticity** — quick-task entries (no Phase 19 GSD directory) — SHIPPED 2026-05-13 · see MILESTONES.md
+- ✅ **v2.2 HP-41CV Feature Completeness** — Phases 20–27, full ROM built-in set + JSON pipeline + GUI integration + coverage gate raise — SHIPPED 2026-05-15 · [Archive](milestones/v2.2-ROADMAP.md)
+- ⏳ **v3.0 Math Pac I Emulation** — Phases 28–32, first XROM application module (THIS DOCUMENT)
 
 ---
 
 ## Phases
 
-### v2.2 — HP-41CV Feature Completeness (Phases 20–27)
+### v3.0 — Math Pac I Emulation (Phases 28–32)
 
-- [x] **Phase 20: Core Math & Conversions** — Land the 10 missing ROM math/stack ops (`PI`, `P→R`, `R→P`, `RND`, `FRC`, `MOD`, `ABS`, `FACT`, `SIGN`, `R↑`) in hp41-core with full dispatch + execute_op + prgm_display coverage ✅ shipped 2026-05-14 (coverage 92.65%)
-- [x] **Phase 21: Flags, Display Control & Sound** — Add 56-flag storage, `SF/CF/FS?/FC?/FS?C/FC?C`, `VIEW/AVIEW/PROMPT/AON/AOFF/CLD`, `BEEP/TONE` (event buffer pattern) — all in hp41-core ✅ shipped 2026-05-14 (coverage 92.68%, 48 new tests)
-- [x] **Phase 22: Program Control & Memory Ops** — Land `STOP/PSE/CLP/DEL/INS/GTO IND/XEQ IND` and `SIZE/CLA/CLST/PACK/CATALOG/ASN` in hp41-core (direct addressing for IND prep) (completed 2026-05-14)
-- [x] **Phase 23: ALPHA Operations** — Land `ARCL/ASTO/ATOX/XTOA/AROT/POSA` direct-address forms in hp41-core ✅ shipped 2026-05-14 (6/6 must-haves verified, 2 plans, 50 new tests, WR-01 + WR-02 fixed in-cycle)
-- [x] **Phase 24: Indirect Addressing (Cross-Cutting)** — Wire `_IND` variants on all addressable ops (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — single shared resolver, rejects non-integer ✅ shipped 2026-05-14 (2 plans, 11 new Op variants, resolve_indirect two-tier helper, 43 integration tests + 7 inline + 4 D-24.5 sentinels = 54 new tests, coverage 93.48%)
-- [x] **Phase 25: CLI Integration & Documentation** — Wire every new Op into `keys.rs` + JSON-derived `key_ref_entries()` + new `PendingInput` modals + exhaustive `pending_prompt()` + `help_data.rs` (JSON pipeline); ship HP-41CV ROM function matrix; sync PROJECT/CLAUDE/README ✅ shipped 2026-05-15 (4 plans, 17 commits, App.shift_armed one-shot + 6 new PendingInput variants + builtin_card_op 4→12 surgical extension + 130+ JSON function entries + scripts/docs-matrix standalone bin + key_coverage parity test, 1045/1045 tests passing)
-- [x] **Phase 26: GUI Integration & Polish** — Register all new key IDs in `key_map.rs` + `KEY_DEFS`; route previously-stubbed prompts to real modals; 14-seg LCD font; `?`-overlay; USER keyboard display; `p`-key remap to `prgm_mode` (completed 2026-05-15)
-- [x] **Phase 27: Test Hardening** — Restore `hp41-core` coverage ≥95%; extend numerical accuracy suite; flag-semantics proptest; indirect-addressing integration tests; WebdriverIO + tauri-driver GUI E2E smoke test ✅ shipped 2026-05-15 (4 plans, ~24 commits, coverage 95.25% lines / 93.75% regions, numerical_accuracy 561/566 = 99.1 %, 19 proptests, 42 IND integration tests, e2e-linux job green on Ubuntu CI per D-27.15 AMENDED; D-27.16 1-retry verified)
+- [x] **Phase 28: XROM Framework + Math Pac I Core Ops** — Land XROM registry, ~40 new `Op` variants, modal-workflow state machine, user-program callback infrastructure for INTG/SOLVE/DIFEQ, and all 10 Math Pac I top-level programs (`MATRIX`, `SOLVE`, `POLY`, `INTG`, `DIFEQ`, `FOUR`, complex stack, hyperbolics, triangle solvers, `TRANS`) in `hp41-core` (completed 2026-05-16)
+- [x] **Phase 29: CLI Integration** — Wire `xeq_by_name_local_resolve` to call `xrom_resolve`, extend `help_data.rs` with a second JSON `OnceLock`, add ~40 `op_display_name` arms, surface modal prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) via existing `print_buffer` channel (completed 2026-05-17). DOC-01 absorbed into Plan 29-01 per D-29.1 (file `docs/hp41-math1-functions.json` authored here)
+- [x] **Phase 30: Documentation & ADRs** — Regenerate `docs/hp41-math1-function-matrix.md` via two-input `scripts/docs-matrix`, write 3 new ADRs (001/002/005) for the Phase 28 irreversible decisions, expand divergence catalog with three-bucket numbered shape, README v3.0 soft-claim + CLAUDE.md `### v3.0 additions` block (completed 2026-05-17)
+- [x] **Phase 31: GUI Integration** — Mirror CLI surface in `hp41-gui` (key_map XEQ-fallback, prgm_display arms, `?`-overlay JSON parallel-load, CATALOG 2, GUI modal-prompt rendering, cancellation channel for long-running INTG/SOLVE/DIFEQ) (completed 2026-05-17)
+- [x] **Phase 32: Test Hardening** — Hold `hp41-core` coverage ≥ 95 %; extend `numerical_accuracy.rs` from 566 → ~700+ cases with Math Pac I citations; ≥ 5 tests per new `Op`; extend WebdriverIO E2E smoke with a Math Pac I workflow; Free42 GPL-contamination guard in CI (completed 2026-05-18)
+
+---
+
+## Cross-cutting constraints (carried from v2.x)
+
+- **SC-4 invariant**: no calculator logic duplication in `hp41-gui` (stricter grep for `op_(add|sub|mul|div|sin|cos|tan|sto|rcl|flush_entry|format_hpnum)`). All Math Pac I math lives in `hp41-core/src/ops/math1/`. `op_display_name` in `prgm_display.rs` remains the only intentional display-formatter exception.
+- **No HP-copyrighted ROM bytes** — behavioral emulation only (PROJECT.md scope-line). Per-file header comment in every Math Pac I op file: `// Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied.` Audit script `scripts/check-free42-contamination.sh` in CI.
+- **`#![deny(clippy::unwrap_used)]`** continues to apply in `hp41-core`. Test modules carry `#[allow(clippy::unwrap_used)]` at the file scope.
+- **`#[serde(default)]`** on every new `CalcState` field for v1.x–v2.2 save-file backward compatibility. Transient fields (`integ_state`, `solve_state`, `modal_program`) additionally carry `#[serde(skip)]`.
+- **4-exhaustive-match invariant**: every new `Op` variant must land in `dispatch()` (ops/mod.rs) + `execute_op()` (ops/program.rs) + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs`. Compile-time exhaustive matches block missing arms.
+- **CLI ↔ GUI parity** (D-25.6): every new Math Pac I function reachable in both surfaces through the shared `xrom_resolve` in `hp41-core`. No frontend-only resolver paths.
+- **`pending_input` routing above modal interceptors** — D-07 (no silent discards) preserved for Math Pac I modal flows.
+- **MSRV 1.88 unchanged.** Zero new runtime dependencies in `hp41-core`. One dev-dependency added: `approx 0.5.1` (relative-tolerance assertion macros for matrix/complex tests).
 
 ---
 
 ## Phase Details
 
-### Phase 20: Core Math & Conversions
-**Goal**: Users can execute the 10 missing HP-41CV ROM math/stack operations from the CLI and inside keystroke programs with hardware-faithful semantics — `PI` pushes the constant, `P→R`/`R→P` respect the current angle mode, `RND` rounds to the current display digit count, `FRC` returns sign-preserving fractional parts, `MOD` returns Y mod X with HP-41 sign semantics, `FACT` rejects X > 69 and non-integer inputs, `R↑` mirrors `Rdn`.
-**Depends on**: v2.1 baseline (Card Reader, Keyboard Authenticity, all v1.0/v1.1/v2.0 work)
-**Requirements**: FN-MATH-01, FN-MATH-02, FN-MATH-03, FN-MATH-04, FN-MATH-05, FN-MATH-06, FN-MATH-07, FN-MATH-08, FN-MATH-09, FN-STACK-01
-**Success Criteria** (what must be TRUE):
-  1. From the CLI, typing the keystroke for `PI` followed by ENTER pushes 3.141592654 (10-digit rounded HP-41 hardware value) onto X and lifts the stack
-  2. In DEG mode, entering `3 ENTER 4 ENTER 5` and pressing `R→P` produces magnitude ≈ 5 in Y and angle ≈ 53.13° in X; in RAD mode the same inputs return the angle in radians
-  3. `5.7 CHS RND` with FIX 1 active produces `-5.7`; with FIX 0 active produces `-6`; `FACT` with X=70 returns `HpError::OutOfRange` and is observable in the CLI display
-  4. Starting from stack X=1 Y=2 Z=3 T=4, pressing `R↑` produces X=4 Y=1 Z=2 T=3 (mirror of `Rdn`)
-  5. Every one of the 10 new `Op` variants appears in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), and BOTH `prgm_display.rs` copies (hp41-cli + hp41-gui); compile-time exhaustive matches confirm coverage
-**Plans**: 1 plan
-  - [x] 20-01-PLAN.md — Single plan (per D-21): RND helper extraction (Wave-0), 10 new Op variants + dispatch + execute_op + impls (Wave-1), prgm_display in both copies (Wave-1), integration tests (Wave-2) ✅ shipped 2026-05-14 — 20 tests, coverage 92.65%, just ci + just gui-ci green
-**Cross-cutting constraints:**
-  - `#![deny(clippy::unwrap_used)]` applies — all new code uses `?`-propagation or `.expect("reason")`
-  - Each `Op` variant must land in 4 places: `dispatch()` + `execute_op()` + `hp41-cli/src/prgm_display.rs` + `hp41-gui/src-tauri/src/prgm_display.rs` (the built-in trap from CLAUDE.md)
-  - SC-4 invariant preserved: no math/calculator logic in `hp41-gui/src-tauri/`
-  - `LiftEffect` declared for each new op (PI=Enable, R↑=Neutral, others follow `Rdn`/`Sin` precedent)
+### Phase 28: XROM Framework + Math Pac I Core Ops
 
-### Phase 21: Flags, Display Control & Sound
-**Goal**: `CalcState` carries 56 user flags + system flags as `flags: u64` (or equivalent bitfield with `#[serde(default)]`); users can `SF/CF/FS?/FC?/FS?C/FC?C` any flag from the keyboard and inside programs with conditional-skip behavior; `VIEW`/`AVIEW`/`PROMPT`/`AON`/`AOFF`/`CLD` modify the display layer without touching the stack; `BEEP` and `TONE n` emit events into an `event_buffer` (or extend `print_buffer`) so hp41-core stays I/O-free.
-**Depends on**: Phase 20
-**Requirements**: FN-FLAG-01, FN-FLAG-02, FN-DISP-01, FN-DISP-02, FN-DISP-03, FN-DISP-04, FN-DISP-05, FN-SOUND-01, FN-SOUND-02
-**Success Criteria** (what must be TRUE):
-  1. From the CLI, executing `SF 05` followed by `FS? 05` causes the next program step to execute (flag set → test passes); `CF 05` followed by `FS? 05` skips the next step
-  2. `FS?C 10` on a set flag clears it as a side effect; `FS?C 10` on a clear flag leaves it clear — both observable via `FS? 10` after
-  3. `VIEW 03` shows the contents of register R03 in HP-41 display format until the next key is pressed; stack remains unchanged; `CLD` clears the display without touching stack/ALPHA
-  4. Executing `BEEP` or `TONE 5` from a program adds a structured event line into the print/event buffer (the exact channel is a settled decision recorded in CLAUDE.md); no `println!`/`eprintln!` appears in hp41-core
-  5. A v1.x JSON save file (created before the `flags` field existed) loads in hp41-cli/hp41-gui without error — `#[serde(default)]` initializes flags to 0
-**Plans**: 4 plans
-Plans:
-- [x] 21-01-flags-core-PLAN.md — Flag storage (flags: u64 + SF/CF ops), Wave-0 v20-autosave.json fixture; FN-FLAG-01 ✅ shipped 2026-05-14 — 9 tests, justfile `test-core` recipe + fixture infrastructure
-- [x] 21-02-conditional-skip-PLAN.md — Conditional flag tests (FS?/FC?/FS?C/FC?C) + run_loop skip semantic; FN-FLAG-02; depends on 21-01 ✅ shipped 2026-05-14 — 10 tests, FlagTestKind enum + struct-variant Op::FlagTest, always-clear ?C semantics (RESEARCH A4)
-- [x] 21-03-display-control-PLAN.md — Display override channel + VIEW/AVIEW/PROMPT/AON/AOFF/CLD; PROMPT run_loop break; FN-DISP-01..05 ✅ shipped 2026-05-14 — 13 tests, display_override field (transient), dispatch-top clear (Pitfall 5), PROMPT timing sentinel
-- [x] 21-04-sound-PLAN.md — Event buffer + BEEP/TONE n; zero-I/O invariant sentinel; FN-SOUND-01/02 ✅ shipped 2026-05-14 — 8 tests, event_buffer field (transient), Rust-level zero-I/O regression sentinel
-**Cross-cutting constraints:**
-  - `flags: u64` (or `[u8; N]`) field on `CalcState` carries `#[serde(default)]` — non-negotiable for save-file backward compat
-  - `BEEP`/`TONE` MUST route through a buffer pattern (extends print_buffer OR a new `event_buffer: Vec<String>` with `#[serde(skip)]`) — NO direct I/O in hp41-core
-  - Conditional flag tests (`FS?`/`FC?`/`FS?C`/`FC?C`) must apply the skip-next-step semantic inside `run_loop` exactly like the existing `X=Y` family
-  - Display-control ops (`VIEW`/`AVIEW`/`PROMPT`/`CLD`) likely need a `display_override: Option<String>` on CalcState — also `#[serde(default)]`
-  - All new `Op` variants land in 4 places (dispatch + execute_op + 2× prgm_display)
-  - `#![deny(clippy::unwrap_used)]` enforced
+**Goal**: Users can call every Math Pac I function (10 top-level programs + ~55 XEQ entry points) from `hp41-core` via a new XROM resolver chain — `XEQ "SINH"` returns `sinh(x)`, `XEQ "MATRIX"` opens the `ORDER=?` prompt flow, `XEQ "INTG"` accepts a user-program label and computes the Simpson integral with user-callback re-entrancy. All math logic lives in `hp41-core/src/ops/math1/`; SC-4 invariant trivially preserved.
 
-### Phase 22: Program Control & Memory Ops
-**Goal**: Users can pause/resume programs (`STOP`, `PSE`), edit programs in PRGM mode (`CLP`, `DEL`, `INS`), branch indirectly (`GTO IND`, `XEQ IND` — direct-form only here; IND-resolver lives in Phase 24), and manage memory (`SIZE`, `CLA`, `CLST`, `PACK`, `CATALOG 1..4`, `ASN`). All in hp41-core.
-**Depends on**: Phase 21
-**Requirements**: FN-PROG-01, FN-PROG-02, FN-PROG-03, FN-PROG-04, FN-PROG-05, FN-PROG-06, FN-PROG-07, FN-MEM-01, FN-MEM-02, FN-MEM-03, FN-MEM-04, FN-MEM-05, FN-KEY-01
-**Success Criteria** (what must be TRUE):
-  1. A program containing `STOP` halts execution at that step; pressing R/S in the CLI resumes from the next step
-  2. A program containing `PSE` briefly displays the current X then continues; `CLP "MYPRG"` removes every step from `LBL MYPRG` to the next `END`/`.END.`
-  3. `DEL 005` from PRGM mode removes 5 steps starting at the current PC; `INS` adds one blank step at PC; `PACK` returns success (no-op in our flat-Vec model but the `Op` variant exists and dispatches cleanly)
-  4. `CATALOG 1` (programs) emits a structured listing into `print_buffer` with `LBL name  steps` lines (hardware-faithful per OQ-1); `CATALOG 2`/`CATALOG 3`/`CATALOG 4` emit a single `"NOT AVAILABLE"` payload line (no XROM modules / HP-IL / peripherals in this emulator); `CLST` zeroes X/Y/Z/T while LASTX AND `lift_enabled` are preserved; `CLA` clears ALPHA (and displays as `"CLA"`, while existing `Op::AlphaClear` is retained for v1.0 save-file compat displaying as `"CLRALPHA"`)
-  5. `ASN "SIN" 11` records a key assignment that survives a JSON save/load round-trip (existing `assignments` map extended with the new `Op::Asn` variant)
-**Plans**: 4 plans
-Plans:
-- [x] 22-01-program-control-PLAN.md — Op::Stop / Op::Pse / resume_program() / Op::GtoInd(u8) / Op::XeqInd(u8); FN-PROG-01, -02, -06, -07
-- [x] 22-02-program-edit-PLAN.md — Op::Clp(String) / Op::Del(u8) / Op::Ins (prgm_mode-gated); FN-PROG-03, -04, -05; depends on 22-01
-- [x] 22-03-memory-ops-PLAN.md — Wave-0 regs[] bounds audit (3 commits — D-22.11.1, Pitfall 4/5) + Op::Size(u16) / Op::Cla / Op::Clst / Op::Pack; FN-MEM-01..04; depends on 22-02
-- [x] 22-04-catalog-and-asn-PLAN.md — new CalcState.assignments field (BTreeMap<u8, String>, #[serde(default)]) + Op::Catalog(u8) (hardware-faithful per OQ-1) + Op::Asn { name, key_code } (empty-name-removes per OQ-3); FN-MEM-05, FN-KEY-01; depends on 22-03
-**Cross-cutting constraints:**
-  - `STOP` breaks `run_loop` (no paused field needed — pc + is_running cover it); `PSE` writes `display_override` + pushes `"PAUSE 1000"` into `event_buffer` (Phase 21 BEEP/TONE event-channel pattern)
-  - `CLP`/`DEL`/`INS` operate on `Vec<Op>` and adjust state.pc (CLP repositions cursor to start of deleted block per Pitfall 6); all three are PRGM-mode-only primitives that mutate state.program directly (NOT recorded)
-  - `GTO IND nn` / `XEQ IND nn` use Phase 22 inline `state.regs.get(reg).trunc_int()` check; Phase 24 will extract the shared `resolve_indirect()` helper from this inline code
-  - `CATALOG` output goes into `print_buffer` (existing pattern); no direct I/O. OQ-1 (locked 2026-05-14): CAT 1 = programs, CAT 2/3/4 = NOT AVAILABLE (24-char padded)
-  - `Op::Asn { name: String, key_code: u8 }` is a struct-variant; it integrates with the NEW `assignments: BTreeMap<u8, String>` field (NOT the Phase 5 `key_assignments: BTreeMap<char, String>` — the two maps coexist per D-22.17; reconciliation in Phase 25/26). OQ-3 (locked 2026-05-14): empty `name` removes the assignment
-  - All 13 new `Op` variants land in 4 places (D-22.21); `#![deny(clippy::unwrap_used)]` enforced; Wave-0 bounds audit (D-22.11.1) replaces ~28 raw `state.regs[i]` accesses with `.get().ok_or(InvalidOp)?` patterns BEFORE Op::Size lands, preventing the SIZE-shrink-panic class of bugs (Pitfall 4)
+**Depends on**: v2.2 baseline (Phase 27 shipped — coverage gate 95 %, JSON-canonical pipeline, hybrid PendingInput, builtin_card_op resolver chain).
 
-### Phase 23: ALPHA Operations
-**Goal**: Users can manipulate the ALPHA register beyond v1.0's append/clear primitives — `ARCL nn` appends a register's formatted value; `ASTO nn` packs the first 6 ALPHA chars into a register; `ATOX`/`XTOA` interconvert the first ALPHA char with its ASCII code in X; `AROT n` rotates ALPHA (negative N rotates right); `POSA` returns the substring position. Direct-address forms only; IND variants come in Phase 24.
-**Depends on**: Phase 22
-**Requirements**: FN-ALPHA-01, FN-ALPHA-02, FN-ALPHA-03, FN-ALPHA-04, FN-ALPHA-05, FN-ALPHA-06
-**Success Criteria** (what must be TRUE):
-  1. With ALPHA="HELLO" and R05 containing 3.14 (FIX 2 active), `ARCL 05` produces ALPHA="HELLO3.14"; switching to SCI 3 then `ARCL 05` again appends in SCI format
-  2. With ALPHA="GOODBYE", `ASTO 12` packs "GOODBY" (first 6 chars) into R12 as packed text; `RCL 12` and `ARCL 12` reproduce "GOODBY" in ALPHA
-  3. With ALPHA="A" (capital A, ASCII 65), `ATOX` puts 65 in X; with X=66 and ALPHA="", `XTOA` makes ALPHA="B"
-  4. With ALPHA="HELLO", `AROT 2` produces ALPHA="LLOHE"; `AROT -1` (i.e. `AROT` with X=-1) produces ALPHA="OHELL"
-  5. With ALPHA="THE QUICK BROWN FOX" and X holding "QUICK" (or however POSA encodes the search arg), `POSA` returns 4 in X; for a missing substring returns -1
-**Plans**: 2 plans
-Plans:
-- [x] 23-01-arcl-asto-PLAN.md — Wave-0 sidecar-clearing audit (op_sto/op_sto_arith/op_clreg per D-23.4) + new text_regs: BTreeMap<u8,String> field on CalcState + Op::Arcl(u8) + Op::Asto(u8); FN-ALPHA-01, FN-ALPHA-02
-- [x] 23-02-atox-xtoa-arot-posa-PLAN.md — Op::Atox + Op::Xtoa + Op::Arot + Op::Posa (single-char POSA only per D-23.6); FN-ALPHA-03..06; depends on 23-01
-**Cross-cutting constraints:**
-  - ALPHA register packing (`ASTO`) uses HP-41 6-char ASCII pack — document the exact encoding in CLAUDE.md so future ops match
-  - `ARCL` formatting respects the current display mode (FIX/SCI/ENG) — re-uses `format_hpnum()` from `hp41-core/src/format.rs`
-  - `AROT` must accept N from the X register per HP-41 hardware behavior (not as immediate operand) — note in plan
-  - All new `Op` variants land in 4 places
-  - `#![deny(clippy::unwrap_used)]` enforced — particular care with byte-slicing the ALPHA register; use `chars()` not byte indices
+**Build stage**: `hp41-core`
 
-### Phase 24: Indirect Addressing (Cross-Cutting)
-**Goal**: A single `resolve_indirect(state, reg) -> Result<u8, HpError>` helper in `hp41-core` lets every addressable op (`STO`, `RCL`, `ISG`, `DSE`, `SF`, `CF`, `FS?`, `FC?`, `FS?C`, `FC?C`, `STO+/-/×/÷`, `ARCL`, `ASTO`, `VIEW`) accept an `_IND` form that reads the register-N integer part as the effective address. Non-integer register contents return `HpError::InvalidOp`.
-**Depends on**: Phase 23 (all direct-address variants must exist first — IND is layered on top)
-**Requirements**: FN-IND-01, FN-IND-02
-**Success Criteria** (what must be TRUE):
-  1. With R05 containing 12 and R12 containing 99, `RCL IND 05` puts 99 in X; `STO IND 05` followed by `RCL 12` confirms the indirect store wrote to R12
-  2. With R05 containing 03 and flag 03 currently clear, `SF IND 05` sets flag 03; `FS? IND 05` then succeeds (no skip)
-  3. With R07 containing 12.345 (non-integer pointer), `RCL IND 07` returns `HpError::InvalidOp` in the CLI display — never panics, never silently rounds
-  4. With R10 containing 25 and ALPHA empty, `ARCL IND 10` appends the formatted contents of R25 to ALPHA; `ASTO IND 10` packs the first 6 ALPHA chars into R25
-  5. `GTO IND 05` (with R05=42) jumps to LBL 42 or step 42 per HP-41 semantics; `XEQ IND 05` similarly invokes the subroutine — verified by program execution test in `hp41-core/tests/`
-**Plans**: 2 plans
-Plans:
-- [x] 24-01-PLAN.md — Foundation: new ops/indirect.rs with two-tier resolver (resolve_indirect_decimal private + resolve_indirect public u8-wrapper) + 7 inline unit tests + Phase-22 GtoInd/XeqInd refactor onto inner helper + 4 D-24.5 sentinel regression tests in phase22_program_control.rs; FN-IND-01, FN-IND-02 ✅ shipped 2026-05-14
-- [x] 24-02-PLAN.md — Variants: 11 new Op::*Ind variants (StoInd/RclInd/StoArithInd/IsgInd/DseInd/SfFlagInd/CfFlagInd/FlagTestInd struct-variant/ArclInd/AstoInd/ViewInd) landing in 4 places (dispatch + execute_op + run_loop for skip-semantic ops + both prgm_display.rs copies) + 43 integration tests in phase24_ind_variants.rs; depends on 24-01; FN-IND-01, FN-IND-02 ✅ shipped 2026-05-14
-**Cross-cutting constraints:**
-  - `resolve_indirect()` is the ONE place that converts register-N to a u8 address — no duplication across ops
-  - All IND variants are NEW `Op` enum variants (e.g. `StoInd(u8)`, `RclInd(u8)`, `SfInd(u8)`, …) — they MUST land in dispatch + execute_op + both prgm_display copies
-  - Non-integer rejection uses `HpError::InvalidOp` (not a new error type) — keeps the error surface stable
-  - This is the LARGEST single-phase Op variant count in v2.2 (≈15 new IND variants); plan for a Wave-0 test scaffold then a single Wave-1 implementation plan
-  - `#![deny(clippy::unwrap_used)]` enforced — IND resolution path is heavily tested via Phase 27 proptest
+**Requirements (47 mapped)**: XROM-01..09 (framework), HYP-01..06 (hyperbolics), CMPLX-01..17 (complex stack), POLY-01..07, MAT-01..11, INTG-01..08, SOLV-01..08, DIFEQ-01..05, FOUR-01..06, TRI-01..05, TRANS-01..05.
 
-### Phase 25: CLI Integration & Documentation
-**Goal**: Every new `Op` from Phases 20–24 is reachable from the hp41-cli keyboard with explicit `KEY_REF_TABLE` entries; new `PendingInput` modal variants (`SfPrompt`, `CfPrompt`, `FsPrompt`, `FcPrompt`, `ViewPrompt`, `TonePrompt`, `DelPrompt`, `ClpLabelPrompt`, IND variants) are exhaustively handled by `pending_prompt()`; all 12 conditional tests are keyboard-reachable; `help_data.rs::HELP_DATA` is the up-to-date single source of truth; and the v2.2 documentation deliverables ship together — HP-41CV function matrix (≥130 entries with status column), CLAUDE.md settled-architecture additions (flag storage, indirect resolution, sound buffer), README "feature-complete HP-41CV" claim with cross-link.
-**Depends on**: Phase 24 (all `Op` variants must exist before keyboard wiring can compile)
-**Requirements**: FN-TEST-01, FN-CLI-01, FN-CLI-02, FN-CLI-03, FN-CLI-04, FN-DOC-01, FN-DOC-02, FN-DOC-03, FN-DOC-04
 **Success Criteria** (what must be TRUE):
-  1. Every `Op` variant added in Phases 20–24 has a matching entry in `key_to_op()` and `KEY_REF_TABLE` in `hp41-cli/src/keys.rs`; pressing the documented key in the CLI dispatches the correct op
-  2. Pressing the `?` help key in the CLI lists every new v2.2 op grouped under a recognizable category (math, flags, display, program control, ALPHA, IND) — `help_data.rs` is updated
-  3. All 12 conditional tests (`X=Y`, `X≠Y`, `X<Y`, `X>Y`, `X≤Y`, `X≥Y`, `X=0`, `X≠0`, `X<0`, `X>0`, `X≤0`, `X≥0`) are reachable from the CLI keyboard — verified by typing each one and observing the dispatch result
-  4. `docs/hp41cv-function-matrix.md` exists and lists ≥130 HP-41CV ROM ops with an implementation-status column (`✓ v2.x` / `⏳ v3.x module` / `— N/A`); CLAUDE.md "Settled Architecture Decisions" section gains a "v2.2 additions" block; README.md links to the function matrix
-  5. `pending_prompt()` in `hp41-cli/src/ui.rs` handles every new `PendingInput` variant without `unreachable!()` or `_ =>` catch-all — verified by exhaustive match compile-check
-**Plans**: 4 plans
-Plans:
-- [ ] 25-01-f-prefix-state-machine-PLAN.md — App.shift_armed one-shot prefix + keys::shifted_key_to_op (4 hardware-anchored conditional tests) + remove v1.x letter bindings + status-bar `f→` indicator (FN-CLI-01 + FN-TEST-01 partial)
-- [ ] 25-02-pending-input-modals-PLAN.md — 6 new PendingInput variants (FlagPrompt/RegisterPrompt struct + ClpLabel/DelCount/TonePrompt/XeqByName specialty) + IND-toggle via shift-0 + exhaustive pending_prompt (FN-CLI-02 + FN-CLI-04 + FN-CLI-01)
-- [ ] 25-03-xeq-by-name-modal-PLAN.md — Surgical hp41-core builtin_card_op 4→12 + CLI xeq_by_name_local_resolve + XEQ-by-Name modal Enter-arm (FN-TEST-01 full)
-- [ ] 25-04-json-pipeline-and-docs-PLAN.md — docs/hp41cv-functions.json (≥130) + help_data.rs include_str!+OnceLock + scripts/docs-matrix bin + just docs-matrix(-check) + CI parity test + CLAUDE.md v2.2 additions + README soft-claim (FN-CLI-03 + FN-DOC-01..04)
-**Cross-cutting constraints:**
-  - This phase ONLY touches `hp41-cli` and `docs/` and project-root `*.md` — no `hp41-core` changes (all core Ops landed in Phases 20–24)
-  - Documentation runs synchronously with CLI integration per PROJECT.md "Build sequence: core → cli → docs → gui → tests" — the two are bundled here so the function matrix has authoritative coverage data
-  - Function matrix entry format: one row per HP-41CV ROM op with columns `Op | Category | Status | Phase | Notes`
-  - `help_data.rs` remains the SINGLE SOURCE OF TRUTH for key descriptions — `?` overlay reads from it; no hardcoded help strings elsewhere
+  1. `xrom_resolve("SINH", state.xrom_modules)` returns `Some(Op::Sinh)`; `dispatch(state, Op::Sinh)` consumes X, writes `sinh(X)` back to X, declares `LiftEffect::Disable`; `xrom_resolve("UNKNOWN", state.xrom_modules)` returns `None`; the resolver fires LAST in the chain (after `builtin_card_op`) — verified by `tests/xrom_shadowing.rs` confirming no Math Pac I name shadows an existing built-in mnemonic
+  2. `XEQ "MATRIX"` opens a `ModalProgram::Matrix(MatrixInputStep::OrderPrompt)` flow; entering `3` advances to `MatrixInputStep::ElementPrompt(0, 0)` with the prompt text `A1,1=?` written to `state.print_buffer`; entering nine values via the existing number-entry pipeline stores them column-major from R15 onward with order 3 in R14; `XEQ "DET"` then returns the correct determinant for the test case from Owner's Manual page 14
+  3. `XEQ "INTG"` with a user-program LBL `"F"` defined as `LBL F / 1 / + / SIN / RTN` re-enters `run_loop` (NOT `run_program`) for each Simpson sample point; `state.call_stack` depth never exceeds 4; nested `XEQ "INTG"` from inside the user callback is rejected with `HpError::InvalidOp` per XROM-08; the 503-case v1.x numerical_accuracy baseline continues to pass at ≥ 498/503 (Phase 27 D-27.6 invariant preserved)
+  4. `Op::CPlus` / `Op::CMinus` / `Op::CTimes` / `Op::CDiv` operate on the two-complex-number stack (ζ, τ); `Op::CDiv` with a zero divisor (re=0, im=0) returns `HpError::DivideByZero` BEFORE the division (Pitfall 6 mitigation); `complex_atan2(HpNum::ZERO, HpNum::ZERO)` returns `HpNum::ZERO` (not NaN, not DataError) and is unit-tested as the first arm of the f64-bridge function
+  5. Every one of the ~40 new `Op` variants appears in `dispatch()` (ops/mod.rs), `execute_op()` (ops/program.rs), and BOTH `prgm_display.rs` copies (hp41-cli + hp41-gui); compile-time exhaustive matches confirm coverage; `hp41-core` continues to build with `#![deny(clippy::unwrap_used)]` and zero panics
 
-### Phase 26: GUI Integration & Polish
-**Goal**: Every new v2.2 key ID resolves via `hp41-gui/src-tauri/src/key_map.rs::resolve` (both bare and parameterized prefixes); `KEY_DEFS` in `Keyboard.tsx` carries correct three-label (primary/shifted/alphaChar) bindings for every new HP-41C keyboard-reachable function; previously-stubbed prompt IDs (`sto_prompt`, `rcl_prompt`, `fix_prompt`, `sci_prompt`, `eng_prompt`, `isg_prompt`, `sf_prompt`, `cf_prompt`, `fs_prompt`, `x_eq_y_prompt`, `x_le_y_prompt`, `x_gt_y_prompt`, `x_eq_0_prompt`) route to real modal flows in the React frontend — no more `unknown key` toasts for HP-41CV built-ins; the stub-error arm shrinks to v3.x module ops only. GUI Polish ships in the same phase: 14-seg SVG LCD font replaces the CSS-text display; `?` keyboard shortcut overlay ports from `help_data.rs`; USER mode shows current key assignments overlaid on the skin; the `p` key remaps from `prx` to `prgm_mode` (resolves the v2.0 deferred conflict).
-**Depends on**: Phase 25 (CLI must be fully wired with all `Op` variants before GUI key_map can reference them; help_data.rs is the source for the `?`-overlay port)
-**Requirements**: FN-GUI-01, FN-GUI-02, FN-GUI-03, FN-GUI-04, FN-GUI-05, FN-POLISH-01, FN-POLISH-02, FN-POLISH-03, FN-POLISH-04
-**Success Criteria** (what must be TRUE):
-  1. Every new v2.2 op key ID (e.g. `pi`, `p_to_r`, `r_to_p`, `rnd`, `frc`, `mod_op`, `abs`, `fact`, `sign`, `r_up`, `sf`, `cf`, `fs_q`, `view`, `aview`, `prompt`, `beep`, `tone`, `arcl`, `asto`, `atox`, `xtoa`, `arot`, `posa`, …) resolves via `key_map::resolve` and clicking the corresponding `KEY_DEFS` entry in the GUI dispatches the correct op — verified by `test_all_keyboard_skin_ids_are_valid` (Phase 16 pattern, extended)
-  2. Clicking the SHIFT-modified key for previously-stubbed prompt IDs opens an in-app modal (frontend React component, not a toast) — e.g. clicking `STO` (with SHIFT off) opens a register-picker modal; clicking the `f`-prefixed `SF` key opens a flag-picker (0–55); the modal dispatches the final parameterized op via `dispatch_op`
-  3. The HP-41 12-char display in the GUI renders via a 14-segment SVG font (one `<g>` per character with 14 line/polygon segments) — visually distinguishable from the previous CSS-text version; matches HP-41C hardware look
-  4. Pressing `?` in the GUI opens a keyboard shortcut overlay populated from a TypeScript port of `help_data.rs`; toggling USER mode (existing `Op::User` already wired) overlays current `Op::Asn` mappings on the SVG skin keys
-  5. Pressing the `p` key now opens PRGM mode (not PRX); the SC-4 invariant grep (`fn op_(add|sub|...|format_hpnum)`) returns nothing in `hp41-gui/src-tauri/src/` — no calculator/math logic duplicated; `CalcStateView` size stays ≤500 bytes (relaxed from ≤300 to accommodate `flags` field — recorded in CLAUDE.md)
-**Plans**: 4 plans (3 + 1 gap-closure addendum)
-Plans:
-- [x] 26-01-modal-architecture-and-key-wiring-PLAN.md — Wave 1 (no deps within phase): Extend key_map.rs::resolve (~80 bare-op arms) + resolve_parameterized (~20 new prefixes incl. IND-bearing); shrink stub-error arm to v3.x-module ops only (defense-in-depth keeps 13 *_prompt ids); CalcStateView projections for user_keymap/flags/display_override/event_buffer (D-26.11, ≤500-byte budget); event_buffer drained per IPC mirroring print_buffer; PendingInput discriminated TS union (12 variants per D-26.4) + handleModalKey + renderModalLcd + handleClick MODAL_OPENERS intercept (D-26.5); IND-toggle via shift-0 inside open modal (D-26.2); ASN 2-step flow; comprehensive Vitest + Rust tests (FN-GUI-01, FN-GUI-02, FN-GUI-05)
-- [x] 26-02-14-seg-lcd-PLAN.md — Wave 2 (depends on 26-01): Display14Seg.tsx with full segment grid + dim 'off' segments per D-26.6; SEGMENT_MAP for A-Z, 0-9, punctuation, modal cursor underscore; drop-in replacement inside existing .display div per D-26.7 (CSS rule preserved byte-identical); modal-preview displayText flow from Plan 26-01; Vitest render-and-count tests (FN-POLISH-01)
-- [x] 26-03-polish-bundle-PLAN.md — Wave 2 (depends on 26-01, parallel with 26-02): HelpOverlay.tsx + help_data.ts (vite JSON-import of docs/hp41cv-functions.json per D-26.8); ?-key handler with Esc precedence (help → modal → shift); USER mode per-key relabel via KeyDef.keyCode + Keyboard userKeymap prop (D-26.9, computed via row*10+col helper); 'p' MAP swap → prgm_mode + 'P' → prx (D-26.10); XSS-safety test for ASN labels; full Vitest coverage (FN-POLISH-02, FN-POLISH-03, FN-POLISH-04, FN-GUI-03, FN-GUI-04)
-- [x] 26-04-PLAN.md — Gap-closure addendum (gap_closure: true, depends on 26-01/02/03): Close 5 BLOCKERs from 26-VERIFICATION.md initial run (CR-01 ASN keyCode bug, CR-02 HelpOverlay search input leak, CR-03 on-screen ENTER click-router translation, CR-04 display_override/event_buffer dead projections, CR-05 catalog max off-by-one); add 13-test integration suite (App.test.tsx) with `vi.mock('@tauri-apps/api/core')` — first Tauri-mock pattern in repo, closes the verifier's identified integration-test gap that no prior unit test exercised. Re-verification: status `passed`, score 12/12 (lifted from 7/12)
-**Cross-cutting constraints:**
-  - **SC-4 invariant non-negotiable**: NEVER add `op_*` / `flush_entry_*` / `format_hpnum` to `hp41-gui/src-tauri/` — `op_display_name` in `prgm_display.rs` remains the ONLY display-formatter exception
-  - Stub-error arm shrinks to v3.x-only — every HP-41CV ROM op resolves successfully; only module-Pac functions (Math 1 / Stat 1 / Time / Advantage) remain as stubs
-  - D-07 (no silent discards) preserved — unhandled IDs still produce `GuiError` toast, never silent
-  - Modal frontend components are React-only (TypeScript); they call `dispatch_op` with the resolved parameterized ID (e.g. `sto_05`, `sf_12`)
-  - `CalcStateView` may gain `flags`, `display_override`, `event_buffer` fields — JSON budget relaxed to ≤500 bytes (FN-GUI-05); document the new size envelope in CLAUDE.md
-  - 14-seg font: a single TypeScript SVG component with 14 segments per glyph; new `Display14Seg.tsx` replaces the `.display-text` CSS span; HP-41C character set (A–Z, 0–9, period, comma, minus, special chars)
-  - `?` overlay ports `help_data.rs` to TypeScript — extract a JSON-shape data file in Phase 25 that both Rust and TypeScript can read, OR maintain a TypeScript mirror with a doctest enforcing parity
-  - `p` key remap: existing `KEY_DEFS` entry for `p` changes from `prx` to `prgm_mode`; `prx` migrates to a different key (e.g. shifted variant)
-**UI hint**: yes
+**Plans**: 10 plans (per SUMMARY.md "Suggested phase structure" build order)
+  - [x] 28-01-PLAN.md — XROM framework: `ops/math1/xrom.rs` with `XromModule` struct + `MATH_1` const + `xrom_resolve(name, modules) -> Option<Op>` + 6 new CalcState fields (`xrom_modules`, `complex_mode`, `matrix_dim`, `matrix_active_reg`, `modal_program`, `integ_state`, `solve_state`) with `#[serde(default)]` / `#[serde(skip)]` where transient; resolver chain extension in `xeq_by_name_local_resolve` + `op_xeq` + `run_program::execute_op` (xrom fires LAST per Pitfall 1); 5 irreversible decisions locked via ADR (chosen Op-strategy A, user-callback strict-reject policy, INV-EPSILON post-OM, INTG-threshold post-OM, JSON-pipeline two-file shape); XROM-01..09
+  - [x] 28-02-PLAN.md — Hyperbolics (proof-of-pattern): `Op::{Sinh, Cosh, Tanh, Asinh, Acosh, Atanh}` + domain-error returns for `Acosh(X<1)` and `Atanh(|X|≥1)`; mirrors v2.2 one-shot stack-acting pattern; ≥ 5 tests per op per Pitfall 16; HYP-01..06
+  - [x] 28-03-PLAN.md — Complex stack scaffolding + arithmetic: `ComplexStack { zeta, tau }` location decision (overlay X/Y/Z/T vs dedicated R02–R05 vs eigener Struct — locked Plan 28-01); `Op::{CPlus, CMinus, CTimes, CDiv}` + `complex_atan2` f64-bridge handling (0,0)→0; `Op::CDiv` zero-divisor branch returns `HpError::DivideByZero`; CMPLX-01..05
+  - [x] 28-04-PLAN.md — Complex functions (13 ops): `Op::{Magz, Cinv, ZpowN, Zpow1N, ExpZ, LnZ, SinZ, CosZ, TanZ, ApowZ, LogZ, ZpowW, Zpow1W}`; branch-cut tests for `LnZ(0,0)` and `ZpowW` zero-divisor (Pitfall 6); CMPLX-06..17
+  - [x] 28-05-PLAN.md — POLY/ROOTS: `Op::{PolyWorkflow, Roots}` + modal `MatrixInputStep`-style state machine for `DEGREE=?` + `A=?`..`F=?` prompts; complex root-pair output format `U=u`/`V=v`/`U=u`/`-V=-v` (Pitfall 5 fidelity gate); multiplicity-as-cluster convention documented in `docs/hp41-math1-divergences.md`; non-convergence at `|imag| > 10⁹` returns `HpError::Domain` "DATA ERROR"; POLY-01..07
+  - [x] 28-06-PLAN.md — MATRIX workflow: `Op::{MatrixWorkflow, MatSize, MatVmat, MatEdit, MatDet, MatInv, MatSimeq, MatVcol}`; Gauss-Jordan inverse with hardware-sourced EPSILON (OM-transcribed in Plan 28-01 research-prep per Pitfall 7); order N in R14, column-major elements from R15 onward; flag 4 set during input, flag 5 set after SIMEQ-column-storage; max ORDER=14; `NO SOLUTION` display for singular matrices; MAT-01..11
+  - [x] 28-07-PLAN.md — INTG (with user-callback infrastructure): `Op::Integ` discrete (A=h, B=f(xⱼ), C=trapezoidal, D=Simpson, even-n check returns `N NOT EVEN`) + explicit mode (A=(a,b), B=n, `FUNCTION NAME?` prompt); `run_loop` re-entrancy from `op_integ()` (NOT `run_program` recursion — preserves outer program clone, avoids 30 KB × 1000 samples re-clone catastrophe); `state.call_stack` 4-deep cap enforced pre-mutation per `Op::XeqInd` precedent; subdivision cap 2^15; convergence threshold = `10^(-decimals - 1)` tied to `state.display_mode` (Pitfall 2 mitigation); `integ_state: Option<IntegState>` with `#[serde(skip)]`; INTG-01..08
+  - [x] 28-08-PLAN.md — SOLVE: `Op::{Solve, Sol}` + modified secant iteration (OM-spec); three termination paths `NO ROOT FOUND` / `ROOT IS <v>` / `ROOT IS BETWEEN <v1> AND <v2>` (Pitfall 3 mitigation, OM-cited branches); 100-iteration cap; reuses INTG's user-program callback infrastructure (same `run_loop` re-entrancy); `solve_state: Option<SolveState>` with `#[serde(skip)]`; nested INTG-in-SOLVE / SOLVE-in-INTG rejected per XROM-08; SOLV-01..08
+  - [x] 28-09-PLAN.md — DIFEQ: `Op::Difeq` + 4th-order Runge-Kutta + `FUNCTION NAME?` / `ORDER=?` (1 or 2) / `STEP SIZE=?` / `X0=?` / `Y0=?` (+ `Y'0=?` for 2nd order) prompts; step-by-step output via `print_buffer`; reuses INTG callback infrastructure; DIFEQ-01..05
+  - [x] 28-10-PLAN.md — FOUR + Triangle Solutions + TRANS (differentiators): `Op::Four` (DFT with `NO. SAMPLES=?` / `NO. FREQ=?` / `1ST COEFF=?` + `Y1..YN=?` + `RECT?` toggle, USER-mode `E`-key for evaluation); `Op::{TriSss, TriAsa, TriSaa, TriSas, TriSsa}` (Law of Sines/Cosines, ambiguous-case for SSA); `Op::{Trans2d, Trans3d}` (Rodrigues rotation for 3D); FOUR-01..06, TRI-01..05, TRANS-01..05
 
-### Phase 27: Test Hardening
-**Goal**: `hp41-core` line coverage returns to ≥95% (recovering from the 92.5% slip recorded in v1.1/v2.1); the 500-case numerical accuracy suite is extended with cases for every new math/conversion op (PI, P→R, R→P, RND, FRC, MOD, FACT) and maintains the ≥98% pass rate gate; proptest covers flag set/clear/test invariants across all 56 user flags; integration tests verify indirect addressing resolution and non-integer rejection on every `_IND` op; a Playwright E2E smoke test in `ci-gui.yml` boots the Tauri app, clicks a representative subset of keys, and asserts display state.
-**Depends on**: Phase 26 (all functionality must be in place before final coverage push and E2E test)
+**Notable risks/decisions (Phase 28 is the gating phase)**:
+  - **5 irreversible decisions** must be locked in Plan 28-01 research-prep BEFORE any implementation:
+    1. **Op-strategy** (Option A vs B) — LOCKED A (one Op variant per Math Pac I function) per ADR-001
+    2. **User-callback re-entrancy policy** — LOCKED strict-reject nested INTG/SOLVE/DIFEQ per ADR-002 (matches OM Hardware-Verhalten)
+    3. **INV-EPSILON value** — TBD (community-cited 5e-10 vs OM-quoted 1e-9 per Pitfall 7) — MUST transcribe OM before Plan 28-06 lands; documented in ADR-003
+    4. **INTG convergence threshold formula** — TBD (`threshold = 10^(-decimals - 1)` tied to `DisplayMode` per Pitfall 2) — MUST transcribe OM before Plan 28-07 lands; documented in ADR-004
+    5. **JSON-pipeline shape** (separate file vs combined) — LOCKED separate `hp41-math1-functions.json` per ADR-005 (zero migration churn on 130 existing v2.2 entries)
+  - Critical pitfalls in this phase: 1 (function-name collision; mitigated by xrom-fires-LAST), 2 (INTG threshold), 4 (user-callback re-entrancy), 5 (POLY clustering), 6 (complex branch cuts + (0,0) handling), 7 (matrix INV EPSILON)
+  - **Cross-cutting**: enum-bloat regression (Pitfall 10) — `criterion bench/dispatch_overhead.rs` floor `< 200 ns/op` (v2.2 baseline 65 ns); per-Op test count ≥ 5 per Pitfall 16 to avoid mid-milestone coverage drop
+
+**UI hint**: no (Phase 28 is purely `hp41-core`; no UI surface)
+
+---
+
+### Phase 29: CLI Integration
+
+**Goal**: Every Math Pac I function reachable from `hp41-cli` via `XEQ`-by-name; ALPHA prompts (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`, `GUESS 1=?`) surface in `state.print_buffer` and render in the TUI; `?`-overlay lists Math Pac I entries in their own section.
+
+**Depends on**: Phase 28 (all `Op` variants must exist before keyboard / help wiring can compile).
+
+**Build stage**: `hp41-cli`
+
+**Requirements (5 mapped)**: CLI-01..05. (DOC-01 absorbed via D-29.1 — `docs/hp41-math1-functions.json` authored in Plan 29-01.)
+
 **Success Criteria** (what must be TRUE):
-  1. `just coverage` reports `hp41-core` line coverage ≥ 95.0% — the gate config in `justfile` is updated to enforce this threshold (raised from 80%)
-  2. `hp41-core/tests/numerical_accuracy.rs` reports ≥ 490 / 500 cases passing (≥98%) with the v2.2 case extensions for PI, P→R, R→P, RND, FRC, MOD, FACT added
-  3. A proptest module (e.g. `hp41-core/tests/flag_properties.rs`) asserts: for all u8 n in 0..56, `SF(n); FS?(n) == true`; `CF(n); FC?(n) == true`; `SF(n); FS?C(n); FC?(n) == true` — runs in CI as part of `just test`
-  4. Integration tests in `hp41-core/tests/indirect_addressing.rs` verify every `_IND` op (STO/RCL/ISG/DSE/SF/CF/FS?/FC?/FS?C/FC?C/STO+/-/×/÷/ARCL/ASTO/VIEW) — happy path + non-integer rejection
-  5. An E2E spec (WebdriverIO + tauri-driver per D-27.15 AMENDED 2026-05-15; originally Playwright) runs as a new job in `.github/workflows/ci-gui.yml` on Linux, boots the production Tauri build, clicks `2 ENTER 3 +`, and asserts the display reads `5.0000` (or current display-mode equivalent) — green on the Ubuntu runner
-**Plans**:
-  - [x] 27-01 — Coverage push + atomic 80→95 gate raise (FN-QUAL-01, FN-QUAL-02 hand) ✅ shipped 2026-05-15 — 92 `// Catches:` rationale comments, 95.25 % lines / 93.75 % regions, 27 Free42/manual citations
-  - [x] 27-02 — Proptest suites (`proptest_flags.rs` + `proptest_math.rs`) (FN-QUAL-02 shape + FN-QUAL-03) ✅ shipped 2026-05-15 — 14 × 1024-case flag properties + 5 × 256-case math shape invariants; FACT range narrowed 0..=26 (Rule-1 deviation, math.rs:450 wall)
-  - [x] 27-03 — IND integration suite (`indirect_addressing.rs`) (FN-QUAL-04) ✅ shipped 2026-05-15 — 42 tests covering all 17 _IND ops with happy + non-integer reject; both PLAN-CHECK variant-syntax mismatches auto-corrected on read_first
-  - [x] 27-04 — WebdriverIO + tauri-driver E2E smoke + Vitest CI gating (FN-QUAL-05, D-27.14) ✅ shipped 2026-05-15 — e2e-linux job green on Ubuntu CI per D-27.15 AMENDED; D-27.16 1-retry verified; Vitest gated in `gui-ci` per D-27.14
-**Cross-cutting constraints:**
-  - Coverage gate raise (80% → 95%) is a `justfile`/`just coverage` recipe change — must be committed atomically with the test additions or CI will fail
-  - Proptest cases should NOT exceed 256 iterations per case to keep CI runtime reasonable; flag invariants are fast — 1024 iterations is fine for those
-  - Playwright runs ONLY on Ubuntu in `ci-gui.yml` (macOS/Windows runners are slow and Playwright headless is best supported on Linux); document this scope in CLAUDE.md
-  - No new `Op` variants in this phase — purely test and gate work
-  - `#![deny(clippy::unwrap_used)]` continues to apply; test modules carry `#[allow(clippy::unwrap_used)]` at the test mod level
+  1. `xeq_by_name_local_resolve("SINH")` in `hp41-cli/src/keys.rs` invokes `hp41_core::ops::math1::xrom_resolve` and returns `Op::Sinh`; pressing `X / S / I / N / H / Enter` in the XEQ-by-name modal executes `Op::Sinh` correctly; identical resolver path used inside `op_xeq`, `run_program`, and `run_loop` (D-25.6 CLI ↔ GUI parity preserved through shared hp41-core code)
+  2. `hp41-cli/src/help_data.rs` loads a SECOND JSON file (`docs/hp41-math1-functions.json`) via an additional `OnceLock<Vec<HelpEntry>>`; the `?` overlay groups Math Pac I entries under a "Math 1 Pac" section distinct from the v2.2 HP-41CV built-ins; both JSON files load on first access per the v2.2 D-25.16 pattern
+  3. `hp41-cli/src/prgm_display.rs` `op_display_name(op)` exhaustive match has ~40 new arms covering every Phase-28 `Op` variant (no `_ =>` catch-all); program listings show `SINH`, `MATRIX`, `INTG`, `C+`, `MAGZ`, etc. as their authentic HP-41 mnemonics
+  4. `KEY_REF_TABLE` in `hp41-cli/src/ui.rs::render_right_panel` derives from `help_data::help_entries()` filtered by non-null `key_path` (D-25.18 pattern continues); Math Pac I entries appear in the right-panel discoverability listing without a parallel hand-curated table
+  5. Modal-prompt routing for `MATRIX` / `SOLVE` / `POLY` / `INTG` / `DIFEQ` / `FOUR` / `TRANS` workflows: pressing the corresponding XEQ-by-name target triggers the `ModalProgram` state machine from Phase 28; prompt text (`ORDER=?`, `A1,1=?`, `FUNCTION NAME?`) appears in the TUI status bar / print panel; user input flows through the existing number-entry pipeline; ALPHA-text prompts for `FUNCTION NAME?` integrate with the v2.2 XEQ-by-name modal
+
+**Plans**: 3 plans
+  - [x] 29-01-PLAN.md — XEQ-by-name resolver chain extension + help_data second OnceLock + JSON wiring + `docs/hp41-math1-functions.json` authored (D-29.1 lock; DOC-01 pulled forward); CLI-01, CLI-02, DOC-01
+  - [x] 29-02-PLAN.md — prgm_display.rs ~40 new arms + KEY_REF_TABLE derivation from JSON; CLI-03, CLI-04
+  - [x] 29-03-PLAN.md — Modal-prompt routing for Math Pac I workflows (re-uses Phase 28's `ModalProgram` infrastructure); CLI-05
+
+**Notable risks/decisions**:
+  - **Discovery problem** (Pitfall 13): 40 new mnemonics push the XEQ-by-name modal past the "easily scrollable" threshold; CATALOG 2 (Phase 31) is the structural fix; Phase 29 ships JSON-derived KEY_REF_TABLE entries so Math Pac I functions are at least visible in the `?`-overlay
+  - **No core/GUI changes** in this phase — preserves the SC-4 invariant and keeps Phase 29 surgically scoped to `hp41-cli/` + `docs/`
+
+**UI hint**: no (TUI-only; v2.2 already classified `hp41-cli` as non-frontend per the v2.2 ROADMAP convention)
+
+---
+
+### Phase 30: Documentation & ADRs
+
+**Goal**: `scripts/docs-matrix` regenerates `docs/hp41-math1-function-matrix.md` from the Phase-29-authored `docs/hp41-math1-functions.json` via a two-input recipe; 3 new ADRs (001/002/005) document the Phase 28 irreversible decisions in long-form mirroring ADR-003/004; `docs/hp41-math1-divergences.md` expands to a three-bucket numbered catalog (OM Divergences / Emulator Extensions / Behavioral Policies); README claims "Math Pac I behavioral emulation included" with link to the matrix file; CLAUDE.md gains a `### v3.0 additions (Phases 28–30 — 31–32 IN PROGRESS)` block.
+
+**Depends on**: Phase 29 (DOC-01 absorbed via D-29.1 — `docs/hp41-math1-functions.json` already ships from Plan 29-01; Phase 30 consumes it read-only as matrix-renderer input).
+
+**Build stage**: `docs`
+
+**Requirements (6 mapped)**: DOC-02..07. (DOC-01 absorbed into Phase 29 / Plan 29-01 per D-29.1.)
+
+**Success Criteria** (what must be TRUE):
+  1. `scripts/docs-matrix/` (standalone non-workspace crate from v2.2 Plan 25-04) extended to two-input invocation: `just docs-matrix` runs the binary twice — once for `hp41cv-functions.json → hp41cv-function-matrix.md` (unchanged) and once for `hp41-math1-functions.json → hp41-math1-function-matrix.md` (new ~55-entry file with an XROM column). `just docs-matrix-check` is the CI drift-catch covering both inputs (mirror of v2.2 Pitfall 8 mitigation). Binary signature stays 1-in/1-out per D-30.1; the surgical exception is the `Entry` struct widening (`xrom: Option<XromRef>` with `#[serde(default)]`) + conditional column emission. hp41cv path bit-for-bit unchanged per D-30.2 invariant.
+  2. `docs/hp41-math1-divergences.md` documents every Math Pac I behavior where the emulator differs from the OM or extends it — three-bucket numbered catalog (D-30-NN IDs) covering OM divergences (POLY multiplicity-as-cluster per Pitfall 5, INTG threshold tied to DisplayMode per ADR-004, FACT integer-only extension policy), emulator extensions (XEQ "REAL" per D-28.3), and behavioral policies (strict-reject nested INTG/SOLVE per XROM-08/ADR-002, modal R/S submit per D-28.5/OM p.13). Five-field shape per entry: OM citation / Our behavior / OM behavior / Rationale / See.
+  3. `docs/adr/` directory carries 3 new ADR documents — `v3.0-001-op-strategy.md` (Op-Strategy A vs B chosen A), `v3.0-002-user-callback-policy.md` (strict-reject nested with Pitfall 19 Free42 disclaim verbatim), `v3.0-005-json-pipeline.md` (separate `hp41-math1-functions.json` shape). Each ~6–7 KB long-form per D-30.6, mirroring `v3.0-003-inv-epsilon.md` / `v3.0-004-intg-threshold.md` template (`## Context` / `## Decision` / `## Consequences` / `## Alternatives Considered` / `## Footnotes`). `## Alternatives Considered` quotes Phase 28 CONTEXT.md verbatim per D-30.7; OM page-and-example cited per Pitfall 18.
+  4. `README.md` carries the verbatim D-30.9 soft-claim line `- Math Pac I behavioral emulation (10 top-level programs, ~55 XEQ entry points, documented divergences)` under `## Features` + a matrix link `docs/hp41-math1-function-matrix.md` in the `## Documentation` table. Hard claim "feature-complete Math Pac I" deferred to Phase 32 conditional on QUAL-01 coverage gate ≥ 95 %.
+  5. `CLAUDE.md` gains the `### v3.0 additions (Math Pac I Emulation, Phases 28–30 — 31–32 IN PROGRESS)` block immediately after the `### v2.2 additions (Test Hardening, Phase 27)` section and before `## Tech Stack`. Phase 28 + Phase 29 + Phase 30 subsections fully populated; Phase 31 + Phase 32 carry `(in progress)` stub headers. `.planning/PROJECT.md` gains concise milestone-progress lines per D-30.8 Claude's Discretion recommendation (b).
+
+**Plans**: 3 plans
+  - [x] 30-01-PLAN.md — `scripts/docs-matrix` two-input extension (surgical `Entry` widening + conditional XROM column) + `just docs-matrix` + `just docs-matrix-check` CI gate + generate `docs/hp41-math1-function-matrix.md`; DOC-02, DOC-03
+  - [x] 30-02-PLAN.md — `docs/hp41-math1-divergences.md` three-bucket expansion + 3 new ADR documents (`docs/adr/v3.0-{001,002,005}-*.md` with verbatim Free42 disclaim in ADR-002); DOC-04, DOC-07
+  - [x] 30-03-PLAN.md — README v3.0 soft-claim + PROJECT.md milestone progress lines + CLAUDE.md `### v3.0 additions` block; DOC-05, DOC-06
+
+**Notable risks/decisions**:
+  - **Pitfall 18 (citation provenance)**: every divergence-doc entry and ADR must cite OM page-and-example, MoHPC URL, or Mike Sebastian forensic page; no uncited assertions
+  - **Pitfall 19 (Free42 GPL contamination)**: ADR-002 (user-callback policy) explicitly disclaims Free42 with the verbatim sentence `Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied.`; per-file header comment policy documented; CI enforcement script `scripts/check-free42-contamination.sh` deferred to Phase 32 / QUAL-05
+  - **D-30.1 surgical exception**: `scripts/docs-matrix/src/main.rs` is widened to accept an optional `xrom: Option<XromRef>` field (`#[serde(default)]`) and emit a conditional XROM column based on `entries.iter().any(|e| e.xrom.is_some())`. The CLI signature stays 1-in/1-out per the spirit of D-30.1; the struct widening is the documented minimum-blast-radius alternative to a frozen binary + post-processing.
+
+**UI hint**: no (documentation-only)
+
+---
+
+### Phase 31: GUI Integration
+
+**Goal**: Math Pac I reaches users in `hp41-gui` through the same shared `xrom_resolve` in `hp41-core` (CLI ↔ GUI parity D-25.6 trivially preserved); `?`-overlay loads Math Pac I JSON in parallel; modal prompts render in the print panel below the LCD; `CATALOG 2` lists all loaded XROM modules; long-running INTG/SOLVE/DIFEQ are cancellable via a new `request_cancel` Tauri command.
+
+**Depends on**: Phase 30 (JSON files must exist before parallel-loading in `?`-overlay; ADRs document the cancellation-channel design).
+
+**Build stage**: `hp41-gui`
+
+**Requirements (7 mapped)**: GUI-01..07.
+
+**Success Criteria** (what must be TRUE):
+  1. `hp41-gui/src-tauri/src/prgm_display.rs` `op_display_name(op)` exhaustive match has ~40 new arms covering every Phase-28 `Op` variant — SC-4 trivially holds because `op_display_name` is the documented display-formatter exception (CLAUDE.md "SC-4 invariant"); no `op_*` / `flush_entry_*` / `format_hpnum` functions added to `hp41-gui/src-tauri/src/`; stricter SC-4 grep returns nothing
+  2. XEQ-by-name modal in `hp41-gui/src/App.tsx` resolves Math Pac I function names through the shared `xrom_resolve` in `hp41-core` (NO duplicate resolver in `key_map.rs`); typing `XEQ "SINH" 1.5 Enter` displays `2.1293` on the LCD; CLI ↔ GUI parity (D-25.6) automatically preserved through the shared hp41-core path; `key_map::resolve` stub-error arm shrinks NOT in v3.0 (Math Pac I has no dedicated keys — only XEQ-by-name per GUI-07)
+  3. `?`-overlay loads `docs/hp41-math1-functions.json` in parallel with `hp41cv-functions.json` via Vite JSON-import; Math Pac I functions appear as a categorized section ("Math 1 Pac") distinct from the HP-41CV built-ins; `CATALOG 2` implementation (new `Op::Catalog(2)` arm in Phase 28) lists all loaded XROM modules with their function counts; reachable via existing `catalog` key
+  4. **Cancellation channel** (Pitfall 11 mitigation): `state.cancel_requested: Arc<AtomicBool>` (new field, `#[serde(default, skip)]`) + new `request_cancel` Tauri command + permission file `hp41-gui/src-tauri/permissions/request-cancel.toml` (per v2.2 Pitfall 21 mitigation); `op_integ` / `op_solve` / `op_difeq` check the AtomicBool every 64 samples and return `HpError::Interrupted` if set; `op_integ` releases-and-reacquires the AppState Mutex between sample batches so the 30s auto-save thread and `request_cancel` can interleave; the R/S key on the frontend routes to `request_cancel` (NOT `run_stop` — different semantic per Phase 31 research-prep)
+  5. **Modal-prompt rendering**: `ORDER=?` / `A1,1=?` / `FUNCTION NAME?` / `GUESS 1=?` prompts written to `state.print_buffer` by Math Pac I ops appear in the existing scrollable print panel below the LCD; user input via Number-Entry with ENTER to confirm; ESC cancels the modal; no new IPC surface (drains through the existing `print_buffer` channel established in v1.1 Phase 11)
+
+**Plans**: 5 plans
+  - [x] 31-01-PLAN.md — `hp41-gui/src-tauri/src/prgm_display.rs` ~40 new arms; SC-4 verification grep test extends to cover new files; GUI-01
+  - [x] 31-02-PLAN.md — Cancellation channel: `cancel_requested: Arc<AtomicBool>` field + `request_cancel` Tauri command + permissions TOML + `op_integ` / `op_solve` / `op_difeq` integration (every-64-samples check + lock release); GUI-05
+  - [x] 31-03-PLAN.md — XEQ modal resolves Math Pac I functions through shared `xrom_resolve`; D-25.6 CLI ↔ GUI parity verification test; GUI-02
+  - [x] 31-04-PLAN.md — `?`-overlay parallel-loads Math Pac I JSON via Vite JSON-import; categorized section rendering; CATALOG 2 implementation; GUI-03, GUI-04
+  - [x] 31-05-PLAN.md — Modal-prompt rendering: re-uses existing print-panel channel; user-input via Number-Entry pipeline; ESC cancellation; GUI-06, GUI-07 (stub-arm policy preserved)
+
+**Notable risks/decisions**:
+  - **Pitfall 11 (GUI freeze on long INTG)**: cancellation channel is the structural fix; Plan 31-02 research-prep specifies the lock-release strategy (every 64 samples) and verifies the auto-save thread + `request_cancel` can interleave without deadlock
+  - **Pitfall 12 (mid-solver save state)**: `integ_state` / `solve_state` / `modal_program` all `#[serde(default, skip)]` from Phase 28 first commit — preserved through to Phase 31 GUI hooks (round-trip test in Phase 32)
+  - **Pitfall 21 (Tauri permissions)**: `request_cancel` requires a new TOML in `hp41-gui/src-tauri/permissions/request-cancel.toml`; CI gate `scripts/check-tauri-permissions.sh` (v2.2 pattern) verifies every `generate_handler!` member has a matching permission
+
+**UI hint**: yes (Math Pac I prompts render via print panel + LCD; cancellation channel surfaces in frontend UI; `?`-overlay extension; CATALOG 2 listing)
+
+---
+
+### Phase 32: Test Hardening
+
+**Goal**: `hp41-core` coverage held ≥ 95 % lines / ≥ 93 % regions; `numerical_accuracy.rs` extended from 566 → ~700+ cases with Math Pac I cases per program (OM-cited per case per D-27.1); ≥ 5 tests per new `Op` (per Pitfall 16 to avoid mid-milestone coverage drop); WebdriverIO E2E smoke extended with one Math Pac I workflow; Free42 GPL-contamination guard in CI; cross-platform numerical-drift tolerance documented.
+
+**Depends on**: Phase 31 (all functionality must be in place before final coverage push and E2E test extension).
+
+**Build stage**: `tests`
+
+**Requirements (8 mapped)**: QUAL-01..08.
+
+**Success Criteria** (what must be TRUE):
+  1. `just coverage` reports `hp41-core` line coverage ≥ 95.0 % (gate held from v2.2 — NO atomic raise this milestone per D-27.2 lessons-learned); regions ≥ 93 %; the 5 new `ops/math1/*.rs` source files reach ≥ 90 % each via the 5 new test files (`math1_complex_edge_cases.rs`, `math1_user_callback.rs`, `xrom_shadowing.rs`, plus extensions to `numerical_accuracy.rs` and `program_execution_coverage.rs`); per-Op test count ≥ 5 invariant enforced by `tests/math1_op_test_count.rs`
+  2. `hp41-core/tests/numerical_accuracy.rs` grows from 566 → ~700+ cases with Math-Pac-I-specific cases per program (POLY, MATRIX, INTG, SOLVE, DIFEQ, FOUR, complex, hyperbolics, triangles, TRANS); each new case carries an Owner's Manual page+example citation in a `// Source: HP 00041-90034 p.<n>, ex.<m>` doc-comment per D-27.7 pattern; combined pass rate ≥ 98 %; v1.x 503-case baseline floor 498/503 preserved per D-27.6 (independently asserted)
+  3. **E2E smoke extension (FN-QUAL-03)**: `hp41-gui/e2e/smoke.spec.ts` carries a second test case clicking a Math Pac I workflow — `XEQ "SINH" 1 Enter` expects LCD reads `1.1752` (sinh(1) to 4 decimals) OR a MATRIX mini-flow (`XEQ "MATRIX" 2 Enter 1 Enter 2 Enter 3 Enter 4 Enter XEQ "DET" Enter` expects LCD reads `-2.0000`); runs only in `e2e-linux` job on Ubuntu (matches v2.2 D-27.15 AMENDED); existing `2 ENTER 3 +` smoke test unchanged
+  4. **Free42 GPL-contamination guard (QUAL-05)**: every file in `hp41-core/src/ops/math1/` carries a header comment `// Algorithm independently re-derived from HP Math Pac I Owner's Manual 00041-90034 (1979); Free42 source consulted only as sanity-check oracle, not copied.`; CI gate `scripts/check-free42-contamination.sh` greps for distinctive Free42 variable names + asserts the header comment is present in every math1 file; runs in `just ci`
+  5. **Cross-platform drift (QUAL-06)**: every Math Pac I numerical test uses `approx::assert_relative_eq!(actual, expected, max_relative = 1e-7)` (Math Pac I floor — 6 of HP-41's 10 digits guaranteed per Pitfall 14); zero `assert_eq!(decimal, decimal)` on iterated results in `tests/math1_*.rs` (lint enforced by `tests/lint_math1_assertions.rs` per Pitfall 17); `tests/math1_user_callback.rs` carries 5 regression tests for user-callback re-entrancy (nested INTG/SOLVE rejection, STO clobbering, STOP-during-INTG, GTO-out-of-callback, recursion-cap); `tests/xrom_shadowing.rs` asserts no Math Pac I name shadows an existing built-in mnemonic (Pitfall 1 CI gate)
+
+**Plans**: 10 plans (3 original + 7 gap-closure 32-04..32-10)
+  - [x] 32-01-PLAN.md — Coverage push for Math Pac I ops (per-Op test count ≥ 5; close gaps surfaced by `just coverage`); `tests/xrom_shadowing.rs` + `tests/math1_user_callback.rs` + `tests/lint_math1_assertions.rs`; QUAL-01, QUAL-04, QUAL-07, QUAL-08
+  - [x] 32-02-PLAN.md — `numerical_accuracy.rs` extension from 566 → ~700+ cases with OM citations; `approx 0.5.1` dev-dep added; relative-tolerance discipline; QUAL-02, QUAL-06
+  - [x] 32-03-PLAN.md — E2E smoke extension (one Math Pac I workflow in `hp41-gui/e2e/smoke.spec.ts`); Free42-contamination guard (`scripts/check-free42-contamination.sh` in CI); `data-testid="lcd-display"` carries Math Pac I-mode output; QUAL-03, QUAL-05
+  - [x] 32-04-PLAN.md — Gap closure: `ops/math1/poly.rs` 76.37% → ≥90% via `math1_poly_error_branches.rs` (POLY-07 reject + Bairstow non-convergence + submit_step Err arms); QUAL-01
+  - [x] 32-05-PLAN.md — Gap closure: `ops/math1/{trans,four}.rs` 81% → ≥90% via two new error-branch test files (Rodrigues zero-axis + FOUR no-valid-period + submit_step Err arms); QUAL-01
+  - [x] 32-06-PLAN.md — Gap closure: `ops/math1/{solve,difeq}.rs` 85% → ≥90% via two new error-branch test files (iteration cap + CallDepth + Canceled + submit_step Err arms); QUAL-01
+  - [x] 32-07-PLAN.md — Gap closure: `ops/math1/{matrix,mod,integ}.rs` to per-file floor via three new test files (index OOR + singular detection + mod-routing arms + INTG Overflow/Canceled); QUAL-01
+  - [x] 32-08-PLAN.md — Gap closure: `ops/program.rs` 86.42% → ≥90% via `program_error_branches.rs` (label resolution + SIZE guards + RTN + CallDepth + infinite-loop guard); QUAL-01
+  - [x] 32-09-PLAN.md — Cleanup: CR-01 + WR-01..07 from 32-REVIEW.md (replace 15 tautological cases + delete 7 redundant sentinels + harden contamination guard + widen lint heuristic + word-boundary mention counting + E2E waitUntil/beforeEach/extractErrMessage); QUAL-02..06
+  - [ ] 32-10-PLAN.md — Graduation: re-measure coverage gate, blocking human checkpoint, README v3.0 hard-claim graduation per D-32.5/D-32.6, CLAUDE.md + PROJECT.md DEFERRED → MET narrative update; QUAL-01 (final closure)
+
+**Notable risks/decisions**:
+  - **Coverage gate NOT raised** in v3.0 — held at v2.2 level (≥ 95 % lines / ≥ 93 % regions) per D-27.2 lessons-learned (atomic raise requires risk-weighted tests, not coverage padding)
+  - **Per-Op test count ≥ 5** (Pitfall 16) — risk-weighted per D-27.3, NOT coverage padding; documented `// Catches: <bug class>` comments per D-27.1
+  - **Pitfall 14 (cross-platform drift)**: relative tolerance 1e-7 documented as Math Pac I floor; criterion benchmarks pinned to ubuntu-latest; three-OS CI catches x86-vs-ARM divergence on first PR
+
+**UI hint**: no (test-only)
+
+---
+
+## Build Sequence
+
+```
+Phase 28 (hp41-core)
+   │  framework + 5 ADR decisions + ~40 new Op variants + modal state machine + user-callback re-entrancy
+   ▼
+Phase 29 (hp41-cli)
+   │  xeq_by_name_local_resolve + help_data second JSON + prgm_display arms + modal-prompt routing
+   ▼
+Phase 30 (docs)
+   │  hp41-math1-functions.json + docs-matrix two-input + 5 ADRs + divergences doc + README claim
+   ▼
+Phase 31 (hp41-gui)
+   │  prgm_display arms + cancellation channel + XEQ modal + ?-overlay parallel-load + CATALOG 2 + modal rendering
+   ▼
+Phase 32 (tests)
+      coverage hold + 566→700+ accuracy cases + E2E Math Pac I smoke + Free42 contamination guard + drift tolerance
+```
+
+**Do not break this order.** Phase 28 contains 5 irreversible decisions (Op-strategy, user-callback policy, INV-EPSILON, INTG-threshold, JSON-pipeline shape) that gate every downstream phase. Plan 28-01 research-prep MUST transcribe OM for ADR-003 (INV-EPSILON) and ADR-004 (INTG-threshold) BEFORE any implementation lands.
+
+---
+
+## Coverage
+
+✓ **110 / 110 v3.0 requirements mapped** to phases 28–32
+✓ No orphaned requirements
+✓ No requirement appears in more than one phase
+✓ Each phase has 2–5 observable success criteria
+✓ Each phase has a single dominant build stage (core / cli / docs / gui / tests)
+
+Traceability table is maintained in `.planning/REQUIREMENTS.md` "Traceability" section.
 
 ---
 
@@ -216,30 +261,21 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Foundation | v1.0 | 4/4 | Complete | 2026-05-06 |
-| 2. Core Math | v1.0 | 7/7 | Complete | 2026-05-07 |
-| 3. Programming Engine | v1.0 | 6/6 | Complete | 2026-05-07 |
-| 4. TUI & Input | v1.0 | 5/5 | Complete | 2026-05-07 |
-| 5. Persistence & UX | v1.0 | 11/11 | Complete | 2026-05-07 |
-| 6. Science & Engineering | v1.0 | 3/3 | Complete | 2026-05-07 |
-| 7. Hardening | v1.0 | 6/6 | Complete | 2026-05-07 |
-| 8. Tech Debt Cleanup | v1.0 | 3/3 | Complete | 2026-05-08 |
-| 9. Infrastructure & EEX Fix | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 10. STO Arithmetic Modals | v1.1 | 3/3 | Complete | 2026-05-08 |
-| 11. Print Emulation | v1.1 | 4/4 | Complete | 2026-05-08 |
-| 12. Synthetic Programming | v1.1 | 3/3 | Complete | 2026-05-09 |
-| 13. Workspace Skeleton | v2.0 | 3/3 | Complete | 2026-05-09 |
-| 14. IPC Layer | v2.0 | 4/4 | Complete | 2026-05-09 |
-| 15. Display & Keyboard | v2.0 | 3/3 | Complete | 2026-05-10 |
-| 16. SVG Skin | v2.0 | 2/2 | Complete | 2026-05-10 |
-| 17. Persistence & Print Output | v2.0 | 3/3 | Complete | 2026-05-10 |
-| 18. Program Listing & CI/CD | v2.0 | 4/4 | Complete | 2026-05-10 |
-| 19. Card Reader + Keyboard Authenticity | v2.1 | quick tasks | Complete | 2026-05-13 |
-| 20. Core Math & Conversions | v2.2 | 0/1 | Planned    |  |
-| 21. Flags, Display Control & Sound | v2.2 | 0/4 | Planned    |  |
-| 22. Program Control & Memory Ops | v2.2 | 5/4 | Complete   | 2026-05-14 |
-| 23. ALPHA Operations | v2.2 | 2/2 | Complete   | 2026-05-14 |
-| 24. Indirect Addressing | v2.2 | 0/2 | Planned    |  |
-| 25. CLI Integration & Documentation | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 26. GUI Integration & Polish | v2.2 | 4/4 | Complete   | 2026-05-15 |
-| 27. Test Hardening | v2.2 | 4/4 | Complete | 2026-05-15 |
+| 28. XROM Framework + Math Pac I Core Ops | v3.0 | 10/10 | Complete   | 2026-05-16 |
+| 29. CLI Integration | v3.0 | 3/3 | Complete   | 2026-05-17 |
+| 30. Documentation & ADRs | v3.0 | 3/3 | Complete    | 2026-05-17 |
+| 31. GUI Integration | v3.0 | 5/5 | Complete    | 2026-05-18 |
+| 32. Test Hardening | v3.0 | 9/10 | In Progress|  |
+
+---
+
+## v2.x ROADMAP archives
+
+- v1.0: `milestones/v1.0-ROADMAP.md`
+- v1.1: `milestones/v1.1-ROADMAP.md`
+- v2.0: `milestones/v2.0-ROADMAP.md`
+- v2.2: `milestones/v2.2-ROADMAP.md`
+
+---
+
+*Last updated: 2026-05-17 — Phase 30 planned by `/gsd-plan-phase`; 3 plans (30-01/02/03) covering DOC-02..07 (DOC-01 absorbed into Phase 29 / Plan 29-01 per D-29.1). Phase 30 is documentation-only with the surgical `scripts/docs-matrix/src/main.rs` exception per D-30.1.*

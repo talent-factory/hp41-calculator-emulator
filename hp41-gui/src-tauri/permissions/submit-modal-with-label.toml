@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
+[[permission]]
+identifier = "allow-submit-modal-with-label"
+description = "Allows the submit_modal_with_label command."
+commands.allow = ["submit_modal_with_label"]
