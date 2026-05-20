@@ -1,0 +1,104 @@
+name: Release GUI Binaries
+
+# Builds hp41-gui as native installers for macOS (universal .dmg + .app),
+# Windows (.msi + portable .exe), and Linux (.deb + .AppImage) via the
+# official tauri-apps/tauri-action. Signs + notarizes macOS builds when
+# Apple Developer secrets are configured.
+#
+# Per Memory "binary-releases-next-milestone" (2026-05-16):
+# - macOS universal binary with Apple Developer cert ($99/yr)
+# - Windows: no Authenticode cert → SmartScreen warning documented
+# - Linux: AppImage is universal — no signing
+#
+# tauri-action attaches artifacts to the GitHub Release matching the tag.
+# Runs after release.yml has auto-created the Release; no separate upload
+# step needed because tauri-action writes directly to the release.
+#
+# Workflow injection defense: tag/ref-derived values are read into env
+# vars before any `run:` step uses them — never interpolated directly into
+# shell commands.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build GUI binaries for (e.g. v3.0.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write   # tauri-action needs to upload to the release
+
+jobs:
+  build-gui:
+    name: Build hp41-gui — ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest          # arm64 + x86_64 universal via target
+            args: '--target universal-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    env:
+      RESOLVED_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Universal macOS build needs both Apple targets
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: hp41-gui/src-tauri -> target
+          key: gui-${{ matrix.platform }}
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
+      - name: Install npm dependencies
+        working-directory: hp41-gui
+        run: npm ci
+
+      - name: Build, sign + notarize hp41-gui (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing + notarization (no-op on other platforms)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: hp41-gui
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: ${{ inputs.tag || github.ref_name }}
+          releaseBody: |
+            See the full release notes on the [release page](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/${{ inputs.tag || github.ref_name }}).
+          # Append assets to the existing release (do not overwrite notes that
+          # release.yml already populated from the tag annotation).
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}

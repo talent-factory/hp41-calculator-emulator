@@ -81,7 +81,23 @@ This is a **behavioural** emulation — variant-specific memory limits are not e
 | HP-41CV | 1980 | 319 registers     | "Continuously Variable" memory     |
 | HP-41CX | 1983 | Extended + Time   | Built-in X-Functions & Time Module |
 
-## Quick Start
+## Installation
+
+### Pre-built binaries (recommended for end users)
+
+Download platform-native binaries from the [latest release page](https://github.com/talent-factory/hp41-calculator-emulator/releases/latest):
+
+| Platform | CLI (`hp41-cli`) | GUI (`hp41-gui`) |
+|----------|------------------|------------------|
+| **macOS** (Apple Silicon + Intel) | `hp41-cli-vX.Y-aarch64-apple-darwin.tar.gz` | `hp41-gui_X.Y.Z_universal.dmg` |
+| **Windows 10/11** | `hp41-cli-vX.Y-x86_64-pc-windows-msvc.zip` | `hp41-gui_X.Y.Z_x64-setup.exe` (installer) or `_x64-portable.exe` |
+| **Linux** (x86_64) | `hp41-cli-vX.Y-x86_64-unknown-linux-gnu.tar.gz` | `hp41-gui_X.Y.Z_amd64.deb` or `.AppImage` |
+
+macOS binaries are signed with our Apple Developer certificate and Apple-notarized. Windows binaries are unsigned — on first launch you may see a SmartScreen warning ("Windows protected your PC" → click "More info" → "Run anyway").
+
+Binaries first ship with **v3.0.1+** (the v3.0 release is source-only); for v3.0 use the build-from-source path below.
+
+### Build from source (development + v3.0)
 
 ```bash
 # Prerequisites: Rust stable (MSRV 1.88), just
@@ -121,6 +137,7 @@ The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every
 | [Keyboard Layout](docs/keyboard-layout.md) | Key layout and shifted functions |
 | [Programming Guide](docs/programming-guide.md) | Stack model, programs, flags, loops |
 | [Architecture](docs/architecture.md) | Emulator internals for contributors |
+| [Release Setup](docs/release-setup.md) | Maintainer guide: binary-release workflows + Apple Developer secrets |
 
 ## Documented Divergences from HP-41 Hardware
 
