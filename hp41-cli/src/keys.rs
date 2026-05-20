@@ -401,10 +401,27 @@ pub fn xeq_by_name_local_resolve(name: &str, xrom_modules: u8) -> Option<Op> {
 /// renderer. The deduplication by key_path collapses the multi-variant
 /// `S`/`R`/`F` openers (which appear N times in the JSON — once per opened
 /// op such as STO, RCL, STO+, etc.) into a single discoverability row.
+///
+/// **XROM-module exclusion (post-v3.0):** entries with `xrom.is_some()` —
+/// i.e. Math Pac I and any future XROM-module functions — are EXCLUDED
+/// from the right-panel. Module functions are reached via `XEQ "<name>"`,
+/// not via a physical key, so they have no place in a key-binding listing.
+/// Discovery of module functions belongs to the `?` overlay, which groups
+/// them under a dedicated "Math 1 Pac (XROM 7)" / future-module section.
+/// This mirrors the hp41-gui v3.0 Phase 31 two-section collapsible help
+/// overlay (`HelpOverlay.tsx`). Right-panel listing remains ~15–25 rows
+/// regardless of how many XROM modules are loaded; without this filter
+/// v3.0 alone added ~45 XEQ-by-name rows that crowded out the actual
+/// keyboard reference.
 pub fn key_ref_entries() -> Vec<(String, String)> {
     let mut seen: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     for entry in crate::help_data::help_entries_all() {
         if entry.status != "implemented" {
+            continue;
+        }
+        if entry.xrom.is_some() {
+            // Skip XROM-module functions — they live in the `?` overlay,
+            // not in the right-panel keyboard reference.
             continue;
         }
         let Some(key_path) = entry.key_path.as_deref() else {
