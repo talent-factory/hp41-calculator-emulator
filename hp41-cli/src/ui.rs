@@ -9,7 +9,7 @@
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
+use ratatui::widgets::{Block, Cell, Clear, Paragraph, Row, Table};
 use ratatui::Frame;
 
 use crate::help_data;
@@ -430,6 +430,13 @@ fn render_help_overlay(app: &App, frame: &mut Frame) {
     .block(Block::bordered().title_top(" HP-41 Function Reference  [? or Esc to close] "))
     .row_highlight_style(ratatui::style::Style::new().reversed());
 
+    // Clear the underlying widgets (right-panel, stack panel, display) before
+    // painting the overlay. Without this `Clear`, ratatui's Table renders
+    // cells with transparent backgrounds — the underlying content bleeds
+    // through in the gaps between columns (visible as e.g. `XEQ "X<Y?"X<Y?`
+    // appearing inside the overlay's Math section). Standard ratatui modal
+    // pattern: render `Clear` to the modal area first, then the modal.
+    frame.render_widget(Clear, overlay_area);
     // RefCell::borrow_mut() — safe: draw() is single-threaded and non-reentrant.
     frame.render_stateful_widget(table, overlay_area, &mut app.help_table_state.borrow_mut());
 }
@@ -450,6 +457,10 @@ fn render_programs_overlay(app: &App, frame: &mut Frame) {
         .block(Block::bordered().title_top(" Sample Programs  [Enter=load, Esc=close] "))
         .row_highlight_style(ratatui::style::Style::new().reversed());
 
+    // Same `Clear` rationale as `render_help_overlay` — wipe the underlying
+    // widgets before painting the modal to prevent right-panel/stack/display
+    // bleed-through in column gaps.
+    frame.render_widget(Clear, overlay_area);
     frame.render_stateful_widget(
         table,
         overlay_area,
