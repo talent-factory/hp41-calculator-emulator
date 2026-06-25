@@ -1,22 +1,8 @@
-name: Release GUI Binaries
+name: Release Native macOS GUI
 
-# Builds hp41-gui as native installers for macOS (universal .dmg + .app),
-# Windows (.msi + portable .exe), and Linux (.deb + .AppImage) via the
-# official tauri-apps/tauri-action. Signs + notarizes macOS builds when
-# Apple Developer secrets are configured.
-#
-# Per Memory "binary-releases-next-milestone" (2026-05-16):
-# - macOS universal binary with Apple Developer cert ($99/yr)
-# - Windows: no Authenticode cert → SmartScreen warning documented
-# - Linux: AppImage is universal — no signing
-#
-# tauri-action attaches artifacts to the GitHub Release matching the tag.
-# Runs after release.yml has auto-created the Release; no separate upload
-# step needed because tauri-action writes directly to the release.
-#
-# Workflow injection defense: tag/ref-derived values are read into env
-# vars before any `run:` step uses them — never interpolated directly into
-# shell commands.
+# Builds the declared SwiftUI product for Apple Silicon, signs and notarizes it
+# when Apple credentials are configured, and attaches a zip to the matching
+# GitHub Release. Windows and Linux ship the CLI only.
 
 on:
   push:
@@ -24,143 +10,122 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build GUI binaries for (e.g. v3.0.1)'
+        description: 'Tag to build GUI binaries for (e.g. v4.3.0)'
         required: true
         type: string
 
 permissions:
-  contents: write   # tauri-action needs to upload to the release
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
   build-gui:
-    name: Build hp41-gui — ${{ matrix.platform }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest          # arm64 + x86_64 universal via target
-            args: '--target universal-apple-darwin'
-          - platform: ubuntu-22.04
-            args: ''
-          - platform: windows-latest
-            args: ''
-    runs-on: ${{ matrix.platform }}
+    name: Build native SwiftUI GUI — aarch64-apple-darwin
+    runs-on: macos-latest
     env:
       RESOLVED_TAG: ${{ inputs.tag || github.ref_name }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: false
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Verify versions match the release tag
+      - name: Verify native bundle version matches release tag
         shell: bash
-        env:
-          RESOLVED_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          # Drift guard (v4.2 incident): every user-visible version surface must
-          # match the tag, else the release ships mislabeled artifacts —
-          #   tauri.conf.json  → GUI installer / bundle version
-          #   root Cargo.toml  → hp41 --version (hp41-core / hp41-cli)
-          #   src-tauri Cargo  → GUI window title + macOS tray About
-          # Compares major.minor: tag vX.Y(.Z) → versions X.Y.*.
-          want="$(printf '%s' "${RESOLVED_TAG#v}" | cut -d- -f1 | cut -d. -f1-2)"
-          extract() { grep -m1 "$2" "$1" | sed -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/'; }
-          tauri="$(extract hp41-gui/src-tauri/tauri.conf.json '"version"')"
-          ws="$(extract Cargo.toml '^version')"
-          gui="$(extract hp41-gui/src-tauri/Cargo.toml '^version')"
-          rc=0
-          for pair in "tauri.conf.json=$tauri" "workspace-Cargo=$ws" "src-tauri-Cargo=$gui"; do
-            name="${pair%%=*}"; ver="${pair#*=}"; mm="$(printf '%s' "$ver" | cut -d. -f1-2)"
-            if [ "$mm" != "$want" ]; then
-              echo "::error::$name version '$ver' does not match tag '$RESOLVED_TAG' (expected ${want}.x). Bump it before tagging."
-              rc=1
-            else
-              echo "ok: $name = $ver matches tag $RESOLVED_TAG"
-            fi
-          done
-          exit $rc
+          want="${RESOLVED_TAG#v}"
+          actual="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -1)"
+          if [ "$actual" != "$want" ]; then
+            echo "::error::workspace version '$actual' does not match tag '$RESOLVED_TAG'"
+            exit 1
+          fi
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
         with:
-          # Universal macOS build needs both Apple targets
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          workspaces: hp41-gui/hp41-bridge -> hp41-gui/hp41-bridge/target
 
-      - name: Cache cargo registry + target
-        uses: Swatinem/rust-cache@v2
+      - run: rustup default stable
+
+      - uses: taiki-e/install-action@v2
         with:
-          workspaces: hp41-gui/src-tauri -> target
-          key: gui-${{ matrix.platform }}
+          tool: just
 
-      - name: Install Linux build deps
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev
+      - name: Build native application bundle
+        run: just gui-build
 
-      - name: Install npm dependencies
-        working-directory: hp41-gui
-        run: npm ci
-
-      # Only enable macOS signing when a certificate is actually configured.
-      # tauri's bundler attempts `security import` whenever APPLE_CERTIFICATE is
-      # present in the environment — even as an empty string — and hard-fails
-      # with "failed to import keychain certificate". So we export the signing
-      # vars to $GITHUB_ENV ONLY when the cert secret is non-empty; otherwise the
-      # build runs unsigned (ad-hoc, Gatekeeper warning on first launch). Add the
-      # APPLE_CERTIFICATE / _PASSWORD / APPLE_SIGNING_IDENTITY secrets later and
-      # signing turns on automatically — no workflow edit needed.
-      - name: Configure macOS code signing (skips cleanly without a cert)
-        if: matrix.platform == 'macos-latest'
+      - name: Verify bundle architecture, version, and privacy manifest
         shell: bash
+        run: |
+          set -euo pipefail
+          APP="hp41-gui/.build/HP-41 Calculator.app"
+          test -x "$APP/Contents/MacOS/hp41-gui"
+          test -f "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "${RESOLVED_TAG#v}"
+          lipo -verify_arch arm64 "$APP/Contents/MacOS/hp41-gui"
+          plutil -lint "$APP/Contents/Info.plist" "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+
+      - name: Import Apple Developer certificate
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Sign native application bundle
+        if: ${{ env.APPLE_SIGNING_IDENTITY != '' }}
+        env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          APP="hp41-gui/.build/HP-41 Calculator.app"
+          codesign --force --deep --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Package application
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="hp41-gui-${RESOLVED_TAG}-aarch64-apple-darwin.zip"
+          ditto -c -k --sequesterRsrc --keepParent "hp41-gui/.build/HP-41 Calculator.app" "$ARTIFACT"
+          echo "ARTIFACT_PATH=$ARTIFACT" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple native application
+        if: ${{ env.APPLE_SIGNING_IDENTITY != '' && env.APPLE_ID != '' && env.APPLE_PASSWORD != '' && env.APPLE_TEAM_ID != '' }}
+        env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          if [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
-            echo "Apple signing certificate present — enabling signed + notarized macOS build."
-            # APPLE_CERTIFICATE is base64 and may span multiple lines → heredoc form.
-            {
-              echo "APPLE_CERTIFICATE<<__P12__"
-              echo "${APPLE_CERTIFICATE}"
-              echo "__P12__"
-              echo "APPLE_CERTIFICATE_PASSWORD=${APPLE_CERTIFICATE_PASSWORD}"
-              echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
-              echo "APPLE_ID=${APPLE_ID}"
-              echo "APPLE_PASSWORD=${APPLE_PASSWORD}"
-              echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}"
-            } >> "$GITHUB_ENV"
-          else
-            echo "::warning::No APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY configured — building UNSIGNED macOS bundle (Gatekeeper warning on first launch). Add the cert secrets to enable signing + notarization."
-          fi
+          APP="hp41-gui/.build/HP-41 Calculator.app"
+          xcrun notarytool submit "$ARTIFACT_PATH" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$ARTIFACT_PATH"
 
-      - name: Build, sign + notarize hp41-gui (tauri-action)
-        uses: tauri-apps/tauri-action@v0
-        # Signing env (APPLE_*) is injected via $GITHUB_ENV by the step above,
-        # but only when a certificate is configured — see the comment there.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload native GUI to release
+        uses: softprops/action-gh-release@v2
         with:
-          projectPath: hp41-gui
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: ${{ inputs.tag || github.ref_name }}
-          releaseBody: |
-            See the full release notes on the [release page](https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/${{ inputs.tag || github.ref_name }}).
-          # Append assets to the existing release (do not overwrite notes that
-          # release.yml already populated from the tag annotation).
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: false
-          args: ${{ matrix.args }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: ${{ env.ARTIFACT_PATH }}
+          fail_on_unmatched_files: true

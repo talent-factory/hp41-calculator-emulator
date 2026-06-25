@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import './App.css';
 import { Keyboard, KEY_DEFS, THEME_GRADIENTS, type KeyDef } from './Keyboard';
 import { triggerHaptic, maybeFireErrorHaptic, ensureAudioResumed } from './haptics';
@@ -32,6 +33,10 @@ interface PickerData {
   programs: ProgramEntry[];
   filePath: string;
 }
+
+type PendingAppIntent =
+  | { kind: 'execute_function'; value: string }
+  | { kind: 'run_program'; value: string };
 
 interface Annunciators {
   user: boolean;
@@ -310,12 +315,12 @@ function App() {
   // Phase 41 D-41.2/D-41.8: live-display interval reference.
   // Holds the setInterval ID when clock_active || stopwatch_keyboard_mode is true.
   const liveTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Phase 56 D-56.1/D-56.3: live needsTick value for the empty-deps visibilitychange
+  // Phase 56 D-56.1/D-56.3: live needsTick value for the stable visibilitychange
   // listener (mirror of busyRef/liveTickRef pattern — read current value inside a
   // stable listener without adding needsTick to its deps, which would re-register
   // the listener every 100ms tick).
   const needsTickRef = useRef(false);
-  // Phase 56 CR-01: live isIos value for the empty-deps visibilitychange listener.
+  // Phase 56 CR-01: live isIos value for the stable visibilitychange listener.
   // isIos is useState(false) set ASYNCHRONOUSLY after mount (invoke('is_ios').then(setIsIos)),
   // so a value captured in the empty-deps closure is permanently stale `false` on iOS — which
   // would dead-code the LIFE-02 resume branch on its only target platform. Mirror needsTickRef:
@@ -393,6 +398,56 @@ function App() {
     toastSeqRef.current += 1;
     setToast({ msg, seq: toastSeqRef.current });
   }, []);
+
+  // iOS App Intents cannot call Tauri commands directly. Their Swift handlers
+  // atomically enqueue one request in Application Support and foreground the app;
+  // this consumer takes that request exactly once and routes it through the same
+  // backend commands used by the on-screen calculator.
+  const consumePendingAppIntent = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const request = await invoke<PendingAppIntent | null>('take_pending_app_intent');
+      if (!request || typeof request !== 'object' || !('kind' in request)) return;
+
+      let view: CalcStateView;
+      if (request.kind === 'execute_function') {
+        view = await invoke<CalcStateView>('dispatch_op', { keyId: request.value });
+      } else if (request.kind === 'run_program') {
+        view = await invoke<CalcStateView>('run_program', { label: request.value });
+      } else {
+        return;
+      }
+
+      setCalcState(view);
+      setErrorMessage(null);
+    } catch (err) {
+      showToast(extractErrMessage(err));
+      // A program may have emitted print/event lines before failing. Drain them
+      // now rather than leaving them hidden until the next calculator action.
+      invoke<CalcStateView>('get_state').then(setCalcState).catch(() => {});
+    } finally {
+      busyRef.current = false;
+    }
+  }, [showToast]);
+
+  // The shared Swift source calls a Rust C callback after writing its mailbox.
+  // Rust surfaces that callback as a Tauri event, covering App Intents invoked
+  // while either the iOS app or macOS menu-bar app is already running.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen('app-intent-enqueued', () => {
+      void consumePendingAppIntent();
+    }).then(stop => {
+      if (disposed) stop();
+      else unlisten = stop;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [consumePendingAppIntent]);
 
   // Auto-dismiss toast after 2 seconds. Re-runs on every showToast() call
   // because the `seq` field changes even when `msg` is the same.
@@ -674,7 +729,7 @@ function App() {
   }, [needsTick, showToast]);
 
   // Phase 56 D-56.1/D-56.3: keep needsTickRef in sync with the derived needsTick boolean.
-  // The empty-deps visibilitychange listener reads needsTickRef.current to get the live
+  // The stable visibilitychange listener reads needsTickRef.current to get the live
   // value without adding needsTick to the listener's deps (which would re-register every tick).
   useEffect(() => {
     needsTickRef.current = needsTick;
@@ -734,16 +789,49 @@ function App() {
   }, []);
 
   useEffect(() => {
-    invoke<boolean>('is_macos').then(setIsMacos).catch(() => setIsMacos(false));
-  }, []);
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    invoke<boolean>('is_macos')
+      .then(value => {
+        const macos = value === true;
+        setIsMacos(macos);
+        if (!macos) return;
+
+        // Cold-start App Intents may write just before or during Tauri setup.
+        // The live callback event handles subsequent invocations.
+        void consumePendingAppIntent();
+        timers.push(setTimeout(() => { void consumePendingAppIntent(); }, 250));
+        timers.push(setTimeout(() => { void consumePendingAppIntent(); }, 1000));
+      })
+      .catch(() => setIsMacos(false));
+    return () => timers.forEach(clearTimeout);
+  }, [consumePendingAppIntent]);
 
   // D-55.1 — detect iOS to gate touch behaviors (bottom sheets, collapsible stack,
   // AlphaTouchInput bar, .key-touch-target overlays, haptic calls).
   useEffect(() => {
-    invoke<boolean>('is_ios').then(setIsIos).catch(() => setIsIos(false));
-  }, []);
+    let cancelled = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    invoke<boolean>('is_ios')
+      .then(value => {
+        const ios = value === true;
+        setIsIos(ios);
+        if (!ios || cancelled) return;
 
-  // Phase 56 CR-01: keep isIosRef in sync so the empty-deps visibilitychange listener
+        // App Intents may foreground the shell just before their async perform()
+        // finishes writing the mailbox. Immediate + short delayed checks cover
+        // both that race and a normal already-written cold-start request.
+        void consumePendingAppIntent();
+        timers.push(setTimeout(() => { void consumePendingAppIntent(); }, 250));
+        timers.push(setTimeout(() => { void consumePendingAppIntent(); }, 1000));
+      })
+      .catch(() => setIsIos(false));
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [consumePendingAppIntent]);
+
+  // Phase 56 CR-01: keep isIosRef in sync so the stable visibilitychange listener
   // reads the live (async-resolved) iOS flag instead of the stale mount-time `false`.
   useEffect(() => {
     isIosRef.current = isIos;
@@ -1333,7 +1421,7 @@ function App() {
   // Phase 54 PERSIST-02: save state when the app is backgrounded (iOS resign-active).
   // Fires in WKWebView when the user presses the Home button or switches apps.
   // Fire-and-forget: the 30s auto-save thread (D-54.2a) is the safety net.
-  // Empty deps: handler has no dependency on React state — invoke always saves current state.
+  // The handler reads live calculator flags through refs; invoke always saves current state.
   // D-54.2c: no page-hide or unload listeners added (redundant, risk double-saves).
   //
   // Phase 56 D-56.1/D-56.3 (LIFE-02): extended with a 'visible' branch that fires one
@@ -1351,18 +1439,24 @@ function App() {
           // Silent failure acceptable: the 30s timer is the safety net (D-54.2a)
           console.warn('background save failed:', extractErrMessage(err));
         });
-      } else if (document.visibilityState === 'visible' && isIosRef.current && needsTickRef.current) {
+      } else if (document.visibilityState === 'visible' && isIosRef.current) {
+        void consumePendingAppIntent();
+        // A foreground transition can precede the App Intent mailbox write by a
+        // fraction of a second; retain one delayed retry for that ordering.
+        setTimeout(() => { void consumePendingAppIntent(); }, 500);
+
         // iOS foreground return: force one tick_time so the clock/stopwatch display
         // shows the correct current time within one render frame (LIFE-02).
-        if (busyRef.current) return;
-        invoke<CalcStateView>('tick_time')
-          .then(view => { setCalcState(view); setErrorMessage(null); })
-          .catch((err: unknown) => showToast(extractErrMessage(err)));
+        if (needsTickRef.current && !busyRef.current) {
+          invoke<CalcStateView>('tick_time')
+            .then(view => { setCalcState(view); setErrorMessage(null); })
+            .catch((err: unknown) => showToast(extractErrMessage(err)));
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []); // empty deps: listener reads live values via refs (needsTickRef, isIosRef, busyRef)
+  }, [consumePendingAppIntent, showToast]);
 
   // Accumulate print_lines from each IPC response into local React state.
   // D-09: print_buffer is drained per IPC call; React retains full history.

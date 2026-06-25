@@ -14,15 +14,25 @@
 //! in `handleClick` before they reach `dispatch_op`. A frontend regression that
 //! skips the intercept surfaces a `GuiError` toast, never silent.
 
-use crate::types::GuiError;
 use hp41_core::ops::{FlagTestKind, Op, StackReg, TestKind};
 use hp41_core::StoArithKind;
+
+/// Framework-independent failure returned when a key identifier cannot be
+/// resolved. UI adapters decide how to serialize or present the message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolveError {
+    pub message: String,
+}
+
+// Keep the historical internal name throughout the migrated resolver so this
+// extraction remains a mechanical move with no behavior changes.
+type GuiError = ResolveError;
 
 /// Resolve a string key ID to an Op. Returns `Err(GuiError)` for unknown IDs.
 ///
 /// This function does NOT handle digit keys (0-9, `.`, `e`) — those are caught earlier
 /// in `commands::dispatch_op` and append to `entry_buf` directly.
-pub fn resolve(key_id: &str) -> Result<Op, GuiError> {
+pub fn resolve(key_id: &str) -> Result<Op, ResolveError> {
     match key_id {
         // ── Stack ────────────────────────────────────────────────────────────
         "enter" => Ok(Op::Enter),
@@ -149,13 +159,10 @@ pub fn resolve(key_id: &str) -> Result<Op, GuiError> {
         // MUST hit this arm BEFORE `resolve_parameterized` strips their prefixes
         // — otherwise the parameterized fallthrough would silently dispatch
         // `Op::Xeq("prompt")` / `Op::Gto("prompt")` / `Op::Lbl("prompt")`.
-        "asn" | "catalog" | "view"
-        | "xeq_prompt" | "gto_prompt" | "lbl_prompt"
-        | "sto_prompt" | "rcl_prompt" | "isg_prompt"
-        | "sf_prompt" | "cf_prompt" | "fs_prompt"
-        | "fix_prompt" | "sci_prompt" | "eng_prompt"
-        | "x_eq_y_prompt" | "x_le_y_prompt" | "x_gt_y_prompt" | "x_eq_0_prompt"
-        | "tone" => Err(GuiError {
+        "asn" | "catalog" | "view" | "xeq_prompt" | "gto_prompt" | "lbl_prompt" | "sto_prompt"
+        | "rcl_prompt" | "isg_prompt" | "sf_prompt" | "cf_prompt" | "fs_prompt" | "fix_prompt"
+        | "sci_prompt" | "eng_prompt" | "x_eq_y_prompt" | "x_le_y_prompt" | "x_gt_y_prompt"
+        | "x_eq_0_prompt" | "tone" => Err(GuiError {
             message: format!("'{key_id}' is planned for a future phase"),
         }),
         // ── Parameterized & unknown ──────────────────────────────────────────

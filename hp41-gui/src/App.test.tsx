@@ -33,6 +33,10 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (cmd: string, args?: unknown) => mockInvoke(cmd, args),
 }));
 
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: () => Promise.resolve(() => {}),
+}));
+
 // --- CalcStateView test fixture -----------------------------------------
 
 interface Annunciators {
@@ -1385,5 +1389,74 @@ describe('Q — Phase 67 Plan 04: ON-key escape hatch (tap/long-press/confirm/no
     const newCalls = mockInvoke.mock.calls.slice(callCountBeforeUp);
     const resetSoftCalls = newCalls.filter(([cmd]) => cmd === 'reset_soft');
     expect(resetSoftCalls).toHaveLength(0);
+  });
+});
+
+// =====================================================================
+// Group R — Apple App Intent mailbox routing
+// =====================================================================
+
+describe('R — Apple App Intent mailbox routing', () => {
+  it('R1: consumes an execute-function request and dispatches its key id', async () => {
+    const result = makeEmptyView({ display_str: '3.0000', x_str: '3.0000' });
+    let delivered = false;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'get_prefs') return Promise.resolve(DEFAULT_PREFS);
+      if (cmd === 'is_macos') return Promise.resolve(false);
+      if (cmd === 'is_ios') return Promise.resolve(true);
+      if (cmd === 'take_pending_app_intent') {
+        if (delivered) return Promise.resolve(null);
+        delivered = true;
+        return Promise.resolve({ kind: 'execute_function', value: 'sqrt' });
+      }
+      if (cmd === 'dispatch_op') return Promise.resolve(result);
+      return Promise.resolve(makeEmptyView());
+    });
+
+    const { container } = await renderAppAndWait();
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'sqrt' });
+      expect(getDisplayText(container)).toBe('3.0000');
+    });
+  });
+
+  it('R2: consumes a run-program request through the existing run loop entry point', async () => {
+    let delivered = false;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'get_prefs') return Promise.resolve(DEFAULT_PREFS);
+      if (cmd === 'is_macos') return Promise.resolve(false);
+      if (cmd === 'is_ios') return Promise.resolve(true);
+      if (cmd === 'take_pending_app_intent') {
+        if (delivered) return Promise.resolve(null);
+        delivered = true;
+        return Promise.resolve({ kind: 'run_program', value: 'SOLVE' });
+      }
+      return Promise.resolve(makeEmptyView());
+    });
+
+    await renderAppAndWait();
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('run_program', { label: 'SOLVE' });
+    });
+  });
+
+  it('R3: consumes a cold-start request on macOS', async () => {
+    let delivered = false;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'get_prefs') return Promise.resolve(DEFAULT_PREFS);
+      if (cmd === 'is_macos') return Promise.resolve(true);
+      if (cmd === 'is_ios') return Promise.resolve(false);
+      if (cmd === 'take_pending_app_intent') {
+        if (delivered) return Promise.resolve(null);
+        delivered = true;
+        return Promise.resolve({ kind: 'execute_function', value: 'recip' });
+      }
+      return Promise.resolve(makeEmptyView());
+    });
+
+    await renderAppAndWait();
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('dispatch_op', { keyId: 'recip' });
+    });
   });
 });

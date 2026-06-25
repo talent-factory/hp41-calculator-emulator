@@ -103,20 +103,32 @@ mod tests {
 
     #[test]
     fn show_allowed_when_never_hidden() {
-        assert!(should_show_after_hide(None, Instant::now(), Duration::from_millis(250)));
+        assert!(should_show_after_hide(
+            None,
+            Instant::now(),
+            Duration::from_millis(250)
+        ));
     }
 
     #[test]
     fn show_suppressed_within_debounce() {
         let now = Instant::now();
-        assert!(!should_show_after_hide(Some(now), now, Duration::from_millis(250)));
+        assert!(!should_show_after_hide(
+            Some(now),
+            now,
+            Duration::from_millis(250)
+        ));
     }
 
     #[test]
     fn show_allowed_after_debounce_elapsed() {
         let now = Instant::now();
         let long_ago = now - Duration::from_millis(500);
-        assert!(should_show_after_hide(Some(long_ago), now, Duration::from_millis(250)));
+        assert!(should_show_after_hide(
+            Some(long_ago),
+            now,
+            Duration::from_millis(250)
+        ));
     }
 
     #[test]

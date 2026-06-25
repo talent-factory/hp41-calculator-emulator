@@ -1,0 +1,562 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05F16904301525B228E39957 /* AppIntentMailbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45CCA183171AD6DFB0CDC3DC /* AppIntentMailbox.swift */; };
+		156DA9251FFE5E54CB2ADEC4 /* bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 317BAA45F90D42DD129477B2 /* bridge.c */; };
+		1AA9B4788FC90E7F3C14A659 /* HP41App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678D945B666533CE7E7385BB /* HP41App.swift */; };
+		1F50441BA3514AC12C555CDD /* PhysicalKeyboardRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207E2D276635C648DE9B8497 /* PhysicalKeyboardRouter.swift */; };
+		36003DFCD45C820F2FAC711D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3924766B3756952EF07E93BE /* PrivacyInfo.xcprivacy */; };
+		3BBC57D3467E4946A47C3899 /* FunctionCatalog.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0F7FE5B2D164C1B8FA4431 /* FunctionCatalog.generated.swift */; };
+		47A07679AFE83DCA50E92053 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09960F1BBA4EB78E6E166707 /* AppPreferences.swift */; };
+		4FD94BC3CFA0F3763E6ACC44 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F553D083F8E4590DA83FE02E /* Cocoa.framework */; };
+		5CE81BF52B3EAB1E5D78027E /* CalculatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6934B1414775897C35EFB772 /* CalculatorService.swift */; };
+		5DA904E120832C462E83D635 /* FunctionEntryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C121DE8652AF8ADB3C46F07 /* FunctionEntryCoordinator.swift */; };
+		7107350616928740A693E338 /* HP41AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8543BDA79E669724BE899A8 /* HP41AppIntents.swift */; };
+		718BA616E9683A996D40D1AA /* CalculatorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66EB7B3DA351ABCC4F3A5012 /* CalculatorModel.swift */; };
+		747E12C141280F7CC4C87EBD /* ParameterEntryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BA609272F989A758B9CFBD /* ParameterEntryCoordinator.swift */; };
+		99841A80089EA20031E2DD04 /* CalculatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA55259D8EF4DB902DB169E1 /* CalculatorView.swift */; };
+		99B5CF83E3371B0C11CADD27 /* FileTransferCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6826EBF08ADAC5E5DE93F6F /* FileTransferCoordinator.swift */; };
+		9A7EDD2DED452F7415497E0B /* NativePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E6054096AD644B4E77EDC0 /* NativePlatform.swift */; };
+		9EF04B18DECC891E834FCC3F /* CalculatorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4F378C2CE81410B95A51D8 /* CalculatorContract.swift */; };
+		C951639D9E8D739D6A3C88A5 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F553D083F8E4590DA83FE02E /* Cocoa.framework */; };
+		D7D325AD3B25048BDE77E194 /* CalculatorKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4799288C663C428451E4F6 /* CalculatorKey.swift */; };
+		E9BDC68C03A73B92A5E2DBC1 /* HP41GUIUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5663AF2C7360422455B357CA /* HP41GUIUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C6A77125C62B67B7C5EF1AEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6D33B5510837384C20695A8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9A117837811479437C008EEC;
+			remoteInfo = HP41GUI;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		09960F1BBA4EB78E6E166707 /* AppPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		207E2D276635C648DE9B8497 /* PhysicalKeyboardRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhysicalKeyboardRouter.swift; sourceTree = "<group>"; };
+		2E4799288C663C428451E4F6 /* CalculatorKey.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalculatorKey.swift; sourceTree = "<group>"; };
+		317BAA45F90D42DD129477B2 /* bridge.c */ = {isa = PBXFileReference; includeInIndex = 1; path = bridge.c; sourceTree = "<group>"; };
+		3924766B3756952EF07E93BE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		45CCA183171AD6DFB0CDC3DC /* AppIntentMailbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppIntentMailbox.swift; sourceTree = "<group>"; };
+		4C121DE8652AF8ADB3C46F07 /* FunctionEntryCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FunctionEntryCoordinator.swift; sourceTree = "<group>"; };
+		5663AF2C7360422455B357CA /* HP41GUIUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HP41GUIUITests.swift; sourceTree = "<group>"; };
+		66EB7B3DA351ABCC4F3A5012 /* CalculatorModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalculatorModel.swift; sourceTree = "<group>"; };
+		678D945B666533CE7E7385BB /* HP41App.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HP41App.swift; sourceTree = "<group>"; };
+		6934B1414775897C35EFB772 /* CalculatorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalculatorService.swift; sourceTree = "<group>"; };
+		6C4F378C2CE81410B95A51D8 /* CalculatorContract.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalculatorContract.swift; sourceTree = "<group>"; };
+		80BA609272F989A758B9CFBD /* ParameterEntryCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParameterEntryCoordinator.swift; sourceTree = "<group>"; };
+		80D38D20957096433E753795 /* HP41GUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HP41GUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83E6054096AD644B4E77EDC0 /* NativePlatform.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativePlatform.swift; sourceTree = "<group>"; };
+		AA55259D8EF4DB902DB169E1 /* CalculatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalculatorView.swift; sourceTree = "<group>"; };
+		ADECD91EFD32008359C01EBA /* HP41GUIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HP41GUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6826EBF08ADAC5E5DE93F6F /* FileTransferCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileTransferCoordinator.swift; sourceTree = "<group>"; };
+		E795C99D3C50EBCD297DF561 /* hp41_bridge.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = hp41_bridge.h; path = include/hp41_bridge.h; sourceTree = "<group>"; };
+		E8543BDA79E669724BE899A8 /* HP41AppIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HP41AppIntents.swift; sourceTree = "<group>"; };
+		EB0F7FE5B2D164C1B8FA4431 /* FunctionCatalog.generated.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FunctionCatalog.generated.swift; sourceTree = "<group>"; };
+		F553D083F8E4590DA83FE02E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		774F694F13BA8DC60E7DA380 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C951639D9E8D739D6A3C88A5 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E33FBC75ECD166D50861797D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4FD94BC3CFA0F3763E6ACC44 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		29EA1EA8D4DFD01887133978 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				576916BF25BF106CCFE6BB12 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		576916BF25BF106CCFE6BB12 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				F553D083F8E4590DA83FE02E /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		650CB12D3F201ACA2B4042CA = {
+			isa = PBXGroup;
+			children = (
+				88B14873B26657305CD834B8 /* Products */,
+				29EA1EA8D4DFD01887133978 /* Frameworks */,
+				E897A78EC8A172CEB0829AAE /* Sources */,
+				A963089150B8D09DCEF5BEEE /* UITests */,
+				F5B07429688ACA6BCADBF434 /* Resources */,
+			);
+			sourceTree = "<group>";
+		};
+		88B14873B26657305CD834B8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				80D38D20957096433E753795 /* HP41GUI.app */,
+				ADECD91EFD32008359C01EBA /* HP41GUIUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A963089150B8D09DCEF5BEEE /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				5663AF2C7360422455B357CA /* HP41GUIUITests.swift */,
+			);
+			name = UITests;
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		BEA199F35FA811EDC4D00C37 /* HP41GUI */ = {
+			isa = PBXGroup;
+			children = (
+				45CCA183171AD6DFB0CDC3DC /* AppIntentMailbox.swift */,
+				09960F1BBA4EB78E6E166707 /* AppPreferences.swift */,
+				6C4F378C2CE81410B95A51D8 /* CalculatorContract.swift */,
+				2E4799288C663C428451E4F6 /* CalculatorKey.swift */,
+				66EB7B3DA351ABCC4F3A5012 /* CalculatorModel.swift */,
+				6934B1414775897C35EFB772 /* CalculatorService.swift */,
+				AA55259D8EF4DB902DB169E1 /* CalculatorView.swift */,
+				B6826EBF08ADAC5E5DE93F6F /* FileTransferCoordinator.swift */,
+				EB0F7FE5B2D164C1B8FA4431 /* FunctionCatalog.generated.swift */,
+				4C121DE8652AF8ADB3C46F07 /* FunctionEntryCoordinator.swift */,
+				678D945B666533CE7E7385BB /* HP41App.swift */,
+				E8543BDA79E669724BE899A8 /* HP41AppIntents.swift */,
+				83E6054096AD644B4E77EDC0 /* NativePlatform.swift */,
+				80BA609272F989A758B9CFBD /* ParameterEntryCoordinator.swift */,
+				207E2D276635C648DE9B8497 /* PhysicalKeyboardRouter.swift */,
+			);
+			name = HP41GUI;
+			path = Sources/HP41GUI;
+			sourceTree = "<group>";
+		};
+		CB61539B76C1E3C2660A0E6B /* CHP41 */ = {
+			isa = PBXGroup;
+			children = (
+				317BAA45F90D42DD129477B2 /* bridge.c */,
+				E795C99D3C50EBCD297DF561 /* hp41_bridge.h */,
+			);
+			name = CHP41;
+			path = Sources/CHP41;
+			sourceTree = "<group>";
+		};
+		E897A78EC8A172CEB0829AAE /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BEA199F35FA811EDC4D00C37 /* HP41GUI */,
+				CB61539B76C1E3C2660A0E6B /* CHP41 */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		F5B07429688ACA6BCADBF434 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3924766B3756952EF07E93BE /* PrivacyInfo.xcprivacy */,
+			);
+			name = Resources;
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		457B1F3D59D323A3F56E2E43 /* HP41GUIUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 93CD2C6FF3B6FA26B8B2AD2B /* Build configuration list for PBXNativeTarget "HP41GUIUITests" */;
+			buildPhases = (
+				9D835864A5FD9D71AF977BDD /* Sources */,
+				E33FBC75ECD166D50861797D /* Frameworks */,
+				B1A37059E6CAB8D005E8B4AF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D9D421E9966AB369357291DC /* PBXTargetDependency */,
+			);
+			name = HP41GUIUITests;
+			productName = HP41GUIUITests;
+			productReference = ADECD91EFD32008359C01EBA /* HP41GUIUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9A117837811479437C008EEC /* HP41GUI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F95CF55163035E9D10F2ABF8 /* Build configuration list for PBXNativeTarget "HP41GUI" */;
+			buildPhases = (
+				440F7D7CA90A74959E8A4503 /* Sources */,
+				774F694F13BA8DC60E7DA380 /* Frameworks */,
+				38F3325585D7D0D5F3D98EED /* Resources */,
+				A87580F7A09970D636A1C457 /* Build Rust HP-41 bridge */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HP41GUI;
+			productName = HP41GUI;
+			productReference = 80D38D20957096433E753795 /* HP41GUI.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D6D33B5510837384C20695A8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					457B1F3D59D323A3F56E2E43 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 9A117837811479437C008EEC;
+					};
+					9A117837811479437C008EEC = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = D4B2FC7FC479DDF68DF045F3 /* Build configuration list for PBXProject "HP41GUI" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 650CB12D3F201ACA2B4042CA;
+			productRefGroup = 88B14873B26657305CD834B8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9A117837811479437C008EEC /* HP41GUI */,
+				457B1F3D59D323A3F56E2E43 /* HP41GUIUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		38F3325585D7D0D5F3D98EED /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				36003DFCD45C820F2FAC711D /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1A37059E6CAB8D005E8B4AF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A87580F7A09970D636A1C457 /* Build Rust HP-41 bridge */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust HP-41 bridge";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncargo build --release --manifest-path \"$SRCROOT/hp41-bridge/Cargo.toml\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		440F7D7CA90A74959E8A4503 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05F16904301525B228E39957 /* AppIntentMailbox.swift in Sources */,
+				47A07679AFE83DCA50E92053 /* AppPreferences.swift in Sources */,
+				9EF04B18DECC891E834FCC3F /* CalculatorContract.swift in Sources */,
+				D7D325AD3B25048BDE77E194 /* CalculatorKey.swift in Sources */,
+				718BA616E9683A996D40D1AA /* CalculatorModel.swift in Sources */,
+				5CE81BF52B3EAB1E5D78027E /* CalculatorService.swift in Sources */,
+				99841A80089EA20031E2DD04 /* CalculatorView.swift in Sources */,
+				99B5CF83E3371B0C11CADD27 /* FileTransferCoordinator.swift in Sources */,
+				3BBC57D3467E4946A47C3899 /* FunctionCatalog.generated.swift in Sources */,
+				5DA904E120832C462E83D635 /* FunctionEntryCoordinator.swift in Sources */,
+				1AA9B4788FC90E7F3C14A659 /* HP41App.swift in Sources */,
+				7107350616928740A693E338 /* HP41AppIntents.swift in Sources */,
+				9A7EDD2DED452F7415497E0B /* NativePlatform.swift in Sources */,
+				747E12C141280F7CC4C87EBD /* ParameterEntryCoordinator.swift in Sources */,
+				1F50441BA3514AC12C555CDD /* PhysicalKeyboardRouter.swift in Sources */,
+				156DA9251FFE5E54CB2ADEC4 /* bridge.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9D835864A5FD9D71AF977BDD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E9BDC68C03A73B92A5E2DBC1 /* HP41GUIUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D9D421E9966AB369357291DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = HP41GUI;
+			target = 9A117837811479437C008EEC /* HP41GUI */;
+			targetProxy = C6A77125C62B67B7C5EF1AEE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		50DCEB323B734418D50E4F78 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ch.talent-factory.hp41.native-uitests";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HP41GUI;
+			};
+			name = Release;
+		};
+		53EA8E53900044BC1617B9F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8C74FBE283D36207BA443F69 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/Sources/CHP41/include";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/hp41-bridge/target/release";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"-lhp41_bridge",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "ch.talent-factory.hp41.native";
+				PRODUCT_NAME = "HP-41 Calculator";
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Sources/CHP41/include/hp41_bridge.h;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9EF0B04EB6338CA5F6B49AD5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/Sources/CHP41/include";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/hp41-bridge/target/release";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"-lhp41_bridge",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "ch.talent-factory.hp41.native";
+				PRODUCT_NAME = "HP-41 Calculator";
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Sources/CHP41/include/hp41_bridge.h;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E6EEF871545B089D7C601AEB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ch.talent-factory.hp41.native-uitests";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HP41GUI;
+			};
+			name = Debug;
+		};
+		ED45C497E9BA0DA82AC2765D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		93CD2C6FF3B6FA26B8B2AD2B /* Build configuration list for PBXNativeTarget "HP41GUIUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				50DCEB323B734418D50E4F78 /* Release */,
+				E6EEF871545B089D7C601AEB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D4B2FC7FC479DDF68DF045F3 /* Build configuration list for PBXProject "HP41GUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ED45C497E9BA0DA82AC2765D /* Debug */,
+				53EA8E53900044BC1617B9F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F95CF55163035E9D10F2ABF8 /* Build configuration list for PBXNativeTarget "HP41GUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C74FBE283D36207BA443F69 /* Release */,
+				9EF0B04EB6338CA5F6B49AD5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D6D33B5510837384C20695A8 /* Project object */;
+}

@@ -24,15 +24,13 @@ build-release:
 run:
 	cargo run -p hp41-cli
 
-# hp41-gui is a standalone nested workspace with its OWN target/, so a single
-# `cargo clean` misses hp41-gui/src-tauri/target/ — including the bundled .app.
-# A stale GUI bundle there shares the `ch.talent-factory.hp41` bundle id and can
-# shadow an installed release in LaunchServices (showing the old version).
-# Remove Rust build artifacts from BOTH workspaces (root + nested GUI)
+# The native GUI has separate Cargo and SwiftPM build directories, so clean all
+# three without depending on the retained Tauri migration reference.
 [group('build')]
 clean:
 	cargo clean
-	cargo clean --manifest-path hp41-gui/src-tauri/Cargo.toml
+	cargo clean --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift package clean
 
 # ─── Test ───────────────────────────────────────────────────────────────────
 
@@ -129,74 +127,87 @@ install-hooks:
 	@chmod +x .git/hooks/pre-push
 	@echo "✅ pre-push hook installed"
 
-# ─── GUI (Tauri v2) ─────────────────────────────────────────────────────────
+# ─── GUI (native SwiftUI) ───────────────────────────────────────────────────
 
-# GUI: install npm dependencies (run once after cloning or after package.json changes)
+# GUI dependencies are provided by Xcode/SwiftPM and Cargo; no Node install is needed.
 [group('gui')]
 gui-install:
-	cd hp41-gui && npm install
+	@echo "SwiftUI GUI needs Xcode 15+ and Rust; no install step required"
 
-# GUI: launch development window (Rust hot-reload + Vite HMR)
+# GUI: build the Rust engine bridge and launch the native SwiftUI app.
 [group('gui')]
 gui-dev:
-	cd hp41-gui && npm run tauri dev
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift run hp41-gui
 
-# Self-sufficient: installs npm deps first so the Tauri CLI from `@tauri-apps/cli`
-# is on PATH (required by `npm run tauri build`). CI e2e-linux job runs on a fresh
-# runner with no prior `npm install`; making this recipe self-installing matches
-# the gui-ci / gui-e2e pattern. Uses `npm ci` (lockfile-strict) instead of
-# `npm install` so a stale `package.json` doesn't quietly upgrade transitive deps
-# in CI — the 9000-line `package-lock.json` is the authoritative dep set.
-#
-# GUI: production bundle (native app) — installs npm deps then builds via Tauri CLI.
+# GUI: optimized native executable.
 [group('gui')]
 gui-build:
-	cd hp41-gui && npm ci
-	cd hp41-gui && npm run tauri build
+	cd hp41-gui && ./build-native.sh
 
-# GUI: Rust type-check (fast CI check without launching dev server)
+# GUI: type-check both sides of the native bridge.
 [group('gui')]
 gui-check:
-	cargo check --manifest-path hp41-gui/src-tauri/Cargo.toml
+	ruby hp41-gui/scripts/generate-function-catalog.rb --check
+	cargo check --manifest-path hp41-gui/hp41-app/Cargo.toml
+	cargo check --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift build
 
-# `npm ci` (lockfile-strict) catches drift between package.json and the lockfile.
-# `npm audit --omit=dev --audit-level=high || true` is a non-blocking warning
-# surface for new high-severity advisories in production deps; CI does NOT fail
-# on this (advisory drift would block merges on infra-side events outside our
-# control). For developer follow-up, run `cd hp41-gui && npm audit fix` manually.
-#
-# gui-ci: CI gate — TS type-check, Rust tests, release build, Vitest (D-27.14)
-# Phase 31 Plan 31-02: permission-coverage gate fires FIRST so a missing TOML
-# fails fast before any expensive build step (T-31-W1-permission-coverage).
+# gui-ci: complete native PR gate, including focused rendered macOS smoke flows.
 [group('gui')]
 gui-ci:
-	bash scripts/check-tauri-permissions.sh
-	cd hp41-gui && npm ci
-	cd hp41-gui && npm audit --omit=dev --audit-level=high || true
-	cd hp41-gui && npx tsc --noEmit
-	cargo test --manifest-path hp41-gui/src-tauri/Cargo.toml
-	cargo build --release --manifest-path hp41-gui/src-tauri/Cargo.toml
-	cd hp41-gui && npm test
+	python3 scripts/swiftui-parity.py --check --require-complete
+	ruby hp41-gui/scripts/generate-function-catalog.rb --check
+	cargo test --manifest-path hp41-gui/hp41-app/Cargo.toml
+	cargo test --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift test
+	just gui-ui-smoke
 
-# Phase 27 Plan 27-04, FN-QUAL-05, D-27.15 AMENDED 2026-05-15.
-# Preconditions:
-#   1. `cargo install tauri-driver --locked --version 2.0.6` is on PATH
-#      (typically ~/.cargo/bin/tauri-driver)
-#   2. `webkit2gtk-driver` apt package is installed (Pitfall 6)
-#   3. When running on a headless Ubuntu runner, wrap with `xvfb-run -a` (A5)
-#
-# Hard precondition check: the production binary must exist before launch.
-# Without this guard a developer running `just gui-e2e` locally without first
-# running `just gui-build` sees a confusing "Failed to execute child process"
-# from tauri-driver. The check surfaces the missing step at recipe entry.
-#
-# gui-e2e: WebdriverIO + tauri-driver E2E smoke (Linux only — from ci-gui.yml)
+# Regenerate/check the migration ledger extracted from the retained Tauri GUI.
 [group('gui')]
-gui-e2e:
-	test -x hp41-gui/src-tauri/target/release/hp41-gui \
-	  || (echo "ERROR: production binary missing. Run 'just gui-build' first." >&2 && exit 1)
-	cd hp41-gui && npm ci
-	cd hp41-gui && npx wdio run wdio.conf.cjs
+gui-parity:
+	python3 scripts/swiftui-parity.py
+
+[group('gui')]
+gui-parity-check:
+	python3 scripts/swiftui-parity.py --check --require-complete
+
+# Build once and run the stable, high-value rendered workflows used on every PR.
+[group('gui')]
+gui-ui-smoke:
+	cd hp41-gui && ruby scripts/generate-xcode-project.rb
+	cd hp41-gui && xcodebuild build-for-testing -quiet -project HP41GUI.xcodeproj -scheme HP41GUIUITests -destination platform=macOS -derivedDataPath /tmp/hp41-native-ui-smoke CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES
+	cd hp41-gui && xcodebuild test-without-building -quiet -project HP41GUI.xcodeproj -scheme HP41GUIUITests -destination platform=macOS -derivedDataPath /tmp/hp41-native-ui-smoke CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES -only-testing:HP41GUIUITests/HP41GUIUITests/testCalculatorWindowExposesNativeControls -only-testing:HP41GUIUITests/HP41GUIUITests/testRPNSequenceUpdatesRenderedDisplay -only-testing:HP41GUIUITests/HP41GUIUITests/testProgramModeRecordsDisplaysAndRunsProgram -only-testing:HP41GUIUITests/HP41GUIUITests/testSettingsHelpPrinterAndGuideWorkflowsExposeStableAccessibility -only-testing:HP41GUIUITests/HP41GUIUITests/testExplicitSaveRestoresRenderedStateAfterRelaunch -only-testing:HP41GUIUITests/HP41GUIUITests/testCalculatorMenuCommandHidesAndRestoresWindow
+
+# Launch and drive all rendered macOS workflows. Use this for release/cutover
+# validation; gui-ci runs the smaller smoke tier above on every PR.
+[group('gui')]
+gui-ui-test:
+	cd hp41-gui && ruby scripts/generate-xcode-project.rb
+	cd hp41-gui && xcodebuild build-for-testing -quiet -project HP41GUI.xcodeproj -scheme HP41GUIUITests -destination platform=macOS -derivedDataPath /tmp/hp41-native-ui-derived-signed CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES
+	cd hp41-gui && xcodebuild test-without-building -quiet -project HP41GUI.xcodeproj -scheme HP41GUIUITests -destination platform=macOS -derivedDataPath /tmp/hp41-native-ui-derived-signed CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES
+
+# Bounded stress suite for input, programs, ticks, cancellation, output, and files.
+[group('gui')]
+gui-soak:
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift test --filter PerformanceSoakTests
+
+[group('gui')]
+gui-sanitize-thread:
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift test --sanitize thread
+
+[group('gui')]
+gui-sanitize-address:
+	cargo build --release --manifest-path hp41-gui/hp41-bridge/Cargo.toml
+	cd hp41-gui && swift test --sanitize address
+
+# Native UI tests are run by SwiftPM; keep the old recipe name as an alias.
+[group('gui')]
+gui-e2e: gui-ci
 
 # ─── Docs ───────────────────────────────────────────────────────────────────
 

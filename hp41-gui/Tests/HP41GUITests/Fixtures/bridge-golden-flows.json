@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "basic-rpn-arithmetic",
+      "category": "basic",
+      "requests": [
+        { "command": "dispatch", "key_id": "2" },
+        { "command": "dispatch", "key_id": "enter" },
+        { "command": "dispatch", "key_id": "3" },
+        { "command": "dispatch", "key_id": "plus" }
+      ],
+      "assertions": [
+        { "pointer": "/display_str", "equals": "5.0000" },
+        { "pointer": "/x_str", "equals": "5.0000" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "parameterized-display-mode",
+      "category": "parameterized",
+      "requests": [
+        { "command": "dispatch", "key_id": "2" },
+        { "command": "dispatch", "key_id": "chs" },
+        { "command": "dispatch", "key_id": "abs" },
+        { "command": "dispatch", "key_id": "fix_2" }
+      ],
+      "assertions": [
+        { "pointer": "/display_str", "equals": "2.00" },
+        { "pointer": "/x_str", "equals": "2.00" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "matrix-modal-opener",
+      "category": "modal",
+      "requests": [
+        { "command": "dispatch", "key_id": "xeq_MATRIX" }
+      ],
+      "assertions": [
+        { "pointer": "/display_str", "equals": "ORDER=?" },
+        { "pointer": "/modal_program_active", "equals": true },
+        { "pointer": "/modal_prompt", "equals": "ORDER=?" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "program-pse-yield",
+      "category": "program-yield",
+      "requests": [
+        { "command": "dispatch", "key_id": "prgm_mode" },
+        { "command": "dispatch", "key_id": "lbl_A" },
+        { "command": "dispatch", "key_id": "1" },
+        { "command": "dispatch", "key_id": "pse" },
+        { "command": "dispatch", "key_id": "2" },
+        { "command": "dispatch", "key_id": "plus" },
+        { "command": "dispatch", "key_id": "prgm_mode" },
+        { "command": "run_program", "label": "A" }
+      ],
+      "assertions": [
+        { "pointer": "/pending_yield/kind", "equals": "pse" },
+        { "pointer": "/pending_yield/text", "equals": "1.0000" },
+        { "pointer": "/pending_yield/resume_ms", "equals": 1000 },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "clock-mode",
+      "category": "time",
+      "requests": [
+        { "command": "dispatch", "key_id": "xeq_CLOCK" }
+      ],
+      "assertions": [
+        { "pointer": "/clock_active", "equals": true },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "two-point-mean",
+      "category": "statistics",
+      "requests": [
+        { "command": "dispatch", "key_id": "5" },
+        { "command": "dispatch", "key_id": "enter" },
+        { "command": "dispatch", "key_id": "3" },
+        { "command": "dispatch", "key_id": "sigma_plus" },
+        { "command": "dispatch", "key_id": "2" },
+        { "command": "dispatch", "key_id": "enter" },
+        { "command": "dispatch", "key_id": "7" },
+        { "command": "dispatch", "key_id": "sigma_plus" },
+        { "command": "dispatch", "key_id": "mean" }
+      ],
+      "assertions": [
+        { "pointer": "/x_str", "equals": "5.0000" },
+        { "pointer": "/y_str", "equals": "3.5000" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "advantage-binary-input",
+      "category": "matrix-advantage",
+      "requests": [
+        { "command": "dispatch", "key_id": "alpha:1" },
+        { "command": "dispatch", "key_id": "alpha:0" },
+        { "command": "dispatch", "key_id": "alpha:1" },
+        { "command": "dispatch", "key_id": "xeq_BININ" }
+      ],
+      "assertions": [
+        { "pointer": "/x_str", "equals": "5.0000" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "extended-memory-room",
+      "category": "xmem",
+      "requests": [
+        { "command": "dispatch", "key_id": "xeq_EMROOM" }
+      ],
+      "assertions": [
+        { "pointer": "/x_str", "equals": "600.0000" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "program-card-write",
+      "category": "card",
+      "requests": [
+        { "command": "dispatch", "key_id": "prgm_mode" },
+        { "command": "dispatch", "key_id": "plus" },
+        { "command": "dispatch", "key_id": "prgm_mode" },
+        { "command": "dispatch", "key_id": "alpha:C" },
+        { "command": "dispatch", "key_id": "xeq_WPRGM" }
+      ],
+      "assertions": [
+        { "pointer": "/error", "equals": null }
+      ],
+      "artifact": "C.raw"
+    },
+    {
+      "name": "printer-x-register",
+      "category": "print",
+      "requests": [
+        { "command": "dispatch", "key_id": "sf_55" },
+        { "command": "dispatch", "key_id": "7" },
+        { "command": "dispatch", "key_id": "prx" }
+      ],
+      "assertions": [
+        { "pointer": "/print_lines/0", "equals": "                  7.0000" },
+        { "pointer": "/error", "equals": null }
+      ]
+    },
+    {
+      "name": "full-reset",
+      "category": "reset",
+      "requests": [
+        { "command": "dispatch", "key_id": "9" },
+        { "command": "dispatch", "key_id": "user_mode" },
+        { "command": "reset_full" }
+      ],
+      "assertions": [
+        { "pointer": "/display_str", "equals": "0.0000" },
+        { "pointer": "/x_str", "equals": "0.0000" },
+        { "pointer": "/annunciators/user", "equals": false },
+        { "pointer": "/error", "equals": null }
+      ]
+    }
+  ]
+}

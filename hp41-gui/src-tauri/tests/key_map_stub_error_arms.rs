@@ -30,7 +30,7 @@
 
 /// key_map.rs source text baked in at compile time.
 /// Tests reference this constant rather than re-invoking include_str! each time.
-const KEY_MAP_SRC: &str = include_str!("../src/key_map.rs");
+const KEY_MAP_SRC: &str = include_str!("../../hp41-app/src/key_map.rs");
 
 /// Baseline locked v3.0 — exactly 1 occurrence of the format! template.
 /// The single occurrence covers ~20 id literals in one `| "asn" | ... | "tone"` arm.
@@ -76,9 +76,7 @@ const BASELINE_IDS: &[&str] = &[
 /// this test also fails — catching regressions in defense-in-depth error surfacing.
 #[test]
 fn stub_error_message_count_locked_to_v21_baseline() {
-    let count = KEY_MAP_SRC
-        .matches("is planned for a future phase")
-        .count();
+    let count = KEY_MAP_SRC.matches("is planned for a future phase").count();
     assert_eq!(
         count, BASELINE_N,
         "key_map.rs: found {} occurrences of 'is planned for a future phase', expected {} (BASELINE_N). \

@@ -16,22 +16,16 @@
 //! helpers and cover SC-2 (unknown key → GuiError) and SC-3 (print_buffer drain).
 
 use crate::cards;
-use crate::key_map;
 use crate::persistence;
 use crate::prefs::{prefs_path_for_app, save_prefs, GuiPrefs, VALID_LAUNCH_MODES, VALID_THEMES};
 use crate::types::{CalcStateView, GuiError};
 use crate::{AppState, CancelFlag, PrefsState};
-use hp41_core::cardreader::{
-    capture_data_card, decode_all_programs, decode_data, encode_data, encode_program,
-    insert_program_ops, load_data_card, picker_label,
-};
-use hp41_core::ops::dispatch;
 use hp41_core::CalcState;
 use serde::Serialize;
 use tauri::AppHandle;
-use tauri::State;
 #[cfg(target_os = "macos")]
 use tauri::Manager; // brings try_state into scope for SuppressHideGuard (macOS only)
+use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 #[cfg(test)]
@@ -59,7 +53,8 @@ impl<'a> SuppressHideGuard<'a> {
     fn new(app: &'a AppHandle) -> Self {
         let flag = app.try_state::<crate::tray::PopoverState>();
         if let Some(s) = &flag {
-            s.suppress_hide.store(true, std::sync::atomic::Ordering::Relaxed);
+            s.suppress_hide
+                .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         Self { flag }
     }
@@ -69,7 +64,8 @@ impl<'a> SuppressHideGuard<'a> {
 impl Drop for SuppressHideGuard<'_> {
     fn drop(&mut self) {
         if let Some(s) = &self.flag {
-            s.suppress_hide.store(false, std::sync::atomic::Ordering::Relaxed);
+            s.suppress_hide
+                .store(false, std::sync::atomic::Ordering::Relaxed);
         }
     }
 }
@@ -173,111 +169,19 @@ pub fn handle_op(calc: &mut CalcState, key_id: &str) -> Result<CalcStateView, Gu
     handle_op_with_cards_dir(calc, key_id, never)
 }
 
-/// Pure-Rust phase-1 helper: entry-buf branches return `Ok(None)` directly
-/// because there is no dispatched op (and hence no card request). For named
-/// ops, dispatches against `CalcState` and then takes any staged
-/// `pending_card_op` out so the caller can release its state lock before
-/// performing disk I/O.
-///
-/// Routing logic mirrors hp41-cli/src/app.rs digit-entry and dispatch
-/// helpers. Digit keys append to entry_buf and bypass `dispatch`;
-/// named/parameterized keys flow through key_map → dispatch → prepare.
+/// Pure-Rust phase-1 helper. Canonical entry and dispatch behavior lives in
+/// `hp41_app::dispatch_key`; this Tauri adapter then takes any staged card
+/// request so its caller can release the state lock before disk I/O.
 pub fn handle_op_prepare(
     calc: &mut CalcState,
     key_id: &str,
 ) -> Result<Option<cards::PreparedCardOp>, GuiError> {
-    // D-39.3 mirror: any dispatch exits clock display mode (CLI: app.rs:464).
-    if calc.clock_active {
-        calc.clock_active = false;
-    }
-
-    // D-39.4 mirror: "sw_exit" is a GUI-only key_id that clears stopwatch keyboard
-    // mode (Esc in the CLI's handle_stopwatch_mode_key). No Op is dispatched.
-    if key_id == "sw_exit" {
-        calc.stopwatch_keyboard_mode = false;
-        return Ok(None);
-    }
-
-    // ── Digit keys 0..=9 — bypass dispatch, append to entry_buf ───────────────
-    if matches!(
-        key_id,
-        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-    ) {
-        // INPUT-02 guard (Phase 9): cap exponent entry at 2 digits.
-        if let Some(e_pos) = calc.entry_buf.find('e') {
-            let after_e = &calc.entry_buf[e_pos + 1..];
-            let exp_digits = after_e.chars().filter(|ch| ch.is_ascii_digit()).count();
-            if exp_digits >= 2 {
-                // Silently block third exponent digit — caller's finalize will
-                // drain print_buffer and rebuild the view unchanged.
-                return Ok(None);
-            }
-        }
-        // key_id is exactly one ASCII char — safe to take .next().
-        let ch = key_id
-            .chars()
-            .next()
-            .expect("digit key_id has at least one char");
-        calc.entry_buf.push(ch);
-        return Ok(None);
-    }
-
-    // ── '.' — block duplicate '.' and '.' after 'e' ──────────────────────────
-    if key_id == "." {
-        if !calc.entry_buf.contains('.') && !calc.entry_buf.contains('e') {
-            // Real HP-41CV leading-zero entry: '.' on an empty buffer shows "0." not ".".
-            // Seeding "0." matches hardware behavior and makes the display read "0.1" for ".1".
-            if calc.entry_buf.is_empty() {
-                calc.entry_buf.push_str("0.");
-            } else {
-                calc.entry_buf.push('.');
-            }
-        }
-        return Ok(None);
-    }
-
-    // ── 'e' (EEX) — implicit "1" mantissa on empty entry_buf (Phase 9 D-07) ──
-    if key_id == "e" {
-        if !calc.entry_buf.contains('e') {
-            if calc.entry_buf.is_empty() {
-                calc.entry_buf.push_str("1e");
-            } else {
-                calc.entry_buf.push('e');
-            }
-        }
-        return Ok(None);
-    }
-
-    // ── "eex_chs" — toggle exponent sign in entry_buf (Phase 15 D-06) ────────────
-    // Source: hp41-cli/src/app.rs (entry_buf direct mutation, no dispatch).
-    // MUST come before key_map::resolve() — no Op::EexChs variant exists.
-    if key_id == "eex_chs" {
-        if let Some(e_pos) = calc.entry_buf.find('e') {
-            let after_e = &calc.entry_buf[e_pos + 1..];
-            if after_e.starts_with('-') {
-                // Remove minus: "1e-2" → "1e2", "1e-" → "1e"
-                calc.entry_buf.remove(e_pos + 1);
-            } else {
-                // Insert minus: "1e2" → "1e-2", "1e" → "1e-"
-                calc.entry_buf.insert(e_pos + 1, '-');
-            }
-        }
-        // No-op if entry_buf has no 'e' — React guards this but Rust is defensive.
-        return Ok(None);
-    }
-
-    // ── "entry_backspace" — HP-41 back-arrow (←) correction (D-25.6 / SC-4) ──
-    // Mirrors hp41-cli/src/app.rs Backspace intercept — both call the SAME shared
-    // core helper backspace_entry() from hp41-core::ops (no GUI duplication).
-    // MUST come before key_map::resolve() — no Op::EntryBackspace variant exists.
-    if key_id == "entry_backspace" {
-        hp41_core::ops::backspace_entry(calc);
-        return Ok(None);
-    }
-
-    // ── Named / parameterized op — resolve and dispatch ──────────────────────
-    let op = key_map::resolve(key_id)?;
-    dispatch(calc, op).map_err(GuiError::from)?;
+    hp41_app::dispatch_key(calc, key_id).map_err(|error| match error {
+        hp41_app::DispatchError::Resolve(error) => GuiError {
+            message: error.message,
+        },
+        hp41_app::DispatchError::Core(error) => GuiError::from(error),
+    })?;
 
     // Take any staged Card Reader request out so the caller can release the
     // AppState mutex before performing disk I/O. encode-for-write happens
@@ -298,9 +202,7 @@ pub fn handle_op_finalize(
     // Phase 26 D-26.11: drain print_buffer AND event_buffer before from_state
     // (both are &mut, then from_state takes &). Mirror of the v2.0 print_buffer
     // drain — preserves the no-IPC-leakage pattern across both transient buffers.
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    Ok(hp41_app::drain_state_view(calc))
 }
 
 /// Pure-Rust helper for get_state — drains print_buffer and builds a CalcStateView.
@@ -311,9 +213,7 @@ pub fn handle_op_finalize(
 /// does not exist. Draining here also triggered `fs::create_dir_all` on
 /// every React poll — a syscall in the redraw path.
 pub fn handle_get_state(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    Ok(hp41_app::drain_state_view(calc))
 }
 
 /// Tauri command: periodic tick for live clock/stopwatch display (D-41.1 / D-41.4).
@@ -342,10 +242,8 @@ pub fn tick_time(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> 
 pub fn handle_tick_time(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
     // D-41.4: call check_alarms BEFORE draining event_buffer so that any newly
     // triggered alarms are captured in the drain and returned in event_lines.
-    hp41_core::ops::time::alarm::check_alarms(calc);
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    hp41_app::tick_time(calc);
+    Ok(hp41_app::drain_state_view(calc))
 }
 
 /// Tauri command: step the program counter forward by 1 (SST — Single Step).
@@ -394,15 +292,10 @@ pub fn run_stop(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
 /// On a PSE/VIEW/AVIEW yield, the returned `CalcStateView.pending_yield` is Some;
 /// the TS driver renders the display and schedules `resume_program` after `resume_ms` ms.
 #[tauri::command]
-pub fn run_program(
-    label: String,
-    state: State<'_, AppState>,
-) -> Result<CalcStateView, GuiError> {
+pub fn run_program(label: String, state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::program::run_program(&mut calc, &label).map_err(GuiError::from)?;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(&calc, print_lines, event_lines))
+    hp41_app::run_program(&mut calc, &label).map_err(GuiError::from)?;
+    handle_get_state(&mut calc)
 }
 
 /// Tauri command: continue a halted program to the next yield / stop / end.
@@ -416,10 +309,8 @@ pub fn run_program(
 #[tauri::command]
 pub fn resume_program(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::program::resume_program(&mut calc).map_err(GuiError::from)?;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(&calc, print_lines, event_lines))
+    hp41_app::resume_program(&mut calc).map_err(GuiError::from)?;
+    handle_get_state(&mut calc)
 }
 
 /// Tauri command: resume a GETKEY-suspended program with the captured key code.
@@ -439,11 +330,8 @@ pub fn resume_program_with_key(
     state: State<'_, AppState>,
 ) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::program::resume_program_with_key(&mut calc, keycode)
-        .map_err(GuiError::from)?;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(&calc, print_lines, event_lines))
+    hp41_app::resume_program_with_key(&mut calc, keycode).map_err(GuiError::from)?;
+    handle_get_state(&mut calc)
 }
 
 /// Tauri command: flip the cancellation flag for long-running Math Pac I ops.
@@ -480,7 +368,7 @@ pub fn request_cancel(cancel: State<'_, CancelFlag>) -> Result<(), GuiError> {
 #[tauri::command]
 pub fn submit_modal(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::math1::submit_modal(&mut calc).map_err(GuiError::from)?;
+    hp41_app::submit_modal(&mut calc).map_err(GuiError::from)?;
     handle_get_state(&mut calc)
 }
 
@@ -494,7 +382,7 @@ pub fn submit_modal(state: State<'_, AppState>) -> Result<CalcStateView, GuiErro
 #[tauri::command]
 pub fn cancel_modal(state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::math1::cancel_modal(&mut calc); // no Result — always succeeds
+    hp41_app::cancel_modal(&mut calc);
     handle_get_state(&mut calc)
 }
 
@@ -517,37 +405,28 @@ pub fn submit_modal_with_label(
     state: State<'_, AppState>,
 ) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    hp41_core::ops::math1::submit_modal_with_label(&mut calc, &label)
-        .map_err(GuiError::from)?;
+    hp41_app::submit_modal_with_label(&mut calc, &label).map_err(GuiError::from)?;
     handle_get_state(&mut calc)
 }
 
 /// Pure-Rust helper for sst_step — unit-testable without a Tauri runtime.
 /// Advances pc by 1, capped at program.len() (no wrap-around, matching HP-41 hardware behavior).
 pub fn handle_sst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
-    if calc.pc < calc.program.len() {
-        calc.pc += 1;
-    }
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    hp41_app::sst_step(calc);
+    handle_get_state(calc)
 }
 
 /// Pure-Rust helper for bst_step — decrements pc via saturating_sub, clamped at 0.
 pub fn handle_bst(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
-    calc.pc = calc.pc.saturating_sub(1);
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    hp41_app::bst_step(calc);
+    handle_get_state(calc)
 }
 
 /// Pure-Rust helper for run_stop — toggles `is_running`. Unit-testable
 /// without a Tauri runtime. Flag-toggle only; no run loop spawned here.
 pub fn handle_run_stop(calc: &mut CalcState) -> Result<CalcStateView, GuiError> {
-    calc.is_running = !calc.is_running;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(calc, print_lines, event_lines))
+    hp41_app::run_stop(calc);
+    handle_get_state(calc)
 }
 
 /// Tauri command: return the current GUI preferences (Phase 48 / INFRA-01).
@@ -695,13 +574,13 @@ pub fn save_state(app: AppHandle, state: State<'_, AppState>) -> Result<(), Stri
 pub fn reset_soft(app: AppHandle, state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     // Lock once for the entire operation — reset + persist inside the critical section.
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    calc.soft_reset();
+    hp41_app::soft_reset(&mut calc);
     // Persist while still holding the lock (ordering invariant — see doc comment above).
     let path = persistence::state_path_for_app(&app);
-    persistence::save_state(&path, &calc).map_err(|e| GuiError { message: e.to_string() })?;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(&calc, print_lines, event_lines))
+    persistence::save_state(&path, &calc).map_err(|e| GuiError {
+        message: e.to_string(),
+    })?;
+    Ok(hp41_app::drain_state_view(&mut calc))
 }
 
 /// Tauri command: full reset — restores factory state (`CalcState::new()`); all
@@ -718,12 +597,12 @@ pub fn reset_soft(app: AppHandle, state: State<'_, AppState>) -> Result<CalcStat
 #[tauri::command]
 pub fn reset_full(app: AppHandle, state: State<'_, AppState>) -> Result<CalcStateView, GuiError> {
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    calc.memory_lost();
+    hp41_app::full_reset(&mut calc);
     let path = persistence::state_path_for_app(&app);
-    persistence::save_state(&path, &calc).map_err(|e| GuiError { message: e.to_string() })?;
-    let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
-    let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
-    Ok(CalcStateView::from_state(&calc, print_lines, event_lines))
+    persistence::save_state(&path, &calc).map_err(|e| GuiError {
+        message: e.to_string(),
+    })?;
+    Ok(hp41_app::drain_state_view(&mut calc))
 }
 
 // ── Phase 50: .raw / .card.json file dialog I/O ──────────────────────────────
@@ -801,25 +680,25 @@ pub fn import_raw_dialog(
     };
 
     // Phase 2 (no lock): file I/O + decode
-    let path_buf = file_path
-        .into_path()
-        .map_err(|e| GuiError { message: format!("path error: {e}") })?;
+    let path_buf = file_path.into_path().map_err(|e| GuiError {
+        message: format!("path error: {e}"),
+    })?;
 
     // T-50-04: validate file_path is a regular file before reading
     if !path_buf.is_file() {
         return Err(GuiError {
-            message: format!(
-                "not a regular file: {}",
-                path_buf.display()
-            ),
+            message: format!("not a regular file: {}", path_buf.display()),
         });
     }
 
-    let bytes = std::fs::read(&path_buf)
-        .map_err(|e| GuiError { message: format!("io: read failed: {e}") })?;
+    let bytes = std::fs::read(&path_buf).map_err(|e| GuiError {
+        message: format!("io: read failed: {e}"),
+    })?;
 
-    // T-50-07: decode_all_programs returns HpError::CardData on malformed input
-    let programs = decode_all_programs(&bytes).map_err(GuiError::from)?;
+    // T-50-07: shared inspection returns an error on malformed input.
+    let programs = hp41_app::inspect_raw(&bytes).map_err(|error| GuiError {
+        message: error.to_string(),
+    })?;
 
     match programs.len() {
         0 => {
@@ -833,25 +712,24 @@ pub fn import_raw_dialog(
         }
         1 => {
             // Phase 3 (lock for state mutation): single program — import immediately
-            let decoded = programs.into_iter().next().expect("len == 1");
-            let ops_count = decoded.ops.len();
-            let label = picker_label(0, &decoded.ops, decoded.byte_len);
+            let program = programs.into_iter().next().expect("len == 1");
             let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-            insert_program_ops(&mut calc, decoded.ops);
+            hp41_app::import_raw(&mut calc, &bytes, &[0]).map_err(|error| GuiError {
+                message: error.to_string(),
+            })?;
             let view = handle_get_state(&mut calc)?;
             Ok(ImportRawResponse::Single {
                 view,
-                message: format!("Imported {} ({} steps)", label, ops_count),
+                message: format!("Imported {} ({} steps)", program.label, program.step_count),
             })
         }
         _ => {
             // Multi-program: return metadata for the frontend picker; DO NOT import yet
             let programs_info: Vec<MultiProgramInfo> = programs
                 .iter()
-                .enumerate()
-                .map(|(idx, p)| MultiProgramInfo {
-                    label: picker_label(idx, &p.ops, p.byte_len),
-                    index: idx,
+                .map(|p| MultiProgramInfo {
+                    label: p.label.clone(),
+                    index: p.index,
                     byte_len: p.byte_len,
                 })
                 .collect();
@@ -894,30 +772,15 @@ pub fn import_selected_programs(
         });
     }
 
-    let bytes = std::fs::read(path_buf)
-        .map_err(|e| GuiError { message: format!("io: read failed: {e}") })?;
-    let programs = decode_all_programs(&bytes).map_err(GuiError::from)?;
-
-    // Validate all selected indices BEFORE mutating, so a stale/out-of-range
-    // index fails the whole import instead of silently dropping a selection
-    // (the frontend toast would otherwise claim success for a partial import).
-    if let Some(&bad) = indices.iter().find(|&&idx| idx >= programs.len()) {
-        return Err(GuiError {
-            message: format!(
-                "import index out of range: {bad} (file has {} programs)",
-                programs.len()
-            ),
-        });
-    }
-
-    // Phase 2 (lock for state mutation): insert selected programs sequentially
+    let bytes = std::fs::read(path_buf).map_err(|e| GuiError {
+        message: format!("io: read failed: {e}"),
+    })?;
+    // Phase 2 (lock for state mutation): the shared workflow validates every
+    // index before inserting selected programs sequentially.
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    for idx in &indices {
-        if let Some(decoded) = programs.get(*idx) {
-            insert_program_ops(&mut calc, decoded.ops.clone());
-        }
-    }
-    drop(programs); // explicit: allow early free before view build
+    hp41_app::import_raw(&mut calc, &bytes, &indices).map_err(|error| GuiError {
+        message: error.to_string(),
+    })?;
 
     handle_get_state(&mut calc)
 }
@@ -937,7 +800,9 @@ pub fn export_raw_dialog(
     // Phase 1 (brief lock): snapshot program bytes — released before dialog
     let encoded = {
         let calc = state.lock().unwrap_or_else(|e| e.into_inner());
-        encode_program(&calc.program).map_err(GuiError::from)?
+        hp41_app::export_raw(&calc).map_err(|error| GuiError {
+            message: error.to_string(),
+        })?
     };
 
     // Phase 2 (no lock): open save dialog
@@ -955,12 +820,13 @@ pub fn export_raw_dialog(
     };
 
     // Phase 3 (no lock): write to disk
-    let path_buf = save_path
-        .into_path()
-        .map_err(|e| GuiError { message: format!("path error: {e}") })?;
+    let path_buf = save_path.into_path().map_err(|e| GuiError {
+        message: format!("path error: {e}"),
+    })?;
 
-    std::fs::write(&path_buf, &encoded)
-        .map_err(|e| GuiError { message: format!("io: write failed: {e}") })?;
+    std::fs::write(&path_buf, &encoded).map_err(|e| GuiError {
+        message: format!("io: write failed: {e}"),
+    })?;
 
     let filename = path_buf
         .file_name()
@@ -997,9 +863,9 @@ pub fn import_data_dialog(
     };
 
     // Phase 2 (no lock): file I/O + decode
-    let path_buf = file_path
-        .into_path()
-        .map_err(|e| GuiError { message: format!("path error: {e}") })?;
+    let path_buf = file_path.into_path().map_err(|e| GuiError {
+        message: format!("path error: {e}"),
+    })?;
 
     if !path_buf.is_file() {
         return Err(GuiError {
@@ -1007,14 +873,15 @@ pub fn import_data_dialog(
         });
     }
 
-    let bytes = std::fs::read(&path_buf)
-        .map_err(|e| GuiError { message: format!("io: read failed: {e}") })?;
+    let bytes = std::fs::read(&path_buf).map_err(|e| GuiError {
+        message: format!("io: read failed: {e}"),
+    })?;
 
-    let card = decode_data(&bytes).map_err(GuiError::from)?;
-
-    // Phase 3 (lock for state mutation): load data card
+    // Phase 3 (lock for state mutation): decode and load through the shared workflow.
     let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
-    load_data_card(&mut calc, card);
+    hp41_app::import_data(&mut calc, &bytes).map_err(|error| GuiError {
+        message: error.to_string(),
+    })?;
     let view = handle_get_state(&mut calc)?;
 
     Ok(serde_json::json!({
@@ -1036,8 +903,9 @@ pub fn export_data_dialog(
     // Phase 1 (brief lock): snapshot data card — released before dialog
     let encoded = {
         let calc = state.lock().unwrap_or_else(|e| e.into_inner());
-        let card = capture_data_card(&calc);
-        encode_data(&card).map_err(GuiError::from)?
+        hp41_app::export_data(&calc).map_err(|error| GuiError {
+            message: error.to_string(),
+        })?
     };
 
     // Phase 2 (no lock): open save dialog
@@ -1055,12 +923,13 @@ pub fn export_data_dialog(
     };
 
     // Phase 3 (no lock): write to disk
-    let path_buf = save_path
-        .into_path()
-        .map_err(|e| GuiError { message: format!("path error: {e}") })?;
+    let path_buf = save_path.into_path().map_err(|e| GuiError {
+        message: format!("path error: {e}"),
+    })?;
 
-    std::fs::write(&path_buf, &encoded)
-        .map_err(|e| GuiError { message: format!("io: write failed: {e}") })?;
+    std::fs::write(&path_buf, &encoded).map_err(|e| GuiError {
+        message: format!("io: write failed: {e}"),
+    })?;
 
     let filename = path_buf
         .file_name()
@@ -1471,7 +1340,9 @@ mod tests {
         let view = CalcStateView::from_state(&calc, print_lines, event_lines);
 
         // pending_yield projected correctly.
-        let py = view.pending_yield.expect("pending_yield must be Some when calc has a yield");
+        let py = view
+            .pending_yield
+            .expect("pending_yield must be Some when calc has a yield");
         assert_eq!(py.kind, "pse", "YieldKind::Pse must map to \"pse\"");
         assert_eq!(py.text, "1.0000000000");
         assert_eq!(py.resume_ms, 1000);
@@ -1488,7 +1359,10 @@ mod tests {
     #[test]
     fn from_state_pending_yield_none_when_not_set() {
         let mut calc = CalcState::new();
-        assert!(calc.pending_yield.is_none(), "fresh state has no pending_yield");
+        assert!(
+            calc.pending_yield.is_none(),
+            "fresh state has no pending_yield"
+        );
         let print_lines: Vec<String> = calc.print_buffer.drain(..).collect();
         let event_lines: Vec<String> = calc.event_buffer.drain(..).collect();
         let view = CalcStateView::from_state(&calc, print_lines, event_lines);

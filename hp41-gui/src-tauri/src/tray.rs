@@ -204,7 +204,11 @@ pub fn setup_tray(app: &App) -> tauri::Result<()> {
             "start_login" => {
                 let mgr = app.autolaunch();
                 let now_enabled = mgr.is_enabled().unwrap_or(false);
-                let result = if now_enabled { mgr.disable() } else { mgr.enable() };
+                let result = if now_enabled {
+                    mgr.disable()
+                } else {
+                    mgr.enable()
+                };
                 if let Err(e) = result {
                     eprintln!("hp41-gui: failed to toggle Start at Login: {e}");
                 }

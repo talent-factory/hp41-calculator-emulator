@@ -12,8 +12,10 @@ HANDLER_FILE="hp41-gui/src-tauri/src/lib.rs"
 PERMS_DIR="hp41-gui/src-tauri/permissions"
 
 # Extract all command names from the generate_handler! macro block.
-# Pattern: looks for `commands::<name>` references (snake_case).
-commands=$(grep -oE 'commands::[a-z_]+' "$HANDLER_FILE" | sed 's/commands:://' | sort -u)
+# Pattern: looks for `<module>::<name>` references inside the handler block.
+# Keep only the command name so commands may live outside commands.rs (for
+# example the iOS App Intent mailbox bridge).
+commands=$(sed -n '/generate_handler!\[/,/\])/p' "$HANDLER_FILE" | grep -oE '[a-z_]+::[a-z_]+' | sed 's/.*:://' | grep -v '^generate_handler$' | sort -u)
 
 missing=0
 for cmd in $commands; do

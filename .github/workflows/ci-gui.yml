@@ -6,11 +6,19 @@ on:
     paths:
       - 'hp41-gui/**'
       - 'hp41-core/**'
+      - 'scripts/swiftui-parity.py'
+      - 'docs/swiftui-parity.json'
+      - 'Justfile'
+      - '.github/workflows/ci-gui.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'hp41-gui/**'
       - 'hp41-core/**'
+      - 'scripts/swiftui-parity.py'
+      - 'docs/swiftui-parity.json'
+      - 'Justfile'
+      - '.github/workflows/ci-gui.yml'
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,12 +26,8 @@ env:
 
 jobs:
   build:
-    name: GUI Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: Native SwiftUI GUI
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -34,37 +38,30 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: hp41-gui/src-tauri -> hp41-gui/src-tauri/target
+          workspaces: hp41-gui/hp41-bridge -> hp41-gui/hp41-bridge/target
 
       # See ci.yml: macOS-latest occasionally leaves cargo proxying to rustup-init
       # AFTER Swatinem/rust-cache restores ~/.cargo/bin/. Running rustup default
       # stable POST cache-restore rebinds the cargo proxy.
       - run: rustup default stable
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-
       - uses: taiki-e/install-action@v2
         with:
           tool: just
 
-      - name: Install Linux system deps
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf webkit2gtk-driver xvfb
+      - name: Install Xcode project generator
+        run: gem install xcodeproj --no-document
 
-      - name: GUI CI
+      - name: Native GUI CI and rendered smoke tests
         run: just gui-ci
 
-  # Phase 27 Plan 04 / FN-QUAL-05 — WebdriverIO + tauri-driver E2E smoke
-  # (D-27.15 AMENDED 2026-05-15: WebdriverIO replaces Playwright since
-  # tauri-driver 2.0.6 speaks WebDriver classic which Playwright does NOT).
-  # Ubuntu-only per ROADMAP cross-cutting constraint. Required for merge
-  # (configured in repo branch-protection settings — manual follow-up).
-  e2e-linux:
-    name: GUI E2E (Ubuntu only — WebdriverIO + tauri-driver)
-    runs-on: ubuntu-latest
-    needs: build
+  sanitizer:
+    name: Swift/FFI ${{ matrix.sanitizer }} sanitizer
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [thread, address]
 
     steps:
       - uses: actions/checkout@v4
@@ -75,38 +72,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: hp41-gui/src-tauri -> hp41-gui/src-tauri/target
+          workspaces: hp41-gui/hp41-bridge -> hp41-gui/hp41-bridge/target
 
-      - name: Cache cargo bin (tauri-driver — Pitfall 5)
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin
-          key: cargo-bin-${{ runner.os }}-tauri-driver-2.0.6
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
+      - run: rustup default stable
 
       - uses: taiki-e/install-action@v2
         with:
           tool: just
 
-      - name: Install Linux system deps (Pitfall 6 — webkit2gtk-driver)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
-            librsvg2-dev patchelf webkit2gtk-driver xvfb
-
-      - name: Install tauri-driver
-        # --force: the cargo cache may restore an existing tauri-driver binary,
-        # and plain `cargo install` aborts with "binary already exists" instead
-        # of being idempotent. --force makes the step safe on warm caches.
-        run: cargo install tauri-driver --locked --version 2.0.6 --force
-
-      - name: Build release binary
-        run: just gui-build
-
-      - name: Run E2E smoke under Xvfb (Assumption A5)
-        run: xvfb-run -a just gui-e2e
-        env:
-          CI: true
+      - name: Run sanitizer suite
+        run: just gui-sanitize-${{ matrix.sanitizer }}

@@ -6,26 +6,12 @@
 //! D-07: HpNum serializes as string via rust_decimal::serde::str (hp41-core Plan 01)
 //! Security: D-03 — serde_json::from_reader returns Err on malformed JSON; never unwrap.
 
+#[cfg(test)]
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
-
+pub use hp41_app::PersistenceError;
 use hp41_core::CalcState;
-
-/// Version-tagged wrapper for forward-compatible state files.
-/// D-06: `version` enables future migration without breaking existing saves.
-#[derive(Serialize, Deserialize)]
-pub struct StateFile {
-    pub version: u32,
-    pub state: CalcState,
-}
-
-impl StateFile {
-    pub fn current(state: CalcState) -> Self {
-        StateFile { version: 1, state }
-    }
-}
 
 /// Resolve the default state file path: ~/.hp41/autosave.json
 /// Fallback: ./.hp41/autosave.json if home_dir() returns None (D-01, RESEARCH Pitfall 6).
@@ -70,30 +56,15 @@ pub fn state_path_for_app(handle: &tauri::AppHandle) -> PathBuf {
 /// Save CalcState to path as pretty-printed JSON with version wrapper.
 /// Creates the parent directory if it does not exist (D-01).
 /// Returns Err on I/O failure; caller shows error in status bar (D-03).
-pub fn save_state(path: &Path, state: &CalcState) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
-    }
-    let file = fs::File::create(path)?;
-    let wrapper = StateFile::current(state.clone());
-    serde_json::to_writer_pretty(file, &wrapper).map_err(std::io::Error::other)
+pub fn save_state(path: &Path, state: &CalcState) -> Result<(), PersistenceError> {
+    hp41_app::save_state(path, state)
 }
 
 /// Load CalcState from a state file.
 /// Returns Err on missing file or parse failure — NEVER panics (D-03, ASVS V5).
 /// ALWAYS resets is_running = false on load (RESEARCH Pitfall 4 — corrupt state guard).
-pub fn load_state(path: &Path) -> Result<CalcState, Box<dyn std::error::Error>> {
-    let file = fs::File::open(path)?;
-    let wrapper: StateFile = serde_json::from_reader(file)?;
-    let mut state = wrapper.state;
-    // Pitfall 4: never resume mid-execution after a reload.
-    // A state file written during program execution could have is_running=true.
-    state.is_running = false;
-    // D-33.7: upgrade v3.0 save files (xrom_modules=1) to enable Stat 1 (bit 1).
-    state.migrate_after_load();
-    Ok(state)
+pub fn load_state(path: &Path) -> Result<CalcState, PersistenceError> {
+    hp41_app::load_state(path)
 }
 
 #[cfg(test)]
@@ -283,7 +254,10 @@ mod tests {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, fixture.as_bytes()).unwrap();
         let loaded = load_state(&path).expect("v4.0-format save must load");
-        assert!(!loaded.is_running, "is_running must be false after load (Pitfall 4)");
+        assert!(
+            !loaded.is_running,
+            "is_running must be false after load (Pitfall 4)"
+        );
         assert_eq!(
             loaded.xrom_modules, 0b0001_1111u8,
             "v4.0 xrom_modules (all 5 modules) must be preserved"
@@ -341,7 +315,10 @@ mod tests {
         // prgm_mode survives a round-trip and would block normal key dispatch).
         // Note: load_state() resets is_running=false per D-04 / Pitfall 4.
         let reloaded = load_state(&path).unwrap();
-        assert!(reloaded.prgm_mode, "prgm_mode must survive reload (trap persists)");
+        assert!(
+            reloaded.prgm_mode,
+            "prgm_mode must survive reload (trap persists)"
+        );
         assert!(reloaded.user_mode, "user_mode must survive reload");
 
         // Step 3: apply soft_reset(), re-save to the SAME path (overwrite), reload.

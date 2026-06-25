@@ -57,30 +57,23 @@ hp41-calculator-emulator/
 │       ├── help_data.rs           ← HELP_DATA — single source of truth for `?` overlay
 │       └── persistence.rs         ← save_state(), load_state() — JSON serde
 │
-└── hp41-gui/                      ← Tauri v2 desktop app (nested standalone workspace)
-    ├── src-tauri/                 ← Rust backend
-    │   ├── src/
-    │   │   ├── main.rs            ← thin shim; defers to lib.rs::run()
-    │   │   ├── lib.rs             ← setup(), AppState = Mutex<CalcState>, 30s auto-save thread
-    │   │   ├── commands.rs        ← dispatch_op, get_state, sst_step, bst_step Tauri thunks
-    │   │   ├── types.rs           ← CalcStateView, Annunciators, GuiError, From<HpError>
-    │   │   ├── key_map.rs         ← resolve() — string ID → Op (no calculator logic!)
-    │   │   ├── persistence.rs     ← shared ~/.hp41/autosave.json (same schema as CLI)
-    │   │   └── prgm_display.rs    ← format_all_steps() — always appends END
-    │   ├── permissions/           ← Tauri v2.11 inline-command permission TOML files
-    │   └── capabilities/default.json
-    └── src/                       ← React + TypeScript frontend (Vite)
-        ├── main.tsx
-        ├── App.tsx                ← display, annunciators, stack panel, busyRef, resolveKeyId
-        ├── Keyboard.tsx           ← 44-key SVG skin, KEY_DEFS, pressedKey state
-        └── App.css                ← layout + key animation (requires transform-box: fill-box)
+└── hp41-gui/                      ← native macOS SwiftUI app (macOS 14+)
+    ├── hp41-app/                  ← UI-neutral Rust façade and request/state schema
+    ├── hp41-bridge/               ← panic-contained JSON C ABI, static library
+    ├── Sources/
+    │   ├── CHP41/                 ← C module/header imported by Swift
+    │   └── HP41GUI/               ← app, model, views, platform shell, file flows
+    ├── Tests/HP41GUITests/        ← Swift unit, bridge, golden, and soak tests
+    ├── UITests/                   ← rendered accessibility/workflow tests
+    ├── Resources/                 ← bundled privacy manifest
+    └── src-tauri/, src/           ← retained migration reference; not built
 ```
 
 **Core invariant:** `hp41-core` must never import from `hp41-cli` or `hp41-gui`. Enforced at compile time by Cargo's dependency graph.
 
-**Workspace isolation:** Root `Cargo.toml` declares `members = ["hp41-core", "hp41-cli"]`. `hp41-gui` is a **nested standalone workspace** — the `tauri` and `tauri-build` dependencies never enter the root Cargo resolver, and `cargo build --workspace` from the repo root does not touch the Tauri binary.
+**Workspace isolation:** Root `Cargo.toml` declares `members = ["hp41-core", "hp41-cli"]`. `hp41-gui/hp41-app` and `hp41-gui/hp41-bridge` are nested standalone crates, so GUI dependencies never enter the root resolver. SwiftPM links the bridge static library into the native executable.
 
-**No core duplication (SC-4 invariant):** `grep -rn "fn op_\|fn flush_entry\|fn format_hpnum" hp41-gui/src-tauri/src/` MUST return nothing. The GUI Rust layer only routes IPC; all calculator logic lives in `hp41-core`.
+**No core duplication (SC-4 invariant):** calculator arithmetic remains in `hp41-core`. `hp41-app` owns UI-neutral orchestration—key resolution, state projection, program control, persistence, and file codecs—while Swift owns presentation and macOS integration.
 
 ---
 
@@ -115,7 +108,7 @@ pub fn execute_op(state: &mut CalcState, op: Op) -> Result<(), HpError>;        
 pub fn synthetic_byte_to_op(byte: u8) -> Option<Op>;                                // ops/mod.rs:451 (Phase 12 safe subset)
 ```
 
-Every new `Op` variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`, AND to the exhaustive `prgm_display` match in BOTH `hp41-cli/src/prgm_display.rs` and `hp41-gui/src-tauri/src/prgm_display.rs`. Missing any of these is a compile-time error.
+Every new `Op` variant must be added to BOTH `dispatch()` in `ops/mod.rs` AND `execute_op()` in `ops/program.rs`, AND to the exhaustive `prgm_display` match in BOTH `hp41-cli/src/prgm_display.rs` and `hp41-gui/hp41-app/src/prgm_display.rs`. Missing any of these is a compile-time error.
 
 ---
 
@@ -177,7 +170,7 @@ pub enum StackReg     { Y, Z, T, Lastx }
 pub enum TestKind     { /* 12 variants — see source */ }
 ```
 
-Each `Op` variant also declares its `LiftEffect` (Enable / Disable / Neutral) in the `dispatch()` match. The TUI maps physical key events to `Op` values in `hp41-cli/src/keys.rs::key_to_op()`. The GUI maps string IDs (`"enter"`, `"plus"`, `"sin"`, ...) to `Op` values in `hp41-gui/src-tauri/src/key_map.rs::resolve()` — the frontend never references Rust enums directly.
+Each `Op` variant also declares its `LiftEffect` (Enable / Disable / Neutral) in the `dispatch()` match. The TUI maps physical key events to `Op` values in `hp41-cli/src/keys.rs::key_to_op()`. GUI shells share string-ID resolution and dispatch through `hp41-gui/hp41-app` — frontends never reference Rust enums directly.
 
 ---
 
@@ -333,7 +326,7 @@ The frontend is responsible for:
 
 ## State Persistence
 
-`CalcState` derives `Serialize` / `Deserialize` directly. Both `hp41-cli/src/persistence.rs` and `hp41-gui/src-tauri/src/persistence.rs` wrap it in a version-tagged container:
+`CalcState` derives `Serialize` / `Deserialize` directly. Both `hp41-cli/src/persistence.rs` and `hp41-gui/hp41-app/src/persistence.rs` use the compatible versioned state container:
 
 ```rust
 pub struct StateFile {
@@ -348,7 +341,7 @@ Saved as human-readable JSON at `~/.hp41/autosave.json`.
 
 **Forward/backward compatibility:** Every field added since v1.0 carries `#[serde(default)]`. v1.x save files load unchanged in v1.1 / v2.0 — missing fields default to their zero value. Save files written by v2.0 also load in v1.0 because the new fields are simply ignored. One exception: `rand_seed: HpNum` carries `#[serde(default)]` WITHOUT `#[serde(skip)]` — the seed must survive save/load for reproducible RNG sequences (per ADR-v3.1-001). Additionally, `migrate_after_load()` auto-upgrades v3.0 save files whose `xrom_modules` field is `1` (Math Pac I only) to `0b11` (Math Pac I + Stat 1 Pac).
 
-**Shared between CLI and GUI:** Both binaries resolve to the **same** path via the `dirs` crate. A state saved in the CLI appears in the GUI on next launch and vice versa. Both binaries auto-save every 30 s; the GUI runs its auto-save on a dedicated thread and releases the `AppState` Mutex before disk I/O. Both distinguish "file exists but unreadable" (warn) from "file missing" (silent first-run case).
+**Shared between CLI and GUI:** Both binaries resolve to the **same** path. A state saved in the CLI appears in the GUI on next launch and vice versa. The native GUI saves on explicit Save, relevant workflow transitions, and scene deactivation; the façade performs atomic persistence without resuming stale execution. Missing files are treated as first launch, while malformed files surface an error.
 
 ---
 
@@ -378,37 +371,25 @@ loop {
 
 ## GUI Architecture (`hp41-gui`)
 
-`hp41-gui` is a Tauri v2 app reusing `hp41-core` unchanged. The Rust backend is a thin IPC adapter; all calculator logic lives in `hp41-core`.
+`hp41-gui` is a native SwiftUI application for macOS 14 and later. There is no WebView or JavaScript runtime in the product.
 
-### IPC contract
+### Rust façade and C ABI
 
-Four Tauri commands, all returning a `CalcStateView`:
+`hp41-app` wraps `hp41-core` with a UI-neutral `AppRequest`/`AppResponse` JSON contract. It owns exhaustive key resolution, display/state projection, stepping and interruptible program execution, modal flows, compatible persistence, and RAW/data-card encoding. `hp41-bridge` exposes that contract through the panic-contained `hp41_request_json` C ABI; Swift owns returned string lifetime through the documented free function.
 
-```rust
-#[tauri::command] async fn dispatch_op(state: State<AppState>, key_id: String) -> Result<CalcStateView, GuiError>;
-#[tauri::command] async fn get_state(state: State<AppState>) -> Result<CalcStateView, GuiError>;
-#[tauri::command] async fn sst_step(state: State<AppState>) -> Result<CalcStateView, GuiError>;
-#[tauri::command] async fn bst_step(state: State<AppState>) -> Result<CalcStateView, GuiError>;
+`CalculatorService` is the typed Swift boundary and `CalculatorModel` is the `@MainActor` observable state owner. Calculator work does not leak Rust enums into Swift: canonical string identities and Codable request shapes cross the ABI.
 
-type AppState = Mutex<CalcState>;
-```
+### Native presentation and platform shell
 
-`CalcStateView` is the JSON payload sent to the frontend on every command — a lean ~170-byte projection of `CalcState` (display string, annunciators, X/Y/Z/T/LASTX strings, `in_eex_mode`, `print_lines` drained from `print_buffer`, `program_steps`, `pc`). It is **not** a full `CalcState` mirror — only the fields the React UI renders.
+- `CalculatorView` renders the keyboard, display, stack, annunciators, programs, printer, Help, settings, onboarding, and modal workflows with stable accessibility semantics.
+- `PhysicalKeyboardRouter` and `CalculatorKey` share canonical key identities with the façade.
+- `MacPlatformShell` applies window or menu-bar launch mode, lifecycle visibility, and status-item behavior; `GlobalShortcutController` owns Carbon hot-key registration and collision rollback.
+- `FileTransferCoordinator` confines external RAW/data-card access to native open/save panels and scoped URL access.
+- Scene deactivation, explicit Save, and relevant workflow transitions persist `~/.hp41/autosave.json`; stale running state is not resumed after restore.
 
-### Key routing
+### Distribution boundary
 
-The frontend never references Rust enums. Every key sends a string ID (`"enter"`, `"plus"`, `"sin"`, `"sto-add"`, `"sst"`, …) that `key_map::resolve(key_id)` turns into an `Op`. New keys are added in two places only: `KEY_DEFS` in `Keyboard.tsx` (or `resolveKeyId()` in `App.tsx` for physical keyboard) and the `resolve()` match in `key_map.rs`.
-
-### Concurrency
-
-- One auto-save thread spawned by `setup()` writes `~/.hp41/autosave.json` every 30 s. It locks `AppState`, clones the state, releases the lock, then writes to disk.
-- Mutex locks always use `.unwrap_or_else(|e| e.into_inner())` so a poisoned lock is recovered — never `.unwrap()` or `.expect()`. This preserves the zero-panic invariant in the GUI crate.
-
-### Frontend (`hp41-gui/src/`)
-
-- `App.tsx` — root component: display, annunciators, stack panel, scrollable print panel, conditional program-listing panel. Physical keyboard listener uses `useCallback` + `useEffect` with `e.repeat` guard and a `busyRef = useRef(false)` debounce to prevent concurrent `invoke()` calls.
-- `Keyboard.tsx` — 44-key inline SVG (no external SVG library). `KEY_DEFS` array drives layout; `pressedKey` state machine with a 150 ms `setTimeout` and functional setState (avoids stale closure) renders the CSS scale-down animation. CSS requires `transform-box: fill-box` on `.key` so SVG `scale()` transforms from each key's own centre rather than the canvas origin.
-- `App.css` — vanilla CSS, no Tailwind (Tailwind was removed in Phase 15).
+The Developer ID build is intentionally not App-Sandboxed because the CLI-compatible `~/.hp41` state directory is part of the product contract. The app has no network client, tracking, analytics, or collected-data path. `Resources/PrivacyInfo.xcprivacy` is bundled in both script and Xcode builds and declares the file-timestamp required-reason API used for app-managed files. See [Release Setup](release-setup.md).
 
 ---
 
@@ -424,16 +405,18 @@ The frontend never references Rust enums. Every key sends a string ID (`"enter"`
 | Coverage gate | `cargo-llvm-cov` | ≥95% line coverage on `hp41-core` (Phase 27 atomic raise from 80%) | 95.25% lines / 93.75% regions |
 | Numerical accuracy | hand-crafted 566-case suite | ≥98% agreement vs HP-41 hardware | 99.1% (561/566) |
 | TUI integration | `cargo test --bin hp41-cli` | `hp41-cli` | ~99 tests |
-| GUI Rust | `cargo test` (gui workspace) | `hp41-gui/src-tauri` | 13+ tests |
-| GUI frontend | Vitest | `hp41-gui/src` | 142/142 |
-| GUI E2E | WebdriverIO + tauri-driver (Ubuntu-only) | `hp41-gui/e2e/smoke.spec.ts` | smoke green on CI |
-| TypeScript build | `tsc --noEmit` + Vite build | `hp41-gui/src` | gated by `gui-ci` |
+| GUI façade | `cargo test` | `hp41-gui/hp41-app` | gated by `gui-ci` |
+| C ABI bridge | `cargo test` | `hp41-gui/hp41-bridge` | gated by `gui-ci` |
+| Native service/UI | XCTest | `hp41-gui/Tests` | 115 declarations at cutover audit |
+| Rendered workflows | XCUITest | `hp41-gui/UITests` | 29 workflows; focused smoke tier in CI |
+| Sanitizers | SwiftPM ASan/TSan | Swift + FFI suite | two CI jobs |
+| Parity inventory | generated diff | 418 legacy capabilities | 418 complete, 0 remaining |
 
 Run the full gates:
 
 ```bash
 just ci        # CLI pipeline:  lint → test → coverage → MSRV
-just gui-ci    # GUI pipeline:  cargo test → cargo build --release  (3-OS matrix in CI)
+just gui-ci    # parity/catalog → Rust façade/bridge → Swift → XCUITest smoke
 ```
 
 `just ci` and `just gui-ci` are independent — a GUI build failure does not block the CLI pipeline and vice versa.
@@ -446,9 +429,9 @@ just gui-ci    # GUI pipeline:  cargo test → cargo build --release  (3-OS matr
 2. Implement the logic in the appropriate `ops/*.rs` module (signature: `fn op_xxx(state: &mut CalcState) -> Result<(), HpError>`). If the op pushes print output, use `state.print_buffer.push(line)` — never `println!`.
 3. Declare the `LiftEffect` (Enable / Disable / Neutral) in the `dispatch()` match.
 4. Add a corresponding arm in `execute_op()` in `ops/program.rs` (programmatic-run path).
-5. If `Op` carries a parameter and appears in program listings, add an arm to the exhaustive match in `hp41-gui/src-tauri/src/prgm_display.rs::format_step()`.
+5. If `Op` carries a parameter and appears in program listings, add an arm to the exhaustive match in `hp41-gui/hp41-app/src/prgm_display.rs::format_step()`.
 6. **CLI:** map the key in `hp41-cli/src/keys.rs::key_to_op()` and add a `KEY_REF_TABLE` entry; add a `HELP_DATA` entry in `hp41-cli/src/help_data.rs` if the key is user-visible.
-7. **GUI:** add a string-ID arm in `hp41-gui/src-tauri/src/key_map.rs::resolve()`; if it has a SVG key, add a `KEY_DEFS` entry in `hp41-gui/src/Keyboard.tsx` (or a physical-keyboard mapping in `App.tsx::resolveKeyId()`).
+7. **GUI:** add a string-ID arm in `hp41-gui/hp41-app/src/key_map.rs::resolve()`; if it has a key, update the native Swift layout and retained `KEY_DEFS` migration reference.
 8. Add a unit test in the appropriate `tests/*.rs` file and, if it produces display output, a snapshot test.
 9. Update [Operations Reference](operations-reference.md).
 

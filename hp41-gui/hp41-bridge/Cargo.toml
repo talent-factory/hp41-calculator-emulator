@@ -1,0 +1,18 @@
+[package]
+name = "hp41-swift-bridge"
+version = "4.3.0"
+edition = "2021"
+rust-version = "1.88"
+
+[lib]
+name = "hp41_bridge"
+crate-type = ["staticlib"]
+
+[dependencies]
+hp41-core = { path = "../../hp41-core" }
+hp41-app = { path = "../hp41-app" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace]
+resolver = "2"

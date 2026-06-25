@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A11A11A11A11A11A11A11A1 /* HP41AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A11A11A11A11A11A11A11A2 /* HP41AppIntents.swift */; };
+		0A11A11A11A11A11A11A11A3 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A11A11A11A11A11A11A11A4 /* AppIntents.framework */; };
 		1F2D0C3695990D80F9961A5D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30938F0CED32A1EE6B72A4BE /* Security.framework */; };
 		24CBCB99F6C6F7F5E5CCC9FB /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 710F04BF87A9B2C1836CACB8 /* main.mm */; };
 		418CF37C461A97BFF632CE9E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 814321B5C0351DF93006D869 /* QuartzCore.framework */; };
@@ -22,6 +24,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0A11A11A11A11A11A11A11A2 /* HP41AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HP41AppIntents.swift; sourceTree = "<group>"; };
+		0A11A11A11A11A11A11A11A4 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		09AB60CE554A2F2C7A861EC0 /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		18C72C0C135FD9E5494E098E /* hp41-gui_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "hp41-gui_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		191655FD04DA96D71648AA0E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -57,6 +61,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA8A23732E36B42EA2E34969 /* libapp.a in Frameworks */,
+				0A11A11A11A11A11A11A11A3 /* AppIntents.framework in Frameworks */,
 				959A09B49B8290A2C76DAF16 /* CoreGraphics.framework in Frameworks */,
 				B7BE377E2E371E82E980D9F3 /* Metal.framework in Frameworks */,
 				FAC19EF958D3E9C749563804 /* MetalKit.framework in Frameworks */,
@@ -156,6 +161,7 @@
 		EA4041CEF1BF10060565C388 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				0A11A11A11A11A11A11A11A4 /* AppIntents.framework */,
 				191655FD04DA96D71648AA0E /* CoreGraphics.framework */,
 				B33C58E70A40EEB21FB40930 /* libapp.a */,
 				DD78468B3A3C2240F122989D /* Metal.framework */,
@@ -171,6 +177,7 @@
 		EA82B34B67721120127DEC02 /* hp41-gui */ = {
 			isa = PBXGroup;
 			children = (
+				0A11A11A11A11A11A11A11A2 /* HP41AppIntents.swift */,
 				710F04BF87A9B2C1836CACB8 /* main.mm */,
 				A91986438C4F7502EF1416BC /* bindings */,
 			);
@@ -290,6 +297,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A11A11A11A11A11A11A11A1 /* HP41AppIntents.swift in Sources */,
 				24CBCB99F6C6F7F5E5CCC9FB /* main.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -376,7 +384,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -438,7 +446,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

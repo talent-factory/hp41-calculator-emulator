@@ -1,4 +1,4 @@
-//! PRGM mode step display for the HP-41 calculator GUI.
+//! Shared PRGM mode step display for HP-41 application shells.
 //!
 //! format_step() renders the current program counter position as a human-readable
 //! step string: "{pc:03} {op_name}" (D-14). Shown in the Display panel when
@@ -609,19 +609,31 @@ mod tests {
         );
         // FlagTestInd: all 4 FlagTestKind sub-kinds
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSet, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsSet,
+                ind_reg: 5
+            }),
             "FS? IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsClear,
+                ind_reg: 5
+            }),
             "FC? IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsSetThenClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsSetThenClear,
+                ind_reg: 5
+            }),
             "FS?C IND 05"
         );
         assert_eq!(
-            op_display_name(&Op::FlagTestInd { kind: FlagTestKind::IsClearThenClear, ind_reg: 5 }),
+            op_display_name(&Op::FlagTestInd {
+                kind: FlagTestKind::IsClearThenClear,
+                ind_reg: 5
+            }),
             "FC?C IND 05"
         );
     }

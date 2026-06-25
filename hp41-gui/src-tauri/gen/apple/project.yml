@@ -2,7 +2,7 @@ name: hp41-gui
 options:
   bundleIdPrefix: ch.talent-factory.hp41
   deploymentTarget:
-    iOS: 14.0
+    iOS: 16.0
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -76,6 +76,7 @@ targets:
     dependencies:
       - framework: libapp.a
         embed: false
+      - sdk: AppIntents.framework
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework

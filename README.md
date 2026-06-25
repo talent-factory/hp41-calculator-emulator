@@ -10,7 +10,7 @@
   <em>HP-41C/CV/CX desktop GUI on macOS — v4.0 with all four ROM modules (Math, Stat 1, Time, Advantage), Extended Memory, theming, and onboarding</em>
 </p>
 
-A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmable RPN calculator, written in Rust. Ships both a terminal UI (`hp41-cli`) and a pixel-perfect desktop app (`hp41-gui`, Tauri v2 + React).
+A faithful, open-source behavioral emulation of the **HP-41C/CV/CX** programmable RPN calculator, written in Rust. Ships both a terminal UI (`hp41-cli`) and a native macOS app (`hp41-gui`, SwiftUI + Rust).
 
 Implements the full **feature-complete HP-41CV ROM built-in function set** (~130 ops) with documented divergences. See the [HP-41CV function matrix](docs/hp41cv-function-matrix.md) for status per op, keyboard reachability, and known hardware divergences.
 
@@ -64,7 +64,7 @@ Implements the full **feature-complete HP-41CV ROM built-in function set** (~130
   see [Advantage Pac Function Matrix](docs/hp41-advantage-function-matrix.md)
 - v4.0 (Platform Maturity) adds HP-41CX Extended Memory plus desktop-platform polish:
   - **Extended Memory** — named PROGRAM + DATA file storage (HP-41CX X-Functions): 8 XEQ-by-name functions (EMDIR, EMROOM, SAVEP, GETP, SAVED, GETD, EMREG, SAVERX); 600-register capacity (fully-expanded HP-41CX); OS-builtin routing via `builtin_card_op` (no XROM bit); [documented divergences](docs/hp41-xmem-divergences.md)
-  - **Theming** — 4 built-in GUI skins (dark, light, classic beige, high-contrast) via CSS custom properties, persisted in `~/.hp41/prefs.json` (isolated from calculator state)
+  - **Theming** — 4 built-in GUI palettes (dark, light, classic beige, high-contrast), persisted in `~/.hp41/prefs.json` (isolated from calculator state)
   - **Onboarding + keyboard parity** — first-run quick-start wizard, searchable in-app function reference, and GUI physical-keyboard shortcuts at parity with the CLI (`keyboard-shortcuts.json`)
   - **`.raw` file I/O** — import/export HP-41 program files via native dialog (GUI) and CLI flags (`--import-raw`/`--export-raw`/…), including multi-program archives
 
@@ -76,17 +76,19 @@ Implements the full **feature-complete HP-41CV ROM built-in function set** (~130
 - `--print-log <path>` appends PRX/PRA/PRSTK output to a file
 - `?` overlay shows the full key reference
 
-**Desktop GUI (`hp41-gui`)**
+**Native macOS GUI (`hp41-gui`)**
 
-- Tauri v2 + React + TypeScript — single static window, native packaging on macOS, Windows, Linux
+- SwiftUI — native controls, keyboard handling, accessibility, menus, and lifecycle on macOS
+- Thin C ABI bridge to the unchanged `hp41-core` Rust engine; no WebView or JavaScript runtime
 - Authentic HP-41C layout: 4 top-row mode keys + 5×8 main grid + orange SHIFT cap (39 keys total); three-label model (primary white + orange shifted + blue ALPHA letter)
-- 14-segment SVG LCD with 49-glyph character map (digits, A–Z, punctuation), dim-off "ghost" segments for authentic LCD aesthetic
+- Native monospaced LCD presentation with stateful annunciators and accessible register values
 - 12-char display, 6 annunciators (incl. SHIFT one-shot), X/Y/Z/T/LASTX stack panel — all keyboard bindings from the CLI work in the GUI too
 - `?` help overlay driven by the canonical `docs/hp41cv-functions.json` source — every op searchable in-app
 - USER-mode per-key relabel: ASN'd custom labels render on the affected key when USER annunciator is active
 - Scrollable PRX/PRA/PRSTK print panel
 - PRGM-mode program listing with SST / BST navigation and auto-scroll
 - Shared autosave with the CLI: state saved in one binary appears in the other on next launch
+- Native menu-bar/window launch modes, configurable global shortcut, App Intents, and macOS open/save panels
 
 ## Variants Emulated
 
@@ -106,9 +108,9 @@ Download platform-native binaries from the [latest release page](https://github.
 
 | Platform | CLI (`hp41-cli`) | GUI (`hp41-gui`) |
 |----------|------------------|------------------|
-| **macOS** (Apple Silicon + Intel) | `hp41-cli-vX.Y-aarch64-apple-darwin.tar.gz` | `hp41-gui_X.Y.Z_universal.dmg` |
-| **Windows 10/11** | `hp41-cli-vX.Y-x86_64-pc-windows-msvc.zip` | `hp41-gui_X.Y.Z_x64-setup.exe` (installer) or `_x64-portable.exe` |
-| **Linux** (x86_64) | `hp41-cli-vX.Y-x86_64-unknown-linux-gnu.tar.gz` | `hp41-gui_X.Y.Z_amd64.deb` or `.AppImage` |
+| **macOS** (Apple Silicon) | `hp41-cli-vX.Y-aarch64-apple-darwin.tar.gz` | Native SwiftUI `.app` |
+| **Windows 10/11** | `hp41-cli-vX.Y-x86_64-pc-windows-msvc.zip` | Native GUI not available |
+| **Linux** (x86_64) | `hp41-cli-vX.Y-x86_64-unknown-linux-gnu.tar.gz` | Native GUI not available |
 
 macOS binaries are signed with our Apple Developer certificate and Apple-notarized. Windows binaries are unsigned — on first launch you may see a SmartScreen warning ("Windows protected your PC" → click "More info" → "Run anyway").
 
@@ -133,15 +135,20 @@ just run -- --print-log /tmp/hp41.log   # append PRX/PRA/PRSTK output to a file
 **Desktop GUI (`hp41-gui`):**
 
 ```bash
-# Additional prerequisites: Node.js + npm; see hp41-gui/README for OS-specific
-# WebKit / webkit2gtk requirements on Linux
-just gui-dev            # launch the Tauri dev window
-just gui-build          # release build (produces a native bundle)
-just gui-ci             # GUI gate: cargo test + cargo build --release
-just gui-check          # cargo check + tsc --noEmit
+# Additional prerequisite: Xcode 15 or newer
+just gui-dev            # build the Rust bridge and launch the SwiftUI app
+just gui-build          # optimized native build
+just gui-ci             # Rust/Swift/parity gates + focused XCUITest smoke flows
+just gui-ui-test        # full rendered macOS workflow suite
+just gui-soak           # bounded rapid-input/program/tick/output/file stress suite
+just gui-sanitize-thread
+just gui-sanitize-address
+just gui-check          # type-check Rust and Swift
 ```
 
-The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every 30 s and load each other's state on launch.
+The GUI and CLI share state via `~/.hp41/autosave.json`; the native GUI saves on
+explicit Save, relevant workflow transitions, and app deactivation, and both
+frontends load each other's state on launch.
 
 ## Documentation
 
@@ -161,6 +168,7 @@ The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every
 | [Verifying Advantage Pac](docs/verifying-advantage-pac.md) | Operator walk-through for Advantage Pac (all 7 groups) |
 | [Architecture](docs/architecture.md) | Emulator internals for contributors |
 | [Release Setup](docs/release-setup.md) | Maintainer guide: binary-release workflows + Apple Developer secrets |
+| [SwiftUI Cutover Audit](docs/swiftui-cutover-audit.md) | Final 418/418 parity evidence and removal boundary |
 
 ## Documented Divergences from HP-41 Hardware
 
@@ -187,12 +195,13 @@ A small set of deliberate behavioral divergences from the real HP-41C/CV/CX; eac
 ```
 hp41-core/                — UI-agnostic library (calculator engine, zero CLI/UI dependencies)
 hp41-cli/                 — Terminal UI binary (ratatui + crossterm)
-hp41-gui/                 — Tauri v2 desktop app (nested standalone workspace)
-  ├── src-tauri/          — Rust backend (IPC commands, persistence, prgm display)
-  └── src/                — React + TypeScript frontend (App.tsx, Keyboard.tsx)
+hp41-gui/                 — native SwiftUI desktop app
+  ├── Sources/HP41GUI/    — SwiftUI app, calculator view, and observable model
+  ├── Sources/CHP41/      — C module imported by Swift
+  └── hp41-bridge/        — small Rust static-library adapter around hp41-core
 ```
 
-The root Cargo workspace declares `members = ["hp41-core", "hp41-cli"]`; `hp41-gui` is a **nested standalone workspace** so the `tauri` / `tauri-build` dependencies never enter the root resolver. `cargo build --workspace` from the repo root does not touch the Tauri binary.
+The root Cargo workspace remains UI-independent. `hp41-gui/hp41-bridge` is a nested standalone workspace, so GUI bridge dependencies do not enter the root resolver; SwiftPM links its static library into the native app.
 
 ## Contributing
 

@@ -1,0 +1,1771 @@
+{
+  "schema_version": 1,
+  "source": "React/Tauri hp41-gui retained as migration reference",
+  "native_target": "SwiftUI hp41-gui",
+  "summary": {
+    "total": 418,
+    "complete": 418,
+    "remaining": 0,
+    "counts_by_status": {
+      "implemented": 388,
+      "native-equivalent": 25,
+      "not-applicable": 5,
+      "partial": 0,
+      "planned": 0
+    }
+  },
+  "categories": {
+    "tauri_commands": [
+      {
+        "id": "bst_step",
+        "status": "implemented"
+      },
+      {
+        "id": "cancel_modal",
+        "status": "implemented"
+      },
+      {
+        "id": "dispatch_op",
+        "status": "implemented",
+        "note": "Swift sends canonical key IDs through the typed dispatch request; the legacy hp41_press ABI remains only as a compatibility shim."
+      },
+      {
+        "id": "export_data_dialog",
+        "status": "implemented",
+        "note": "Native NSSavePanel exports data-card JSON through the shared encoder."
+      },
+      {
+        "id": "export_raw_dialog",
+        "status": "implemented",
+        "note": "Native NSSavePanel exports the current program through the shared RAW encoder."
+      },
+      {
+        "id": "get_prefs",
+        "status": "native-equivalent",
+        "note": "AppPreferences loads the compatible prefs.json directly without IPC."
+      },
+      {
+        "id": "get_state",
+        "status": "implemented"
+      },
+      {
+        "id": "import_data_dialog",
+        "status": "implemented",
+        "note": "Native NSOpenPanel loads data-card JSON through the shared decoder."
+      },
+      {
+        "id": "import_raw_dialog",
+        "status": "implemented",
+        "note": "Native NSOpenPanel workflow inspects RAW archives and imports a single program immediately or presents the native picker."
+      },
+      {
+        "id": "import_selected_programs",
+        "status": "implemented",
+        "note": "Native multi-select sheet submits ordered indices through the atomic shared import workflow."
+      },
+      {
+        "id": "is_ios",
+        "status": "not-applicable",
+        "note": "The declared native target is macOS 14; Swift compile-time platform conditions replace runtime Tauri probing."
+      },
+      {
+        "id": "is_macos",
+        "status": "native-equivalent",
+        "note": "Swift compile-time platform conditions expose the native macOS identity without IPC."
+      },
+      {
+        "id": "request_cancel",
+        "status": "implemented",
+        "note": "A separate Arc<AtomicBool> cancellation handle can interrupt background execution without aliasing mutable calculator state."
+      },
+      {
+        "id": "reset_full",
+        "status": "implemented"
+      },
+      {
+        "id": "reset_soft",
+        "status": "implemented"
+      },
+      {
+        "id": "restart_app",
+        "status": "native-equivalent",
+        "note": "NSWorkspace relaunches the native bundle and terminates the current instance."
+      },
+      {
+        "id": "resume_program",
+        "status": "implemented"
+      },
+      {
+        "id": "resume_program_with_key",
+        "status": "implemented"
+      },
+      {
+        "id": "run_program",
+        "status": "implemented"
+      },
+      {
+        "id": "run_stop",
+        "status": "implemented"
+      },
+      {
+        "id": "save_state",
+        "status": "implemented"
+      },
+      {
+        "id": "set_pref",
+        "status": "native-equivalent",
+        "note": "Validated AppPreferences setters atomically persist native settings without IPC."
+      },
+      {
+        "id": "sst_step",
+        "status": "implemented"
+      },
+      {
+        "id": "submit_modal",
+        "status": "implemented"
+      },
+      {
+        "id": "submit_modal_with_label",
+        "status": "implemented"
+      },
+      {
+        "id": "take_pending_app_intent",
+        "status": "native-equivalent",
+        "note": "The native app atomically takes and removes its Swift App Intent mailbox without Tauri IPC."
+      },
+      {
+        "id": "tick_time",
+        "status": "implemented"
+      }
+    ],
+    "frontend_invocations": [
+      {
+        "id": "bst_step",
+        "status": "implemented"
+      },
+      {
+        "id": "cancel_modal",
+        "status": "implemented"
+      },
+      {
+        "id": "dispatch_op",
+        "status": "native-equivalent",
+        "note": "The native typed request is named dispatch and returns the complete state/error envelope."
+      },
+      {
+        "id": "export_data_dialog",
+        "status": "implemented"
+      },
+      {
+        "id": "export_raw_dialog",
+        "status": "implemented"
+      },
+      {
+        "id": "get_prefs",
+        "status": "native-equivalent",
+        "note": "The observable native preference store replaces IPC."
+      },
+      {
+        "id": "get_state",
+        "status": "implemented"
+      },
+      {
+        "id": "import_data_dialog",
+        "status": "implemented"
+      },
+      {
+        "id": "import_raw_dialog",
+        "status": "implemented"
+      },
+      {
+        "id": "import_selected_programs",
+        "status": "implemented"
+      },
+      {
+        "id": "is_ios",
+        "status": "not-applicable",
+        "note": "No runtime IPC is required for the explicitly macOS-only Swift package."
+      },
+      {
+        "id": "is_macos",
+        "status": "native-equivalent",
+        "note": "NativePlatform supplies the compile-time platform fact."
+      },
+      {
+        "id": "request_cancel",
+        "status": "implemented",
+        "note": "Swift keeps R/S, Escape, and ON responsive while labeled execution runs off MainActor."
+      },
+      {
+        "id": "reset_full",
+        "status": "implemented"
+      },
+      {
+        "id": "reset_soft",
+        "status": "implemented"
+      },
+      {
+        "id": "restart_app",
+        "status": "native-equivalent",
+        "note": "Settings invokes the native NSWorkspace restart path."
+      },
+      {
+        "id": "resume_program",
+        "status": "implemented"
+      },
+      {
+        "id": "resume_program_with_key",
+        "status": "implemented"
+      },
+      {
+        "id": "run_program",
+        "status": "implemented"
+      },
+      {
+        "id": "save_state",
+        "status": "implemented"
+      },
+      {
+        "id": "set_pref",
+        "status": "native-equivalent",
+        "note": "Settings writes through validated AppPreferences setters."
+      },
+      {
+        "id": "sst_step",
+        "status": "implemented"
+      },
+      {
+        "id": "submit_modal",
+        "status": "implemented"
+      },
+      {
+        "id": "submit_modal_with_label",
+        "status": "implemented"
+      },
+      {
+        "id": "take_pending_app_intent",
+        "status": "native-equivalent",
+        "note": "Launch, foreground, and live notification paths consume the mailbox exactly once."
+      },
+      {
+        "id": "tick_time",
+        "status": "implemented"
+      }
+    ],
+    "direct_key_ids": [
+      {
+        "id": ".",
+        "status": "implemented"
+      },
+      {
+        "id": "0",
+        "status": "implemented"
+      },
+      {
+        "id": "1",
+        "status": "implemented"
+      },
+      {
+        "id": "2",
+        "status": "implemented"
+      },
+      {
+        "id": "3",
+        "status": "implemented"
+      },
+      {
+        "id": "4",
+        "status": "implemented"
+      },
+      {
+        "id": "5",
+        "status": "implemented"
+      },
+      {
+        "id": "6",
+        "status": "implemented"
+      },
+      {
+        "id": "7",
+        "status": "implemented"
+      },
+      {
+        "id": "8",
+        "status": "implemented"
+      },
+      {
+        "id": "9",
+        "status": "implemented"
+      },
+      {
+        "id": "abs",
+        "status": "implemented"
+      },
+      {
+        "id": "acos",
+        "status": "implemented"
+      },
+      {
+        "id": "alpha_backspace",
+        "status": "implemented"
+      },
+      {
+        "id": "alpha_clear",
+        "status": "implemented"
+      },
+      {
+        "id": "alpha_toggle",
+        "status": "implemented"
+      },
+      {
+        "id": "aoff",
+        "status": "implemented"
+      },
+      {
+        "id": "aon",
+        "status": "implemented"
+      },
+      {
+        "id": "arot",
+        "status": "implemented"
+      },
+      {
+        "id": "asin",
+        "status": "implemented"
+      },
+      {
+        "id": "asn",
+        "status": "implemented"
+      },
+      {
+        "id": "atan",
+        "status": "implemented"
+      },
+      {
+        "id": "atox",
+        "status": "implemented"
+      },
+      {
+        "id": "aview",
+        "status": "implemented"
+      },
+      {
+        "id": "backspace",
+        "status": "implemented",
+        "note": "The shared façade resolves contextual entry versus ALPHA deletion for native dispatch."
+      },
+      {
+        "id": "beep",
+        "status": "implemented"
+      },
+      {
+        "id": "catalog",
+        "status": "implemented"
+      },
+      {
+        "id": "cf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "chs",
+        "status": "implemented"
+      },
+      {
+        "id": "cl_sigma_stat",
+        "status": "implemented"
+      },
+      {
+        "id": "cla",
+        "status": "implemented"
+      },
+      {
+        "id": "cld",
+        "status": "implemented"
+      },
+      {
+        "id": "clreg",
+        "status": "implemented"
+      },
+      {
+        "id": "clst",
+        "status": "implemented"
+      },
+      {
+        "id": "clx",
+        "status": "implemented"
+      },
+      {
+        "id": "corr",
+        "status": "implemented"
+      },
+      {
+        "id": "cos",
+        "status": "implemented"
+      },
+      {
+        "id": "div",
+        "status": "implemented"
+      },
+      {
+        "id": "e",
+        "status": "implemented"
+      },
+      {
+        "id": "eex_chs",
+        "status": "implemented"
+      },
+      {
+        "id": "eng_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "enter",
+        "status": "implemented"
+      },
+      {
+        "id": "entry_backspace",
+        "status": "native-equivalent",
+        "note": "Swift's backspace action is normalized to the canonical contextual entry_backspace ID."
+      },
+      {
+        "id": "exp",
+        "status": "implemented"
+      },
+      {
+        "id": "fact",
+        "status": "implemented"
+      },
+      {
+        "id": "fix_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "frc",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "getkey",
+        "status": "implemented"
+      },
+      {
+        "id": "gto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "h_to_hms",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_add",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_sub",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_to_h",
+        "status": "implemented"
+      },
+      {
+        "id": "ins",
+        "status": "implemented"
+      },
+      {
+        "id": "int",
+        "status": "implemented"
+      },
+      {
+        "id": "isg_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "lastx",
+        "status": "implemented"
+      },
+      {
+        "id": "lbl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "ln",
+        "status": "implemented"
+      },
+      {
+        "id": "log",
+        "status": "implemented"
+      },
+      {
+        "id": "lr",
+        "status": "implemented"
+      },
+      {
+        "id": "mean",
+        "status": "implemented"
+      },
+      {
+        "id": "minus",
+        "status": "implemented"
+      },
+      {
+        "id": "mod_op",
+        "status": "implemented"
+      },
+      {
+        "id": "mul",
+        "status": "implemented"
+      },
+      {
+        "id": "null",
+        "status": "implemented"
+      },
+      {
+        "id": "pack",
+        "status": "implemented"
+      },
+      {
+        "id": "pct_change",
+        "status": "implemented"
+      },
+      {
+        "id": "pi",
+        "status": "implemented"
+      },
+      {
+        "id": "plus",
+        "status": "implemented"
+      },
+      {
+        "id": "polar_to_rect",
+        "status": "implemented"
+      },
+      {
+        "id": "posa",
+        "status": "implemented"
+      },
+      {
+        "id": "pra",
+        "status": "implemented"
+      },
+      {
+        "id": "prgm_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "prstk",
+        "status": "implemented"
+      },
+      {
+        "id": "prx",
+        "status": "implemented"
+      },
+      {
+        "id": "pse",
+        "status": "implemented"
+      },
+      {
+        "id": "r_up",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_m",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_n",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_o",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "rdn",
+        "status": "implemented"
+      },
+      {
+        "id": "recip",
+        "status": "implemented"
+      },
+      {
+        "id": "rect_to_polar",
+        "status": "implemented"
+      },
+      {
+        "id": "rnd",
+        "status": "implemented"
+      },
+      {
+        "id": "rtn",
+        "status": "implemented"
+      },
+      {
+        "id": "sci_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sdev",
+        "status": "implemented"
+      },
+      {
+        "id": "set_deg",
+        "status": "implemented"
+      },
+      {
+        "id": "set_grad",
+        "status": "implemented"
+      },
+      {
+        "id": "set_rad",
+        "status": "implemented"
+      },
+      {
+        "id": "sf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sigma_minus",
+        "status": "implemented"
+      },
+      {
+        "id": "sigma_plus",
+        "status": "implemented"
+      },
+      {
+        "id": "sign",
+        "status": "implemented"
+      },
+      {
+        "id": "sin",
+        "status": "implemented"
+      },
+      {
+        "id": "sq",
+        "status": "implemented"
+      },
+      {
+        "id": "sqrt",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_m",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_n",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_o",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "stop",
+        "status": "implemented"
+      },
+      {
+        "id": "sw_exit",
+        "status": "implemented"
+      },
+      {
+        "id": "tan",
+        "status": "implemented"
+      },
+      {
+        "id": "tenpow",
+        "status": "implemented"
+      },
+      {
+        "id": "tone",
+        "status": "implemented"
+      },
+      {
+        "id": "user_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "view",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_0",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_0_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_y",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_gt_y",
+        "status": "implemented"
+      },
+      {
+        "id": "x_gt_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_le_y",
+        "status": "implemented"
+      },
+      {
+        "id": "x_le_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "xge_y",
+        "status": "implemented"
+      },
+      {
+        "id": "xtoa",
+        "status": "implemented"
+      },
+      {
+        "id": "xy_swap",
+        "status": "implemented"
+      },
+      {
+        "id": "yhat",
+        "status": "implemented"
+      },
+      {
+        "id": "ypow",
+        "status": "implemented"
+      }
+    ],
+    "parameterized_key_patterns": [
+      {
+        "id": "alpha_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "arcl_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "arcl_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "asn_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "asto_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "asto_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "catalog_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "cf_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "cf_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "clp_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "del_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "dse_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "dse_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "eng_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fc_c_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fc_c_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fc_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fc_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fix_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_c_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_c_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "gto_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "gto_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "isg_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "isg_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "lbl_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sci_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sf_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sf_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "size_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_arith_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "tone_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "view_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "view_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_ind_{argument}",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_{argument}",
+        "status": "implemented"
+      }
+    ],
+    "keyboard_key_ids": [
+      {
+        "id": ".",
+        "status": "implemented"
+      },
+      {
+        "id": "0",
+        "status": "implemented"
+      },
+      {
+        "id": "1",
+        "status": "implemented"
+      },
+      {
+        "id": "2",
+        "status": "implemented"
+      },
+      {
+        "id": "3",
+        "status": "implemented"
+      },
+      {
+        "id": "4",
+        "status": "implemented"
+      },
+      {
+        "id": "5",
+        "status": "implemented"
+      },
+      {
+        "id": "6",
+        "status": "implemented"
+      },
+      {
+        "id": "7",
+        "status": "implemented"
+      },
+      {
+        "id": "8",
+        "status": "implemented"
+      },
+      {
+        "id": "9",
+        "status": "implemented"
+      },
+      {
+        "id": "acos",
+        "status": "implemented"
+      },
+      {
+        "id": "alpha_toggle",
+        "status": "implemented"
+      },
+      {
+        "id": "asin",
+        "status": "implemented"
+      },
+      {
+        "id": "asn",
+        "status": "implemented"
+      },
+      {
+        "id": "atan",
+        "status": "implemented"
+      },
+      {
+        "id": "beep",
+        "status": "implemented"
+      },
+      {
+        "id": "bst",
+        "status": "implemented",
+        "note": "Reachable as shifted SST and routed through the typed BST request."
+      },
+      {
+        "id": "catalog",
+        "status": "implemented"
+      },
+      {
+        "id": "cf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "chs",
+        "status": "implemented"
+      },
+      {
+        "id": "cl_sigma_stat",
+        "status": "implemented"
+      },
+      {
+        "id": "clp_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "clx_or_a",
+        "status": "native-equivalent",
+        "note": "Native key routes contextually to entry_backspace or alpha_backspace without sending the GUI-only sentinel through FFI."
+      },
+      {
+        "id": "cos",
+        "status": "implemented"
+      },
+      {
+        "id": "div",
+        "status": "implemented"
+      },
+      {
+        "id": "e",
+        "status": "implemented"
+      },
+      {
+        "id": "eng_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "enter",
+        "status": "implemented"
+      },
+      {
+        "id": "exp",
+        "status": "implemented"
+      },
+      {
+        "id": "fix_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "gto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "isg_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "lastx",
+        "status": "implemented"
+      },
+      {
+        "id": "lbl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "ln",
+        "status": "implemented"
+      },
+      {
+        "id": "log",
+        "status": "implemented"
+      },
+      {
+        "id": "minus",
+        "status": "implemented"
+      },
+      {
+        "id": "mul",
+        "status": "implemented"
+      },
+      {
+        "id": "pct_change",
+        "status": "implemented"
+      },
+      {
+        "id": "pi",
+        "status": "implemented"
+      },
+      {
+        "id": "plus",
+        "status": "implemented"
+      },
+      {
+        "id": "polar_to_rect",
+        "status": "implemented"
+      },
+      {
+        "id": "prgm_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "r_s",
+        "status": "implemented",
+        "note": "Routes modal submit, running cancellation, stopped label-A execution, and GETKEY capture according to state."
+      },
+      {
+        "id": "rcl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "rdn",
+        "status": "implemented"
+      },
+      {
+        "id": "recip",
+        "status": "implemented"
+      },
+      {
+        "id": "rect_to_polar",
+        "status": "implemented"
+      },
+      {
+        "id": "rtn",
+        "status": "implemented"
+      },
+      {
+        "id": "sci_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "shift",
+        "status": "native-equivalent",
+        "note": "Swift owns the one-shot shift state and never sends the GUI sentinel through FFI."
+      },
+      {
+        "id": "sigma_minus",
+        "status": "implemented"
+      },
+      {
+        "id": "sigma_plus",
+        "status": "implemented"
+      },
+      {
+        "id": "sin",
+        "status": "implemented"
+      },
+      {
+        "id": "sq",
+        "status": "implemented"
+      },
+      {
+        "id": "sqrt",
+        "status": "implemented"
+      },
+      {
+        "id": "sst",
+        "status": "implemented",
+        "note": "Reachable from the native keypad and routed through the typed SST request."
+      },
+      {
+        "id": "sto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "tan",
+        "status": "implemented"
+      },
+      {
+        "id": "tenpow",
+        "status": "implemented"
+      },
+      {
+        "id": "user_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "view",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_0_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_gt_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_le_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "xge_y",
+        "status": "implemented"
+      },
+      {
+        "id": "ypow",
+        "status": "implemented"
+      }
+    ],
+    "modal_openers": [
+      {
+        "id": "asn",
+        "status": "implemented"
+      },
+      {
+        "id": "catalog",
+        "status": "implemented"
+      },
+      {
+        "id": "cf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "clp_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "eng_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "fix_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "fs_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "gto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "isg_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "lbl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "rcl_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sci_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sf_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "sto_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "tone",
+        "status": "implemented"
+      },
+      {
+        "id": "view",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_0_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_eq_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_gt_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "x_le_y_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_prompt",
+        "status": "implemented",
+        "note": "The native XEQ key opens a searchable catalog generated from canonical function metadata and accepts arbitrary program labels."
+      }
+    ],
+    "modal_kinds": [
+      {
+        "id": "assign_key",
+        "status": "native-equivalent",
+        "note": "Native ASN combines hardware-key selection and label collection in one sheet."
+      },
+      {
+        "id": "assign_label",
+        "status": "native-equivalent",
+        "note": "Native ASN combines hardware-key selection and label collection in one sheet."
+      },
+      {
+        "id": "clp",
+        "status": "implemented"
+      },
+      {
+        "id": "confirm_load",
+        "status": "not-applicable",
+        "note": "Retained pending_input.ts scaffold only: no Tauri opener constructs it and its transition intentionally emits no dispatch."
+      },
+      {
+        "id": "del",
+        "status": "implemented"
+      },
+      {
+        "id": "direct",
+        "status": "implemented"
+      },
+      {
+        "id": "flag",
+        "status": "implemented"
+      },
+      {
+        "id": "fmt",
+        "status": "implemented"
+      },
+      {
+        "id": "hex",
+        "status": "not-applicable",
+        "note": "Retained pending_input.ts scaffold only: no Tauri opener constructs it and its transition intentionally emits no dispatch."
+      },
+      {
+        "id": "print",
+        "status": "not-applicable",
+        "note": "Retained pending_input.ts scaffold only: no Tauri opener constructs it and its transition intentionally emits no dispatch; native printer output uses the implemented tape sheet."
+      },
+      {
+        "id": "register",
+        "status": "implemented"
+      },
+      {
+        "id": "single_digit",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_name",
+        "status": "implemented"
+      }
+    ],
+    "modal_dispatch_templates": [
+      {
+        "id": "${idPrefix}_${digit}",
+        "status": "implemented"
+      },
+      {
+        "id": "${pending.dispatchPrefix}_${pending.acc}",
+        "status": "implemented"
+      },
+      {
+        "id": "${pending.mode}_${key}",
+        "status": "implemented"
+      },
+      {
+        "id": "__submit_modal_with_label__${pending.acc}",
+        "status": "native-equivalent",
+        "note": "Swift invokes the typed submit_modal_with_label request directly."
+      },
+      {
+        "id": "asn_${pending.keyCode}_${pending.acc}",
+        "status": "implemented"
+      },
+      {
+        "id": "clp_${pending.acc}",
+        "status": "implemented"
+      },
+      {
+        "id": "del_${acc}",
+        "status": "implemented"
+      }
+    ],
+    "state_fields": [
+      {
+        "id": "annunciators",
+        "status": "implemented"
+      },
+      {
+        "id": "clock_active",
+        "status": "implemented"
+      },
+      {
+        "id": "display_override",
+        "status": "implemented"
+      },
+      {
+        "id": "display_str",
+        "status": "implemented",
+        "note": "Computed by the shared display-precedence implementation and decoded as display in Swift."
+      },
+      {
+        "id": "event_buffer",
+        "status": "implemented",
+        "note": "Swift consumes every drained event once, routes alarm message/XEQ/missing prefixes, plays BEEP/TONE audio, and presents transient notices."
+      },
+      {
+        "id": "flags",
+        "status": "implemented"
+      },
+      {
+        "id": "in_eex_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "is_running",
+        "status": "implemented"
+      },
+      {
+        "id": "lastx_str",
+        "status": "implemented"
+      },
+      {
+        "id": "modal_program_active",
+        "status": "implemented"
+      },
+      {
+        "id": "modal_prompt",
+        "status": "implemented"
+      },
+      {
+        "id": "modal_requires_alpha_label",
+        "status": "implemented"
+      },
+      {
+        "id": "pc",
+        "status": "implemented"
+      },
+      {
+        "id": "pending_yield",
+        "status": "implemented"
+      },
+      {
+        "id": "print_lines",
+        "status": "implemented",
+        "note": "Swift accumulates each drained response into a session tape, including repeated identical lines, and presents an auto-scrolling native sheet."
+      },
+      {
+        "id": "program_steps",
+        "status": "implemented"
+      },
+      {
+        "id": "stopwatch_keyboard_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "stopwatch_running",
+        "status": "implemented"
+      },
+      {
+        "id": "t_str",
+        "status": "implemented"
+      },
+      {
+        "id": "user_keymap",
+        "status": "implemented"
+      },
+      {
+        "id": "x_str",
+        "status": "implemented"
+      },
+      {
+        "id": "y_str",
+        "status": "implemented"
+      },
+      {
+        "id": "z_str",
+        "status": "implemented"
+      }
+    ],
+    "preferences": [
+      {
+        "id": "global_shortcut",
+        "status": "implemented",
+        "note": "Validated accelerators persist with the compatible key and are registered through the native Carbon hot-key controller with collision rollback."
+      },
+      {
+        "id": "macos_launch_mode",
+        "status": "implemented",
+        "note": "The native platform shell applies the persisted menu-bar/window mode, including first-run visibility and restart behavior."
+      },
+      {
+        "id": "onboarding_done",
+        "status": "implemented",
+        "note": "First-run completion persists in the legacy-compatible prefs.json key."
+      },
+      {
+        "id": "theme",
+        "status": "implemented",
+        "note": "Four native palettes persist through the legacy-compatible prefs.json theme key."
+      }
+    ],
+    "physical_shortcut_actions": [
+      {
+        "id": ".",
+        "status": "implemented"
+      },
+      {
+        "id": "__save_state__",
+        "status": "implemented"
+      },
+      {
+        "id": "acos",
+        "status": "implemented"
+      },
+      {
+        "id": "alpha_backspace",
+        "status": "implemented"
+      },
+      {
+        "id": "asin",
+        "status": "implemented"
+      },
+      {
+        "id": "atan",
+        "status": "implemented"
+      },
+      {
+        "id": "bst",
+        "status": "implemented"
+      },
+      {
+        "id": "cl_sigma_stat",
+        "status": "implemented"
+      },
+      {
+        "id": "clreg",
+        "status": "implemented"
+      },
+      {
+        "id": "corr",
+        "status": "implemented"
+      },
+      {
+        "id": "cos",
+        "status": "implemented"
+      },
+      {
+        "id": "div",
+        "status": "implemented"
+      },
+      {
+        "id": "e",
+        "status": "implemented"
+      },
+      {
+        "id": "enter",
+        "status": "implemented"
+      },
+      {
+        "id": "entry_backspace",
+        "status": "implemented"
+      },
+      {
+        "id": "exp",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_add",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_sub",
+        "status": "implemented"
+      },
+      {
+        "id": "hms_to_h",
+        "status": "implemented"
+      },
+      {
+        "id": "lastx",
+        "status": "implemented"
+      },
+      {
+        "id": "ln",
+        "status": "implemented"
+      },
+      {
+        "id": "log",
+        "status": "implemented"
+      },
+      {
+        "id": "lr",
+        "status": "implemented"
+      },
+      {
+        "id": "mean",
+        "status": "implemented"
+      },
+      {
+        "id": "minus",
+        "status": "implemented"
+      },
+      {
+        "id": "mul",
+        "status": "implemented"
+      },
+      {
+        "id": "pct_change",
+        "status": "implemented"
+      },
+      {
+        "id": "plus",
+        "status": "implemented"
+      },
+      {
+        "id": "prgm_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "prx",
+        "status": "implemented"
+      },
+      {
+        "id": "rdn",
+        "status": "implemented"
+      },
+      {
+        "id": "recip",
+        "status": "implemented"
+      },
+      {
+        "id": "sdev",
+        "status": "implemented"
+      },
+      {
+        "id": "sigma_minus",
+        "status": "implemented"
+      },
+      {
+        "id": "sigma_plus",
+        "status": "implemented"
+      },
+      {
+        "id": "sin",
+        "status": "implemented"
+      },
+      {
+        "id": "sq",
+        "status": "implemented"
+      },
+      {
+        "id": "sqrt",
+        "status": "implemented"
+      },
+      {
+        "id": "sst",
+        "status": "implemented"
+      },
+      {
+        "id": "tan",
+        "status": "implemented"
+      },
+      {
+        "id": "tenpow",
+        "status": "implemented"
+      },
+      {
+        "id": "user_mode",
+        "status": "implemented"
+      },
+      {
+        "id": "xeq_RDPRGM",
+        "status": "implemented",
+        "note": "Reachable through the native searchable XEQ catalog and backed by the shared card-directory workflow."
+      },
+      {
+        "id": "xeq_RDTA",
+        "status": "implemented",
+        "note": "Reachable through the native searchable XEQ catalog and backed by the shared card-directory workflow."
+      },
+      {
+        "id": "xeq_WDTA",
+        "status": "implemented",
+        "note": "Reachable through the native searchable XEQ catalog and backed by the shared card-directory workflow."
+      },
+      {
+        "id": "xeq_WPRGM",
+        "status": "implemented",
+        "note": "Reachable through the native searchable XEQ catalog and backed by the shared card-directory workflow."
+      },
+      {
+        "id": "xy_swap",
+        "status": "implemented"
+      },
+      {
+        "id": "yhat",
+        "status": "implemented"
+      },
+      {
+        "id": "ypow",
+        "status": "implemented"
+      }
+    ],
+    "ui_components": [
+      {
+        "id": "HelpOverlay",
+        "status": "native-equivalent",
+        "note": "Native searchable module/category reference includes examples, notes, shortcuts, key paths, and typed-dispatch Run actions."
+      },
+      {
+        "id": "Keyboard",
+        "status": "native-equivalent",
+        "note": "The canonical SwiftUI keyboard covers all 72 retained key identities, spans, USER relabeling, ALPHA labels, and shifted variants."
+      },
+      {
+        "id": "OnboardingWizard",
+        "status": "native-equivalent",
+        "note": "A five-step native sheet blocks first-run dismissal and supports dismissible Settings reopening."
+      },
+      {
+        "id": "RawPickerOverlay",
+        "status": "native-equivalent",
+        "note": "SwiftUI RawProgramPicker sheet provides ordered multi-selection, cancellation, and confirmation."
+      },
+      {
+        "id": "SettingsPanel",
+        "status": "native-equivalent",
+        "note": "Native Settings covers themes, guide reopening, launch mode, restart, and global shortcut recording."
+      },
+      {
+        "id": "ShortcutRecorder",
+        "status": "native-equivalent",
+        "note": "Native capture validates conservative modifier/key combinations and formats canonical macOS glyphs."
+      }
+    ],
+    "platform_events": [
+      {
+        "id": "Focused",
+        "status": "native-equivalent",
+        "note": "SwiftUI scenePhase drives activation ticks and deactivation saves without a Tauri focus event."
+      },
+      {
+        "id": "app-intent-enqueued",
+        "status": "native-equivalent",
+        "note": "Native NotificationCenter delivery complements the durable cold-start mailbox."
+      }
+    ]
+  }
+}

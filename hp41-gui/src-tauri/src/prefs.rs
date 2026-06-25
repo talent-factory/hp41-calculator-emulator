@@ -233,7 +233,10 @@ mod tests {
     #[test]
     fn test_default_theme_is_dark() {
         let prefs = GuiPrefs::default();
-        assert_eq!(prefs.theme, "dark", "GuiPrefs::default() must have theme 'dark'");
+        assert_eq!(
+            prefs.theme, "dark",
+            "GuiPrefs::default() must have theme 'dark'"
+        );
     }
 
     #[test]

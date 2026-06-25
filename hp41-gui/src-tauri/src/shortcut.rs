@@ -69,8 +69,9 @@ pub fn reregister(app: &AppHandle, accel: &str, previous: &str) -> Result<(), St
 fn try_register(app: &AppHandle, accel: &str) -> Result<(), String> {
     let shortcut = parse(accel)?;
     let gs = app.global_shortcut();
-    gs.unregister_all()
-        .map_err(|e| format!("failed to clear existing hotkey before registering {accel:?}: {e}"))?;
+    gs.unregister_all().map_err(|e| {
+        format!("failed to clear existing hotkey before registering {accel:?}: {e}")
+    })?;
     gs.register(shortcut)
         .map_err(|e| format!("failed to register {accel:?}: {e}"))
 }

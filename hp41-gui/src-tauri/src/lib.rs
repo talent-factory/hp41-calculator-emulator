@@ -3,17 +3,16 @@
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod app_intents;
 pub mod cards;
 mod commands;
-mod key_map;
 mod persistence;
 mod prefs; // Phase 48 — GUI preferences (theme, future onboarding flag) — stored in ~/.hp41/prefs.json (P59/THEME-05)
-mod prgm_display; // Phase 18 D-03
-mod tray_helpers; // pure geometry/debounce helpers for the macOS menu-bar popover
-#[cfg(target_os = "macos")]
-mod tray; // macOS menu-bar mode (tray icon + popover + Accessory policy)
 #[cfg(target_os = "macos")]
 mod shortcut; // macOS global hotkey to toggle the menu-bar popover
+#[cfg(target_os = "macos")]
+mod tray; // macOS menu-bar mode (tray icon + popover + Accessory policy)
+mod tray_helpers; // pure geometry/debounce helpers for the macOS menu-bar popover
 pub mod types; // pub so integration tests (lcd_alternation_modal_prompt.rs) can access CalcStateView::from_state
 
 pub type AppState = Mutex<hp41_core::CalcState>;
@@ -69,11 +68,10 @@ pub fn run() {
     // callback and surfaces itself; the second process exits immediately (plugin
     // behavior), so no duplicate tray icon is ever created.
     #[cfg(desktop)]
-    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
-        |app, _args, _cwd| {
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             focus_existing_instance(app);
-        },
-    ));
+        }));
     #[cfg(not(desktop))]
     let builder = tauri::Builder::default();
 
@@ -116,6 +114,8 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            app_intents::install_app_handle(app.handle());
+
             // D-03: attempt to load ~/.hp41/autosave.json; fall back to fresh state on any error.
             // D-04: load_state() always resets is_running = false (Pitfall 4 guard).
             //
@@ -156,8 +156,7 @@ pub fn run() {
             // (Pitfall 1 / RESEARCH.md §"AppState Mutex + AtomicBool interleaving").
             // The Arc is shared: solver loops read via CalcState.cancel_requested;
             // request_cancel writes via this cloned Arc.
-            let cancel_flag: CancelFlag =
-                std::sync::Arc::clone(&initial_state.cancel_requested);
+            let cancel_flag: CancelFlag = std::sync::Arc::clone(&initial_state.cancel_requested);
             app.manage(Mutex::new(initial_state));
             app.manage(cancel_flag);
 
@@ -194,8 +193,7 @@ pub fn run() {
             {
                 app.manage(crate::tray::PopoverState::default());
                 // Precedence: HP41_SHOW_ON_START (E2E backdoor) > "window" pref > menu-bar.
-                if std::env::var_os("HP41_SHOW_ON_START").is_some()
-                    || macos_launch_mode == "window"
+                if std::env::var_os("HP41_SHOW_ON_START").is_some() || macos_launch_mode == "window"
                 {
                     if let Some(win) = app.get_webview_window("main") {
                         let _ = win.show();
@@ -236,22 +234,23 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app_intents::take_pending_app_intent,
             commands::dispatch_op,
             commands::get_state,
-            commands::sst_step,                 // Phase 18 D-05
-            commands::bst_step,                 // Phase 18 D-05
-            commands::run_stop,                 // Phase 19 (v2.1) — R/S key toggle
-            commands::request_cancel,           // Phase 31 Plan 31-02 — flip cancel_requested AtomicBool
-            commands::submit_modal,             // Phase 31 Plan 31-03 — R/S submit modal step
-            commands::cancel_modal,             // Phase 31 Plan 31-03 — Esc cancel modal
-            commands::submit_modal_with_label,  // Phase 31 Plan 31-03 — XEQ-by-name FUNCTION NAME? step
-            commands::tick_time,               // Phase 41 D-41.1 — 100ms periodic tick for live display
-            commands::get_prefs,               // Phase 48 INFRA-01 — read GUI preferences
-            commands::set_pref,                // Phase 48 INFRA-02 — write/persist a GUI preference
-            commands::restart_app,             // macOS launch-mode toggle — offer relaunch after switch
-            commands::is_macos,                // macOS launch-mode toggle — gate the Settings control
-            commands::is_ios,                  // D-55.1 — iOS platform detection (mirrors is_macos)
-            commands::save_state,              // Phase 49 KBD-02 — on-demand save (Ctrl+S / F5 in GUI)
+            commands::sst_step,                // Phase 18 D-05
+            commands::bst_step,                // Phase 18 D-05
+            commands::run_stop,                // Phase 19 (v2.1) — R/S key toggle
+            commands::request_cancel, // Phase 31 Plan 31-02 — flip cancel_requested AtomicBool
+            commands::submit_modal,   // Phase 31 Plan 31-03 — R/S submit modal step
+            commands::cancel_modal,   // Phase 31 Plan 31-03 — Esc cancel modal
+            commands::submit_modal_with_label, // Phase 31 Plan 31-03 — XEQ-by-name FUNCTION NAME? step
+            commands::tick_time, // Phase 41 D-41.1 — 100ms periodic tick for live display
+            commands::get_prefs, // Phase 48 INFRA-01 — read GUI preferences
+            commands::set_pref,  // Phase 48 INFRA-02 — write/persist a GUI preference
+            commands::restart_app, // macOS launch-mode toggle — offer relaunch after switch
+            commands::is_macos,  // macOS launch-mode toggle — gate the Settings control
+            commands::is_ios,    // D-55.1 — iOS platform detection (mirrors is_macos)
+            commands::save_state, // Phase 49 KBD-02 — on-demand save (Ctrl+S / F5 in GUI)
             // Phase 50 — .raw file I/O via native OS file dialog
             commands::import_raw_dialog,
             commands::export_raw_dialog,
@@ -280,12 +279,18 @@ pub fn run() {
                     };
                     // Auto-hide on blur ONLY in menu-bar (popover) mode. In "window"
                     // launch mode the window must stay visible when it loses focus.
-                    if !state.menu_bar_active.load(std::sync::atomic::Ordering::Relaxed) {
+                    if !state
+                        .menu_bar_active
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
                         return;
                     }
                     // Don't hide while a native file dialog is open (it steals focus and
                     // would otherwise dismiss the popover mid-operation).
-                    if state.suppress_hide.load(std::sync::atomic::Ordering::Relaxed) {
+                    if state
+                        .suppress_hide
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
                         return;
                     }
                     if let Ok(mut g) = state.last_hidden.lock() {

@@ -4,6 +4,7 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "allow-take-pending-app-intent",
     "allow-dispatch-op",
     "allow-get-state",
     "allow-sst-step",

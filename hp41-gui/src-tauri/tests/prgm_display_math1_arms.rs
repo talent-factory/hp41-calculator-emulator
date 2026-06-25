@@ -28,7 +28,7 @@
 /// The `prgm_display.rs` source text loaded at compile time.
 /// Path is relative to this test file's location (`hp41-gui/src-tauri/tests/`),
 /// so `../src/prgm_display.rs` correctly resolves to `hp41-gui/src-tauri/src/prgm_display.rs`.
-const PRGM_DISPLAY_SRC: &str = include_str!("../src/prgm_display.rs");
+const PRGM_DISPLAY_SRC: &str = include_str!("../../hp41-app/src/prgm_display.rs");
 
 /// Hard-coded list of Math Pac I Op variant identifier strings whose arms must appear
 /// in `prgm_display.rs` as `Op::<Id>` substrings.
@@ -41,29 +41,63 @@ const PRGM_DISPLAY_SRC: &str = include_str!("../src/prgm_display.rs");
 /// Count: 44 unique Math Pac I Op variants shipped in Phase 28.
 const MATH1_VARIANT_IDS: &[&str] = &[
     // ── Plan 28-02: Hyperbolics (6 variants) ──────────────────────────────────
-    "Sinh", "Cosh", "Tanh", "Asinh", "Acosh", "Atanh",
+    "Sinh",
+    "Cosh",
+    "Tanh",
+    "Asinh",
+    "Acosh",
+    "Atanh",
     // ── Plan 28-03: Complex Stack Arithmetic (5 variants) ─────────────────────
     // CTimes and CDiv each have Unicode+ASCII aliases in MATH_1.ops, but only
     // one Op variant each. Real is the REAL deactivate-complex-mode entry point.
-    "CPlus", "CMinus", "CTimes", "CDiv", "Real",
+    "CPlus",
+    "CMinus",
+    "CTimes",
+    "CDiv",
+    "Real",
     // ── Plan 28-04: Complex Functions (12 variants) ───────────────────────────
     // ZpowN, Zpow1N, ExpZ, ApowZ, ZpowW each have Unicode+ASCII aliases in
     // MATH_1.ops, but only one Op variant each.
-    "Magz", "Cinv", "ZpowN", "Zpow1N", "ExpZ", "LnZ", "SinZ", "CosZ", "TanZ",
-    "ApowZ", "LogZ", "ZpowW",
+    "Magz",
+    "Cinv",
+    "ZpowN",
+    "Zpow1N",
+    "ExpZ",
+    "LnZ",
+    "SinZ",
+    "CosZ",
+    "TanZ",
+    "ApowZ",
+    "LogZ",
+    "ZpowW",
     // ── Plan 28-05: POLY / ROOTS (2 variants) ─────────────────────────────────
-    "PolyWorkflow", "Roots",
+    "PolyWorkflow",
+    "Roots",
     // ── Plan 28-06: MATRIX (8 variants) ───────────────────────────────────────
-    "MatrixWorkflow", "MatSize", "MatVmat", "MatEdit", "MatDet", "MatInv",
-    "MatSimeq", "MatVcol",
+    "MatrixWorkflow",
+    "MatSize",
+    "MatVmat",
+    "MatEdit",
+    "MatDet",
+    "MatInv",
+    "MatSimeq",
+    "MatVcol",
     // ── Plan 28-07: INTG (1 variant) ──────────────────────────────────────────
     "Integ",
     // ── Plan 28-08: SOLVE / SOL (2 variants) ──────────────────────────────────
-    "Solve", "Sol",
+    "Solve",
+    "Sol",
     // ── Plan 28-09: DIFEQ (1 variant) ─────────────────────────────────────────
     "Difeq",
     // ── Plan 28-10: FOUR / Triangle Solvers / TRANS (8 variants) ─────────────
-    "Four", "TriSss", "TriAsa", "TriSaa", "TriSas", "TriSsa", "Trans2d", "Trans3d",
+    "Four",
+    "TriSss",
+    "TriAsa",
+    "TriSaa",
+    "TriSas",
+    "TriSsa",
+    "Trans2d",
+    "Trans3d",
 ];
 
 /// Hard-coded list of Stat 1 Pac Op variant identifier strings whose arms must appear
@@ -73,20 +107,38 @@ const MATH1_VARIANT_IDS: &[&str] = &[
 /// Count: 26 unique Stat 1 Pac Op variants.
 const STAT1_VARIANT_IDS: &[&str] = &[
     // ── Plan 33-05/06: Univariate / Bivariate (4 variants) ───────────────────
-    "SigmaBstat", "SigmaBstg", "SigmaMmtug", "SigmaMmtgd",
+    "SigmaBstat",
+    "SigmaBstg",
+    "SigmaMmtug",
+    "SigmaMmtgd",
     // ── Plan 33-06: ANOVA Family (3 variants) ────────────────────────────────
-    "SigmaAovone", "SigmaAovtwo", "SigmaAnocov",
+    "SigmaAovone",
+    "SigmaAovtwo",
+    "SigmaAnocov",
     // ── Plan 33-05/08: Curve Fitting + Regression (8 variants) ──────────────
-    "SigmaLin", "SigmaExp", "SigmaLogi", "SigmaPow",
-    "SigmaMlrxy", "SigmaMlrxyz", "SigmaPolypWorkflow", "SigmaPolyc",
+    "SigmaLin",
+    "SigmaExp",
+    "SigmaLogi",
+    "SigmaPow",
+    "SigmaMlrxy",
+    "SigmaMlrxyz",
+    "SigmaPolypWorkflow",
+    "SigmaPolyc",
     // ── Plan 33-07: Hypothesis Tests (2 variants) ────────────────────────────
-    "SigmaPtst", "SigmaTstat",
+    "SigmaPtst",
+    "SigmaTstat",
     // ── Plan 33-04/06: Nonparam / Chi-Sq Eval / Contingency (5 variants) ────
-    "SigmaXsqev", "SigmaEfxsq", "SigmaCtkkk", "SigmaCtkk", "SigmaSpear",
+    "SigmaXsqev",
+    "SigmaEfxsq",
+    "SigmaCtkkk",
+    "SigmaCtkk",
+    "SigmaSpear",
     // ── Plan 33-03: Distributions (2 variants) ───────────────────────────────
-    "SigmaNormdWorkflow", "SigmaChisqdWorkflow",
+    "SigmaNormdWorkflow",
+    "SigmaChisqdWorkflow",
     // ── Plan 33-08: RNG (2 variants) ─────────────────────────────────────────
-    "Rand", "Seed",
+    "Rand",
+    "Seed",
 ];
 
 /// Catches: missing `op_display_name` arm for a Phase 33 Stat 1 Pac Op variant,

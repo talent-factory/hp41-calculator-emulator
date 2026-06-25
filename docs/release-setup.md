@@ -11,7 +11,7 @@ the secrets after a key rotation or onboarding setup.
 |----------|---------|--------------|
 | `.github/workflows/release.yml` | tag push + push to main | Creates the GitHub Release from the annotated tag's message |
 | `.github/workflows/release-cli-binaries.yml` | tag push + manual | Builds `hp41-cli` for Linux (x86_64), macOS (arm64 + x86_64), Windows (x86_64); signs + notarizes macOS; uploads tarballs/zip to the Release |
-| `.github/workflows/release-gui-binaries.yml` | tag push + manual | Builds `hp41-gui` via `tauri-apps/tauri-action`: macOS universal .dmg/.app, Windows .msi + portable .exe, Linux .deb + .AppImage; signs + notarizes macOS; uploads to the Release |
+| `.github/workflows/release-gui-binaries.yml` | tag push + manual | Builds the native SwiftUI GUI for Apple Silicon macOS 14+, signs/notarizes the `.app`, and uploads its zip to the Release |
 
 All three workflows share the same `tags: ['v[0-9]+.[0-9]+*']` trigger pattern,
 so a single `git push origin v3.0.1` fires the complete pipeline. Each
@@ -195,10 +195,18 @@ notarized with it remain valid. The new cert is only required for builds
   notarized via `xcrun notarytool submit ... --wait`. Standalone executables
   cannot be `stapler stapled`, but the notarization ticket is checked online
   by Gatekeeper on first launch.
-- The GUI is built as a **universal binary** (`--target universal-apple-darwin`),
-  signed by tauri-action's built-in signing flow, and notarized as a .app
-  bundle (stapled-stapleable).
-- macOS 12 (Monterey) or later is required for the universal binary to run.
+- The GUI is built by `just gui-build` as an Apple Silicon SwiftUI `.app`,
+  signed with hardened runtime, notarized, and stapled before upload.
+- macOS 14 (Sonoma) or later is required by the native GUI.
+- The GUI bundle identifier remains `ch.talent-factory.hp41`, its release
+  version comes from the root Cargo workspace, and the workflow verifies both
+  version and arm64 architecture before signing.
+- `PrivacyInfo.xcprivacy` is bundled and declares no tracking or collected data.
+  File-timestamp access uses required-reason code `C617.1` for app-managed files.
+- App Sandbox is deliberately disabled for the Developer ID build. The GUI and
+  CLI share `~/.hp41/autosave.json` and `~/.hp41/prefs.json`; enabling the App
+  Sandbox would redirect/block that compatibility contract. External RAW and
+  data-card paths are still selected through native open/save panels.
 
 ### Windows
 
@@ -206,13 +214,11 @@ notarized with it remain valid. The new cert is only required for builds
   certificate. Users will see a SmartScreen warning on first launch:
   > "Windows protected your PC" → "More info" → "Run anyway".
   This is the standard hobbyist-distribution experience.
-- The CLI ships as a `.zip` containing `hp41-cli.exe`; the GUI ships as
-  both `.msi` (installer) and `.exe` (portable).
+- The CLI ships as a `.zip` containing `hp41.exe`; no native Windows GUI is published.
 
 ### Linux
 
-- No signing required. `.AppImage` is universal across distros; `.deb` works on
-  Debian/Ubuntu derivatives.
+- No signing required. No native Linux GUI is published.
 - The CLI builds against `x86_64-unknown-linux-gnu` (glibc); systems with glibc
   too old (< 2.34) need to build from source.
 
@@ -230,8 +236,8 @@ notarized with it remain valid. The new cert is only required for builds
 3. The three release workflows fire automatically:
    - `release.yml` creates the GitHub Release from the tag annotation (~30s)
    - `release-cli-binaries.yml` builds 4 CLI binaries in parallel (~5–8 min)
-   - `release-gui-binaries.yml` builds 3 GUI packages in parallel (~10–15 min,
-     dominated by Tauri's webview build on macOS)
+   - `release-gui-binaries.yml` builds, signs, notarizes, and uploads the native
+     Apple Silicon SwiftUI app
 4. After all three finish: visit `https://github.com/talent-factory/hp41-calculator-emulator/releases/tag/<tag>` and confirm all binaries are attached.
 
 ## Troubleshooting
@@ -242,7 +248,7 @@ notarized with it remain valid. The new cert is only required for builds
 password. Create one at <https://appleid.apple.com> → Sign-In and Security →
 App-Specific Passwords → Generate. Use the password verbatim (with the dashes).
 
-### tauri-action fails on macOS with `code signing identity not found`
+### Native GUI signing fails with `code signing identity not found`
 
 `APPLE_SIGNING_IDENTITY` must exactly match the identity string shown by
 `security find-identity -v -p codesigning` — typically

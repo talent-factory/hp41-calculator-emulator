@@ -23,6 +23,7 @@ Desktop.ini
 
 # Editors
 .idea/
+**/xcuserdata/
 # .vscode/ — omitted intentionally; commit shared settings if the team uses them
 
 # Environment / secrets
@@ -30,8 +31,15 @@ Desktop.ini
 .env.local
 .env.*.local
 
-# Tauri (hp41-gui)
+# Native SwiftUI GUI
+/.build/
+hp41-gui/.build/
+hp41-gui/hp41-app/target/
+hp41-gui/hp41-bridge/target/
+
+# Legacy Tauri artifacts (the sources are retained temporarily for migration history)
 hp41-gui/dist/
+hp41-gui/src-tauri/gen/macos/
 node_modules/
 src-tauri/target/
 *.dmg
