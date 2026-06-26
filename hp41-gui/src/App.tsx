@@ -168,19 +168,21 @@ async function invokeForKey(
 }
 
 function resolveKeyId(e: KeyboardEvent, state: CalcStateView | null): string | null {
-  // Phase 49 D-49.12/D-49.13 — Ctrl+key / Cmd+key bindings (T-49-07 mitigation).
-  // MUST come BEFORE the F7/F8 checks and the letter MAP to prevent Ctrl+W/R/D/F/S
-  // from falling through to the letter map (D-07: never silently discard).
-  // metaKey = macOS Cmd (mirrors the Ctrl behavior per RESEARCH A1).
-  if (e.ctrlKey || e.metaKey) {
+  // Phase 49 D-49.12/D-49.13 — Ctrl+key bindings (T-49-07 mitigation).
+  // Card reader (W/E/D/F): Control-only — mirrors CLI KeyModifiers::CONTROL and
+  // keeps Cmd+F/W/D/V free for macOS Find/close/bookmark/paste (Phase 67 parity fix).
+  // Save: Ctrl+S on all platforms; Cmd+S on macOS (D-49.13 / RESEARCH A1).
+  if (e.ctrlKey && !e.metaKey) {
     switch (e.key.toLowerCase()) {
       case 'w': return 'xeq_WPRGM';   // KBD-01: card reader write program
-      case 'r': return 'xeq_RDPRGM';  // KBD-01: card reader read program
+      case 'e': return 'xeq_RDPRGM';  // Phase 67: RDPRGM reassigned from Ctrl+R (mirrors CLI)
       case 'd': return 'xeq_WDTA';    // KBD-01: card reader write data
       case 'f': return 'xeq_RDTA';    // KBD-01: card reader read data
       case 's': return '__save_state__'; // KBD-02: manual save
-      default: return null; // other Ctrl/Cmd combos — do NOT fall through to letter map
+      default: break;
     }
+  } else if (e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 's') {
+    return '__save_state__';
   }
   // Phase 49 KBD-02 — F5: manual save (GUI-only deliberate divergence from CLI).
   // CLI F5 = run_program("A"). GUI F5 = save (D-49.13). e.preventDefault() called
@@ -389,6 +391,8 @@ function App() {
   const longPressFiredRef = useRef(false);
   // Portaled confirm sheet visibility (MEMORY LOST warning).
   const [confirmSheetOpen, setConfirmSheetOpen] = useState(false);
+  // Phase 67 — Ctrl+R two-tier reset prompt (mirrors CLI ResetPrompt; D-07 exception).
+  const [resetPrompt, setResetPrompt] = useState<'none' | 'tier' | 'fullConfirm'>('none');
   const showToast = useCallback((msg: string) => {
     toastSeqRef.current += 1;
     setToast({ msg, seq: toastSeqRef.current });
@@ -1092,6 +1096,11 @@ function App() {
     //   6. is_running → request_cancel.
     //   7. shiftActive last (clears the one-shot SHIFT prefix).
     if (e.key === 'Escape') {
+      if (resetPrompt !== 'none') {
+        setResetPrompt('none');
+        showToast('Reset cancelled');
+        return;
+      }
       if (calcState?.clock_active || calcState?.stopwatch_keyboard_mode) {
         if (!busyRef.current) {
           busyRef.current = true;
@@ -1209,6 +1218,53 @@ function App() {
       return; // all keys consumed in stopwatch mode
     }
 
+    // Phase 67 — Reset escape-hatch via Ctrl+R (CLI parity, ADR v4.3-007).
+    // INTENTIONAL D-07 EXCEPTION: sits above pending_input and busyRef so recovery
+    // works when dispatch or a modal is stuck. Control-only (not Cmd+R).
+    if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r' && resetPrompt === 'none') {
+      e.preventDefault();
+      setResetPrompt('tier');
+      setHelpOpen(false);
+      setSettingsOpen(false);
+      setPendingInput(null);
+      setShiftActive(false);
+      return;
+    }
+    if (resetPrompt === 'tier') {
+      e.preventDefault();
+      if (e.key === 's' || e.key === 'S') {
+        setResetPrompt('none');
+        setShiftActive(false);
+        setPendingInput(null);
+        invoke<CalcStateView>('reset_soft')
+          .then(view => { setCalcState(view); setErrorMessage(null); showToast('Soft reset complete'); })
+          .catch(err => showToast(extractErrMessage(err)));
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        setResetPrompt('fullConfirm');
+        return;
+      }
+      setResetPrompt('none');
+      showToast('Reset cancelled');
+      return;
+    }
+    if (resetPrompt === 'fullConfirm') {
+      e.preventDefault();
+      if (e.key === 'y' || e.key === 'Y') {
+        setResetPrompt('none');
+        setShiftActive(false);
+        setPendingInput(null);
+        invoke<CalcStateView>('reset_full')
+          .then(view => { setCalcState(view); setErrorMessage(null); showToast('MEMORY LOST — full reset complete'); })
+          .catch(err => showToast(extractErrMessage(err)));
+      } else {
+        setResetPrompt('none');
+        showToast('Reset cancelled');
+      }
+      return;
+    }
+
     if (busyRef.current) return; // debounce: ignore while invoke pending
 
     // Phase 26 D-26.4: if a modal is open, route the key through handleModalKey
@@ -1322,7 +1378,7 @@ function App() {
 
     e.preventDefault();
     dispatchKeyId(keyId);
-  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult, helpOpen, settingsOpen, onboardingOpen, isFirstRun, handleOnboardingClose, showToast, importRawDialog, exportRawDialog, importDataDialog, exportDataDialog]);
+  }, [calcState, dispatchKeyId, pendingInput, shiftActive, applyModalResult, helpOpen, settingsOpen, onboardingOpen, isFirstRun, handleOnboardingClose, showToast, importRawDialog, exportRawDialog, importDataDialog, exportDataDialog, resetPrompt]);
 
   // Register keyboard listener — cleanup required for React StrictMode (D-12)
   useEffect(() => {
@@ -1575,6 +1631,13 @@ function App() {
       )}
       {errorMessage && (
         <div className="error-row" role="alert">{errorMessage}</div>
+      )}
+      {resetPrompt !== 'none' && (
+        <div className="reset-prompt-row" role="status">
+          {resetPrompt === 'tier'
+            ? 'Reset:  [s] soft   [f] full (MEMORY LOST)   [Esc] cancel'
+            : 'MEMORY LOST? [y/n]'}
+        </div>
       )}
       {/* Phase 55 Plan 05 — Collapsible stack panel on iOS (TOUCH-10).
           On iOS: X row always visible; Y/Z/T/L wrapped in .stack-panel-collapsible

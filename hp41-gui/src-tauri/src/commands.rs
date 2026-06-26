@@ -37,18 +37,44 @@ use tauri_plugin_dialog::DialogExt;
 #[cfg(test)]
 use std::path::Path;
 
+/// Non-blocking file open dialog bridged to async/await.
+///
+/// `blocking_pick_file` must NOT run on Tauri's main thread (tauri-plugin-dialog docs);
+/// it deadlocks the NSOpenPanel run loop — especially visible under lldb (Ctrl+E etc.).
+async fn await_pick_file<R: tauri::Runtime>(
+    builder: tauri_plugin_dialog::FileDialogBuilder<R>,
+) -> Option<tauri_plugin_dialog::FilePath> {
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    builder.pick_file(move |path| {
+        let _ = tx.blocking_send(path);
+    });
+    match rx.recv().await {
+        Some(path) => path,
+        None => None,
+    }
+}
+
+/// Non-blocking file save dialog bridged to async/await (same main-thread constraint).
+async fn await_save_file<R: tauri::Runtime>(
+    builder: tauri_plugin_dialog::FileDialogBuilder<R>,
+) -> Option<tauri_plugin_dialog::FilePath> {
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    builder.save_file(move |path| {
+        let _ = tx.blocking_send(path);
+    });
+    match rx.recv().await {
+        Some(path) => path,
+        None => None,
+    }
+}
+
 /// RAII guard: while alive, sets PopoverState.suppress_hide so the macOS
 /// auto-hide-on-blur handler does not dismiss the popover while a native file
 /// dialog is open. Clearing on drop is panic-safe and covers early returns / `?`.
 ///
-/// CORRECTNESS DEPENDS ON THE DIALOG COMMANDS STAYING SYNCHRONOUS. They run on
-/// Tauri's main thread, so `store(true)` happens-before the blur handler's
-/// `load` on that same thread, and `Relaxed` ordering suffices (the flag is a
-/// standalone signal, publishing no other data). If any of the four dialog
-/// commands is ever made `async`, Tauri moves it to a worker thread and the
-/// set/blur-read becomes a genuine cross-thread race where the blur could
-/// observe `false` before the store lands — hiding the popover under the dialog.
-/// Keep them synchronous, or revisit the ordering here.
+/// CORRECTNESS: `suppress_hide` must stay true for the entire native-dialog lifetime.
+/// Dialog commands are `async` and use non-blocking `pick_file`/`save_file` so the main
+/// thread can pump events (required under lldb). The guard spans the `.await`.
 #[cfg(target_os = "macos")]
 struct SuppressHideGuard<'a> {
     flag: Option<tauri::State<'a, crate::tray::PopoverState>>,
@@ -779,19 +805,20 @@ pub enum ImportRawResponse {
 /// - `Cancelled` — user dismissed dialog; current state returned.
 /// - `Empty` — file had no programs.
 #[tauri::command]
-pub fn import_raw_dialog(
+pub async fn import_raw_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<ImportRawResponse, GuiError> {
     let _suppress = SuppressHideGuard::new(&app);
-    // Phase 1 (no lock): open file dialog
-    let file_result = app
-        .dialog()
-        .file()
-        .set_title("Import HP-41 Program")
-        .add_filter("HP-41 Program", &["raw"])
-        .add_filter("All Files", &["*"])
-        .blocking_pick_file();
+    // Phase 1 (no lock): open file dialog (non-blocking — main thread must keep pumping)
+    let file_result = await_pick_file(
+        app.dialog()
+            .file()
+            .set_title("Import HP-41 Program")
+            .add_filter("HP-41 Program", &["raw"])
+            .add_filter("All Files", &["*"]),
+    )
+    .await;
 
     let Some(file_path) = file_result else {
         // User cancelled
@@ -929,7 +956,7 @@ pub fn import_selected_programs(
 /// release lock BEFORE opening the save dialog (dialog is blocking + can take long).
 /// File write happens after dialog returns, with no lock held.
 #[tauri::command]
-pub fn export_raw_dialog(
+pub async fn export_raw_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, GuiError> {
@@ -941,14 +968,15 @@ pub fn export_raw_dialog(
     };
 
     // Phase 2 (no lock): open save dialog
-    let save_result = app
-        .dialog()
-        .file()
-        .set_title("Export HP-41 Program")
-        .set_file_name("program.raw")
-        .add_filter("HP-41 Program", &["raw"])
-        .add_filter("All Files", &["*"])
-        .blocking_save_file();
+    let save_result = await_save_file(
+        app.dialog()
+            .file()
+            .set_title("Export HP-41 Program")
+            .set_file_name("program.raw")
+            .add_filter("HP-41 Program", &["raw"])
+            .add_filter("All Files", &["*"]),
+    )
+    .await;
 
     let Some(save_path) = save_result else {
         return Ok(serde_json::json!({"cancelled": true}));
@@ -976,19 +1004,20 @@ pub fn export_raw_dialog(
 /// Handles `.card.json` files per D-50.7. Anti-deadlock pattern: dialog + decode
 /// happen BEFORE AppState lock.
 #[tauri::command]
-pub fn import_data_dialog(
+pub async fn import_data_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, GuiError> {
     let _suppress = SuppressHideGuard::new(&app);
     // Phase 1 (no lock): open file dialog
-    let file_result = app
-        .dialog()
-        .file()
-        .set_title("Import HP-41 Data Card")
-        .add_filter("HP-41 Data Card", &["json"])
-        .add_filter("All Files", &["*"])
-        .blocking_pick_file();
+    let file_result = await_pick_file(
+        app.dialog()
+            .file()
+            .set_title("Import HP-41 Data Card")
+            .add_filter("HP-41 Data Card", &["json"])
+            .add_filter("All Files", &["*"]),
+    )
+    .await;
 
     let Some(file_path) = file_result else {
         let mut calc = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -1028,7 +1057,7 @@ pub fn import_data_dialog(
 ///
 /// Per D-50.7. Anti-deadlock pattern: snapshot data under lock, release, then open dialog.
 #[tauri::command]
-pub fn export_data_dialog(
+pub async fn export_data_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, GuiError> {
@@ -1041,14 +1070,15 @@ pub fn export_data_dialog(
     };
 
     // Phase 2 (no lock): open save dialog
-    let save_result = app
-        .dialog()
-        .file()
-        .set_title("Export HP-41 Data Card")
-        .set_file_name("data.card.json")
-        .add_filter("HP-41 Data Card", &["json"])
-        .add_filter("All Files", &["*"])
-        .blocking_save_file();
+    let save_result = await_save_file(
+        app.dialog()
+            .file()
+            .set_title("Export HP-41 Data Card")
+            .set_file_name("data.card.json")
+            .add_filter("HP-41 Data Card", &["json"])
+            .add_filter("All Files", &["*"]),
+    )
+    .await;
 
     let Some(save_path) = save_result else {
         return Ok(serde_json::json!({"cancelled": true}));
