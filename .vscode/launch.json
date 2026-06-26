@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "just gui-dev",
+      "cwd": "${workspaceFolder}/hp41-gui/src-tauri",
+      "cargo": {
+        "args": [
+          "build",
+          "--manifest-path=${workspaceFolder}/hp41-gui/src-tauri/Cargo.toml",
+          "--bin=hp41-gui"
+        ],
+        "filter": {
+          "name": "hp41-gui",
+          "kind": "bin"
+        }
+      },
+      "preLaunchTask": "gui-dev:vite"
+    }
+  ]
+}
