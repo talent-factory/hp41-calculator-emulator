@@ -18,6 +18,10 @@
 		<key>ch.talent-factory.hp41</key>
 		<string>HP-41 App Store (ci-ios)</string>
 	</dict>
+	<!-- Keep the build number stamped by `just ios-build-release` / CI instead of letting
+	     Xcode pick its own on export. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
 	<key>stripSwiftSymbols</key>
 	<true/>
 	<key>uploadSymbols</key>
