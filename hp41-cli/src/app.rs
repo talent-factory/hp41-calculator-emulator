@@ -2099,7 +2099,7 @@ impl App {
     /// in the run() loop, not in the single-op dispatch paths (call_dispatch) that also
     /// call this function.
     fn drain_event_buffer(&mut self) {
-        let events: Vec<String> = self.state.event_buffer.drain(..).collect();
+        let events: Vec<String> = std::mem::take(&mut self.state.event_buffer);
         for event in events {
             if let Some(text) = event.strip_prefix("alarm:message:") {
                 self.message = Some(text.to_string());
@@ -2194,7 +2194,7 @@ impl App {
     /// `write_lines_to_print_log()` which disables the writer on first I/O error.
     /// Clears print_buffer via drain(..).
     fn drain_and_show_print_output(&mut self, card_error: Option<String>) {
-        let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+        let lines: Vec<String> = std::mem::take(&mut self.state.print_buffer);
         if !lines.is_empty() {
             let log_failure = self.write_lines_to_print_log(&lines);
             let summary = if lines.len() > 1 {
@@ -2272,7 +2272,7 @@ impl App {
         match hp41_core::ops::dispatch(&mut self.state, op) {
             Ok(()) => {
                 let card_err = self.drain_pending_card_op();
-                let lines: Vec<String> = self.state.print_buffer.drain(..).collect();
+                let lines: Vec<String> = std::mem::take(&mut self.state.print_buffer);
                 if !lines.is_empty() {
                     let log_failure = self.write_lines_to_print_log(&lines);
                     let summary = if lines.len() > 1 {

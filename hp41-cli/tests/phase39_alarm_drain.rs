@@ -149,7 +149,7 @@ fn event_buffer_drain_clears_buffer() {
     );
 
     // Drain the buffer — same pattern as app.rs drain_event_buffer().
-    let drained: Vec<String> = state.event_buffer.drain(..).collect();
+    let drained: Vec<String> = std::mem::take(&mut state.event_buffer);
 
     assert!(
         state.event_buffer.is_empty(),

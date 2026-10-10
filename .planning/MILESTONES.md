@@ -2,8 +2,19 @@
 
 ## v4.3 — Hardware Fidelity
 
-**Status:** 🚧 IN PROGRESS (opened 2026-06-06)
-**Theme:** Hardware-fidelity emulation work (formal phases TBD).
+**Status:** ✅ SHIPPED 2026-06-10 — tag `v4.3` → `b22c476`; PR #26 merged to `main` (`--merge`, `6cdc09b`); GitHub Release `v4.3` published (11 assets).
+**Phases:** 6 (62–67) · **Plans:** 26 · **Tasks:** 46 · **Theme:** Close remaining behavioral gaps vs. real HP-41CX hardware (no new functions/modules).
+
+**Key accomplishments:**
+
+- **Run-loop yield engine** (Phase 63) — synchronous pending-interrupt at the `run_loop` boundary + PSE/VIEW/AVIEW render-sleep-resume; **the GUI gained its first continuous program run loop** (`run_program`/`resume_program` Tauri commands + no-poll TS yield driver, D-11). Interrupting control alarms (D-40-04 anchor) now execute mid-run.
+- **Interactive GETKEY** (Phase 64) — new `WaitForKey` yield kind (no new `Op`) + `resume_program_with_key()` suspends execution, awaits a keypress, pushes the HP-41 row×col code to X; CLI↔GUI parity (D-25.6); R/S keycode doc-fix 84→31.
+- **Standalone fidelity fixes** (Phase 65) — CLI `display_override`, CHS mantissa sign-flip, AON flag-48 auto-display, `FACT(27..69)` via two-tier `HpNum{mantissa,exponent}` (ADR v4.3-005), 12-cell LCD scientific-overflow render (ADR v4.3-006).
+- **Verification + divergence sweep** (Phase 66) — UNC-02 fixed (PRX/PRA/PRSTK error `NonExistent` with no printer flag), UNC-01/03 confirmed correct; D-40-04 closed; all quality gates green (numerical accuracy 98.6%, coverage 95.26%).
+- **Reset Escape Hatch** (Phase 67) — `CalcState::soft_reset()` / `memory_lost()` outside `dispatch()`; CLI `Ctrl+R` two-tier prompt (RDPRGM→Ctrl+E), GUI/iOS ON-key tap=soft / long-press+confirm=full (MEMORY LOST), autosave overwritten under-mutex; ADR v4.3-007 + D-CV-10. CR-02 (shared-Arc `cancel_requested` orphan) found+fixed in-cycle.
+- **Pre-phase desktop polish** (quick-task `37dfd5f`) — single-instance guard (ADR-v4.3-001) + configurable macOS global hotkey ⌃⌥⌘H (ADR-v4.3-002); see detail below.
+
+**Known deferred items at close:** 19 (see STATE.md → Deferred Items) — all pre-existing v4.1-era quick-tasks or known Phase-63/65 visual-confirm UAT/verification items; none gate the released milestone.
 
 ### Quick-tasks (landed on `develop` ahead of formal phases)
 

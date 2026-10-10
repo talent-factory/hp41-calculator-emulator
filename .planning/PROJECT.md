@@ -90,24 +90,11 @@
 
 ---
 
-## Current Milestone: v4.3 Hardware Fidelity
+## Last Shipped Milestone: v4.3 Hardware Fidelity (2026-06-10)
 
-**Goal:** Close the remaining genuine behavioral gaps between the emulator and real HP-41CX hardware — anchored on interrupting control-alarm execution.
+**Shipped + released.** Closed the remaining *genuine* behavioral gaps vs. real HP-41CX hardware: interrupting control-alarm execution (D-40-04 anchor) via a synchronous run-loop yield/interrupt engine — which also gave the GUI its **first continuous program run loop** — plus interactive GETKEY, PSE/VIEW/AVIEW mid-run display, standalone display + math fidelity fixes (two-tier `HpNum` range, `FACT(27..69)`, 12-cell LCD), and a two-tier in-app **Reset Escape Hatch** (soft + full/MEMORY LOST) across CLI/GUI/iOS. 6 phases (62–67), 26 plans, 46 tasks. Tag `v4.3`→`b22c476`; PR #26 merged to `main` (`6cdc09b`, merge commit — never squash); GitHub Release published (11 assets). Full detail in `.planning/MILESTONES.md` and `milestones/v4.3-ROADMAP.md`.
 
-**Target work:**
-- **Interrupting Control Alarms (D-40-04)** — make program execution re-entrant against the 4-level call stack so a fired control alarm can interrupt the calculator (including a running program), execute its designated program, and return cleanly. The data model already exists (D-38.4); only execution is missing.
-- **Fidelity audit** — an early audit phase inventories *real* remaining divergences (real-hardware behavior vs. emulator) and produces a prioritized list; an audit-selected handful are closed this milestone.
-- Deliberately-accepted divergences (emulator extensions, host-clock policy, oracle corrections) stay untouched by design.
-
-**Out of scope:** iOS App Store submission (handled externally). Android (parked as `SEED-001`).
-
-**Active requirements:** defined in `.planning/REQUIREMENTS.md` for this milestone.
-
----
-
-## Last Shipped Milestone: v4.2 Help Search Enrichment (2026-06-05)
-
-Shipped — full detail in `.planning/MILESTONES.md` (v4.2 entry) and `milestones/v4.2-ROADMAP.md`; audit at `milestones/v4.2-MILESTONE-AUDIT.md`. Design spec: `docs/superpowers/specs/2026-06-03-help-search-enrichment-design.md`. No active milestone — run `/gsd-new-milestone` to start the next.
+**No active milestone** — run `/gsd-new-milestone` to start the next. (Reminder: bump all three `4.3.0` version surfaces — root `Cargo.toml`, `hp41-gui/src-tauri/Cargo.toml`, `tauri.conf.json` — to the new version before tagging; the release version-gate enforces it.)
 
 ---
 
@@ -323,9 +310,18 @@ Faithful HP-41 RPN fidelity — the four-level stack, stack-lift semantics, disp
 - ✓ **HSUX-01/02**: reuses the existing `?` overlay input; no new view — Phase 59
 - ✓ **HSQUAL-01/02/03/04**: Rust + TS real-data unit tests, CLI↔GUI parity fixture (drift guard), six-pool schema CI gate (`ci.yml`), CLAUDE.md docs — Phase 61
 
+### Validated (v4.3 — Hardware Fidelity, shipped 2026-06-10)
+
+- ✓ **ALARM-01/02/03**: `>>`=interrupting / `>`=conditional prefix semantics locked (ADR v4.3-003); interrupting control alarms execute mid-run via a synchronous pending-interrupt at the run_loop boundary, suppressed at the 4-level call-stack cap — Phases 62, 63
+- ✓ **PRGM-01/02/03**: PSE pause + VIEW/AVIEW mid-run display + interactive GETKEY (`WaitForKey` yield + `resume_program_with_key`, row×col→X) on one yield primitive; the GUI gained its first continuous program run loop — Phases 63, 64
+- ✓ **DISP-01/02/03**: CLI renders `display_override`; CHS in-buffer mantissa sign-flip; AON (flag 48) auto-display on CLI + GUI — Phase 65
+- ✓ **MATH-01**: two-tier `HpNum{mantissa,exponent}` over ±9.999999999E±99; `FACT(27..69)` correct (ADR v4.3-005) + 12-cell LCD overflow render (ADR v4.3-006) — Phase 65
+- ✓ **VERIFY-01**: UNC-02 fixed (PRX/PRA/PRSTK gate on printer flags 21/55); UNC-01/03 confirmed correct; D-40-04 closed; all quality gates green — Phase 66
+- ✓ **RESET-01**: two-tier in-app reset (`soft_reset()`/`memory_lost()`) outside dispatch — CLI `Ctrl+R`, GUI/iOS ON-key tap/long-press; autosave overwritten under-mutex (ADR v4.3-007) — Phase 67
+
 ### Active
 
-_No active milestone. v4.2 Help Search Enrichment shipped 2026-06-05 (PR #23, develop→main). Run `/gsd-new-milestone` to define the next._
+_No active milestone. v4.3 Hardware Fidelity shipped + released 2026-06-10 (PR #26, develop→main, merge commit). Run `/gsd-new-milestone` to define the next._
 
 _Carried-over deferred items: `PrivacyInfo.xcprivacy` bundle wiring before any public iOS App Store release (from v4.1, pending todo); HSCOV-01 (zero-result / missed-query logging) remains v2/deferred._
 
@@ -425,9 +421,13 @@ This document evolves at phase transitions and milestone boundaries.
 | v3.1 Stat 1 Pac | 2026-05-24 | 33–37 | 23 | Second XROM module; distribution primitives; RNG |
 | v3.2 Time Pac | 2026-05-25 | 38–42 | 19 | Third XROM module; real-time clock; JDN calendar |
 | v3.3 Advantage Pac | 2026-05-26 | 43–47 | 18 | Fourth+fifth XROM modules; named matrices; Laguerre; TVM |
+| v4.0 Platform Maturity | 2026-05-28 | 48–52 | 17 | Themes, onboarding, GUI keyboard parity, `.raw` I/O, Extended Memory |
+| v4.1 iOS Foundation | 2026-06-04 | 53–57 | 18 | Touch-first iPhone build to TestFlight (manual-signing CI) |
+| v4.2 Help Search Enrichment | 2026-06-05 | 58–61 | 11 | Intent-aware `?` overlay (DE+EN aliases, fuzzy, ranking) |
+| v4.3 Hardware Fidelity | 2026-06-10 | 62–67 | 26 | Interrupting alarms; run-loop yield engine; GETKEY; fidelity fixes; reset escape hatch |
 
 Per-phase detail lives in `docs/architecture-history.md` and the archived milestone directories under `.planning/milestones/`.
 
 ---
 
-*Last updated: 2026-06-10 — **v4.3 Hardware Fidelity milestone COMPLETE** (all 6 phases): 62 (alarm-semantics ADR), 63 (run-loop yield engine + interrupting alarms + PSE/VIEW/AVIEW), 64 (interactive GETKEY), 65 (standalone fidelity fixes: HpNum ±9.999E±99 range/FACT + DISP-01/02/03), 66 (verification + divergence docs + quality gates), and 67 (Reset Escape Hatch). **Phase 67:** two-tier in-app reset (RESET-01) — `CalcState::soft_reset()` (clears transient/input-trapping state, preserves stored data) + `memory_lost()` (factory), wired OUTSIDE the dispatch path (CLI `Ctrl+R`→s/f; GUI/iOS ON-key tap=soft / long-press=portaled MEMORY LOST=full), autosave overwritten synchronously so recovery survives restart; ADR v4.3-007 + D-CV-10 record the intentional divergence from hardware ON semantics. Code review found + fixed CR-02 (cancel_requested Arc orphaned across reset → GUI cancellation breakage); both gates green. Next: tag `v4.3` on develop, then `gh pr merge 26 --merge` (NEVER --squash).*
+*Last updated: 2026-06-10 — **v4.3 Hardware Fidelity milestone COMPLETE** (all 6 phases): 62 (alarm-semantics ADR), 63 (run-loop yield engine + interrupting alarms + PSE/VIEW/AVIEW), 64 (interactive GETKEY), 65 (standalone fidelity fixes: HpNum ±9.999E±99 range/FACT + DISP-01/02/03), 66 (verification + divergence docs + quality gates), and 67 (Reset Escape Hatch). **Phase 67:** two-tier in-app reset (RESET-01) — `CalcState::soft_reset()` (clears transient/input-trapping state, preserves stored data) + `memory_lost()` (factory), wired OUTSIDE the dispatch path (CLI `Ctrl+R`→s/f; GUI/iOS ON-key tap=soft / long-press=portaled MEMORY LOST=full), autosave overwritten synchronously so recovery survives restart; ADR v4.3-007 + D-CV-10 record the intentional divergence from hardware ON semantics. Code review found + fixed CR-02 (cancel_requested Arc orphaned across reset → GUI cancellation breakage); both gates green. **SHIPPED + RELEASED + ARCHIVED 2026-06-10:** tag `v4.3`→`b22c476`; PR #26 merged to `main` (`6cdc09b`, merge commit); GitHub Release published (11 assets); milestone archived to `milestones/v4.3-*`. Next: `/gsd-new-milestone`.*

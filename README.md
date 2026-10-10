@@ -132,13 +132,14 @@ just run -- --print-log /tmp/hp41.log   # append PRX/PRA/PRSTK output to a file
 
 **Desktop GUI (`hp41-gui`):**
 
+The desktop app is built with Tauri v2 (Rust + React/Vite) and needs **Node.js 18+ and npm** in addition to the Rust toolchain, plus OS-specific system libraries (notably WebKit / `webkit2gtk` on Linux). See **[`hp41-gui/README.md`](hp41-gui/README.md)** for the full per-OS prerequisites. Run `just gui-install` before `just gui-dev` on a fresh checkout — the Tauri CLI is installed as a GUI dependency, so the dev window cannot launch until deps are present.
+
 ```bash
-# Additional prerequisites: Node.js + npm; see hp41-gui/README for OS-specific
-# WebKit / webkit2gtk requirements on Linux
+just gui-install        # install GUI deps (npm); also pulls in the Tauri CLI
 just gui-dev            # launch the Tauri dev window
 just gui-build          # release build (produces a native bundle)
-just gui-ci             # GUI gate: cargo test + cargo build --release
-just gui-check          # cargo check + tsc --noEmit
+just gui-ci             # GUI gate: permission check + npm ci + audit + tsc --noEmit
+just gui-check          # fast Rust type-check (cargo check on src-tauri)
 ```
 
 The GUI and CLI share state via `~/.hp41/autosave.json` — they auto-save every 30 s and load each other's state on launch.

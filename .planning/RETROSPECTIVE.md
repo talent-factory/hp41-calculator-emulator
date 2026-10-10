@@ -42,6 +42,43 @@
 
 ---
 
+## Milestone: v4.3 — Hardware Fidelity
+
+**Shipped:** 2026-06-10
+**Phases:** 6 (62–67) | **Plans:** 26 | **Sessions:** ~6
+
+### What Was Built
+- A synchronous **run-loop yield/interrupt engine** at the `run_loop` boundary (no threads, no new `Op`): interrupting control alarms execute mid-run and resume the host program (D-40-04 closed), and PSE/VIEW/AVIEW yield mid-run. Side effect: the **Tauri GUI gained its first continuous program run loop** (`run_program`/`resume_program` + a no-poll TS yield driver, D-11).
+- **Interactive GETKEY** built on the same primitive (`WaitForKey` yield + `resume_program_with_key`, row×col→X), CLI↔GUI parity.
+- **Standalone fidelity fixes**: two-tier `HpNum{mantissa,exponent}` over the full ±9.999999999E±99 range (`FACT(27..69)`, ADR v4.3-005), 12-cell LCD overflow render (v4.3-006), CLI `display_override`, CHS in-buffer sign-flip, AON auto-display.
+- **Reset Escape Hatch** (the post-completion reopen): two-tier `soft_reset()`/`memory_lost()` **outside** the dispatch path so it works even when input is trapped; CLI `Ctrl+R`, GUI/iOS ON-key tap/long-press; autosave overwritten under-mutex so recovery survives restart (ADR v4.3-007).
+
+### What Worked
+- **Sequential-on-develop execution (no worktrees)** — every phase's plan files were local-develop-only, and `isolation:worktree` branches from `origin/main`, so a worktree executor couldn't read its own PLAN.md. Running executors directly on the develop tree avoided the base-ref-stale trap that bit earlier milestones.
+- **In-cycle code review caught real bugs** — CR-01 (Phase 64: missing guard let a racing resume clobber a live PSE/VIEW yield) and CR-02 (Phase 67: `cancel_requested` Arc swapped on reset → GUI cancellation silently broken forever) were both found *and fixed within the phase*, with regression tests. The shared-Arc orphan was invisible to JSON-equality tests (serde-skip).
+- **A dedicated verification phase (66)** folded UNC-01/02/03 verification + divergence-doc sweep + all quality gates into one gate, so the milestone closed with green CI rather than a trailing audit.
+
+### What Was Inefficient
+- **The release was tagged too early.** The `v4.3` tag was first cut at the Phase-66 commit; the milestone was then **reopened for Phase 67**, but the tag (and the GitHub Release the binary workflows auto-publish on tag-push *from develop*) were never moved — so the published Release served Windows/Linux installers **without Phase 67**. Recovery cost a tag force-move + a rerun of both binary workflows.
+- **A GitHub API-Requests major outage** landed mid-release, 401-ing the first asset reruns and leaving a partial set — required polling githubstatus at the *component* level (not the global indicator) before the reruns could complete.
+- **Quick-task cruft accumulated** — 13 v4.1-era quick-tasks with missing STATUS frontmatter resurfaced in the close audit; they should have been swept at their own milestone close.
+
+### Patterns Established
+- **One yield primitive, many features** — alarms, PSE/VIEW/AVIEW, and GETKEY all ride the same `pending_yield`/resume mechanism rather than bespoke paths.
+- **Escape hatches live outside dispatch** — a recovery action must not route through the very machinery that may be stuck; reset is deliberately *not* an `Op` (no 4-way match).
+- **Never reassign an Arc shared with a long-lived clone** — clear it in place (`store(false)`); a fresh-Arc swap orphans every existing clone (e.g. the GUI's startup-cloned cancel flag).
+
+### Key Lessons
+- **Do not create the milestone tag until the milestone is actually closed.** Reopening a milestone after tagging invalidates the tag and silently ships stale release assets. If you must reopen: move the tag to the new HEAD **and rerun both binary workflows**, then verify every asset `updated_at` is post-move.
+- **The GitHub Release is published on tag-push from develop, before the develop→main merge** — the binary workflows are not gated on main-reachability (only `release.yml`'s belt-and-suspenders publish job is). The merge does not fix stale assets; the workflow rerun does.
+- **During an outage, gate on the specific status-page component** (`API Requests`), not the global indicator — an unrelated "Issues: degraded" pins the global indicator red long after writes recover.
+
+### Cost Observations
+- Milestone closed + released in a single working session; the bulk of *this* session's effort was release recovery (stale-tag diagnosis, outage wait, asset rebuild), not the close itself.
+- Model: opus throughout; long poll-waits were backgrounded rather than burning interactive turns.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

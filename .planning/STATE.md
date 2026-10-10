@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.3
 milestone_name: Hardware Fidelity
-status: milestone_complete
-last_updated: 2026-06-10T15:07:41.936Z
-last_activity: 2026-06-10 -- Phase 67 Plan 05 COMPLETE (ADR v4.3-007 + D-CV-10 divergence + discoverability hints + T-67-11 human-verify PASSED; all 4 gates green). Phase 67 done 5/5. PENDING RELEASE: tag v4.3 on develop, then gh pr merge 26 --merge (NEVER --squash).
+status: Awaiting next milestone
+last_updated: "2026-06-10T17:02:28.914Z"
+last_activity: 2026-06-10 — Milestone v4.3 completed and archived
 progress:
   total_phases: 6
   completed_phases: 6
   total_plans: 26
   completed_plans: 26
   percent: 100
-stopped_at: Milestone complete (Phase 67 was final phase)
 ---
 
 # Project State: HP-41 Calculator Emulator
@@ -30,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v4.2 Help Search Enrichment)
 
 ## Current Position
 
-Phase: 67
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-06-10
+Phase: Milestone v4.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-10 — Milestone v4.3 completed and archived
 
 ## Progress Bar
 
@@ -273,11 +272,22 @@ The plan-checker discovered (verified against `develop`) that **the GUI has no c
 | Deferred | .raw file picker on iOS (RAW-IOS-01) | v4.4+ (no native iOS picker in tauri-plugin-dialog) |
 | Deferred | HSCOV-01 missed-query log (zero-result queries) | v2/deferred, out of v4.3 scope |
 
+### Acknowledged at v4.3 close (2026-06-10)
+
+Open-artifact audit at milestone close surfaced 19 items; all pre-existing or known visual-confirm deferrals — none gate the released v4.3. Acknowledged and carried forward:
+
+| Category | Item | Status |
+|----------|------|--------|
+| quick_tasks (×13) | v4.1-era quick-tasks dated 2026-06-02/03 (whitespace-around-calc, leading-zero entry, help-overlay search-field, iOS touch re-fit, CLRG fidelity, iOS PRGM layout, authentic PRGM view, CLΣ glyph, CLI help completeness, iOS print bottomsheet portal, iOS ALPHA keys-only, ADR/CLAUDE.md doc pass ×2) | work shipped in v4.1/v4.2; STATUS frontmatter missing → flagged. Candidates for a `/gsd-cleanup`-style sweep into `milestones/quick-tasks/`. |
+| verification_gaps (×2) | Phase 63 + Phase 65 VERIFICATION `human_needed` | visual-display confirm items; Phase 66 was the verification gate (5/5) and the milestone is released + on-device verified |
+| uat_gaps (×3) | Phase 63 `63-HUMAN-UAT.md` (partial/pending/passed) | the 3 visual UAT items noted pending at Phase 63 close |
+| todos (×1) | 1 pending todo | leftover; non-blocking |
+
 ---
 
 *State initialized: 2026-05-06*
-*Last updated: 2026-06-06 — Phase 63 COMPLETE: all 6 plans done (4 waves). GUI run-loop fully wired: run_program/resume_program Tauri commands + pending_yield projection (63-04) + TS yield-and-resume driver + R/S 4-way routing + alarm:missing toast (63-06). 129 GUI Rust + 340 GUI TS tests pass. Next: Phase 64 (GETKEY).*
+*Last updated: 2026-06-10 — v4.3 Hardware Fidelity SHIPPED + closed. All 6 phases (62–67) complete; tag `v4.3`→`b22c476`; PR #26 merged to main (`6cdc09b`); Release published (11 assets). Milestone archived (ROADMAP/REQUIREMENTS → milestones/v4.3-*); 19 open-artifact items acknowledged as deferred. Next: /gsd-new-milestone.*
 
 ## Operator Next Steps
 
-- Run `/gsd-new-phase` or `/gsd-plan-phase 64` to start Phase 64 (Interactive GETKEY)
+- Start the next milestone with /gsd-new-milestone

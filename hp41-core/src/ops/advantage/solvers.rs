@@ -883,22 +883,10 @@ pub fn op_adv_fdifeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(
         // k4 = h * f(x_n + h, y_n + k3)
         // y_{n+1} = y_n + (k1 + 2*k2 + 2*k3 + k4) / 6
         let (y_new_f64, z_new_opt_f64) = if order == 1 {
-            let k1 = match eval_f(state, x_f64, y_f64) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
-            let k2 = match eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k1 / 2.0) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
-            let k3 = match eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k2 / 2.0) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
-            let k4 = match eval_f(state, x_f64 + h_f64, y_f64 + k3) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
+            let k1 = h_f64 * eval_f(state, x_f64, y_f64)?;
+            let k2 = h_f64 * eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k1 / 2.0)?;
+            let k3 = h_f64 * eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k2 / 2.0)?;
+            let k4 = h_f64 * eval_f(state, x_f64 + h_f64, y_f64 + k3)?;
             let y_new = y_f64 + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0;
             (y_new, None)
         } else {
@@ -908,28 +896,16 @@ pub fn op_adv_fdifeq_run_loop(state: &mut CalcState, program: &[Op]) -> Result<(
                 .and_then(|v| v.inner().to_f64())
                 .unwrap_or(0.0);
 
-            let k1z = match eval_f(state, x_f64, y_f64) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
+            let k1z = h_f64 * eval_f(state, x_f64, y_f64)?;
             let k1y = h_f64 * z_f64;
 
-            let k2z = match eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k1y / 2.0) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
+            let k2z = h_f64 * eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k1y / 2.0)?;
             let k2y = h_f64 * (z_f64 + k1z / 2.0);
 
-            let k3z = match eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k2y / 2.0) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
+            let k3z = h_f64 * eval_f(state, x_f64 + h_f64 / 2.0, y_f64 + k2y / 2.0)?;
             let k3y = h_f64 * (z_f64 + k2z / 2.0);
 
-            let k4z = match eval_f(state, x_f64 + h_f64, y_f64 + k3y) {
-                Ok(v) => h_f64 * v,
-                Err(e) => return Err(e),
-            };
+            let k4z = h_f64 * eval_f(state, x_f64 + h_f64, y_f64 + k3y)?;
             let k4y = h_f64 * (z_f64 + k3z);
 
             let y_new = y_f64 + (k1y + 2.0 * k2y + 2.0 * k3y + k4y) / 6.0;
