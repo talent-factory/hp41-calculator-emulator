@@ -291,23 +291,28 @@ mod tests {
         );
     }
 
+    /// 2026-02-13 12:00:00 UTC: day != month, and noon keeps the date stable even
+    /// if the real clock ticks across a second boundary between setup and call.
+    const PINNED_EPOCH: i64 = 1_770_984_000;
+
+    /// Build a state whose adjusted clock reads `PINNED_EPOCH` (offset = pinned - now).
+    fn pinned_date_state(flags: u64) -> CalcState {
+        let mut state = CalcState::new();
+        state.flags = flags;
+        state.time_offset_secs = PINNED_EPOCH - clock::adjusted_epoch_secs(0);
+        state
+    }
+
     #[test]
     fn op_adate_checks_flag_31() {
-        // Verify the same time produces different format strings in MDY vs DMY
-        let mut state_mdy = CalcState::new();
-        state_mdy.flags = 0;
+        // Fixed date with day != month, so MDY and DMY must differ regardless of today's date.
+        let mut state_mdy = pinned_date_state(0);
         op_adate(&mut state_mdy).unwrap();
+        assert_eq!(state_mdy.alpha_reg, " 2/13/2026");
 
-        let mut state_dmy = CalcState::new();
-        state_dmy.flags = 1u64 << 31;
+        let mut state_dmy = pinned_date_state(1u64 << 31);
         op_adate(&mut state_dmy).unwrap();
-
-        // The two formats differ (different field order) except on days where
-        // day == month (e.g. 10/10), where both render identically.
-        let (_, month, day, ..) = get_local_time(0);
-        if month != day {
-            assert_ne!(state_mdy.alpha_reg, state_dmy.alpha_reg);
-        }
+        assert_eq!(state_dmy.alpha_reg, "13/ 2/2026");
     }
 
     #[test]
