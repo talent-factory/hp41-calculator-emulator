@@ -313,6 +313,8 @@ ios-build-release:
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion {{ env_var_or_default('IOS_BUILD_NUMBER', '1') }}" "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive/Products/Applications/HP-41 Calculator.app/Info.plist"
 	rm -rf "hp41-gui/src-tauri/gen/apple/build/export"
 	xcodebuild -exportArchive -archivePath "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive" -exportOptionsPlist ".github/ios-export-options.plist" -exportPath "hp41-gui/src-tauri/gen/apple/build/export"
+	# Tauri rewrites the tracked Info.plist (CFBundleVersion) on every build; restore it so the tree stays clean.
+	git checkout -- hp41-gui/src-tauri/gen/apple/hp41-gui_iOS/Info.plist
 
 # iOS: boot in the Simulator on the simulator triple aarch64-apple-ios-sim.
 # P-iOS-01: list the CURRENT available devices instead of hardcoding a name (a
