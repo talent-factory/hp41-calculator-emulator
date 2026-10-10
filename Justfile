@@ -304,9 +304,11 @@ ios-build:
 [group('ios')]
 ios-build-release:
 	cd hp41-gui && npm ci
-	# Tauri archives; its own export step fails under manual signing — ignore it, we export below.
+	# Remove any stale archive so a failed build can never be exported by mistake.
+	rm -rf "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive"
+	# Tauri archives; its own export step fails under manual signing — ignore its exit code, the archive check below is authoritative.
 	cd hp41-gui && npm run tauri ios build -- --export-method app-store-connect || true
-	test -d "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive"
+	test -d "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive" || { echo "ERROR: archive missing — the iOS build failed (see log above)"; exit 1; }
 	# Tauri overwrites the bundle version from the crate version; stamp a unique, increasing build number.
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion {{ env_var_or_default('IOS_BUILD_NUMBER', '1') }}" "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive/Products/Applications/HP-41 Calculator.app/Info.plist"
 	rm -rf "hp41-gui/src-tauri/gen/apple/build/export"
