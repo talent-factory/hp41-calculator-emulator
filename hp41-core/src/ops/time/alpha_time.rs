@@ -302,9 +302,12 @@ mod tests {
         state_dmy.flags = 1u64 << 31;
         op_adate(&mut state_dmy).unwrap();
 
-        // The two formats should differ (different field order)
-        // (They would only be equal on day 1, month 1, which would produce "1/ 1/YYYY" vs " 1/01/YYYY" — still different)
-        assert_ne!(state_mdy.alpha_reg, state_dmy.alpha_reg);
+        // The two formats differ (different field order) except on days where
+        // day == month (e.g. 10/10), where both render identically.
+        let (_, month, day, ..) = get_local_time(0);
+        if month != day {
+            assert_ne!(state_mdy.alpha_reg, state_dmy.alpha_reg);
+        }
     }
 
     #[test]
