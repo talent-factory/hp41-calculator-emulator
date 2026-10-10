@@ -326,7 +326,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = ch.talent-factory.hp41;
 				PRODUCT_NAME = "HP-41 Calculator";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = release;
@@ -478,7 +478,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = ch.talent-factory.hp41;
 				PRODUCT_NAME = "HP-41 Calculator";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = debug;
