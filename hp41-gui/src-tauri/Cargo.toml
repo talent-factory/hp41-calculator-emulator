@@ -46,3 +46,7 @@ tempfile = "3"
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
+
+# TEMP: tauri-runtime-wry 2.11.1 with tao 0.37.1 (UIScene lifecycle fix for iOS 27)
+[patch.crates-io]
+tauri-runtime-wry = { path = "vendor/tauri-runtime-wry" }
