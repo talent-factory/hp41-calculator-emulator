@@ -148,4 +148,5 @@ version = "0.61"
 features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
+    "Win32_UI_Controls",
 ]
