@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, develop]
   pull_request:
@@ -30,17 +31,25 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    # Required status checks name all three OSes, so the macOS/Windows legs must
+    # still report. Outside push-to-main/dispatch they run on a cheap Linux
+    # runner with every step skipped (green no-op) instead of a real macOS/Windows runner.
+    runs-on: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && matrix.os || 'ubuntu-latest' }}
+    env:
+      FULL_MATRIX: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
         with:
           lfs: false
       - uses: dtolnay/rust-toolchain@stable
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
       # macOS-latest runners intermittently leave `cargo` proxying to rustup-init
       # after the toolchain action + cache restore, producing `error: unexpected
       # argument 'build' found / Usage: rustup-init[EXE]` on the first cargo
@@ -49,12 +58,16 @@ jobs:
       # `rustup default stable` AFTER the cache restore rebinds the cargo proxy
       # to the installed stable toolchain. No-op on Linux/Windows.
       - run: rustup default stable
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
       - uses: taiki-e/install-action@v2
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
         with:
           tool: just
       - name: Build release binary
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
         run: just build-release
       - name: Run tests
+        if: matrix.os == 'ubuntu-latest' || env.FULL_MATRIX == 'true'
         run: just test
 
   coverage:
