@@ -76,6 +76,15 @@
   border-bottom: 1px solid var(--display-border);
 }
 
+.reset-prompt-row {
+  background: var(--display-bg, #1a1a1a);
+  color: var(--display-text, #c8ffc8);
+  padding: 4px 10px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  border-bottom: 1px solid var(--display-border);
+}
+
 /* Stack panel — D-08: labeled rows for X/Y/Z/T/L */
 .stack-panel {
   background: var(--panel-bg);
