@@ -46,6 +46,7 @@ targets:
       path: hp41-gui_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
