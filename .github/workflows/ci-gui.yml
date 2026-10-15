@@ -1,6 +1,7 @@
 name: ci-gui
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, develop]
     paths:
@@ -23,7 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS/Windows cost 10x/2x Linux minutes: run them only on push to main
+        # or manual dispatch; PRs and develop pushes build on Linux only.
+        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && '["ubuntu-latest","macos-latest","windows-latest"]' || '["ubuntu-latest"]') }}
 
     steps:
       - uses: actions/checkout@v4
