@@ -145,6 +145,16 @@ export function SettingsPanel({
                     </section>
                 </>
             )}
+            <hr className="settings-section-divider" />
+            <section className="settings-section">
+                <h3 className="settings-section-heading">About</h3>
+                <p className="settings-about-text">
+                    HP-41 Calculator is an independent, open-source (MIT) emulation of the
+                    HP-41C/CV/CX. It is not affiliated with, endorsed by or sponsored by
+                    Hewlett-Packard or HP Inc. &quot;HP&quot; and &quot;HP-41&quot; are trademarks
+                    of their respective owners and are used for identification only.
+                </p>
+            </section>
         </div>
     );
 }

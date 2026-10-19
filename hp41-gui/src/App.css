@@ -611,6 +611,14 @@
   font-family: system-ui, sans-serif;
 }
 
+.settings-about-text {
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0.75;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
 /* Radio row — each theme option label */
 .settings-radio-row {
   display: flex;

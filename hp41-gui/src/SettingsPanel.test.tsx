@@ -146,6 +146,24 @@ describe('SettingsPanel', () => {
         expect(panel.getAttribute('aria-label')).toBe('Settings');
     });
 
+    it('shows the not-affiliated-with-HP disclaimer in the About section', () => {
+        const { container } = render(
+            <SettingsPanel
+                open={true}
+                onClose={() => {}}
+                currentTheme="dark"
+                onThemeChange={() => {}}
+                onShowOnboarding={vi.fn()}
+                isMacos={false}
+                currentLaunchMode="menu-bar"
+                onLaunchModeChange={vi.fn()}
+            />
+        );
+        const text = container.textContent ?? '';
+        expect(text).toContain('About');
+        expect(text).toContain('not affiliated with');
+    });
+
     // Phase 49 Plan 04 — Quick Start section tests (D-49.8 / D-49.9)
 
     it('renders Quick Start section with "Show Guide" button', () => {
