@@ -203,3 +203,7 @@ Direct pushes to `develop` and `main` are restricted to the maintainer.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Disclaimer
+
+This is an independent, open-source emulation. It is not affiliated with, endorsed by or sponsored by Hewlett-Packard or HP Inc. "HP" and "HP-41" are trademarks of their respective owners and are used for identification only. The project contains no HP ROM images; the calculator behaviour is re-implemented from published documentation.
