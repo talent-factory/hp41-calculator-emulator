@@ -1,5 +1,5 @@
 {
-  "productName": "HP-41 Calculator",
+  "productName": "RPN-41 Calculator",
   "identifier": "ch.talent-factory.hp41",
   "version": "4.3.0",
   "build": {
@@ -12,7 +12,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "HP-41 Calculator",
+        "title": "RPN-41 Calculator",
         "width": 440,
         "height": 1020,
         "resizable": false,

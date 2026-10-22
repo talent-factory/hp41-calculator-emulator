@@ -164,7 +164,7 @@ pub fn setup_tray(app: &App) -> tauri::Result<()> {
     let handle = app.handle();
 
     // ---- right-click menu ----
-    let about_i = MenuItemBuilder::with_id("about", "About HP-41 Calculator").build(app)?;
+    let about_i = MenuItemBuilder::with_id("about", "About RPN-41 Calculator").build(app)?;
     let start_login_i = CheckMenuItemBuilder::with_id("start_login", "Start at Login")
         .checked(handle.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
@@ -197,7 +197,7 @@ pub fn setup_tray(app: &App) -> tauri::Result<()> {
             "about" => {
                 let version = env!("CARGO_PKG_VERSION");
                 app.dialog()
-                    .message(format!("HP-41 Calculator\nVersion {version}"))
+                    .message(format!("RPN-41 Calculator\nVersion {version}"))
                     .title("About")
                     .blocking_show();
             }

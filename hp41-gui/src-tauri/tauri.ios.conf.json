@@ -3,7 +3,7 @@
   "app": {
     "windows": [
       {
-        "title": "HP-41 Calculator",
+        "title": "RPN-41 Calculator",
         "width": 440,
         "height": 1020,
         "resizable": false,

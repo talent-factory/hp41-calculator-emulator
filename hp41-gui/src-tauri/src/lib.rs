@@ -163,7 +163,7 @@ pub fn run() {
 
             if let Some(w) = app.get_webview_window("main") {
                 let version = env!("CARGO_PKG_VERSION");
-                let _ = w.set_title(&format!("HP-41 Calculator — v{version}"));
+                let _ = w.set_title(&format!("RPN-41 Calculator — v{version}"));
             }
 
             // D-01: spawn auto-save background thread — 30s sleep, then lock, then save.
