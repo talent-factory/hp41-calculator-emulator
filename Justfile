@@ -310,7 +310,7 @@ ios-build-release:
 	cd hp41-gui && npm run tauri ios build -- --export-method app-store-connect || true
 	test -d "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive" || { echo "ERROR: archive missing — the iOS build failed (see log above)"; exit 1; }
 	# Tauri overwrites the bundle version from the crate version; stamp a unique, increasing build number.
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion {{ env_var_or_default('IOS_BUILD_NUMBER', '1') }}" "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive/Products/Applications/HP-41 Calculator.app/Info.plist"
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion {{ env_var_or_default('IOS_BUILD_NUMBER', '1') }}" "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive/Products/Applications/RPN-41 Calculator.app/Info.plist"
 	rm -rf "hp41-gui/src-tauri/gen/apple/build/export"
 	xcodebuild -exportArchive -archivePath "hp41-gui/src-tauri/gen/apple/build/hp41-gui_iOS.xcarchive" -exportOptionsPlist ".github/ios-export-options.plist" -exportPath "hp41-gui/src-tauri/gen/apple/build/export"
 	# Tauri rewrites the tracked Info.plist (CFBundleVersion) on every build; restore it so the tree stays clean.

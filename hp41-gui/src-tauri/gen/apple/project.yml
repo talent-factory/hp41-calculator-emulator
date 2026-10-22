@@ -10,7 +10,7 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: HP-41 Calculator
+      PRODUCT_NAME: RPN-41 Calculator
       PRODUCT_BUNDLE_IDENTIFIER: ch.talent-factory.hp41
       # Talent Factory AG team — automatic signing (Phase 53 / 53-04). Team IDs
       # are not secret; this keeps the device build self-signing and survives

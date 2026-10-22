@@ -1,4 +1,4 @@
-# ci-ios.yml — HP-41 Calculator signed IPA build + TestFlight upload (MANUAL signing)
+# ci-ios.yml — RPN-41 Calculator signed IPA build + TestFlight upload (MANUAL signing)
 #
 # TRIGGER NOTE (D-57.4 supersedes ROADMAP Success Criterion #4):
 #   ROADMAP.md Phase 57 SC #4 originally said "runs on every push to main".
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload to TestFlight
         run: |
-          IPA="hp41-gui/src-tauri/gen/apple/build/export/HP-41 Calculator.ipa"
+          IPA="hp41-gui/src-tauri/gen/apple/build/export/RPN-41 Calculator.ipa"
           xcrun altool --upload-app -f "$IPA" -t ios \
             --api-key "${{ secrets.ASC_KEY_ID }}" \
             --api-issuer "${{ secrets.ASC_ISSUER_ID }}"
